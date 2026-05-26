@@ -1,0 +1,84 @@
+# Miscellaneous
+*.class
+*.log
+*.swp
+.DS_Store
+
+# Android / IntelliJ
+.idea
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# Visual Studio Code
+.vscode/
+
+# Flutter / Dart
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.dart_tool/
+flutter_*.png
+
+# Native
+*.cxx
+*.cmake
+*.h
+*.java
+*.o
+*.obj
+*.pdb
+*.plist
+*.png.h
+*.swift.h
+*.xcconfig
+
+# Platform
+android/app/src/main/java/com/example/jav_manager/
+ios/Runner/Info.plist
+linux/my_application.cc
+macos/Runner/Info.plist
+windows/runner/Resources/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.pyo
+python_scraper/dist/
+python_scraper/build/
+
+# PyInstaller output
+dist/
+
+# Release / Build outputs (用户下载或自行构建)
+release/
+
+# Test scripts
+test_*.py
+test_*.bat
+
+# Build scripts (keep build_all.bat for developers)
+!build_all.bat
+
+# Temporary deployment docs (not for distribution)
+DEPLOYMENT.md
+QUICK_START.md
+
+.trae/
+.claude/
+.trae/documents
+.metadata
+jav_manager.iml
