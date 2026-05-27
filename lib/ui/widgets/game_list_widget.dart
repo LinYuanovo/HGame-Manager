@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import '../pages/games/game_detail_page.dart';
 
 enum PaginationMode { paginated, infiniteScroll }
+enum ContextMenuMode { games, played }
 
 class GameListWidget extends ConsumerStatefulWidget {
   final List<Game> games;
@@ -18,6 +19,7 @@ class GameListWidget extends ConsumerStatefulWidget {
   final bool showSearchBar;
   final bool showAddButton;
   final bool showRefreshButton;
+  final ContextMenuMode contextMenuMode;
 
   const GameListWidget({
     super.key,
@@ -29,6 +31,7 @@ class GameListWidget extends ConsumerStatefulWidget {
     this.showSearchBar = true,
     this.showAddButton = false,
     this.showRefreshButton = false,
+    this.contextMenuMode = ContextMenuMode.games,
   });
 
   @override
@@ -502,7 +505,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         itemCount: games.length,
         separatorBuilder: (_, __) =>
             Divider(height: 1, color: AppTheme.borderColor.withValues(alpha: 0.3)),
-        itemBuilder: (_, index) => _buildListItem(games[index], imgW, imgH),
+        itemBuilder: (_, index) => StaggeredItem(
+          index: index,
+          child: _buildListItem(games[index], imgW, imgH),
+        ),
       );
     });
   }
@@ -612,7 +618,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           childAspectRatio: aspectRatio,
         ),
         itemCount: games.length,
-        itemBuilder: (_, index) => _buildPosterItem(games[index]),
+        itemBuilder: (_, index) => StaggeredItem(
+          index: index,
+          child: _buildPosterItem(games[index]),
+        ),
       );
     });
   }
@@ -621,16 +630,16 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     return GestureDetector(
       onSecondaryTapUp: (details) =>
           _showContextMenu(context, details.globalPosition, game),
-      child: InkWell(
+      child: GlassCard(
+        padding: EdgeInsets.zero,
         onTap: () => _showGameDetail(game),
-        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
               child: ClipRRect(
                 borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(GlassConstants.radiusMedium)),
+                    top: Radius.circular(GlassConstants.radiusLarge)),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -648,9 +657,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                         },
                         child: Container(
                           padding: const EdgeInsets.all(6),
-                          decoration: const BoxDecoration(
-                            color: Colors.black45,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.35),
                             shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.15),
+                            ),
                           ),
                           child: Icon(
                             game.isFavorite
@@ -669,7 +681,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -679,7 +691,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                         height: 1.3,
                         color: AppTheme.textPrimary),
@@ -822,8 +834,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             child: ListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.check_circle, size: 18),
-                title: Text(game.isPlayed ? '标记未游玩' : '标记已游玩'))),
+                leading: Icon(
+                    widget.contextMenuMode == ContextMenuMode.played
+                        ? Icons.remove_circle_outline
+                        : Icons.add_circle_outline,
+                    size: 18),
+                title: Text(widget.contextMenuMode == ContextMenuMode.played
+                    ? '减少游玩次数'
+                    : '增加游玩次数'))),
         if (game.images.length > 1)
           PopupMenuItem(
               value: 'cover',
@@ -835,13 +853,22 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                       '选择封面 (${game.coverIndex + 1}/${game.images.length})'))),
         const PopupMenuDivider(),
         PopupMenuItem(
-            value: 'delete',
+            value: 'blacklist',
             child: ListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
                 leading:
-                    Icon(Icons.delete_outline, size: 18, color: AppTheme.errorColor),
+                    Icon(Icons.block, size: 18, color: const Color(0xFFFFA000)),
                 title: const Text('删除记录',
+                    style: TextStyle(color: Color(0xFFFFA000))))),
+        PopupMenuItem(
+            value: 'delete_folder',
+            child: ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading:
+                    Icon(Icons.folder_delete_outlined, size: 18, color: AppTheme.errorColor),
+                title: const Text('删除本地文件夹',
                     style: TextStyle(color: AppTheme.errorColor)))),
       ],
     ).then((value) async {
@@ -857,10 +884,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           ref.invalidate(favoriteGamesProvider);
           break;
         case 'played':
-          if (!game.isPlayed) {
-            await repo.markAsPlayed(game.id!);
+          if (widget.contextMenuMode == ContextMenuMode.played) {
+            await repo.decrementPlayCount(game.id!);
           } else {
-            await repo.markAsUnplayed(game.id!);
+            await repo.incrementPlayCount(game.id!);
           }
           ref.invalidate(allGamesProvider);
           ref.invalidate(playedGamesProvider);
@@ -875,32 +902,102 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             ref.invalidate(allGamesProvider);
           }
           break;
-        case 'delete':
-          final confirm = await showDialog<bool>(
+        case 'blacklist':
+          final confirm = await showGlassDialog<bool>(
             context: context,
-            builder: (ctx) => AlertDialog(
-              backgroundColor: AppTheme.surfaceColor,
-              shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(GlassConstants.radiusLarge)),
-              title: const Text('确认删除'),
-              content: Text('确定要删除"${game.title}"的记录吗？\n不会删除实际文件。'),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('取消')),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.errorColor),
-                  child: const Text('删除'),
-                ),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('删除记录', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                  const SizedBox(height: 12),
+                  Text('确定要删除"${game.title}"的记录吗？\n路径将加入黑名单，后续扫描不再入库。\n不会删除实际文件。', style: const TextStyle(color: AppTheme.textSecondary)),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('取消')),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFFA000)),
+                        child: const Text('确认'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           );
           if (confirm == true) {
+            _addToBlacklist(game.path);
             await repo.deleteGame(game.id!);
             ref.invalidate(allGamesProvider);
+          }
+          break;
+        case 'delete_folder':
+          final confirm = await showGlassDialog<bool>(
+            context: context,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('删除本地文件夹', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                  const SizedBox(height: 12),
+                  Text('确定要删除"${game.title}"的本地文件夹吗？\n此操作不可恢复！\n\n${game.path}', style: const TextStyle(color: AppTheme.textSecondary)),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('取消')),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.errorColor),
+                        child: const Text('删除文件夹'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+          if (confirm == true) {
+            try {
+              final dir = Directory(game.path);
+              if (await dir.exists()) {
+                await dir.delete(recursive: true);
+              }
+              await repo.deleteGame(game.id!);
+              ref.invalidate(allGamesProvider);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('已删除文件夹: ${game.title}'),
+                    backgroundColor: AppTheme.successColor,
+                  ),
+                );
+              }
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('删除失败: $e'),
+                    backgroundColor: AppTheme.errorColor,
+                  ),
+                );
+              }
+            }
           }
           break;
       }
@@ -913,6 +1010,16 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  void _addToBlacklist(String gamePath) {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final existing = prefs.getString('game_blacklist') ?? '';
+    final paths = existing.split('\n').where((s) => s.trim().isNotEmpty).toList();
+    if (!paths.contains(gamePath)) {
+      paths.add(gamePath);
+      prefs.setString('game_blacklist', paths.join('\n'));
+    }
   }
 }
 

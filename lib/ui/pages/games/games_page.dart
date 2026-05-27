@@ -38,63 +38,87 @@ class _GamesPageState extends ConsumerState<GamesPage> {
               tooltip: '添加本地游戏',
               onPressed: () => _showAddGameDialog(),
             ),
-            IconButton(
-              icon: _isRefreshing
-                  ? SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppTheme.primaryColor,
+            _isRefreshing
+                ? GestureDetector(
+                    onTap: null,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    )
-                  : Icon(Icons.refresh, color: AppTheme.textSecondary, size: 20),
-              tooltip: _isRefreshing ? '刷新中 $_refreshProgress' : '刷新',
-              onPressed: _isRefreshing
-                  ? null
-                  : () async {
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _refreshProgress.isNotEmpty ? _refreshProgress : '扫描中',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.primaryColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : IconButton(
+                    icon: Icon(Icons.refresh, color: AppTheme.textSecondary, size: 20),
+                    tooltip: '刷新',
+                    onPressed: () async {
                       setState(() => _isRefreshing = true);
                       try {
-                        final repo = ref.read(gameRepositoryProvider);
-                        final games = await repo.getAllGames();
-                        int deleted = 0;
-                        int rescanned = 0;
-                        for (int i = 0; i < games.length; i++) {
-                          final game = games[i];
-                          if (game.path.isNotEmpty &&
-                              !await Directory(game.path).exists()) {
-                            await repo.deleteGame(game.id!);
-                            deleted++;
-                          } else if (game.images.isEmpty) {
-                            final imageDir =
-                                Directory(path.join(game.path, 'images'));
-                            if (!await imageDir.exists()) {
-                              final altDir =
-                                  Directory(path.join(game.path, 'image'));
-                              if (await altDir.exists()) {
-                                await _rescanImages(repo, game.id!, altDir);
-                                rescanned++;
-                              }
-                            } else {
-                              await _rescanImages(repo, game.id!, imageDir);
-                              rescanned++;
-                            }
+                        final prefs = ref.read(sharedPreferencesProvider);
+                        var libraryPath = prefs.getString('library_path') ?? '';
+                        final sortedPath = prefs.getString('sorted_path') ?? '';
+                        final scanPath = sortedPath.isNotEmpty ? sortedPath : libraryPath;
+
+                        if (scanPath.isEmpty) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('请先在设置中配置游戏库路径或整理目录', style: TextStyle(color: Colors.white)),
+                                duration: Duration(seconds: 3),
+                                backgroundColor: Color(0xFF424242),
+                              ),
+                            );
                           }
-                          if (i % 10 == 0) {
-                            setState(() =>
-                                _refreshProgress = '${i + 1}/${games.length}');
-                          }
+                          return;
                         }
+
+                        final scanner = ref.read(gameScannerServiceProvider);
+                        final ignoreStr = prefs.getString('scan_ignore_folders') ?? '';
+                        final ignoreFolders = ignoreStr.split(',').where((s) => s.trim().isNotEmpty).toList();
+                        final blacklistStr = prefs.getString('game_blacklist') ?? '';
+                        final blacklistPaths = blacklistStr.split('\n').where((s) => s.trim().isNotEmpty).toList();
+
+                        scanner.onProgress = (processed, total) {
+                          if (mounted) {
+                            setState(() => _refreshProgress = '$processed/$total');
+                          }
+                        };
+
+                        await scanner.scanGameLibrary(scanPath, ignoreFolders: ignoreFolders, blacklistPaths: blacklistPaths);
+
                         ref.invalidate(allGamesProvider);
                         ref.invalidate(favoriteGamesProvider);
                         ref.invalidate(playedGamesProvider);
+                      } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(
-                                  '刷新完成: 删除$deleted条记录, 重新扫描$rescanned个图片'),
-                              duration: const Duration(seconds: 2),
-                              backgroundColor: AppTheme.surfaceColor,
+                              content: Text('扫描失败: $e', style: const TextStyle(color: Colors.white)),
+                              duration: const Duration(seconds: 3),
+                              backgroundColor: const Color(0xFF424242),
                             ),
                           );
                         }
@@ -105,7 +129,7 @@ class _GamesPageState extends ConsumerState<GamesPage> {
                         });
                       }
                     },
-            ),
+                  ),
           ],
         ),
         Expanded(
@@ -160,91 +184,91 @@ class _GamesPageState extends ConsumerState<GamesPage> {
     final introController = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
-    showDialog(
+    showGlassDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppTheme.surfaceColor,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(GlassConstants.radiusLarge)),
-        title:
-            const Text('添加本地游戏', style: TextStyle(color: AppTheme.textPrimary)),
-        content: SizedBox(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: SizedBox(
           width: 450,
           child: Form(
             key: formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const Text('添加本地游戏', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                const SizedBox(height: 20),
                 TextFormField(
                   controller: pathController,
                   decoration: const InputDecoration(
                     labelText: '游戏路径 *',
                     hintText: '例如: E:\\Games\\GameName',
-                    border: OutlineInputBorder(),
                   ),
                   validator: (v) =>
                       v == null || v.trim().isEmpty ? '请输入游戏路径' : null,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 TextFormField(
                   controller: titleController,
                   decoration: const InputDecoration(
                     labelText: '游戏标题 *',
-                    border: OutlineInputBorder(),
                   ),
                   validator: (v) =>
                       v == null || v.trim().isEmpty ? '请输入游戏标题' : null,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 TextFormField(
                   controller: versionController,
                   decoration: const InputDecoration(
                     labelText: '版本号',
-                    border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 TextFormField(
                   controller: introController,
                   decoration: const InputDecoration(
                     labelText: '简介',
-                    border: OutlineInputBorder(),
                   ),
                   maxLines: 3,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('取消'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (!formKey.currentState!.validate()) return;
+                        final repo = ref.read(gameRepositoryProvider);
+                        final game = Game(
+                          path: pathController.text.trim(),
+                          title: titleController.text.trim(),
+                          version: versionController.text.trim().isEmpty
+                              ? null
+                              : versionController.text.trim(),
+                          intro: introController.text.trim().isEmpty
+                              ? null
+                              : introController.text.trim(),
+                        );
+                        await repo.insertGame(game);
+                        Navigator.of(context).pop();
+                        ref.invalidate(allGamesProvider);
+                      },
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white),
+                      child: const Text('添加'),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (!formKey.currentState!.validate()) return;
-              final repo = ref.read(gameRepositoryProvider);
-              final game = Game(
-                path: pathController.text.trim(),
-                title: titleController.text.trim(),
-                version: versionController.text.trim().isEmpty
-                    ? null
-                    : versionController.text.trim(),
-                intro: introController.text.trim().isEmpty
-                    ? null
-                    : introController.text.trim(),
-              );
-              await repo.insertGame(game);
-              Navigator.of(dialogContext).pop();
-              ref.invalidate(allGamesProvider);
-            },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white),
-            child: const Text('添加'),
-          ),
-        ],
       ),
     );
   }

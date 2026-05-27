@@ -159,6 +159,8 @@ class AcgYingParser extends SiteParser {
 
   /// Split full text into sections based on section markers.
   /// Returns a map from section name to its content text.
+  /// If no "游戏介绍" marker is found, content before the first recognized
+  /// marker (or the entire text when nothing matches) is used as intro.
   Map<String, String> _splitSections(String fullText) {
     final markers = ['游戏介绍：', '游戏特点：', '更新内容：', '链接：'];
     final result = <String, String>{};
@@ -187,6 +189,23 @@ class AcgYingParser extends SiteParser {
         // Store with marker name (without colon)
         final name = positions[i].marker.replaceAll('：', '');
         result[name] = content;
+      }
+    }
+
+    // Intelligent fallback: if no "游戏介绍" section was found
+    if (!result.containsKey('游戏介绍')) {
+      if (positions.isEmpty) {
+        // No markers at all — treat entire text as intro
+        final trimmed = fullText.trim();
+        if (trimmed.isNotEmpty) {
+          result['游戏介绍'] = trimmed;
+        }
+      } else {
+        // Use content before the first recognized marker as intro
+        final introText = fullText.substring(0, positions.first.pos).trim();
+        if (introText.isNotEmpty) {
+          result['游戏介绍'] = introText;
+        }
       }
     }
 
@@ -273,13 +292,23 @@ class FeiXueAcgParser extends SiteParser {
     // Extract main post content from first td.t_f (OP's post only)
     final postContent = document.querySelector('td.t_f');
     if (postContent != null) {
+      // Remove hidden tooltip divs that contain attachment metadata
+      for (final tipDiv in postContent.querySelectorAll('div.tip, div.tip_4, div.aimg_tip')) {
+        tipDiv.remove();
+      }
+      // Remove script elements
+      for (final script in postContent.querySelectorAll('script')) {
+        script.remove();
+      }
+
       var fullText = postContent.text;
 
-      // Filter out image attachment patterns like "image.png (78.46 KB, 下載次數: 1) 下載附件 3 天前 上傳"
-      fullText = fullText.replaceAll(RegExp(r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)\s*下載附件'), '');
+      // Filter out image attachment patterns
+      fullText = fullText.replaceAll(RegExp(r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件[^\n]*(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳'), '');
+      fullText = fullText.replaceAll(RegExp(r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件'), '');
 
-      // Find the last "天前 上傳" marker and take content after it
-      final uploadMarker = RegExp(r'\d+\s*天前\s*上傳');
+      // Find the last upload marker and take content after it
+      final uploadMarker = RegExp(r'(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳');
       final allMarkers = uploadMarker.allMatches(fullText).toList();
       if (allMarkers.isNotEmpty) {
         final lastMarker = allMarkers.last;

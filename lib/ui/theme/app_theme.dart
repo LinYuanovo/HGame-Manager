@@ -34,9 +34,9 @@ class GlassConstants {
   static const double radiusXLarge = 24.0;
 
   // 模糊
-  static const double blurSmall = 8.0;
-  static const double blurMedium = 15.0;
-  static const double blurLarge = 25.0;
+  static const double blurSmall = 10.0;
+  static const double blurMedium = 18.0;
+  static const double blurLarge = 30.0;
 
   // 动画时长
   static const Duration animFast = Duration(milliseconds: 200);
@@ -51,6 +51,10 @@ class GlassConstants {
   static const double spacingMedium = 16.0;
   static const double spacingLarge = 24.0;
   static const double spacingXLarge = 32.0;
+
+  // 缩放
+  static const double hoverScale = 1.02;
+  static const double pressScale = 0.97;
 }
 
 class AppTheme {
@@ -395,59 +399,72 @@ class GlassCard extends StatefulWidget {
 
 class _GlassCardState extends State<GlassCard> {
   bool _isHovered = false;
+  bool _isPressed = false;
 
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
       onEnter: widget.enableHoverEffect ? (_) => setState(() => _isHovered = true) : null,
-      onExit: widget.enableHoverEffect ? (_) => setState(() => _isHovered = false) : null,
+      onExit: widget.enableHoverEffect ? (_) => setState(() { _isHovered = false; _isPressed = false; }) : null,
       child: GestureDetector(
+        onTapDown: widget.onTap != null ? (_) => setState(() => _isPressed = true) : null,
+        onTapUp: widget.onTap != null ? (_) => setState(() => _isPressed = false) : null,
+        onTapCancel: () => setState(() => _isPressed = false),
         onTap: widget.onTap,
-        child: AnimatedContainer(
+        child: AnimatedScale(
+          scale: _isPressed
+              ? GlassConstants.pressScale
+              : (_isHovered ? GlassConstants.hoverScale : 1.0),
           duration: GlassConstants.animFast,
           curve: GlassConstants.animCurve,
-          margin: widget.margin,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(widget.borderRadius),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(
-                sigmaX: GlassConstants.blurMedium,
-                sigmaY: GlassConstants.blurMedium,
-              ),
-              child: AnimatedContainer(
-                duration: GlassConstants.animFast,
-                curve: GlassConstants.animCurve,
-                padding: widget.padding,
-                decoration: BoxDecoration(
-                  color: widget.color ??
-                      (_isHovered
-                          ? Colors.white.withValues(alpha:0.85)
-                          : Colors.white.withValues(alpha:0.65)),
-                  borderRadius: BorderRadius.circular(widget.borderRadius),
-                  border: Border.all(
-                    color: _isHovered
-                        ? AppTheme.primaryColor.withValues(alpha:0.2)
-                        : Colors.white.withValues(alpha:0.3),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _isHovered
-                          ? AppTheme.primaryColor.withValues(alpha:0.1)
-                          : Colors.black.withValues(alpha:0.06),
-                      blurRadius: _isHovered ? 25 : 15,
-                      spreadRadius: _isHovered ? 2 : 1,
-                      offset: const Offset(0, 4),
-                    ),
-                    BoxShadow(
-                      color: AppTheme.primaryColor.withValues(alpha:0.03),
-                      blurRadius: 40,
-                      spreadRadius: 0,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
+          child: AnimatedContainer(
+            duration: GlassConstants.animFast,
+            curve: GlassConstants.animCurve,
+            margin: widget.margin,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(widget.borderRadius),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: GlassConstants.blurMedium,
+                  sigmaY: GlassConstants.blurMedium,
                 ),
-                child: widget.child,
+                child: AnimatedContainer(
+                  duration: GlassConstants.animFast,
+                  curve: GlassConstants.animCurve,
+                  padding: widget.padding,
+                  decoration: BoxDecoration(
+                    color: widget.color ??
+                        (_isHovered
+                            ? Colors.white.withValues(alpha:0.88)
+                            : Colors.white.withValues(alpha:0.65)),
+                    borderRadius: BorderRadius.circular(widget.borderRadius),
+                    border: Border.all(
+                      color: _isHovered
+                          ? AppTheme.primaryColor.withValues(alpha:0.25)
+                          : Colors.white.withValues(alpha:0.35),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _isHovered
+                            ? AppTheme.primaryColor.withValues(alpha:0.12)
+                            : Colors.black.withValues(alpha:0.05),
+                        blurRadius: _isHovered ? 28 : 16,
+                        spreadRadius: _isHovered ? 2 : 1,
+                        offset: Offset(0, _isHovered ? 6 : 4),
+                      ),
+                      BoxShadow(
+                        color: (_isHovered
+                            ? AppTheme.secondaryColor
+                            : AppTheme.primaryColor).withValues(alpha: _isHovered ? 0.06 : 0.03),
+                        blurRadius: _isHovered ? 50 : 40,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: widget.child,
+                ),
               ),
             ),
           ),
@@ -541,15 +558,55 @@ class GradientBackground extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFE8EEF4),
-            Color(0xFFF0F0FA),
-            Color(0xFFF5F0FF),
-            Color(0xFFF0F4F8),
+            Color(0xFFE0E8F0),
+            Color(0xFFE8E4F2),
+            Color(0xFFF0ECFA),
+            Color(0xFFE8EFF8),
+            Color(0xFFF2F0FF),
           ],
-          stops: [0.0, 0.3, 0.7, 1.0],
+          stops: [0.0, 0.25, 0.5, 0.75, 1.0],
         ),
       ),
-      child: child,
+      child: Stack(
+        children: [
+          // 径向渐变叠加，增加层次感
+          Positioned(
+            top: -100,
+            right: -100,
+            child: Container(
+              width: 500,
+              height: 500,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF2563EB).withValues(alpha: 0.04),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -150,
+            left: -100,
+            child: Container(
+              width: 600,
+              height: 600,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF7C3AED).withValues(alpha: 0.03),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          child,
+        ],
+      ),
     );
   }
 }
@@ -919,6 +976,109 @@ IconData getViewModeIcon(ViewMode mode) => switch (mode) {
   ViewMode.list   => Icons.view_list,
   ViewMode.poster => Icons.grid_view,
 };
+
+// ===== 玻璃拟态 TabBar =====
+class GlassTabBar extends StatelessWidget implements PreferredSizeWidget {
+  final TabController controller;
+  final List<Widget> tabs;
+
+  const GlassTabBar({
+    super.key,
+    required this.controller,
+    required this.tabs,
+  });
+
+  @override
+  Size get preferredSize => const Size.fromHeight(50);
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: GlassConstants.blurSmall,
+          sigmaY: GlassConstants.blurSmall,
+        ),
+        child: Container(
+          height: preferredSize.height,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.35),
+            border: Border(
+              bottom: BorderSide(
+                color: Colors.white.withValues(alpha: 0.3),
+              ),
+            ),
+          ),
+          child: TabBar(
+            controller: controller,
+            tabs: tabs,
+            labelColor: AppTheme.primaryColor,
+            unselectedLabelColor: AppTheme.textSecondary,
+            labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
+            indicatorSize: TabBarIndicatorSize.tab,
+            indicator: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
+            ),
+            indicatorPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+            dividerColor: Colors.transparent,
+            splashBorderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ===== 玻璃拟态对话框 =====
+Future<T?> showGlassDialog<T>({
+  required BuildContext context,
+  required Widget child,
+  bool barrierDismissible = true,
+}) {
+  return showDialog<T>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    barrierColor: Colors.black.withValues(alpha: 0.3),
+    builder: (context) => Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: GlassConstants.blurLarge,
+            sigmaY: GlassConstants.blurLarge,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.88),
+              borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.5),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 30,
+                  spreadRadius: 2,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.05),
+                  blurRadius: 50,
+                  offset: const Offset(0, 16),
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    ),
+  );
+}
 
 // ===== 空状态占位组件 =====
 class EmptyStateWidget extends StatelessWidget {

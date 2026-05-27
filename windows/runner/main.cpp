@@ -27,7 +27,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
-  if (!window.Create(L"黄油仓库", origin, size)) {
+  if (!window.Create(L"\u9EC4\u6CB9\u4ED3\u5E93", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

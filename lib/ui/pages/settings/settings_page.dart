@@ -25,6 +25,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   String? _proxyTestResult;
   String _selectedFont = '';
   double _fontSize = 14.0;
+  double _detailFontSize = 14.0;
 
   @override
   void initState() {
@@ -40,6 +41,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final proxyUrl = prefs.getString('proxy_url') ?? '';
     final font = prefs.getString('font_family') ?? '';
     final fontSize = prefs.getDouble('font_size') ?? 14.0;
+    final detailFontSize = prefs.getDouble('detail_font_size') ?? 14.0;
 
     final cookieAcgying = prefs.getString('cookie_acgying') ?? '';
     final cookieFeixue = prefs.getString('cookie_feixue') ?? '';
@@ -55,6 +57,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _proxyMode = proxyMode;
     _selectedFont = font;
     _fontSize = fontSize;
+    _detailFontSize = detailFontSize;
   }
 
   @override
@@ -253,6 +256,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   label: '扫描游戏库',
                   color: AppTheme.successColor,
                   onPressed: _scanNow,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _ActionButton(
+                  icon: Icons.block,
+                  label: '黑名单管理',
+                  color: const Color(0xFFFFA000),
+                  onPressed: _showBlacklistDialog,
                 ),
               ),
             ],
@@ -670,6 +682,88 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ),
           ],
         ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const Text(
+              '详情页文章字号',
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(width: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha:0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '${_detailFontSize.toStringAsFixed(1)} px',
+                style: TextStyle(
+                  color: AppTheme.primaryColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.remove, size: 18),
+                    onPressed: () {
+                      if (_detailFontSize > 10.0) {
+                        setState(() => _detailFontSize -= 0.5);
+                      }
+                    },
+                    color: AppTheme.textSecondary,
+                    tooltip: '减小字号',
+                  ),
+                  Expanded(
+                    child: Slider(
+                      value: _detailFontSize,
+                      min: 10.0,
+                      max: 24.0,
+                      divisions: 28,
+                      label: '${_detailFontSize.toStringAsFixed(1)} px',
+                      onChanged: (value) {
+                        setState(() => _detailFontSize = value);
+                      },
+                      activeColor: AppTheme.primaryColor,
+                      inactiveColor: AppTheme.textSecondary.withValues(alpha:0.2),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add, size: 18),
+                    onPressed: () {
+                      if (_detailFontSize < 24.0) {
+                        setState(() => _detailFontSize += 0.5);
+                      }
+                    },
+                    color: AppTheme.textSecondary,
+                    tooltip: '增大字号',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundColor.withValues(alpha:0.3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '预览 AaBbCc 中文 123',
+                style: TextStyle(
+                  fontSize: _detailFontSize,
+                  fontFamily: _selectedFont.isNotEmpty ? _selectedFont : null,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
         Text(
           '选择后需点击"保存设置"并重启应用生效',
@@ -867,8 +961,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     await prefs.setString('cookie_vikacg', _cookieVikacgController.text.trim());
     await prefs.setString('font_family', _selectedFont);
     await prefs.setDouble('font_size', _fontSize);
+    await prefs.setDouble('detail_font_size', _detailFontSize);
 
     ref.invalidate(fontSizeProvider);
+    ref.invalidate(detailFontSizeProvider);
     ref.invalidate(pageSizeProvider);
 
     if (mounted) {
@@ -879,6 +975,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ),
       );
     }
+  }
+
+  void _showBlacklistDialog() {
+    showGlassDialog(
+      context: context,
+      child: _BlacklistDialog(),
+    );
   }
 
   Future<void> _scanNow() async {
@@ -897,7 +1000,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     try {
       final scanner = ref.read(gameScannerServiceProvider);
       final ignoreFolders = _getIgnoreFolders('scan_ignore_folders');
-      await scanner.scanGameLibrary(_libraryPathController.text, ignoreFolders: ignoreFolders);
+      final blacklistStr = ref.read(sharedPreferencesProvider).getString('game_blacklist') ?? '';
+      final blacklistPaths = blacklistStr.split('\n').where((s) => s.trim().isNotEmpty).toList();
+      await scanner.scanGameLibrary(_libraryPathController.text, ignoreFolders: ignoreFolders, blacklistPaths: blacklistPaths);
 
       ref.invalidate(allGamesProvider);
 
@@ -964,6 +1069,123 @@ class _ActionButton extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BlacklistDialog extends ConsumerStatefulWidget {
+  const _BlacklistDialog();
+
+  @override
+  ConsumerState<_BlacklistDialog> createState() => _BlacklistDialogState();
+}
+
+class _BlacklistDialogState extends ConsumerState<_BlacklistDialog> {
+  List<String> _paths = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBlacklist();
+  }
+
+  void _loadBlacklist() {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final str = prefs.getString('game_blacklist') ?? '';
+    _paths = str.split('\n').where((s) => s.trim().isNotEmpty).toList();
+  }
+
+  void _removePath(int index) {
+    setState(() {
+      _paths.removeAt(index);
+    });
+    final prefs = ref.read(sharedPreferencesProvider);
+    prefs.setString('game_blacklist', _paths.join('\n'));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(28),
+      child: SizedBox(
+        width: 600,
+        height: 400,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.block, color: Color(0xFFFFA000), size: 22),
+                const SizedBox(width: 12),
+                const Text(
+                  '黑名单管理',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '黑名单中的路径在扫描游戏库时将被跳过，不会自动入库',
+              style: TextStyle(
+                color: AppTheme.textSecondary.withValues(alpha: 0.6),
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: _paths.isEmpty
+                  ? Center(
+                      child: Text(
+                        '黑名单为空',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary.withValues(alpha: 0.5),
+                          fontSize: 14,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: _paths.length,
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        color: AppTheme.borderColor.withValues(alpha: 0.2),
+                      ),
+                      itemBuilder: (_, index) {
+                        final path = _paths[index];
+                        return ListTile(
+                          dense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                          leading: const Icon(Icons.folder_outlined, size: 18, color: AppTheme.textSecondary),
+                          title: Text(
+                            path,
+                            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.close, size: 16, color: AppTheme.errorColor),
+                            tooltip: '移除',
+                            onPressed: () => _removePath(index),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('关闭'),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

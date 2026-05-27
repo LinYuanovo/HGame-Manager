@@ -112,112 +112,110 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
   @override
   Widget build(BuildContext context) {
     if (_hasError) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
-        body: Center(
-          child: Container(
-            margin: const EdgeInsets.all(40),
-            padding: const EdgeInsets.all(30),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.red.withValues(alpha: 0.2),
-                  blurRadius: 20,
-                  spreadRadius: 5,
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  color: Colors.red,
-                  size: 80,
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  '应用发生错误',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red,
+      return GradientBackground(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Center(
+            child: GlassContainer(
+              margin: const EdgeInsets.all(40),
+              padding: const EdgeInsets.all(32),
+              borderRadius: GlassConstants.radiusXLarge,
+              color: Colors.white.withValues(alpha: 0.85),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    color: AppTheme.errorColor,
+                    size: 72,
                   ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(10),
+                  const SizedBox(height: 20),
+                  const Text(
+                    '应用发生错误',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.errorColor,
+                    ),
                   ),
-                  constraints: const BoxConstraints(maxWidth: 600),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '错误信息:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red.shade700,
-                        ),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.errorColor.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                      border: Border.all(
+                        color: AppTheme.errorColor.withValues(alpha: 0.15),
                       ),
-                      const SizedBox(height: 5),
-                      Text(
-                        _error.toString(),
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                      if (_stackTrace != null) ...[
-                        const SizedBox(height: 15),
-                        Text(
-                          '堆栈跟踪:',
+                    ),
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '错误信息:',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.red.shade700,
+                            color: AppTheme.errorColor,
                           ),
                         ),
-                        const SizedBox(height: 5),
-                        Container(
-                          height: 150,
-                          child: SingleChildScrollView(
-                            child: Text(
-                              _stackTrace.toString(),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontFamily: 'monospace',
+                        const SizedBox(height: 6),
+                        Text(
+                          _error.toString(),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontFamily: 'monospace',
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        if (_stackTrace != null) ...[
+                          const SizedBox(height: 14),
+                          const Text(
+                            '堆栈跟踪:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.errorColor,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          SizedBox(
+                            height: 150,
+                            child: SingleChildScrollView(
+                              child: Text(
+                                _stackTrace.toString(),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontFamily: 'monospace',
+                                  color: AppTheme.textSecondary,
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 30),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _error = null;
-                      _stackTrace = null;
-                      _hasError = false;
-                    });
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('重试'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 30,
-                      vertical: 15,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 28),
+                  GlassButton(
+                    gradient: AppTheme.primaryGradient,
+                    onPressed: () {
+                      setState(() {
+                        _error = null;
+                        _stackTrace = null;
+                        _hasError = false;
+                      });
+                    },
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.refresh, color: Colors.white, size: 18),
+                        SizedBox(width: 8),
+                        Text('重试', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

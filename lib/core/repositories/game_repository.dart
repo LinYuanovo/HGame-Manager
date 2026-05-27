@@ -218,6 +218,23 @@ class GameRepository {
     await resetPlayStatus(id);
   }
 
+  Future<void> decrementPlayCount(int id) async {
+    final db = await _db;
+    final maps = await db.query('games', columns: ['play_count'], where: 'id = ?', whereArgs: [id]);
+    if (maps.isEmpty) return;
+    final currentCount = (maps.first['play_count'] as int?) ?? 0;
+    if (currentCount <= 1) {
+      await resetPlayStatus(id);
+    } else {
+      await db.rawUpdate('''
+        UPDATE games
+        SET play_count = play_count - 1,
+            last_played_time = ?
+        WHERE id = ?
+      ''', [DateTime.now().toIso8601String(), id]);
+    }
+  }
+
   Future<void> updateFavoriteStatus(int id, bool isFavorite) async {
     await toggleFavorite(id, isFavorite);
   }

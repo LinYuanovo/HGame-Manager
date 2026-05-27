@@ -357,7 +357,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item.game.title ?? path.basename(item.game.path),
+                  _stripVersionFromTitle(item.game.title ?? path.basename(item.game.path), item.game.version),
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -593,18 +593,22 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           if (response.statusCode == 200) {
             final metadata = _scraper.scrape(response.body, game.sourceUrl!);
             if (metadata != null) {
+              if (metadata.title != null) {
+                metadata.title = _stripVersionFromTitle(metadata.title!, metadata.version);
+              }
+              final displayTitle = metadata.title;
               final updated = game.copyWith(
-                title: metadata.title ?? game.title,
+                title: displayTitle ?? game.title,
                 version: metadata.version ?? game.version,
                 intro: metadata.intro ?? game.intro,
                 features: metadata.features ?? game.features,
                 changelog: metadata.changelog ?? game.changelog,
                 downloadUrl: metadata.downloadUrl ?? game.downloadUrl,
               );
-              await gameRepo.updateGame(updated);
 
               final metadataFile = File(path.join(game.path, 'metadata.json'));
               await metadataFile.writeAsString(jsonEncode(metadata.toJson()), flush: true);
+              await gameRepo.updateGame(updated);
 
               for (final tagName in metadata.tags) {
                 final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
@@ -633,7 +637,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 }
               }
 
-              _addLog('  -> 成功: ${metadata.title ?? "无标题"}');
+              _addLog('  -> 成功: ${displayTitle ?? "无标题"}');
 
               // Download images
               if (metadata.imageUrls.isNotEmpty) {
@@ -645,6 +649,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 item.progress = 1.0;
                 item.status = '成功';
                 _stats.success++;
+                _stats.pending--;
               });
 
               await _moveToSorted(game);
@@ -654,6 +659,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 item.progress = 1.0;
                 item.status = '无解析器';
                 _stats.failed++;
+                _stats.pending--;
               });
             }
           } else {
@@ -662,6 +668,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               item.progress = 1.0;
               item.status = 'HTTP${response.statusCode}';
               _stats.failed++;
+              _stats.pending--;
             });
           }
         } catch (e) {
@@ -671,6 +678,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             item.status = '失败';
             item.error = e.toString();
             _stats.failed++;
+            _stats.pending--;
           });
         }
       }
@@ -731,6 +739,18 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     _addLog('  -> 配图下载完成: $downloaded/${imageUrls.length}');
   }
 
+  static const _categoryOrder = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS', '3D'];
+
+  String _resolveCategory(List<Tag> tags) {
+    final allNames = tags.map((t) => t.name.toUpperCase()).toList();
+    for (final cat in _categoryOrder) {
+      if (allNames.any((name) => name.contains(cat))) {
+        return cat;
+      }
+    }
+    return 'unknown';
+  }
+
   Future<void> _moveToSorted(Game game) async {
     final prefs = ref.read(sharedPreferencesProvider);
     final sortedPath = prefs.getString('sorted_path') ?? '';
@@ -739,16 +759,14 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     final sourceDir = Directory(game.path);
     if (!await sourceDir.exists()) return;
 
-    // 获取游戏的 series 标签
     final gameRepo = ref.read(gameRepositoryProvider);
     final tags = await gameRepo.getGameTags(game.id!);
-    final seriesTag = tags.where((t) => t.type == Tag.typeSeries).firstOrNull;
-    final seriesName = seriesTag?.name ?? '未分类';
+    final categoryName = _resolveCategory(tags);
 
     final folderName = path.basename(game.path);
-    final targetDir = Directory(path.join(sortedPath, seriesName, folderName));
-    if (!await Directory(path.join(sortedPath, seriesName)).exists()) {
-      await Directory(path.join(sortedPath, seriesName)).create(recursive: true);
+    final targetDir = Directory(path.join(sortedPath, categoryName, folderName));
+    if (!await Directory(path.join(sortedPath, categoryName)).exists()) {
+      await Directory(path.join(sortedPath, categoryName)).create(recursive: true);
     }
 
     try {
@@ -779,6 +797,19 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       _processStatus = '已取消';
     });
     _addLog('用户取消了操作');
+  }
+
+  static final _versionPattern = RegExp(r'\s+(?:build|v(?:er(?:sion)?)?)\s*\.?\d+(?:[\d.]*\d+)?\s*', caseSensitive: false);
+
+  String _stripVersionFromTitle(String title, [String? version]) {
+    var result = title;
+    if (version != null && version.isNotEmpty) {
+      final escaped = RegExp.escape(version);
+      final precisePattern = RegExp(r'\s+(?:build|v(?:er(?:sion)?)?)?\s*' + escaped + r'\s*', caseSensitive: false);
+      result = result.replaceAll(precisePattern, ' ');
+    }
+    result = result.replaceAll(_versionPattern, ' ');
+    return result.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
   }
 
   void _addLog(String message) {

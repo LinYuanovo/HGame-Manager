@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'games/games_page.dart';
 import 'categories/categories_page.dart';
 import 'favorites/favorites_page.dart';
@@ -52,10 +53,51 @@ enum NavRoute {
   }
 }
 
-class AppRouter {
+class AppRouter extends StatefulWidget {
+  final int selectedIndex;
+
+  const AppRouter({super.key, required this.selectedIndex});
+
+  @override
+  State<AppRouter> createState() => _AppRouterState();
+
   static Widget getCurrentPage(int selectedIndex) {
-    return NavRoute.fromIndex(selectedIndex).buildPage();
+    return AppRouter(selectedIndex: selectedIndex);
   }
 
   static List<NavRoute> getAllRoutes() => NavRoute.values;
+}
+
+class _AppRouterState extends State<AppRouter> {
+  int _previousIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final page = NavRoute.fromIndex(widget.selectedIndex).buildPage();
+    final isForward = widget.selectedIndex >= _previousIndex;
+    _previousIndex = widget.selectedIndex;
+
+    return AnimatedSwitcher(
+      duration: GlassConstants.animMedium,
+      switchInCurve: GlassConstants.animCurve,
+      switchOutCurve: GlassConstants.animCurve,
+      transitionBuilder: (child, animation) {
+        final offsetAnimation = Tween<Offset>(
+          begin: Offset(isForward ? 0.03 : -0.03, 0),
+          end: Offset.zero,
+        ).animate(animation);
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: offsetAnimation,
+            child: child,
+          ),
+        );
+      },
+      child: KeyedSubtree(
+        key: ValueKey(widget.selectedIndex),
+        child: page,
+      ),
+    );
+  }
 }

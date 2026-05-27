@@ -40,7 +40,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
                   fontWeight: FontWeight.w600,
                   color: AppTheme.textPrimary)),
         ),
-        TabBar(
+        GlassTabBar(
           controller: _tabController,
           tabs: const [
             Tab(text: '游戏', icon: Icon(Icons.sports_esports_outlined)),

@@ -110,7 +110,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              widget.game.title ?? '游戏详情',
+              _isEditing ? (_titleController.text.isEmpty ? '游戏详情' : _titleController.text) : (widget.game.title ?? '游戏详情'),
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -406,33 +406,46 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   void _showAddTagDialog() {
     final controller = TextEditingController();
-    showDialog(
+    showGlassDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('添加标签'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: '输入标签名称'),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('添加标签', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: '输入标签名称'),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () {
+                    final name = controller.text.trim();
+                    if (name.isNotEmpty) {
+                      setState(() {
+                        _editedTags.add(Tag(name: name, type: Tag.typeCustom));
+                      });
+                    }
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('添加'),
+                ),
+              ],
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final name = controller.text.trim();
-              if (name.isNotEmpty) {
-                setState(() {
-                  _editedTags.add(Tag(name: name, type: Tag.typeCustom));
-                });
-              }
-              Navigator.of(dialogContext).pop();
-            },
-            child: const Text('添加'),
-          ),
-        ],
       ),
     );
   }
@@ -444,9 +457,23 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SelectableText(
-            widget.game.title ?? '未命名游戏', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.textPrimary, height: 1.4),
-          ),
+          if (_isEditing)
+            TextField(
+              controller: _titleController,
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.textPrimary, height: 1.4),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.5),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                hintText: '输入游戏标题',
+              ),
+              maxLines: null,
+            )
+          else
+            SelectableText(
+              widget.game.title ?? '未命名游戏', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.textPrimary, height: 1.4),
+            ),
 
           if (widget.game.version != null) ...[
             const SizedBox(height: 8),
@@ -523,7 +550,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         else
           SelectableText(
             content ?? '暂无信息',
-            style: TextStyle(fontSize: ref.watch(fontSizeProvider), height: 1.8, color: AppTheme.textSecondary),
+            style: TextStyle(fontSize: ref.watch(detailFontSizeProvider), height: 1.8, color: AppTheme.textSecondary),
           ),
         if (sectionImage != null && !_isEditing) ...[
           const SizedBox(height: 16),

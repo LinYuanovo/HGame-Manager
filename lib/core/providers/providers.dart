@@ -158,6 +158,11 @@ final fontSizeProvider = StateProvider<double>((ref) {
   return prefs.getDouble('font_size') ?? 14.0;
 });
 
+final detailFontSizeProvider = StateProvider<double>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return prefs.getDouble('detail_font_size') ?? 14.0;
+});
+
 final isScanningProvider = StateProvider<bool>((ref) => false);
 final scanProcessedProvider = StateProvider<int>((ref) => 0);
 final scanTotalProvider = StateProvider<int>((ref) => 0);

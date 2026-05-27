@@ -35,6 +35,7 @@ class PlayedPage extends ConsumerWidget {
                 color: Colors.transparent,
                 child: GameListWidget(
                 games: games,
+                contextMenuMode: ContextMenuMode.played,
                 onTagTap: (tag) {
                   Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) =>

@@ -152,12 +152,21 @@ class HtmlScraper {
         _log.warning('Scraper', 'Parser returned null title for: $url');
       }
 
+      metadata.intro = _collapseNewlines(metadata.intro);
+      metadata.features = _collapseNewlines(metadata.features);
+      metadata.changelog = _collapseNewlines(metadata.changelog);
+
       return metadata;
     } catch (e, stackTrace) {
       _log.error('Scraper', 'Parse error for $url', e, stackTrace);
       return null;
     }
   }
+}
+
+String? _collapseNewlines(String? text) {
+  if (text == null) return null;
+  return text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
 }
 
 /// Generic fallback parser that tries common HTML patterns

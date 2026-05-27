@@ -2,15 +2,56 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:path/path.dart' as path;
+import 'package:sqflite/sqflite.dart';
+import '../database/database_helper.dart';
 import '../models/models.dart';
 import '../repositories/game_repository.dart';
 import '../repositories/tag_repository.dart';
 import 'app_logger.dart';
 
+class _ParsedGameData {
+  final String folderPath;
+  final String? title;
+  final String? version;
+  final String? intro;
+  final String? features;
+  final String? changelog;
+  final String? downloadUrl;
+  final String? sourceUrl;
+  final List<String> imagePaths;
+  final List<String> tagNames;
+  final String? seriesName;
+  final int? existingGameId;
+  final int? playCount;
+  final DateTime? lastPlayedTime;
+  final DateTime? addedTime;
+  final bool isFavorite;
+  final bool isPlayed;
+
+  _ParsedGameData({
+    required this.folderPath,
+    this.title,
+    this.version,
+    this.intro,
+    this.features,
+    this.changelog,
+    this.downloadUrl,
+    this.sourceUrl,
+    required this.imagePaths,
+    required this.tagNames,
+    this.seriesName,
+    this.existingGameId,
+    this.playCount,
+    this.lastPlayedTime,
+    this.addedTime,
+    this.isFavorite = false,
+    this.isPlayed = false,
+  });
+}
+
 class GameScannerService {
   final _log = AppLogger.instance;
   final GameRepository _gameRepository;
-  final TagRepository _tagRepository;
 
   void Function()? onGameProcessed;
   void Function(int processed, int total)? onProgress;
@@ -25,10 +66,9 @@ class GameScannerService {
     this.onGameProcessed,
     this.onProgress,
     this.shouldCancel,
-  })  : _gameRepository = gameRepository ?? GameRepository(),
-        _tagRepository = tagRepository ?? TagRepository();
+  }) : _gameRepository = gameRepository ?? GameRepository();
 
-  Future<void> scanGameLibrary(String libraryPath, {List<String> ignoreFolders = const []}) async {
+  Future<void> scanGameLibrary(String libraryPath, {List<String> ignoreFolders = const [], List<String> blacklistPaths = const []}) async {
     if (_isScanning) {
       _log.info('Scan', 'Already scanning, skipping duplicate request');
       return;
@@ -44,13 +84,10 @@ class GameScannerService {
         return;
       }
 
-      final List<String> gameFolders = [];
-
-      gameFolders.addAll(await _scanGameFolders(libraryPath, ignoreFolders));
-
-      if (kDebugMode) {
-        debugPrint('[Scan] Found ${gameFolders.length} game folders');
-      }
+      // ── Phase 1: Scan folders, filter by blacklist and metadata change ──
+      _log.info('Scan', 'Phase 1: Scanning folders...');
+      final allFolders = await _scanGameFolders(libraryPath, ignoreFolders);
+      final filteredFolders = allFolders.where((f) => !blacklistPaths.contains(f)).toList();
 
       final existingGames = await _gameRepository.getAllGames();
       final gamePathMap = <String, Game>{};
@@ -58,42 +95,68 @@ class GameScannerService {
         gamePathMap[g.path] = g;
       }
 
-      int processedCount = 0;
-      final totalFolders = gameFolders.length;
-      onProgress?.call(0, totalFolders);
+      final foldersToProcess = <String>[];
+      for (final folder in filteredFolders) {
+        if (shouldCancel?.call() == true) break;
+        final existing = gamePathMap[folder];
+        final metadataFile = File(path.join(folder, 'metadata.json'));
+        if (existing != null && existing.addedTime != null && await metadataFile.exists()) {
+          final stat = await metadataFile.stat();
+          if (!stat.modified.isAfter(existing.addedTime!)) {
+            continue;
+          }
+        }
+        foldersToProcess.add(folder);
+      }
 
-      for (final folderPath in gameFolders) {
+      final skippedCount = filteredFolders.length - foldersToProcess.length;
+      _log.info('Scan', 'Phase 1 done: ${filteredFolders.length} total, ${foldersToProcess.length} to process, $skippedCount skipped');
+      if (kDebugMode) {
+        debugPrint('[Scan] Phase 1: ${filteredFolders.length} folders found, ${foldersToProcess.length} need processing, $skippedCount skipped (unchanged)');
+      }
+
+      if (foldersToProcess.isEmpty) {
+        // Still need to clean up missing folders
+        await _removeStaleEntries(existingGames);
+        _log.info('Scan', 'Scan Complete: nothing to process');
+        return;
+      }
+
+      onProgress?.call(0, foldersToProcess.length);
+
+      // ── Phase 2: Parse metadata in parallel (50 per batch) ──
+      _log.info('Scan', 'Phase 2: Parsing metadata...');
+      final parsedGames = <_ParsedGameData>[];
+      const parseBatchSize = 50;
+      for (int i = 0; i < foldersToProcess.length; i += parseBatchSize) {
         if (shouldCancel?.call() == true) break;
 
-        try {
-          await _processGameFolder(folderPath, gamePathMap);
-          processedCount++;
-        } catch (e) {
-          if (kDebugMode) debugPrint('[Scan] Error processing $folderPath: $e');
+        final batch = foldersToProcess.skip(i).take(parseBatchSize).toList();
+        final results = await Future.wait(batch.map((f) => _parseFolder(f, gamePathMap)));
+        for (final r in results) {
+          if (r != null) parsedGames.add(r);
         }
 
-        onProgress?.call(processedCount, totalFolders);
-        if (processedCount % 5 == 0) {
-          onGameProcessed?.call();
-        }
+        onProgress?.call(i + batch.length, foldersToProcess.length);
+        onGameProcessed?.call();
       }
 
-      onGameProcessed?.call();
+      _log.info('Scan', 'Phase 2 done: parsed ${parsedGames.length} games');
 
-      // Remove games whose folders no longer exist
-      for (final game in existingGames) {
-        try {
-          final dir = Directory(game.path);
-          if (!await dir.exists()) {
-            await _gameRepository.deleteGame(game.id!);
-            if (kDebugMode) debugPrint('[Scan] Removed DB entry for missing folder: ${game.path}');
-          }
-        } catch (e) {
-          if (kDebugMode) debugPrint('[Scan] Error checking game folder: $e');
-        }
+      if (parsedGames.isEmpty) {
+        await _removeStaleEntries(existingGames);
+        _log.info('Scan', 'Scan Complete: no valid metadata found');
+        return;
       }
 
-      _log.info('Scan', 'Game Scan Complete, processed $processedCount/$totalFolders');
+      // ── Phase 3: Batch DB write in a single transaction ──
+      _log.info('Scan', 'Phase 3: Writing to database...');
+      await _batchWriteToDatabase(parsedGames, gamePathMap);
+
+      // Clean up missing folders
+      await _removeStaleEntries(existingGames);
+
+      _log.info('Scan', 'Scan Complete: processed ${parsedGames.length}/${foldersToProcess.length}, skipped $skippedCount (unchanged)');
     } catch (e, stackTrace) {
       _log.error('Scan', 'FATAL ERROR in Game Scan', e, stackTrace);
       rethrow;
@@ -111,10 +174,9 @@ class GameScannerService {
       if (entity is Directory) {
         final folderName = path.basename(entity.path);
         if (ignoreFolders.contains(folderName)) {
-          continue; // Skip ignored folders
+          continue;
         }
-        if (await File(path.join(entity.path, 'source_url.txt')).exists() ||
-            await File(path.join(entity.path, 'metadata.json')).exists()) {
+        if (await File(path.join(entity.path, 'metadata.json')).exists()) {
           folders.add(entity.path);
         } else {
           folders.addAll(await _scanGameFolders(entity.path, ignoreFolders));
@@ -124,150 +186,187 @@ class GameScannerService {
     return folders;
   }
 
-  Future<void> _processGameFolder(
-    String folderPath,
-    Map<String, Game> existingGameMap,
-  ) async {
-    // Read source_url.txt
-    final sourceUrlFile = File(path.join(folderPath, 'source_url.txt'));
-    String? sourceUrl;
-    if (await sourceUrlFile.exists()) {
-      sourceUrl = (await sourceUrlFile.readAsString()).trim();
-    }
-
-    // Read metadata.json if exists
-    final metadataFile = File(path.join(folderPath, 'metadata.json'));
-    Map<String, dynamic>? metadata;
-    if (await metadataFile.exists()) {
-      try {
+  Future<_ParsedGameData?> _parseFolder(String folderPath, Map<String, Game> existingGameMap) async {
+    try {
+      final metadataFile = File(path.join(folderPath, 'metadata.json'));
+      Map<String, dynamic>? metadata;
+      if (await metadataFile.exists()) {
         final content = await metadataFile.readAsString();
         metadata = jsonDecode(content) as Map<String, dynamic>;
-      } catch (e) {
-        if (kDebugMode) debugPrint('[Scan] Warning: Failed to parse metadata.json in $folderPath: $e');
       }
-    }
 
-    // Scan images from images/ or image/ subdirectory
-    var imageDir = Directory(path.join(folderPath, 'images'));
-    if (!await imageDir.exists()) {
-      imageDir = Directory(path.join(folderPath, 'image'));
-    }
-    final List<String> imagePaths = [];
-    if (await imageDir.exists()) {
-      await for (final entity in imageDir.list(followLinks: false)) {
-        if (entity is File) {
-          final ext = path.extension(entity.path).toLowerCase();
-          if (ext == '.jpg' || ext == '.jpeg' || ext == '.png' || ext == '.webp') {
-            imagePaths.add(entity.path);
+      final sourceUrlFile = File(path.join(folderPath, 'source_url.txt'));
+      String? sourceUrl;
+      if (await sourceUrlFile.exists()) {
+        sourceUrl = (await sourceUrlFile.readAsString()).trim();
+      }
+
+      var imageDir = Directory(path.join(folderPath, 'images'));
+      if (!await imageDir.exists()) {
+        imageDir = Directory(path.join(folderPath, 'image'));
+      }
+      final List<String> imagePaths = [];
+      if (await imageDir.exists()) {
+        await for (final entity in imageDir.list(followLinks: false)) {
+          if (entity is File) {
+            final ext = path.extension(entity.path).toLowerCase();
+            if (ext == '.jpg' || ext == '.jpeg' || ext == '.png' || ext == '.webp') {
+              imagePaths.add(entity.path);
+            }
           }
         }
+        imagePaths.sort();
       }
-      imagePaths.sort();
-    }
 
-    final existingGame = existingGameMap[folderPath];
+      final existingGame = existingGameMap[folderPath];
+      final folderName = path.basename(folderPath);
 
-    // Check if metadata has been modified since last scan
-    if (existingGame != null && await metadataFile.exists()) {
-      final stat = await metadataFile.stat();
-      final metadataModified = stat.modified;
-      final gameAddedTime = existingGame.addedTime;
-      if (gameAddedTime != null && !metadataModified.isAfter(gameAddedTime)) {
-        // Metadata hasn't changed since last scan, but still update images
-        // in case the game folder was moved
-        await _updateImages(existingGame.id!, folderPath);
-        return;
+      String? title = metadata?['title'] as String?;
+      if (title == null || title.isEmpty) {
+        title = folderName;
       }
-    }
 
-    final folderName = path.basename(folderPath);
-
-    String? title = metadata?['title'] as String?;
-    if (title == null || title.isEmpty) {
-      title = folderName;
-    }
-
-    final game = Game(
-      id: existingGame?.id,
-      path: folderPath,
-      title: title,
-      version: metadata?['version'] as String?,
-      intro: metadata?['intro'] as String?,
-      features: metadata?['features'] as String?,
-      changelog: metadata?['changelog'] as String?,
-      downloadUrl: metadata?['download_url'] as String?,
-      sourceUrl: sourceUrl ?? metadata?['source_url'] as String?,
-      playCount: existingGame?.playCount ?? 0,
-      lastPlayedTime: existingGame?.lastPlayedTime,
-      addedTime: existingGame?.addedTime,
-      isFavorite: existingGame?.isFavorite ?? false,
-      isPlayed: existingGame?.isPlayed ?? false,
-    );
-
-    int gameId;
-    if (existingGame != null) {
-      await _gameRepository.updateGame(game);
-      gameId = existingGame.id!;
-    } else {
-      gameId = await _gameRepository.insertGame(game);
-    }
-
-    // Save images
-    if (imagePaths.isNotEmpty) {
-      final images = imagePaths.asMap().entries.map((e) => GameImage(
-        gameId: gameId,
-        imagePath: e.value,
-        sortOrder: e.key,
-      )).toList();
-      await _gameRepository.setGameImages(gameId, images);
-    }
-
-    // Process tags from metadata
-    if (metadata != null) {
-      final tags = metadata['tags'] as List<dynamic>?;
-      if (tags != null) {
-        for (final tagName in tags) {
-          if (tagName is String && tagName.isNotEmpty) {
-            final tagId = await _tagRepository.insertOrGetTag(tagName, Tag.typeCustom);
-            await _gameRepository.addTagToGame(gameId, tagId);
-          }
+      final tagNames = <String>[];
+      final tagsList = metadata?['tags'] as List<dynamic>?;
+      if (tagsList != null) {
+        for (final t in tagsList) {
+          if (t is String && t.isNotEmpty) tagNames.add(t);
         }
       }
 
-      final series = metadata['series'] as String?;
-      if (series != null && series.isNotEmpty) {
-        final tagId = await _tagRepository.insertOrGetTag(series, Tag.typeSeries);
-        await _gameRepository.addTagToGame(gameId, tagId);
-      }
+      return _ParsedGameData(
+        folderPath: folderPath,
+        title: title,
+        version: metadata?['version'] as String?,
+        intro: metadata?['intro'] as String?,
+        features: metadata?['features'] as String?,
+        changelog: metadata?['changelog'] as String?,
+        downloadUrl: metadata?['download_url'] as String?,
+        sourceUrl: sourceUrl ?? metadata?['source_url'] as String?,
+        imagePaths: imagePaths,
+        tagNames: tagNames,
+        seriesName: metadata?['series'] as String?,
+        existingGameId: existingGame?.id,
+        playCount: existingGame?.playCount ?? 0,
+        lastPlayedTime: existingGame?.lastPlayedTime,
+        addedTime: existingGame?.addedTime,
+        isFavorite: existingGame?.isFavorite ?? false,
+        isPlayed: existingGame?.isPlayed ?? false,
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Scan] Error parsing $folderPath: $e');
+      return null;
     }
   }
 
-  Future<void> _updateImages(int gameId, String folderPath) async {
-    // Scan images from images/ or image/ subdirectory
-    var imageDir = Directory(path.join(folderPath, 'images'));
-    if (!await imageDir.exists()) {
-      imageDir = Directory(path.join(folderPath, 'image'));
-    }
-    final List<String> imagePaths = [];
-    if (await imageDir.exists()) {
-      await for (final entity in imageDir.list(followLinks: false)) {
-        if (entity is File) {
-          final ext = path.extension(entity.path).toLowerCase();
-          if (ext == '.jpg' || ext == '.jpeg' || ext == '.png' || ext == '.webp') {
-            imagePaths.add(entity.path);
-          }
+  Future<void> _batchWriteToDatabase(List<_ParsedGameData> parsedGames, Map<String, Game> existingGameMap) async {
+    final db = await DatabaseHelper.database;
+
+    await db.transaction((txn) async {
+      // Collect all unique tags
+      final allTags = <String, String>{}; // key: "type:name", value: name
+      for (final data in parsedGames) {
+        for (final tag in data.tagNames) {
+          allTags['${Tag.typeCustom}:$tag'] = tag;
+        }
+        if (data.seriesName != null && data.seriesName!.isNotEmpty) {
+          allTags['${Tag.typeSeries}:${data.seriesName}'] = data.seriesName!;
         }
       }
-      imagePaths.sort();
-    }
 
-    if (imagePaths.isNotEmpty) {
-      final images = imagePaths.asMap().entries.map((e) => GameImage(
-        gameId: gameId,
-        imagePath: e.value,
-        sortOrder: e.key,
-      )).toList();
-      await _gameRepository.setGameImages(gameId, images);
+      // Insert all tags (INSERT OR IGNORE)
+      for (final entry in allTags.entries) {
+        final parts = entry.key.split(':');
+        await txn.insert('tags', {
+          'name': entry.value,
+          'type': parts[0],
+          'display_name': entry.value,
+          'is_favorite': 0,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+
+      // Get all tag IDs
+      final tagMaps = await txn.query('tags');
+      final tagIdMap = <String, int>{};
+      for (final map in tagMaps) {
+        tagIdMap['${map['type']}:${map['name']}'] = map['id'] as int;
+      }
+
+      // Process each game
+      for (final data in parsedGames) {
+        final existing = existingGameMap[data.folderPath];
+
+        final gameMap = <String, dynamic>{
+          'path': data.folderPath,
+          'title': data.title,
+          'version': data.version,
+          'intro': data.intro,
+          'features': data.features,
+          'changelog': data.changelog,
+          'download_url': data.downloadUrl,
+          'source_url': data.sourceUrl,
+          'play_count': data.playCount ?? 0,
+          'last_played_time': data.lastPlayedTime?.toIso8601String(),
+          'is_favorite': data.isFavorite ? 1 : 0,
+          'is_played': data.isPlayed ? 1 : 0,
+        };
+
+        int gameId;
+        if (existing != null) {
+          await txn.update('games', gameMap, where: 'id = ?', whereArgs: [existing.id]);
+          gameId = existing.id!;
+        } else {
+          gameId = await txn.insert('games', gameMap);
+        }
+
+        // Insert game-tag relations (INSERT OR IGNORE)
+        for (final tagName in data.tagNames) {
+          final tagId = tagIdMap['${Tag.typeCustom}:$tagName'];
+          if (tagId != null) {
+            await txn.insert('game_tag_relation', {
+              'game_id': gameId,
+              'tag_id': tagId,
+            }, conflictAlgorithm: ConflictAlgorithm.ignore);
+          }
+        }
+        if (data.seriesName != null && data.seriesName!.isNotEmpty) {
+          final tagId = tagIdMap['${Tag.typeSeries}:${data.seriesName}'];
+          if (tagId != null) {
+            await txn.insert('game_tag_relation', {
+              'game_id': gameId,
+              'tag_id': tagId,
+            }, conflictAlgorithm: ConflictAlgorithm.ignore);
+          }
+        }
+
+        // Batch insert game images
+        await txn.delete('game_images', where: 'game_id = ?', whereArgs: [gameId]);
+        if (data.imagePaths.isNotEmpty) {
+          final batch = txn.batch();
+          for (int i = 0; i < data.imagePaths.length; i++) {
+            batch.insert('game_images', {
+              'game_id': gameId,
+              'image_path': data.imagePaths[i],
+              'sort_order': i,
+            });
+          }
+          await batch.commit(noResult: true);
+        }
+      }
+    });
+  }
+
+  Future<void> _removeStaleEntries(List<Game> existingGames) async {
+    for (final game in existingGames) {
+      try {
+        final dir = Directory(game.path);
+        if (!await dir.exists()) {
+          await _gameRepository.deleteGame(game.id!);
+          if (kDebugMode) debugPrint('[Scan] Removed DB entry for missing folder: ${game.path}');
+        }
+      } catch (e) {
+        if (kDebugMode) debugPrint('[Scan] Error checking game folder: $e');
+      }
     }
   }
 }
