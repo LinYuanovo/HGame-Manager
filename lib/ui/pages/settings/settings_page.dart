@@ -576,7 +576,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         TextField(
           controller: controller,
           maxLines: 2,
-          style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary, fontFamily: 'monospace'),
+          style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.4), fontSize: 11),
@@ -898,7 +898,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Widget _buildAboutSection() {
-    const currentVersion = '1.0.3';
+    const currentVersion = '1.0.4';
 
     return _buildSection(
       title: '关于',

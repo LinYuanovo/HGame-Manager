@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/app_settings.dart';
@@ -51,7 +52,8 @@ final webdavServiceProvider = Provider<WebdavService>((ref) {
 final allGamesProvider = FutureProvider<List<Game>>((ref) async {
   try {
     final repository = ref.watch(gameRepositoryProvider);
-    return await repository.getAllGames();
+    final allGames = await repository.getAllGames();
+    return allGames.where((g) => !g.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}')).toList();
   } catch (e, stackTrace) {
     if (kDebugMode) {
       debugPrint('ERROR Loading Games: $e\n$stackTrace');
@@ -60,10 +62,25 @@ final allGamesProvider = FutureProvider<List<Game>>((ref) async {
   }
 });
 
+final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
+  try {
+    final repository = ref.watch(gameRepositoryProvider);
+    final allGames = await repository.getAllGames();
+    // 过滤出Cleared目录下的游戏
+    return allGames.where((g) => g.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}') && !g.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}')).toList();
+  } catch (e, stackTrace) {
+    if (kDebugMode) {
+      debugPrint('ERROR Loading Cleared Games: $e\n$stackTrace');
+    }
+    rethrow;
+  }
+});
+
 final playedGamesProvider = FutureProvider<List<Game>>((ref) async {
   try {
     final repository = ref.watch(gameRepositoryProvider);
-    return await repository.getPlayedGames();
+    final games = await repository.getPlayedGames();
+    return games.where((g) => !g.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}')).toList();
   } catch (e, stackTrace) {
     if (kDebugMode) {
       debugPrint('ERROR Loading Played Games: $e\n$stackTrace');
@@ -75,7 +92,8 @@ final playedGamesProvider = FutureProvider<List<Game>>((ref) async {
 final favoriteGamesProvider = FutureProvider<List<Game>>((ref) async {
   try {
     final repository = ref.watch(gameRepositoryProvider);
-    return await repository.getFavoriteGames();
+    final games = await repository.getFavoriteGames();
+    return games.where((g) => !g.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}')).toList();
   } catch (e, stackTrace) {
     if (kDebugMode) {
       debugPrint('ERROR Loading Favorite Games: $e\n$stackTrace');

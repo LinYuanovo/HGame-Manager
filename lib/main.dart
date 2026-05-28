@@ -162,9 +162,8 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
                         const SizedBox(height: 6),
                         Text(
                           _error.toString(),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
-                            fontFamily: 'monospace',
                             color: AppTheme.textPrimary,
                           ),
                         ),
@@ -183,9 +182,8 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
                             child: SingleChildScrollView(
                               child: Text(
                                 _stackTrace.toString(),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
-                                  fontFamily: 'monospace',
                                   color: AppTheme.textSecondary,
                                 ),
                               ),

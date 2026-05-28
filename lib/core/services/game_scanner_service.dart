@@ -100,10 +100,19 @@ class GameScannerService {
         if (shouldCancel?.call() == true) break;
         final existing = gamePathMap[folder];
         final metadataFile = File(path.join(folder, 'metadata.json'));
-        if (existing != null && existing.addedTime != null && await metadataFile.exists()) {
-          final stat = await metadataFile.stat();
-          if (!stat.modified.isAfter(existing.addedTime!)) {
+        
+        // 如果游戏已存在
+        if (existing != null) {
+          // 如果 addedTime 为空（旧数据），跳过扫描
+          if (existing.addedTime == null) {
             continue;
+          }
+          // 如果 metadata.json 存在，检查是否被修改过
+          if (await metadataFile.exists()) {
+            final stat = await metadataFile.stat();
+            if (!stat.modified.isAfter(existing.addedTime!)) {
+              continue;
+            }
           }
         }
         foldersToProcess.add(folder);
@@ -173,7 +182,11 @@ class GameScannerService {
     await for (final entity in dir.list(followLinks: false)) {
       if (entity is Directory) {
         final folderName = path.basename(entity.path);
-        if (ignoreFolders.contains(folderName)) {
+        final folderNameLower = folderName.toLowerCase();
+        // 忽略用户设置的文件夹、Cleared目录（已通关）和Backup目录（已通关备份）
+        if (ignoreFolders.any((f) => f.toLowerCase() == folderNameLower) || 
+            folderNameLower == 'backup' || 
+            folderNameLower == 'cleared') {
           continue;
         }
         if (await File(path.join(entity.path, 'metadata.json')).exists()) {
@@ -313,9 +326,13 @@ class GameScannerService {
 
         int gameId;
         if (existing != null) {
+          // 更新游戏时也更新 added_time
+          gameMap['added_time'] = DateTime.now().toIso8601String();
           await txn.update('games', gameMap, where: 'id = ?', whereArgs: [existing.id]);
           gameId = existing.id!;
         } else {
+          // 新游戏插入时设置 added_time
+          gameMap['added_time'] = DateTime.now().toIso8601String();
           gameId = await txn.insert('games', gameMap);
         }
 

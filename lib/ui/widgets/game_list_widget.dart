@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
@@ -20,6 +22,7 @@ class GameListWidget extends ConsumerStatefulWidget {
   final bool showAddButton;
   final bool showRefreshButton;
   final ContextMenuMode contextMenuMode;
+  final bool isClearedPage;
 
   const GameListWidget({
     super.key,
@@ -32,6 +35,7 @@ class GameListWidget extends ConsumerStatefulWidget {
     this.showAddButton = false,
     this.showRefreshButton = false,
     this.contextMenuMode = ContextMenuMode.games,
+    this.isClearedPage = false,
   });
 
   @override
@@ -46,6 +50,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   PaginationMode _paginationMode = PaginationMode.infiniteScroll;
   int _currentPage = 0;
   int _infiniteScrollCount = 20;
+  int _savedPage = -1;  // 保存搜索前的页码，-1表示未保存
+  String _lastSearchQuery = '';  // 上次的搜索词（用于检测变化）
 
   int get _itemsPerPage => _viewMode == ViewMode.list ? 5 : 6;
 
@@ -71,6 +77,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     if (paginationModeStr != null) {
       _paginationMode = paginationModeStr == 'paginated' ? PaginationMode.paginated : PaginationMode.infiniteScroll;
     }
+    
+    // 加载持久化的搜索词
+    final savedSearch = prefs.getString('game_list_search_query');
+    if (savedSearch != null && savedSearch.isNotEmpty) {
+      _searchController.text = savedSearch;
+      _lastSearchQuery = savedSearch;
+    }
+    
     if (mounted) setState(() {});
   }
 
@@ -130,10 +144,33 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   Widget build(BuildContext context) {
     final searchQuery = _searchController.text.trim();
     var filteredGames = widget.games;
+    
+    // 搜索词变化时保存/恢复页码 + 持久化
+    if (searchQuery != _lastSearchQuery) {
+      if (searchQuery.isNotEmpty && _lastSearchQuery.isEmpty) {
+        // 开始搜索：保存当前页码
+        _savedPage = _currentPage;
+        _currentPage = 0;
+      } else if (searchQuery.isEmpty && _savedPage >= 0) {
+        // 清除搜索：恢复之前的页码
+        _currentPage = _savedPage;
+        _savedPage = -1;
+      } else if (searchQuery.isNotEmpty) {
+        // 搜索词变化（非从空到有）：重置到第一页
+        _currentPage = 0;
+      }
+      _lastSearchQuery = searchQuery;
+      // 持久化搜索词
+      _saveSetting('game_list_search_query', searchQuery);
+    }
+    
     if (searchQuery.isNotEmpty) {
       filteredGames = filteredGames
           .where((g) =>
               (g.title ?? '')
+                  .toLowerCase()
+                  .contains(searchQuery.toLowerCase()) ||
+              g.path
                   .toLowerCase()
                   .contains(searchQuery.toLowerCase()) ||
               (g.intro ?? '')
@@ -166,10 +203,35 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               if (widget.showSearchBar) ...[
                 Expanded(
                   flex: 3,
-                  child: GlassSearchBar(
-                    controller: _searchController,
-                    hintText: '搜索游戏...',
-                    onChanged: (_) => setState(() {}),
+                  child: Stack(
+                    alignment: Alignment.centerRight,
+                    children: [
+                      GlassSearchBar(
+                        controller: _searchController,
+                        hintText: '搜索游戏（标题/路径/简介）...',
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      if (_searchController.text.isNotEmpty)
+                        GestureDetector(
+                          onTap: () {
+                            _searchController.clear();
+                            setState(() {});
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            margin: const EdgeInsets.only(right: 30),
+                            decoration: BoxDecoration(
+                              color: AppTheme.textSecondary.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.close,
+                              size: 14,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -203,6 +265,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               setState(() {
                 _viewMode = mode;
                 _currentPage = 0;
+                _savedPage = -1;
               });
               _saveSetting('game_list_view_mode', mode == ViewMode.poster ? 'poster' : 'list');
             },
@@ -267,6 +330,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   _sortMode = mode;
                 }
                 _currentPage = 0;
+                _savedPage = -1;
               });
               _saveSetting('game_list_sort_mode', _sortMode.name);
             },
@@ -296,6 +360,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         setState(() {
           _sortMode = _toggleDirection(_sortMode);
           _currentPage = 0;
+          _savedPage = -1;
         });
         _saveSetting('game_list_sort_mode', _sortMode.name);
       },
@@ -337,6 +402,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             setState(() {
               _paginationMode = PaginationMode.paginated;
               _currentPage = 0;
+              _savedPage = -1;
             });
             _saveSetting('game_list_pagination_mode', 'paginated');
           },
@@ -360,6 +426,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             setState(() {
               _paginationMode = PaginationMode.infiniteScroll;
               _infiniteScrollCount = 20;
+              _savedPage = -1;
             });
             _saveSetting('game_list_pagination_mode', 'infiniteScroll');
           },
@@ -416,7 +483,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               textAlign: TextAlign.center,
               decoration: InputDecoration(
                 hintText: '页码',
-                hintStyle: TextStyle(fontSize: 11, color: const Color.fromARGB(255, 135, 155, 194).withValues(alpha: 0.4)),
+                hintStyle: TextStyle(fontSize: 12, color: const Color.fromARGB(255, 135, 155, 194).withValues(alpha: 0.4)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 filled: true,
                 fillColor: AppTheme.backgroundColor.withValues(alpha: 0.3),
@@ -538,14 +605,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     Text(game.title ?? '未命名',
                         style: const TextStyle(
                             fontWeight: FontWeight.w600,
-                            fontSize: 16,
+                            fontSize: 18,
                             color: AppTheme.textPrimary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 4),
                     Text(_formatPath(game.path),
                         style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 16,
                             color:
                                 AppTheme.textSecondary.withValues(alpha: 0.5)),
                         maxLines: 1,
@@ -572,7 +639,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                               ),
                               child: Text(tag.name,
                                   style: const TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 16,
                                       color: AppTheme.primaryColor)),
                             ),
                           );
@@ -691,7 +758,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
                         height: 1.3,
                         color: AppTheme.textPrimary),
@@ -842,6 +909,24 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 title: Text(widget.contextMenuMode == ContextMenuMode.played
                     ? '减少游玩次数'
                     : '增加游玩次数'))),
+        // 标记已通关（仅在非已通关页面显示）
+        if (!widget.isClearedPage)
+          PopupMenuItem(
+              value: 'cleared',
+              child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.emoji_events, size: 18, color: Color(0xFFFFD700)),
+                  title: const Text('标记已通关', style: TextStyle(color: Color(0xFFFFD700))))),
+        // 取消标记已通关（仅在已通关页面显示）
+        if (widget.isClearedPage)
+          PopupMenuItem(
+              value: 'uncleared',
+              child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.emoji_events_outlined, size: 18, color: Colors.grey),
+                  title: const Text('取消标记已通关', style: TextStyle(color: Colors.grey)))),
         if (game.images.length > 1)
           PopupMenuItem(
               value: 'cover',
@@ -891,6 +976,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           }
           ref.invalidate(allGamesProvider);
           ref.invalidate(playedGamesProvider);
+          break;
+        case 'cleared':
+          await _markAsCleared(game);
+          break;
+        case 'uncleared':
+          await _unmarkAsCleared(game);
           break;
         case 'cover':
           final selected = await showDialog<int>(
@@ -1010,6 +1101,302 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _markAsCleared(Game game) async {
+    // 确认对话框
+    final confirm = await showGlassDialog<bool>(
+      context: context,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('标记已通关', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            const SizedBox(height: 12),
+            Text('确定要将"${game.title}"标记为已通关吗？\n\n游戏将移动到 Sorted/Cleared 目录，\n并自动创建备份。', style: const TextStyle(color: AppTheme.textSecondary)),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('取消')),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFD700)),
+                  child: const Text('确认'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final prefs = ref.read(sharedPreferencesProvider);
+      final sortedPath = prefs.getString('sorted_path') ?? '';
+      
+      if (sortedPath.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('请先在设置中配置整理目录'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
+        return;
+      }
+
+      final gameDir = Directory(game.path);
+      if (!await gameDir.exists()) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('游戏目录不存在'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
+        return;
+      }
+
+      // 创建Cleared目录
+      final clearedDir = Directory('$sortedPath${Platform.pathSeparator}Cleared');
+      if (!await clearedDir.exists()) {
+        await clearedDir.create(recursive: true);
+      }
+
+      // 创建Backup目录
+      final backupDir = Directory('$sortedPath${Platform.pathSeparator}Cleared${Platform.pathSeparator}Backup');
+      if (!await backupDir.exists()) {
+        await backupDir.create(recursive: true);
+      }
+
+      // 创建游戏备份目录（使用游戏标题作为文件夹名）
+      final gameTitle = game.title ?? path.basename(game.path);
+      final sanitizedTitle = gameTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+      final backupGameDir = Directory('${backupDir.path}${Platform.pathSeparator}$sanitizedTitle');
+      if (!await backupGameDir.exists()) {
+        await backupGameDir.create(recursive: true);
+      }
+
+      // 复制metadata.json到备份
+      final metadataFile = File('${game.path}${Platform.pathSeparator}metadata.json');
+      if (await metadataFile.exists()) {
+        await metadataFile.copy('${backupGameDir.path}${Platform.pathSeparator}metadata.json');
+      }
+
+      // 复制source_url.txt到备份
+      final sourceUrlFile = File('${game.path}${Platform.pathSeparator}source_url.txt');
+      if (await sourceUrlFile.exists()) {
+        await sourceUrlFile.copy('${backupGameDir.path}${Platform.pathSeparator}source_url.txt');
+      }
+
+      // 复制images目录到备份
+      final imagesDir = Directory('${game.path}${Platform.pathSeparator}images');
+      if (await imagesDir.exists()) {
+        final backupImagesDir = Directory('${backupGameDir.path}${Platform.pathSeparator}images');
+        if (!await backupImagesDir.exists()) {
+          await backupImagesDir.create(recursive: true);
+        }
+        await for (final entity in imagesDir.list()) {
+          if (entity is File) {
+            final fileName = path.basename(entity.path);
+            await entity.copy('${backupImagesDir.path}${Platform.pathSeparator}$fileName');
+          }
+        }
+      }
+
+      // 移动游戏目录到Cleared
+      final newPath = '${clearedDir.path}${Platform.pathSeparator}${path.basename(game.path)}';
+      final newDir = Directory(newPath);
+      if (await newDir.exists()) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('目标目录已存在: ${path.basename(game.path)}，请先处理冲突'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
+        return;
+      }
+      
+      await gameDir.rename(newPath);
+      final repo = ref.read(gameRepositoryProvider);
+      await repo.updateGamePath(game.id!, newPath);
+
+      // 刷新游戏列表
+      ref.invalidate(allGamesProvider);
+      ref.invalidate(clearedGamesProvider);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('已标记"${game.title}"为已通关'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('操作失败: $e'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _unmarkAsCleared(Game game) async {
+    // 确认对话框
+    final confirm = await showGlassDialog<bool>(
+      context: context,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('取消标记已通关', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            const SizedBox(height: 12),
+            Text('确定要将"${game.title}"取消已通关吗？\n\n游戏将移回 Sorted 目录，备份将被删除。', style: const TextStyle(color: AppTheme.textSecondary)),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('取消')),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey),
+                  child: const Text('确认'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final prefs = ref.read(sharedPreferencesProvider);
+      final sortedPath = prefs.getString('sorted_path') ?? '';
+      
+      if (sortedPath.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('请先在设置中配置整理目录'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
+        return;
+      }
+
+      final gameDir = Directory(game.path);
+      if (!await gameDir.exists()) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('游戏目录不存在'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
+        return;
+      }
+
+      // 读取 metadata.json 中的 series 字段
+      String targetCategory = 'Unclassified';
+      final metadataFile = File('${game.path}${Platform.pathSeparator}metadata.json');
+      if (await metadataFile.exists()) {
+        try {
+          final content = await metadataFile.readAsString();
+          final metadata = jsonDecode(content) as Map<String, dynamic>;
+          final series = metadata['series'] as String?;
+          if (series != null && series.isNotEmpty) {
+            targetCategory = series;
+          }
+        } catch (e) {
+          // 忽略解析错误，使用默认分类
+        }
+      }
+
+      // 创建目标目录
+      final targetDir = Directory('$sortedPath${Platform.pathSeparator}$targetCategory');
+      if (!await targetDir.exists()) {
+        await targetDir.create(recursive: true);
+      }
+
+      // 移动游戏目录到目标目录
+      final newPath = '${targetDir.path}${Platform.pathSeparator}${path.basename(game.path)}';
+      final newDir = Directory(newPath);
+      if (await newDir.exists()) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('目标目录已存在: ${path.basename(game.path)}，请先处理冲突'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
+        return;
+      }
+      
+      await gameDir.rename(newPath);
+      final repo = ref.read(gameRepositoryProvider);
+      await repo.updateGamePath(game.id!, newPath);
+
+      // 删除对应的 Backup 目录
+      final backupDir = Directory('$sortedPath${Platform.pathSeparator}Cleared${Platform.pathSeparator}Backup');
+      if (await backupDir.exists()) {
+        final gameTitle = game.title ?? path.basename(game.path);
+        final sanitizedTitle = gameTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+        final backupGameDir = Directory('${backupDir.path}${Platform.pathSeparator}$sanitizedTitle');
+        if (await backupGameDir.exists()) {
+          await backupGameDir.delete(recursive: true);
+        }
+      }
+
+      // 刷新游戏列表
+      ref.invalidate(allGamesProvider);
+      ref.invalidate(clearedGamesProvider);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('已取消"${game.title}"的已通关标记'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('操作失败: $e'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    }
   }
 
   void _addToBlacklist(String gamePath) {

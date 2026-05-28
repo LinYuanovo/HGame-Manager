@@ -88,6 +88,7 @@ logs/
 app_logs/
 *.bak
 *.tmp
+web/
 
 # Environment files
 .env

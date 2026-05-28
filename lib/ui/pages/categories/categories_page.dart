@@ -4,6 +4,7 @@ import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../theme/app_theme.dart';
 import 'tag_games_page.dart';
+import 'cleared_games_page.dart';
 
 class CategoriesPage extends ConsumerStatefulWidget {
   const CategoriesPage({super.key});
@@ -61,7 +62,10 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
     final tagsAsync = ref.watch(provider);
     return tagsAsync.when(
       data: (tags) {
-        if (tags.isEmpty) {
+        // 添加"已通关"特殊标签（仅在标签tab）
+        final showClearedTag = type == Tag.typeCustom;
+        
+        if (tags.isEmpty && !showClearedTag) {
           return EmptyStateWidget(
             icon: type == Tag.typeCustom ? Icons.label : Icons.category,
             message: type == Tag.typeCustom ? '暂无标签' : '暂无系列',
@@ -72,6 +76,10 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
         final filteredTags = searchQuery.isEmpty
             ? tags
             : tags.where((tag) => (tag.displayName ?? tag.name).toLowerCase().contains(searchQuery)).toList();
+        
+        // 计算总数量（包括已通关标签）
+        final totalCount = filteredTags.length + (showClearedTag && searchQuery.isEmpty ? 1 : 0);
+        
         return Column(
           children: [
             Padding(
@@ -98,15 +106,20 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
             Expanded(
               child: GridView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 200,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 6,
                   mainAxisSpacing: 8,
                   crossAxisSpacing: 8,
                   childAspectRatio: 2.5,
                 ),
-                itemCount: filteredTags.length,
+                itemCount: totalCount,
                 itemBuilder: (context, index) {
-                  final tag = filteredTags[index];
+                  // 第一个是"已通关"特殊标签
+                  if (showClearedTag && index == 0 && searchQuery.isEmpty) {
+                    return _buildClearedTagChip();
+                  }
+                  final tagIndex = showClearedTag && searchQuery.isEmpty ? index - 1 : index;
+                  final tag = filteredTags[tagIndex];
                   return _buildTagChip(tag);
                 },
               ),
@@ -146,7 +159,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           Expanded(
             child: Text(
               tag.displayName ?? tag.name,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -159,7 +172,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
               ),
               child: Text(
                 '${tag.gameCount}',
-                style: const TextStyle(fontSize: 11, color: AppTheme.primaryColor),
+                style: TextStyle(fontSize: 14, color: AppTheme.primaryColor),
               ),
             ),
           const SizedBox(width: 4),
@@ -174,6 +187,58 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           ),
         ],
       ),
+      ),
+    );
+  }
+
+  Widget _buildClearedTagChip() {
+    final clearedGamesAsync = ref.watch(clearedGamesProvider);
+    final gameCount = clearedGamesAsync.whenOrNull(data: (games) => games.length) ?? 0;
+    
+    return GestureDetector(
+      child: GlassCard(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ClearedGamesPage()),
+          ).then((_) {
+            ref.invalidate(allTagsProvider);
+            ref.invalidate(clearedGamesProvider);
+          });
+        },
+        child: Row(
+          children: [
+            const Icon(
+              Icons.emoji_events,
+              size: 16,
+              color: Color(0xFFFFD700),
+            ),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                '已通关',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFFFFD700)),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (gameCount > 0) ...[
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$gameCount',
+                  style: TextStyle(fontSize: 14, color: Color(0xFFFFD700)),
+                ),
+              ),
+            ],
+            const SizedBox(width: 4),
+          ],
+        ),
       ),
     );
   }
@@ -209,7 +274,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(tag.type == Tag.typeCustom ? '修改标签' : '修改系列', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            Text(tag.type == Tag.typeCustom ? '修改标签' : '修改系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
@@ -254,9 +319,9 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(tag.type == Tag.typeCustom ? '删除标签' : '删除系列', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            Text(tag.type == Tag.typeCustom ? '删除标签' : '删除系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
             const SizedBox(height: 12),
-            Text('确定要删除"${tag.displayName ?? tag.name}"吗？', style: const TextStyle(color: AppTheme.textSecondary)),
+            Text('确定要删除"${tag.displayName ?? tag.name}"吗？', style: TextStyle(color: AppTheme.textSecondary)),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -292,7 +357,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(type == Tag.typeCustom ? '添加标签' : '添加系列', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            Text(type == Tag.typeCustom ? '添加标签' : '添加系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
             const SizedBox(height: 16),
             TextField(
               controller: controller,

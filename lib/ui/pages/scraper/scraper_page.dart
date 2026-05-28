@@ -469,7 +469,6 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                             log,
                             style: TextStyle(
                               fontSize: 11.5,
-                              fontFamily: 'monospace',
                               color: isError ? AppTheme.errorColor : isSuccess ? AppTheme.successColor : AppTheme.textPrimary,
                             ),
                           ),
@@ -789,7 +788,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         return cat;
       }
     }
-    return 'unknown';
+    return 'Unclassified';
   }
 
   Future<void> _moveToSorted(Game game) async {

@@ -372,12 +372,16 @@ class FeiXueAcgParser extends SiteParser {
       // Filter out promotional codes and decompress passwords from intro
       if (metadata.intro != null) {
         var intro = metadata.intro!;
-        // Remove lines containing promotional codes
-        intro = intro.replaceAll(RegExp(r'[^\n]*优惠码[^\n]*', caseSensitive: false), '');
-        // Remove lines containing decompress passwords
-        intro = intro.replaceAll(RegExp(r'[^\n]*解压[码密][^\n]*', caseSensitive: false), '');
+        // Remove lines containing promotional codes (优惠码、折扣码、优惠卷)
+        intro = intro.replaceAll(RegExp(r'[^\n]*(优惠码|折扣码|优惠卷)[^\n]*'), '');
+        // Remove lines containing decompress passwords (解压码、解压密码、解压口令)
+        intro = intro.replaceAll(RegExp(r'[^\n]*(解压码|解压密码|解压口令)[^\n]*'), '');
+        // Remove lines containing extract codes (提取码)
+        intro = intro.replaceAll(RegExp(r'[^\n]*提取码[^\n]*'), '');
         // Remove lines containing VIP-related text
-        intro = intro.replaceAll(RegExp(r'[^\n]*VIP[^\n]*', caseSensitive: false), '');
+        intro = intro.replaceAll(RegExp(r'[^\n]*(VIP|vip|Vip)[^\n]*'), '');
+        // Remove lines containing 飞猫云 related text
+        intro = intro.replaceAll(RegExp(r'[^\n]*飞猫云[^\n]*'), '');
         // Clean up multiple newlines after filtering
         intro = intro.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
         metadata.intro = intro.isNotEmpty ? intro : null;

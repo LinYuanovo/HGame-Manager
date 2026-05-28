@@ -117,8 +117,9 @@ class AppTheme {
   };
 
   static ThemeData lightTheme({String? fontFamily}) {
+    final effectiveFontFamily = fontFamily ?? 'Microsoft YaHei';
     return ThemeData(
-      fontFamily: fontFamily ?? 'Microsoft YaHei',
+      fontFamily: effectiveFontFamily,
       brightness: Brightness.light,
       primaryColor: primaryColor,
       scaffoldBackgroundColor: backgroundColor,
@@ -157,7 +158,7 @@ class AppTheme {
         color: textSecondary,
         size: 24,
       ),
-      textTheme: const TextTheme(
+      textTheme: TextTheme(
         headlineLarge: TextStyle(
           color: textPrimary,
           fontSize: 34,
@@ -200,7 +201,7 @@ class AppTheme {
           color: textSecondary,
           fontSize: 13,
         ),
-      ),
+      ).apply(fontFamily: effectiveFontFamily),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor.withValues(alpha: 0.7),

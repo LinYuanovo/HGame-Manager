@@ -196,7 +196,7 @@ class _GamesPageState extends ConsumerState<GamesPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('添加本地游戏', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                const Text('添加本地游戏', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                 const SizedBox(height: 20),
                 TextFormField(
                   controller: pathController,
