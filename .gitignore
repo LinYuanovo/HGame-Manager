@@ -28,7 +28,6 @@ flutter_*.png
 # Native
 *.cxx
 *.cmake
-*.h
 *.java
 *.o
 *.obj
