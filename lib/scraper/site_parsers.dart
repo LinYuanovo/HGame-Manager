@@ -301,6 +301,54 @@ class FeiXueAcgParser extends SiteParser {
         script.remove();
       }
 
+      // Extract download links from showhide div BEFORE removing it
+      final downloadUrls = <String>[];
+      final showhideDiv = postContent.querySelector('div.showhide');
+      if (showhideDiv != null) {
+        // Use text content to get clean text without HTML tags
+        var showhideText = showhideDiv.text;
+        // Filter out hidden content marker
+        showhideText = showhideText.replaceAll('本帖隱藏的內容', '').trim();
+
+        // Parse each line
+        final lines = showhideText.split('\n').where((l) => l.trim().isNotEmpty).toList();
+        for (final line in lines) {
+          final trimmedLine = line.trim();
+          // Skip promotional codes
+          if (trimmedLine.contains('优惠码')) continue;
+          // Skip VIP-related text
+          if (trimmedLine.contains('VIP') || trimmedLine.contains('免飞猫')) continue;
+
+          // Parse labeled download links like "飞猫直链①：https://..."
+          final labeledMatch = RegExp(r'^([^：:]+)[：:]\s*(https?://.+)$').firstMatch(trimmedLine);
+          if (labeledMatch != null) {
+            final label = labeledMatch.group(1)!.trim();
+            final url = labeledMatch.group(2)!.trim();
+            if (_isDownloadLink(url)) {
+              downloadUrls.add('$label $url');
+            }
+            continue;
+          }
+
+          // Parse standalone URLs
+          final urlMatch = RegExp(r'https?://\S+').firstMatch(trimmedLine);
+          if (urlMatch != null) {
+            final url = urlMatch.group(0)!;
+            if (_isDownloadLink(url) && !downloadUrls.any((u) => u.contains(url))) {
+              downloadUrls.add(url);
+            }
+          }
+        }
+      }
+
+      // Now remove locked and showhide divs from post content
+      for (final lockedDiv in postContent.querySelectorAll('div.locked')) {
+        lockedDiv.remove();
+      }
+      for (final showhide in postContent.querySelectorAll('div.showhide')) {
+        showhide.remove();
+      }
+
       var fullText = postContent.text;
 
       // Filter out image attachment patterns
@@ -356,34 +404,15 @@ class FeiXueAcgParser extends SiteParser {
             .toList();
       }
 
-      // Extract download links from content text - pair each URL with its extract code
-      final downloadUrls = <String>[];
-      final linkMatches =
-          RegExp(r'https?://[^\s<>"\u3000\]]+').allMatches(fullText);
-      for (final match in linkMatches) {
-        final link = match.group(0)!;
-        if (_isDownloadLink(link) && !downloadUrls.any((u) => u.startsWith(link))) {
-          // Look for extract code right after this URL
-          final afterUrl = fullText.substring(match.end).trim();
-          final codeMatch = RegExp(r'^(?:提取码|密码)[：:]\s*(\w+)').firstMatch(afterUrl);
-          if (codeMatch != null) {
-            downloadUrls.add('$link 提取码: ${codeMatch.group(1)}');
-          } else {
-            downloadUrls.add(link);
-          }
-        }
-      }
-
-      // Also check locked div (VIP-only content)
-      final lockedDiv = postContent.querySelector('div.locked');
-      if (lockedDiv != null) {
-        final lockedText = lockedDiv.text;
-        final lockedMatches =
-            RegExp(r'https?://[^\s<>"\u3000\]]+').allMatches(lockedText);
-        for (final match in lockedMatches) {
+      // If still no links found in showhide, check full text
+      if (downloadUrls.isEmpty) {
+        final linkMatches =
+            RegExp(r'https?://[^\s<>"\u3000\]]+').allMatches(fullText);
+        for (final match in linkMatches) {
           final link = match.group(0)!;
           if (_isDownloadLink(link) && !downloadUrls.any((u) => u.startsWith(link))) {
-            final afterUrl = lockedText.substring(match.end).trim();
+            // Look for extract code right after this URL
+            final afterUrl = fullText.substring(match.end).trim();
             final codeMatch = RegExp(r'^(?:提取码|密码)[：:]\s*(\w+)').firstMatch(afterUrl);
             if (codeMatch != null) {
               downloadUrls.add('$link 提取码: ${codeMatch.group(1)}');
@@ -434,7 +463,10 @@ class FeiXueAcgParser extends SiteParser {
         url.contains('share.weiyun.com') ||
         url.contains('drive.uc.cn') ||
         url.contains('feixue.cloud') ||
-        url.contains('gofile.io');
+        url.contains('gofile.io') ||
+        url.contains('cm1.hk') ||
+        url.contains('cm2.hk') ||
+        url.contains('feimaocloud');
   }
 
   /// Extract text after a section label until the next recognizable section.

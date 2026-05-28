@@ -576,6 +576,15 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         continue; // Don't add decompress code line to download links
       }
 
+      // Check for labeled download link (e.g., "飞猫直链① https://...")
+      final labeledMatch = RegExp(r'^([^https]+)\s+(https?://.+)').firstMatch(line.trim());
+      if (labeledMatch != null) {
+        final customLabel = labeledMatch.group(1)!.trim();
+        final url = labeledMatch.group(2)!.trim();
+        grouped.putIfAbsent(customLabel, () => []).add(url);
+        continue;
+      }
+
       final uri = RegExp(r'https?://([^/]+)').firstMatch(line);
       final domain = uri?.group(1) ?? '其他';
       final label = _getDomainLabel(domain);
@@ -602,7 +611,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ...entry.value.map((link) {
-                final urlMatch = RegExp(r'https?://[^\s]+').firstMatch(link);
+                final urlMatch = RegExp('https?://[^\\s"\\)]+').firstMatch(link);
                 final url = urlMatch?.group(0) ?? '';
                 final extractCodeMatch = RegExp(r'(?:提取码|密码)[：:]\s*(\w+)').firstMatch(link);
                 final extractCode = extractCodeMatch?.group(1);
@@ -693,6 +702,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     if (domain.contains('gofile')) return 'GoFile';
     if (domain.contains('mega')) return 'Mega';
     if (domain.contains('mediafire')) return 'MediaFire';
+    if (domain.contains('cm1.hk') || domain.contains('cm2.hk') || domain.contains('feimaocloud')) return '飞猫网盘';
     return domain;
   }
 
