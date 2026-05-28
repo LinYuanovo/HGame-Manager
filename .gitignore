@@ -77,8 +77,34 @@ test_*.bat
 DEPLOYMENT.md
 QUICK_START.md
 
+# IDE and tools
 .trae/
 .claude/
 .trae/documents
 .metadata
 jav_manager.iml
+
+# Logs and sensitive data
+*.log
+logs/
+app_logs/
+*.bak
+*.tmp
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Sensitive settings (contains cookies/tokens)
+**/app_settings.json
+**/settings.json
+
+# Windows specific
+Thumbs.db
+Desktop.ini
+
+# Backup files
+*.zip
+*.tar.gz
+*.7z
