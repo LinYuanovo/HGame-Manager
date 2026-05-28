@@ -369,6 +369,20 @@ class FeiXueAcgParser extends SiteParser {
       // Extract intro section after "概要："
       metadata.intro = _extractSection(fullText, '概要');
 
+      // Filter out promotional codes and decompress passwords from intro
+      if (metadata.intro != null) {
+        var intro = metadata.intro!;
+        // Remove lines containing promotional codes
+        intro = intro.replaceAll(RegExp(r'[^\n]*优惠码[^\n]*', caseSensitive: false), '');
+        // Remove lines containing decompress passwords
+        intro = intro.replaceAll(RegExp(r'[^\n]*解压[码密][^\n]*', caseSensitive: false), '');
+        // Remove lines containing VIP-related text
+        intro = intro.replaceAll(RegExp(r'[^\n]*VIP[^\n]*', caseSensitive: false), '');
+        // Clean up multiple newlines after filtering
+        intro = intro.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+        metadata.intro = intro.isNotEmpty ? intro : null;
+      }
+
       // Extract images from post content using zoomfile/file attributes
       final images = postContent.querySelectorAll('img.zoom, ignore_js_op img');
       if (images.isEmpty) {
