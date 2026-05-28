@@ -1,8 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:archive/archive.dart';
+import '../../../core/database/database_helper.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/utils/app_paths.dart';
 import '../../../core/utils/proxy_client.dart';
+import '../../../core/services/webdav_service.dart';
 import '../../theme/app_theme.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -20,12 +25,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   late TextEditingController _cookieFeixueController;
   late TextEditingController _cookieVikacgController;
   late TextEditingController _customSeriesController;
+  late TextEditingController _webdavUrlController;
+  late TextEditingController _webdavUsernameController;
+  late TextEditingController _webdavPasswordController;
   String _proxyMode = 'none';
   bool _isTestingProxy = false;
   String? _proxyTestResult;
   String _selectedFont = '';
   double _fontSize = 14.0;
   double _detailFontSize = 14.0;
+  bool _webdavPasswordVisible = false;
+  bool _isBackingUp = false;
+  bool _isLoadingBackups = false;
+  List<WebDavFile>? _backupFiles;
 
   @override
   void initState() {
@@ -53,6 +65,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _cookieAcgyingController = TextEditingController(text: cookieAcgying);
     _cookieFeixueController = TextEditingController(text: cookieFeixue);
     _cookieVikacgController = TextEditingController(text: cookieVikacg);
+    _webdavUrlController = TextEditingController(text: prefs.getString('webdav_url') ?? '');
+    _webdavUsernameController = TextEditingController(text: prefs.getString('webdav_username') ?? '');
+    _webdavPasswordController = TextEditingController(text: prefs.getString('webdav_password') ?? '');
     _customSeriesController = TextEditingController();
     _proxyMode = proxyMode;
     _selectedFont = font;
@@ -69,6 +84,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _cookieFeixueController.dispose();
     _cookieVikacgController.dispose();
     _customSeriesController.dispose();
+    _webdavUrlController.dispose();
+    _webdavUsernameController.dispose();
+    _webdavPasswordController.dispose();
     super.dispose();
   }
 
@@ -94,6 +112,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           _buildCookieSection(),
           const SizedBox(height: 24),
           _buildFontSection(),
+          const SizedBox(height: 24),
+          _buildLocalBackupSection(),
+          const SizedBox(height: 24),
+          _buildWebdavSection(),
           const SizedBox(height: 24),
           _buildAboutSection(),
         ],
@@ -306,7 +328,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         if (_sortedPathController.text.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text(
-            '刮削完成后自动将游戏移动到: ${_sortedPathController.text}\\{游戏名}',
+            '刮削完成后自动将游戏移动到: ${_sortedPathController.text}\\{分类}\\{游戏名}',
             style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.6), fontSize: 11),
           ),
         ],
@@ -523,13 +545,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ),
         const SizedBox(height: 12),
         _buildCookieInput(
-          label: '微咔ACG (vikacg.com)',
+          label: '微咔ACG (vikacg.com) - Authorization',
           controller: _cookieVikacgController,
-          hint: '登录 vikacg.com 后复制 Cookie',
+          hint: '输入 Authorization Token（如 Bearer xxx）',
         ),
         const SizedBox(height: 8),
         Text(
-          '获取方法：浏览器按F12 → Network → 刷新页面 → 点击第一个请求 → 复制Request Headers中的Cookie值',
+          'ACG嘤嘤怪/飞雪ACG 获取方法：浏览器按F12 → Network → 刷新页面 → 点击第一个请求 → 复制Request Headers中的Cookie值',
+          style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5), fontSize: 11),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '微咔ACG 获取方法：浏览器按F12 → Network → 点击任意请求 → 复制Request Headers中的Authorization值',
           style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5), fontSize: 11),
         ),
       ],
@@ -871,7 +898,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Widget _buildAboutSection() {
-    const currentVersion = '1.0.0';
+    const currentVersion = '1.0.2';
 
     return _buildSection(
       title: '关于',
@@ -959,6 +986,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     await prefs.setString('cookie_acgying', _cookieAcgyingController.text.trim());
     await prefs.setString('cookie_feixue', _cookieFeixueController.text.trim());
     await prefs.setString('cookie_vikacg', _cookieVikacgController.text.trim());
+    await prefs.setString('webdav_url', _webdavUrlController.text.trim());
+    await prefs.setString('webdav_username', _webdavUsernameController.text.trim());
+    await prefs.setString('webdav_password', _webdavPasswordController.text);
     await prefs.setString('font_family', _selectedFont);
     await prefs.setDouble('font_size', _fontSize);
     await prefs.setDouble('detail_font_size', _detailFontSize);
@@ -1020,6 +1050,688 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           SnackBar(content: Text('扫描失败: $e'), backgroundColor: AppTheme.errorColor),
         );
       }
+    }
+  }
+
+  Widget _buildLocalBackupSection() {
+    return _buildSection(
+      title: '本地备份',
+      icon: Icons.folder_outlined,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _exportLocalBackup,
+                icon: const Icon(Icons.file_upload_outlined, size: 18),
+                label: const Text('导出备份'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                  foregroundColor: AppTheme.primaryColor,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _importLocalBackup,
+                icon: const Icon(Icons.file_download_outlined, size: 18),
+                label: const Text('导入备份'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.warningColor.withValues(alpha: 0.15),
+                  foregroundColor: AppTheme.warningColor,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWebdavSection() {
+    return _buildSection(
+      title: 'WebDAV 云备份',
+      icon: Icons.cloud_outlined,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _isLoadingBackups ? null : _showBackupList,
+                icon: _isLoadingBackups
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.cloud_queue, size: 18),
+                label: const Text('查看备份'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                  foregroundColor: AppTheme.primaryColor,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _isBackingUp ? null : _backupToWebdav,
+                icon: _isBackingUp
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.backup, size: 18),
+                label: const Text('备份数据'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.warningColor.withValues(alpha: 0.15),
+                  foregroundColor: AppTheme.warningColor,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _buildWebdavTextField(
+          controller: _webdavUrlController,
+          label: '服务地址',
+          hint: 'https://your-webdav-server.com/remote.php/dav/files/username/',
+          icon: Icons.link,
+        ),
+        const SizedBox(height: 12),
+        _buildWebdavTextField(
+          controller: _webdavUsernameController,
+          label: '用户名',
+          hint: 'WebDAV 账号',
+          icon: Icons.person_outline,
+        ),
+        const SizedBox(height: 12),
+        _buildWebdavPasswordField(),
+      ],
+    );
+  }
+
+  Widget _buildWebdavTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+            prefixIcon: Icon(icon, size: 18, color: AppTheme.textSecondary.withValues(alpha: 0.6)),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.5),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+              borderSide: BorderSide(color: AppTheme.textSecondary.withValues(alpha: 0.2)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+              borderSide: BorderSide(color: AppTheme.textSecondary.withValues(alpha: 0.2)),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWebdavPasswordField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('密码', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _webdavPasswordController,
+          obscureText: !_webdavPasswordVisible,
+          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+          decoration: InputDecoration(
+            hintText: 'WebDAV 密码',
+            hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+            prefixIcon: Icon(Icons.lock_outline, size: 18, color: AppTheme.textSecondary.withValues(alpha: 0.6)),
+            suffixIcon: IconButton(
+              icon: Icon(
+                _webdavPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                size: 20,
+                color: AppTheme.textSecondary.withValues(alpha: 0.6),
+              ),
+              onPressed: () => setState(() => _webdavPasswordVisible = !_webdavPasswordVisible),
+            ),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.5),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+              borderSide: BorderSide(color: AppTheme.textSecondary.withValues(alpha: 0.2)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+              borderSide: BorderSide(color: AppTheme.textSecondary.withValues(alpha: 0.2)),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _exportLocalBackup() async {
+    final dbPath = await DatabaseHelper.getDatabasePath();
+    final dbFile = File(dbPath);
+    if (!dbFile.existsSync()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('数据库文件不存在'), backgroundColor: AppTheme.errorColor),
+        );
+      }
+      return;
+    }
+
+    final now = DateTime.now();
+    final timestamp = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
+
+    final result = await FilePicker.saveFile(
+      dialogTitle: '导出备份',
+      fileName: 'hgame_manager_$timestamp.zip',
+    );
+
+    if (result == null) return;
+
+    try {
+      final settingsPath = await AppPaths.settingsFile;
+      final settingsFile = File(settingsPath);
+
+      final archive = Archive();
+      final dbBytes = await dbFile.readAsBytes();
+      archive.addFile(ArchiveFile('database.db', dbBytes.length, dbBytes));
+      if (settingsFile.existsSync()) {
+        final settingsBytes = await settingsFile.readAsBytes();
+        archive.addFile(ArchiveFile('settings.json', settingsBytes.length, settingsBytes));
+      }
+
+      final zipBytes = ZipEncoder().encode(archive);
+      await File(result).writeAsBytes(zipBytes);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('导出成功: $result'), backgroundColor: AppTheme.successColor),
+        );
+      }
+    } catch (e) {
+      debugPrint('Export backup error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('导出失败'), backgroundColor: AppTheme.errorColor),
+        );
+      }
+    }
+  }
+
+  Future<void> _importLocalBackup() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surfaceColor,
+        title: const Text('确认导入备份', style: TextStyle(color: AppTheme.textPrimary)),
+        content: const Text('导入备份将替换当前数据库和设置。导入后需要重启应用才能生效。', style: TextStyle(color: AppTheme.textSecondary)),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('确定导入', style: TextStyle(color: AppTheme.warningColor)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final result = await FilePicker.pickFiles(
+      dialogTitle: '选择备份文件',
+      allowMultiple: false,
+      allowedExtensions: ['zip', 'db'],
+    );
+
+    if (result == null || result.files.isEmpty) return;
+
+    final sourcePath = result.files.single.path;
+    if (sourcePath == null) return;
+
+    try {
+      final dbPath = await DatabaseHelper.getDatabasePath();
+      final settingsPath = await AppPaths.settingsFile;
+
+      if (sourcePath.endsWith('.zip')) {
+        final zipBytes = await File(sourcePath).readAsBytes();
+        final archive = ZipDecoder().decodeBytes(zipBytes);
+
+        await DatabaseHelper.close();
+
+        for (final file in archive) {
+          if (file.name == 'database.db') {
+            final dbFile = File(dbPath);
+            if (dbFile.existsSync()) await dbFile.delete();
+            await dbFile.writeAsBytes(file.content as List<int>);
+          } else if (file.name == 'settings.json') {
+            final settingsFile = File(settingsPath);
+            await settingsFile.writeAsBytes(file.content as List<int>);
+            await ref.read(sharedPreferencesProvider).reload();
+          }
+        }
+      } else {
+        await DatabaseHelper.close();
+        final dbFile = File(dbPath);
+        if (dbFile.existsSync()) await dbFile.delete();
+        await File(sourcePath).copy(dbPath);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('导入成功！请重启应用使数据生效。'), backgroundColor: AppTheme.successColor),
+        );
+      }
+    } catch (e) {
+      debugPrint('Import local backup error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('导入失败'), backgroundColor: AppTheme.errorColor),
+        );
+      }
+    }
+  }
+
+  void _showBackupList() async {
+    final url = _webdavUrlController.text.trim();
+    final username = _webdavUsernameController.text.trim();
+    final password = _webdavPasswordController.text;
+
+    if (url.isEmpty || username.isEmpty || password.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请先填写完整的 WebDAV 配置'), backgroundColor: AppTheme.warningColor),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isLoadingBackups = true);
+
+    final service = ref.read(webdavServiceProvider);
+    final files = await service.listBackups(
+      serverUrl: url,
+      username: username,
+      password: password,
+    );
+
+    if (mounted) {
+      setState(() {
+        _isLoadingBackups = false;
+        _backupFiles = files;
+      });
+      _showBackupDialog();
+    }
+  }
+
+  void _showBackupDialog() {
+    final files = _backupFiles ?? [];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surfaceColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusLarge)),
+        title: Row(
+          children: [
+            const Icon(Icons.cloud_queue, color: AppTheme.primaryColor, size: 22),
+            const SizedBox(width: 8),
+            const Text('云端备份列表', style: TextStyle(color: AppTheme.textPrimary, fontSize: 18)),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.refresh, size: 20),
+              color: AppTheme.textSecondary,
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _showBackupList();
+              },
+              tooltip: '刷新',
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, size: 20),
+              color: AppTheme.textSecondary,
+              onPressed: () => Navigator.of(ctx).pop(),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 780,
+          child: files.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: Center(
+                    child: Text('暂无备份文件', style: TextStyle(color: AppTheme.textSecondary)),
+                  ),
+                )
+              : SingleChildScrollView(
+                  child: DataTable(
+                    columnSpacing: 16,
+                    headingTextStyle: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                    dataTextStyle: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                    columns: const [
+                      DataColumn(label: Text('文件名')),
+                      DataColumn(label: Text('大小')),
+                      DataColumn(label: Text('备份日期')),
+                      DataColumn(label: Text('操作')),
+                    ],
+                    rows: files.map((f) {
+                      return DataRow(cells: [
+                        DataCell(Text(f.name, overflow: TextOverflow.ellipsis)),
+                        DataCell(Text(f.sizeFormatted)),
+                        DataCell(Text(f.modifiedDate != null
+                            ? '${f.modifiedDate!.year}-${f.modifiedDate!.month.toString().padLeft(2, '0')}-${f.modifiedDate!.day.toString().padLeft(2, '0')} ${f.modifiedDate!.hour.toString().padLeft(2, '0')}:${f.modifiedDate!.minute.toString().padLeft(2, '0')}'
+                            : '-')),
+                        DataCell(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _MiniIconButton(
+                                icon: Icons.download,
+                                tooltip: '下载',
+                                color: AppTheme.primaryColor,
+                                onTap: () => _downloadBackupFile(f.name),
+                              ),
+                              const SizedBox(width: 4),
+                              _MiniIconButton(
+                                icon: Icons.file_download_outlined,
+                                tooltip: '导入',
+                                color: AppTheme.successColor,
+                                onTap: () => _importBackupFile(f.name),
+                              ),
+                              const SizedBox(width: 4),
+                              _MiniIconButton(
+                                icon: Icons.delete_outline,
+                                tooltip: '删除',
+                                color: AppTheme.errorColor,
+                                onTap: () => _deleteBackupWithConfirm(f.name),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ]);
+                    }).toList(),
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _backupToWebdav() async {
+    final url = _webdavUrlController.text.trim();
+    final username = _webdavUsernameController.text.trim();
+    final password = _webdavPasswordController.text;
+
+    if (url.isEmpty || username.isEmpty || password.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请先填写完整的 WebDAV 配置'), backgroundColor: AppTheme.warningColor),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isBackingUp = true);
+
+    try {
+      final dbPath = await DatabaseHelper.getDatabasePath();
+      final dbFile = File(dbPath);
+      if (!dbFile.existsSync()) {
+        if (mounted) {
+          setState(() => _isBackingUp = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('数据库文件不存在'), backgroundColor: AppTheme.errorColor),
+          );
+        }
+        return;
+      }
+
+      final settingsPath = await AppPaths.settingsFile;
+      final settingsFile = File(settingsPath);
+
+      final archive = Archive();
+      final dbBytes = await dbFile.readAsBytes();
+      archive.addFile(ArchiveFile('database.db', dbBytes.length, dbBytes));
+      if (settingsFile.existsSync()) {
+        final settingsBytes = await settingsFile.readAsBytes();
+        archive.addFile(ArchiveFile('settings.json', settingsBytes.length, settingsBytes));
+      }
+      final zipBytes = ZipEncoder().encode(archive);
+
+      final tempDir = Directory.systemTemp;
+      final now = DateTime.now();
+      final timestamp = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
+      final tempZipPath = '${tempDir.path}${Platform.pathSeparator}hgame_manager_$timestamp.zip';
+      await File(tempZipPath).writeAsBytes(zipBytes);
+
+      final service = ref.read(webdavServiceProvider);
+      final ok = await service.uploadBackup(
+        serverUrl: url,
+        username: username,
+        password: password,
+        localFilePath: tempZipPath,
+      );
+
+      final tempFile = File(tempZipPath);
+      if (await tempFile.exists()) await tempFile.delete();
+
+      if (mounted) {
+        setState(() => _isBackingUp = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ok ? '备份成功' : '备份失败，请检查配置和服务器状态'),
+            backgroundColor: ok ? AppTheme.successColor : AppTheme.errorColor,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('WebDAV backup error: $e');
+      if (mounted) {
+        setState(() => _isBackingUp = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('备份失败: $e'), backgroundColor: AppTheme.errorColor),
+        );
+      }
+    }
+  }
+
+  Future<void> _downloadBackupFile(String fileName) async {
+    final url = _webdavUrlController.text.trim();
+    final username = _webdavUsernameController.text.trim();
+    final password = _webdavPasswordController.text;
+
+    final result = await FilePicker.getDirectoryPath(dialogTitle: '选择保存位置');
+    if (result == null) return;
+
+    final localPath = '$result${Platform.pathSeparator}$fileName';
+    final service = ref.read(webdavServiceProvider);
+    final ok = await service.downloadBackup(
+      serverUrl: url,
+      username: username,
+      password: password,
+      remoteFileName: fileName,
+      localPath: localPath,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ok ? '下载成功: $localPath' : '下载失败'),
+          backgroundColor: ok ? AppTheme.successColor : AppTheme.errorColor,
+        ),
+      );
+    }
+  }
+
+  Future<void> _importBackupFile(String fileName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surfaceColor,
+        title: const Text('确认导入备份', style: TextStyle(color: AppTheme.textPrimary)),
+        content: Text(
+          '导入备份将替换当前数据库和设置。导入后需要重启应用才能生效。\n\n确定要导入 "$fileName" 吗？',
+          style: const TextStyle(color: AppTheme.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('确定导入', style: TextStyle(color: AppTheme.warningColor)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final url = _webdavUrlController.text.trim();
+    final username = _webdavUsernameController.text.trim();
+    final password = _webdavPasswordController.text;
+
+    final dbPath = await DatabaseHelper.getDatabasePath();
+    final service = ref.read(webdavServiceProvider);
+    final tempPath = await service.importBackup(
+      serverUrl: url,
+      username: username,
+      password: password,
+      remoteFileName: fileName,
+      localDbPath: dbPath,
+    );
+
+    bool ok = false;
+    if (tempPath != null) {
+      try {
+        final tempFile = File(tempPath);
+        if (!tempFile.existsSync()) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('导入失败：临时文件不存在'), backgroundColor: AppTheme.errorColor),
+            );
+          }
+          return;
+        }
+
+        await DatabaseHelper.close();
+
+        if (fileName.endsWith('.zip')) {
+          final zipBytes = await tempFile.readAsBytes();
+          final archive = ZipDecoder().decodeBytes(zipBytes);
+
+          for (final file in archive) {
+            if (file.name == 'database.db') {
+              final dbFile = File(dbPath);
+              if (dbFile.existsSync()) await dbFile.delete();
+              await dbFile.writeAsBytes(file.content as List<int>);
+            } else if (file.name == 'settings.json') {
+              final settingsPath = await AppPaths.settingsFile;
+              final settingsFile = File(settingsPath);
+              await settingsFile.writeAsBytes(file.content as List<int>);
+              await ref.read(sharedPreferencesProvider).reload();
+            }
+          }
+        } else {
+          final dbFile = File(dbPath);
+          if (dbFile.existsSync()) await dbFile.delete();
+          await tempFile.copy(dbPath);
+        }
+
+        if (tempFile.existsSync()) await tempFile.delete();
+
+        ok = true;
+      } catch (e) {
+        debugPrint('Failed to import backup: $e');
+        try {
+          final tempFile = File(tempPath);
+          if (tempFile.existsSync()) await tempFile.delete();
+        } catch (_) {}
+      }
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ok ? '导入成功！请重启应用使数据生效。' : '导入失败'),
+          backgroundColor: ok ? AppTheme.successColor : AppTheme.errorColor,
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteBackupWithConfirm(String fileName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surfaceColor,
+        title: const Text('确认删除', style: TextStyle(color: AppTheme.textPrimary)),
+        content: Text('确定要删除云端备份 "$fileName" 吗？此操作不可撤销。', style: const TextStyle(color: AppTheme.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('删除', style: TextStyle(color: AppTheme.errorColor)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final url = _webdavUrlController.text.trim();
+    final username = _webdavUsernameController.text.trim();
+    final password = _webdavPasswordController.text;
+
+    final service = ref.read(webdavServiceProvider);
+    final ok = await service.deleteBackup(
+      serverUrl: url,
+      username: username,
+      password: password,
+      remoteFileName: fileName,
+    );
+
+    if (mounted && ok) {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      _showBackupList();
     }
   }
 }
@@ -1186,6 +1898,35 @@ class _BlacklistDialogState extends ConsumerState<_BlacklistDialog> {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniIconButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _MiniIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(4),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Icon(icon, size: 18, color: color),
         ),
       ),
     );

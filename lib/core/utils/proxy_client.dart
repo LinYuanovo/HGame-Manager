@@ -100,7 +100,8 @@ Future<String> getCookieForSite(String url) async {
   return '';
 }
 
-/// Build request headers with User-Agent and site-specific Cookie
+/// Build request headers with User-Agent and site-specific authentication.
+/// VikACG/weika uses Authorization header; other sites use Cookie.
 Future<Map<String, String>> buildScrapeHeaders(String url) async {
   final cookie = await getCookieForSite(url);
   final headers = <String, String>{
@@ -109,7 +110,13 @@ Future<Map<String, String>> buildScrapeHeaders(String url) async {
     'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
   };
   if (cookie.isNotEmpty) {
-    headers['Cookie'] = cookie;
+    final uri = Uri.tryParse(url);
+    final host = uri?.host.toLowerCase() ?? '';
+    if (host.contains('vikacg') || host.contains('weika')) {
+      headers['Authorization'] = cookie;
+    } else {
+      headers['Cookie'] = cookie;
+    }
   }
   return headers;
 }

@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import '../../../core/models/models.dart';
@@ -28,7 +27,7 @@ class _ScrapeStats {
 }
 
 class _GameScrapeItem {
-  final Game game;
+  Game game;
   double progress;
   String status;
   String? error;
@@ -485,16 +484,6 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   }
 
   Future<void> _startScan() async {
-    final prefs = ref.read(sharedPreferencesProvider);
-    var libraryPath = prefs.getString('library_path') ?? '';
-
-    if (libraryPath.isEmpty) {
-      final result = await FilePicker.getDirectoryPath(dialogTitle: '选择游戏库根目录');
-      if (result == null) return;
-      libraryPath = result;
-      await prefs.setString('library_path', libraryPath);
-    }
-
     setState(() {
       _isProcessing = true;
       _processStatus = '扫描中';
@@ -507,26 +496,31 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     });
 
     try {
-      final scanner = ref.read(gameScannerServiceProvider);
-      final ignoreStr = prefs.getString('scan_ignore_folders') ?? '';
-      final ignoreFolders = ignoreStr.split(',').where((s) => s.trim().isNotEmpty).toList();
-      await scanner.scanGameLibrary(libraryPath, ignoreFolders: ignoreFolders);
+      final prefs = ref.read(sharedPreferencesProvider);
+      var libraryPath = prefs.getString('library_path') ?? '';
 
-      final gameRepo = ref.read(gameRepositoryProvider);
-      final allGames = await gameRepo.getAllGames();
+      if (libraryPath.isEmpty) {
+        _addLog('错误: 未设置游戏库路径，请先在设置中配置');
+        setState(() {
+          _isProcessing = false;
+          _processStatus = '空闲';
+        });
+        return;
+      }
+
       final scrapeIgnoreStr = prefs.getString('scrape_ignore_folders') ?? '';
       final scrapeIgnoreFolders = scrapeIgnoreStr.split(',').where((s) => s.trim().isNotEmpty).toList();
-      final gamesToScrape = allGames
-          .where((g) {
-            if (g.sourceUrl == null || g.sourceUrl!.isEmpty) return false;
-            final folderName = path.basename(g.path);
-            if (scrapeIgnoreFolders.any((ig) => ig.toLowerCase() == folderName.toLowerCase())) return false;
-            return true;
-          })
-          .toList();
+
+      if (scrapeIgnoreFolders.isNotEmpty) {
+        _addLog('刮削忽略文件夹: ${scrapeIgnoreFolders.join(", ")}');
+      }
+
+      _addLog('开始扫描游戏库: $libraryPath');
+
+      final gamesToScrape = await _scanForSourceUrlFiles(libraryPath, scrapeIgnoreFolders);
 
       _addLog('========== 扫描完成 ==========');
-      _addLog('共发现 ${allGames.length} 个游戏，其中 ${gamesToScrape.length} 个有源URL可刮削');
+      _addLog('共发现 ${gamesToScrape.length} 个有源URL的游戏可刮削');
 
       setState(() {
         _gameItems.addAll(gamesToScrape.map((g) => _GameScrapeItem(game: g)));
@@ -542,6 +536,45 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         _processStatus = '空闲';
       });
     }
+  }
+
+  Future<List<Game>> _scanForSourceUrlFiles(String rootPath, List<String> ignoreFolders) async {
+    final games = <Game>[];
+    final dir = Directory(rootPath);
+    if (!await dir.exists()) return games;
+
+    await for (final entity in dir.list(followLinks: false)) {
+      if (entity is Directory) {
+        final folderName = path.basename(entity.path);
+
+        if (ignoreFolders.any((ig) => ig.toLowerCase() == folderName.toLowerCase())) {
+          _addLog('忽略文件夹: $folderName');
+          continue;
+        }
+
+        final sourceUrlFile = File(path.join(entity.path, 'source_url.txt'));
+        if (await sourceUrlFile.exists()) {
+          try {
+            final sourceUrl = (await sourceUrlFile.readAsString()).trim();
+            if (sourceUrl.isNotEmpty) {
+              games.add(Game(
+                id: null,
+                path: entity.path,
+                title: folderName,
+                sourceUrl: sourceUrl,
+              ));
+              _addLog('发现游戏: $folderName -> $sourceUrl');
+            }
+          } catch (e) {
+            _addLog('读取source_url.txt失败: ${entity.path} - $e');
+          }
+        } else {
+          games.addAll(await _scanForSourceUrlFiles(entity.path, ignoreFolders));
+        }
+      }
+    }
+
+    return games;
   }
 
   Future<void> _startScrape() async {
@@ -608,15 +641,23 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
               final metadataFile = File(path.join(game.path, 'metadata.json'));
               await metadataFile.writeAsString(jsonEncode(metadata.toJson()), flush: true);
-              await gameRepo.updateGame(updated);
+
+              int gameId;
+              if (game.id != null) {
+                await gameRepo.updateGame(updated);
+                gameId = game.id!;
+              } else {
+                gameId = await gameRepo.insertGame(updated);
+                item.game = updated.copyWith(id: gameId);
+              }
 
               for (final tagName in metadata.tags) {
                 final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
-                await gameRepo.addTagToGame(game.id!, tagId);
+                await gameRepo.addTagToGame(gameId, tagId);
               }
               if (metadata.series != null) {
                 final tagId = await tagRepo.insertOrGetTag(metadata.series!, Tag.typeSeries);
-                await gameRepo.addTagToGame(game.id!, tagId);
+                await gameRepo.addTagToGame(gameId, tagId);
               }
 
               // Smart tag overlap: if a game has tag "互动SLG" and "SLG" exists in the system,
@@ -632,7 +673,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                   (t) => t.toLowerCase().contains(existingTag.name.toLowerCase()) && t.toLowerCase() != existingTag.name.toLowerCase()
                 );
                 if (isOverlapping) {
-                  await gameRepo.addTagToGame(game.id!, existingTag.id!);
+                  await gameRepo.addTagToGame(gameId, existingTag.id!);
                   _addLog('  -> 智能关联标签: ${existingTag.name}');
                 }
               }
@@ -642,7 +683,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               // Download images
               if (metadata.imageUrls.isNotEmpty) {
                 _addLog('  -> 下载 ${metadata.imageUrls.length} 张配图...');
-                await _downloadImages(game, metadata.imageUrls, client, headers);
+                await _downloadImages(item.game, metadata.imageUrls, client, headers);
               }
 
               setState(() {
@@ -652,7 +693,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 _stats.pending--;
               });
 
-              await _moveToSorted(game);
+              await _moveToSorted(item.game);
             } else {
               _addLog('  -> 无匹配的解析器 (HTML已获取但无法解析)');
               setState(() {

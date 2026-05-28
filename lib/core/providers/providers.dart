@@ -5,6 +5,7 @@ import '../repositories/game_repository.dart';
 import '../repositories/tag_repository.dart';
 import '../services/game_scanner_service.dart';
 import '../services/game_count_service.dart';
+import '../services/webdav_service.dart';
 import '../models/models.dart';
 
 final sharedPreferencesProvider = Provider<AppSettings>((ref) {
@@ -41,6 +42,10 @@ final gameScannerServiceProvider = Provider<GameScannerService>((ref) {
 
 final gameCountServiceProvider = Provider<GameCountService>((ref) {
   return GameCountService(ref);
+});
+
+final webdavServiceProvider = Provider<WebdavService>((ref) {
+  return WebdavService();
 });
 
 final allGamesProvider = FutureProvider<List<Game>>((ref) async {
