@@ -623,23 +623,22 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           final response = await client.get(Uri.parse(game.sourceUrl!), headers: headers);
 
           if (response.statusCode == 200) {
-            final metadata = _scraper.scrape(response.body, game.sourceUrl!);
-            if (metadata != null) {
-              if (metadata.title != null) {
-                metadata.title = _stripVersionFromTitle(metadata.title!, metadata.version);
-              }
-              final displayTitle = metadata.title;
+            final gameInfo = _scraper.scrapeGameInfo(response.body, game.sourceUrl!);
+            if (gameInfo != null) {
+              final displayTitle = gameInfo.title != null
+                  ? _stripVersionFromTitle(gameInfo.title!, gameInfo.version)
+                  : null;
               final updated = game.copyWith(
                 title: displayTitle ?? game.title,
-                version: metadata.version ?? game.version,
-                intro: metadata.intro ?? game.intro,
-                features: metadata.features ?? game.features,
-                changelog: metadata.changelog ?? game.changelog,
-                downloadUrl: metadata.downloadUrl ?? game.downloadUrl,
+                version: gameInfo.version ?? game.version,
+                intro: gameInfo.description ?? game.intro,
+                features: gameInfo.features.isNotEmpty ? gameInfo.features.join('\n') : game.features,
+                changelog: gameInfo.changelog ?? game.changelog,
+                downloadUrl: gameInfo.downloadUrl.isNotEmpty ? gameInfo.downloadUrl : game.downloadUrl,
               );
 
               final metadataFile = File(path.join(game.path, 'metadata.json'));
-              await metadataFile.writeAsString(jsonEncode(metadata.toJson()), flush: true);
+              await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()), flush: true);
 
               int gameId;
               if (game.id != null) {
@@ -650,19 +649,19 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 item.game = updated.copyWith(id: gameId);
               }
 
-              for (final tagName in metadata.tags) {
+              for (final tagName in gameInfo.tags) {
                 final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
                 await gameRepo.addTagToGame(gameId, tagId);
               }
-              if (metadata.series != null) {
-                final tagId = await tagRepo.insertOrGetTag(metadata.series!, Tag.typeSeries);
+              if (gameInfo.category != null) {
+                final tagId = await tagRepo.insertOrGetTag(gameInfo.category!, Tag.typeSeries);
                 await gameRepo.addTagToGame(gameId, tagId);
               }
 
               // Smart tag overlap: if a game has tag "互动SLG" and "SLG" exists in the system,
               // also associate the game with "SLG"
               final allTags = await tagRepo.getAllTags();
-              final gameTagNames = [...metadata.tags, if (metadata.series != null) metadata.series!];
+              final gameTagNames = [...gameInfo.tags, if (gameInfo.category != null) gameInfo.category!];
               for (final existingTag in allTags) {
                 // Skip if already associated
                 final alreadyHas = gameTagNames.any((t) => t.toLowerCase() == existingTag.name.toLowerCase());
@@ -680,9 +679,15 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               _addLog('  -> 成功: ${displayTitle ?? "无标题"}');
 
               // Download images
-              if (metadata.imageUrls.isNotEmpty) {
-                _addLog('  -> 下载 ${metadata.imageUrls.length} 张配图...');
-                await _downloadImages(item.game, metadata.imageUrls, client, headers);
+              if (gameInfo.screenshots.isNotEmpty) {
+                _addLog('  -> 下载 ${gameInfo.screenshots.length} 张配图...');
+                await _downloadImages(updated.copyWith(id: gameId), gameInfo.screenshots, client, headers);
+              }
+
+              // Reload game with images from database
+              final reloadedGame = await gameRepo.getGameById(gameId);
+              if (reloadedGame != null) {
+                item.game = reloadedGame;
               }
 
               setState(() {
@@ -747,6 +752,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       await imagesDir.create(recursive: true);
     }
 
+    // Get existing images from database
+    final existingImages = await gameRepo.getGameImages(game.id!);
+    final existingPaths = existingImages.map((img) => img.imagePath).toSet();
+
     int downloaded = 0;
     for (int i = 0; i < imageUrls.length; i++) {
       final imageUrl = imageUrls[i];
@@ -757,26 +766,31 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         final fileName = '${i + 1}$validExt';
         final filePath = path.join(imagesDir.path, fileName);
 
-        // Skip if already exists
-        if (File(filePath).existsSync()) {
+        // Check if already in database
+        if (existingPaths.contains(filePath)) {
           downloaded++;
           continue;
         }
 
-        final imgResponse = await client.get(uri, headers: headers).timeout(const Duration(seconds: 15));
-        if (imgResponse.statusCode == 200 && imgResponse.bodyBytes.isNotEmpty) {
-          await File(filePath).writeAsBytes(imgResponse.bodyBytes, flush: true);
-          // Save to database
-          await gameRepo.addGameImage(game.id!, filePath, i);
-          downloaded++;
-        } else {
-          _addLog('    图片 ${i + 1} 下载失败: HTTP ${imgResponse.statusCode}');
+        // Download if not exists
+        if (!File(filePath).existsSync()) {
+          final imgResponse = await client.get(uri, headers: headers).timeout(const Duration(seconds: 15));
+          if (imgResponse.statusCode == 200 && imgResponse.bodyBytes.isNotEmpty) {
+            await File(filePath).writeAsBytes(imgResponse.bodyBytes, flush: true);
+          } else {
+            _addLog('    图片 ${i + 1} 下载失败: HTTP ${imgResponse.statusCode}');
+            continue;
+          }
         }
+
+        // Save to database (both new downloads and existing files)
+        await gameRepo.addGameImage(game.id!, filePath, i);
+        downloaded++;
       } catch (e) {
-        _addLog('    图片 ${i + 1} 下载失败: $e');
+        _addLog('    图片 ${i + 1} 处理失败: $e');
       }
     }
-    _addLog('  -> 配图下载完成: $downloaded/${imageUrls.length}');
+    _addLog('  -> 配图处理完成: $downloaded/${imageUrls.length}');
   }
 
   static const _categoryOrder = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS', '3D'];
@@ -810,7 +824,19 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     }
 
     try {
-      if (await targetDir.exists()) return;
+      if (await targetDir.exists()) {
+        _addLog('  -> 目标目录已存在，跳过移动');
+        return;
+      }
+
+      // Check if target path already exists in database
+      final existingGame = await gameRepo.getGameByPath(targetDir.path);
+      if (existingGame != null) {
+        // Delete the existing game record to avoid UNIQUE constraint
+        await gameRepo.deleteGame(existingGame.id!);
+        _addLog('  -> 已删除目标路径的旧记录');
+      }
+
       await sourceDir.rename(targetDir.path);
       await gameRepo.updateGamePath(game.id!, targetDir.path);
       // Update image paths in database after moving the directory

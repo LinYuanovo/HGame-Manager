@@ -2,14 +2,18 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
 import '../core/services/app_logger.dart';
 import 'site_parsers.dart';
+import 'parse_utils.dart';
 
 /// Base class for site-specific parsers
 abstract class SiteParser {
   /// The domain this parser handles (e.g., 'acgying.com')
   String get domain;
 
-  /// Parse metadata from HTML content
+  /// Parse metadata from HTML content (legacy)
   GameMetadata parse(Document document, String url);
+
+  /// Parse game info from HTML content (new unified model)
+  GameInfo? parseGameInfo(Document document, String url) => null;
 }
 
 /// Parsed game metadata
@@ -89,6 +93,47 @@ class HtmlScraper {
     registerAllParsers();
   }
 
+  GameInfo? scrapeGameInfo(String htmlContent, String url) {
+    _ensureRegistered();
+
+    var parser = ParserRegistry.getParserForUrl(url);
+    if (parser == null) {
+      _log.warning('Scraper', 'No specific parser found for URL: $url');
+      return null;
+    }
+
+    try {
+      final document = html_parser.parse(htmlContent);
+      final gameInfo = parser.parseGameInfo(document, url);
+      if (gameInfo != null) {
+        _log.info('Scraper', 'Parsed GameInfo: ${gameInfo.title}');
+        return gameInfo;
+      }
+
+      final metadata = parser.parse(document, url);
+      metadata.sourceUrl = url;
+      return _metadataToGameInfo(metadata);
+    } catch (e, stackTrace) {
+      _log.error('Scraper', 'Parse error for $url', e, stackTrace);
+      return null;
+    }
+  }
+
+  GameInfo _metadataToGameInfo(GameMetadata metadata) {
+    return GameInfo(
+      title: metadata.title,
+      version: metadata.version,
+      tags: metadata.tags,
+      category: metadata.series,
+      description: metadata.intro,
+      features: metadata.features != null ? [metadata.features!] : [],
+      changelog: metadata.changelog,
+      screenshots: metadata.imageUrls,
+      downloads: extractDownloadLinks(metadata.downloadUrl ?? ''),
+      sourceUrl: metadata.sourceUrl ?? '',
+    );
+  }
+
   GameMetadata? scrape(String htmlContent, String url) {
     _ensureRegistered();
 
@@ -135,12 +180,12 @@ class HtmlScraper {
         }
 
         if (contentText != null) {
-          metadata.intro = contentText.substring(0, contentText.length > 1000 ? 1000 : contentText.length) + (contentText.length > 1000 ? '...' : '');
+          metadata.intro = contentText.substring(0, contentText.length > 1500 ? 1500 : contentText.length) + (contentText.length > 1500 ? '...' : '');
         } else if (document.body != null) {
           // Last resort: use body text
           final bodyText = document.body!.text.trim();
           if (bodyText.length > 50) {
-            metadata.intro = bodyText.substring(0, bodyText.length > 1000 ? 1000 : bodyText.length) + (bodyText.length > 1000 ? '...' : '');
+            metadata.intro = bodyText.substring(0, bodyText.length > 1500 ? 1500 : bodyText.length) + (bodyText.length > 1500 ? '...' : '');
             _log.info('Scraper', 'Using body text as fallback intro');
           }
         }

@@ -1,5 +1,6 @@
 import 'package:html/dom.dart';
 import 'html_parser.dart';
+import 'parse_utils.dart';
 import '../core/services/app_logger.dart';
 
 const kValidSeriesTypes = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS'];
@@ -29,6 +30,99 @@ class _MarkerPos {
 class AcgYingParser extends SiteParser {
   @override
   String get domain => 'acgyyg';
+
+  @override
+  GameInfo? parseGameInfo(Document document, String url) {
+    final titleEl = document.querySelector('h3.post-title');
+    var rawTitle = titleEl?.text.trim();
+    if (rawTitle == null) return null;
+
+    final tags = extractBracketsFromTitle(rawTitle) ?? [];
+    final category = normalizeSeries(tags.isNotEmpty ? tags.first : null);
+
+    final cleanTitle = rawTitle
+        .replaceAll(RegExp(r'【[^】]*】'), '')
+        .replaceAll(RegExp(r'\[[^\]]*\]'), '')
+        .trim();
+
+    final version = extractVersion(cleanTitle);
+
+    final postContent = document.querySelector('div.post-content');
+    String? description;
+    List<String> features = [];
+    String? changelog;
+    final screenshots = <String>[];
+    final downloads = <DownloadLink>[];
+    String? unzipCode;
+
+    if (postContent != null) {
+      final fullText = postContent.text;
+      final sections = _splitSections(fullText);
+
+      description = sections['游戏介绍'];
+      final featuresText = sections['游戏特点'];
+      if (featuresText != null) {
+        features = featuresText
+            .split('\n')
+            .map((l) => l.trim())
+            .where((l) => l.isNotEmpty)
+            .toList();
+      }
+      changelog = sections['更新内容'];
+
+      final linksSection = sections['链接'];
+      if (linksSection != null) {
+        downloads.addAll(extractDownloadLinks(linksSection));
+      }
+
+      unzipCode = extractUnzipCode(fullText);
+
+      final images = postContent.querySelectorAll('img');
+      for (final img in images) {
+        final src = img.attributes['src'] ?? '';
+        if (src.isNotEmpty &&
+            src.contains('wp-content/uploads') &&
+            !src.endsWith('.svg') &&
+            !src.endsWith('.ico')) {
+          screenshots.add(src);
+        }
+      }
+    }
+
+    final postMeta = document.querySelector('div.post-meta');
+    String? publishDate;
+    if (postMeta != null) {
+      final dateMatch = RegExp(r'(\d{4}-\d{2}-\d{2})').firstMatch(postMeta.text);
+      if (dateMatch != null) {
+        publishDate = dateMatch.group(1);
+      }
+    }
+
+    if (unzipCode != null && downloads.isNotEmpty) {
+      final last = downloads.last;
+      downloads[downloads.length - 1] = DownloadLink(
+        url: last.url,
+        label: last.label,
+        provider: last.provider,
+        password: last.password,
+        unzipCode: unzipCode,
+      );
+    }
+
+    return GameInfo(
+      title: cleanTitle,
+      version: version,
+      tags: tags,
+      category: category,
+      description: description,
+      features: features,
+      changelog: changelog,
+      screenshots: screenshots,
+      downloads: downloads,
+      publishDate: publishDate,
+      sourceUrl: url,
+    );
+  }
 
   @override
   GameMetadata parse(Document document, String url) {
@@ -218,6 +312,182 @@ class AcgYingParser extends SiteParser {
 class FeiXueAcgParser extends SiteParser {
   @override
   String get domain => 'feixueacg';
+
+  @override
+  GameInfo? parseGameInfo(Document document, String url) {
+    final titleEl = document.querySelector('span#thread_subject');
+    var rawTitle = titleEl?.text.trim();
+    if (rawTitle == null) return null;
+
+    final tags = extractBracketsFromTitle(rawTitle) ?? [];
+    final category = normalizeSeries(tags.isNotEmpty ? tags.first : null);
+
+    final cleanTitle = rawTitle
+        .replaceAll(RegExp(r'【[^】]*】'), '')
+        .replaceAll(RegExp(r'\[[^\]]*\]'), '')
+        .trim();
+
+    final version = extractVersion(cleanTitle);
+
+    final typeOption = document.querySelector('div.typeoption table');
+    final platforms = <String>[];
+    if (typeOption != null) {
+      for (final row in typeOption.querySelectorAll('tr')) {
+        final th = row.querySelector('th');
+        final td = row.querySelector('td');
+        if (th != null && td != null) {
+          final label = th.text.trim();
+          final value = td.text.trim().replaceAll('\u00A0', '').trim();
+          if (value.isEmpty) continue;
+          switch (label) {
+            case '游玩平台':
+              platforms.add(value);
+            case '游戏类型':
+              final normalized = normalizeSeries(value);
+              if (normalized != null && category == null) {
+                tags.insert(0, normalized);
+              }
+            case '游戏语言':
+            case '偏好类型':
+            case 'XP口味':
+              if (!tags.contains(value)) tags.add(value);
+          }
+        }
+      }
+    }
+
+    final postContent = document.querySelector('td.t_f');
+    String? description;
+    String? changelog;
+    final screenshots = <String>[];
+    final downloads = <DownloadLink>[];
+    String? unzipCode;
+
+    // 先从签名区域提取解压码
+    final signDiv = document.querySelector('div.sign');
+    if (signDiv != null) {
+      unzipCode = extractUnzipCode(signDiv.text);
+    }
+
+    if (postContent != null) {
+      for (final tipDiv in postContent.querySelectorAll('div.tip, div.tip_4, div.aimg_tip')) {
+        tipDiv.remove();
+      }
+      for (final script in postContent.querySelectorAll('script')) {
+        script.remove();
+      }
+
+      final showhideDiv = postContent.querySelector('div.showhide');
+      if (showhideDiv != null) {
+        var showhideText = showhideDiv.text;
+        showhideText = showhideText.replaceAll('本帖隱藏的內容', '').trim();
+
+        // 过滤掉优惠码、VIP相关文本
+        final lines = showhideText.split('\n').where((l) => l.trim().isNotEmpty).toList();
+        final filteredLines = <String>[];
+        for (final line in lines) {
+          final trimmedLine = line.trim();
+          if (trimmedLine.contains('优惠码')) continue;
+          if (trimmedLine.contains('VIP') || trimmedLine.contains('免飞猫')) continue;
+          filteredLines.add(trimmedLine);
+        }
+        showhideText = filteredLines.join('\n');
+
+        downloads.addAll(extractDownloadLinks(showhideText));
+      }
+
+      for (final lockedDiv in postContent.querySelectorAll('div.locked')) {
+        lockedDiv.remove();
+      }
+      for (final showhide in postContent.querySelectorAll('div.showhide')) {
+        showhide.remove();
+      }
+
+      var fullText = postContent.text;
+      fullText = fullText.replaceAll(RegExp(r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件[^\n]*(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳'), '');
+      fullText = fullText.replaceAll(RegExp(r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件'), '');
+
+      final uploadMarker = RegExp(r'(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳');
+      final allMarkers = uploadMarker.allMatches(fullText).toList();
+      if (allMarkers.isNotEmpty) {
+        fullText = fullText.substring(allMarkers.last.end).trim();
+      }
+
+      fullText = fullText.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+
+      // 应用基本噪音过滤
+      fullText = filterCommonNoise(fullText);
+
+      final images = postContent.querySelectorAll('img.zoom, ignore_js_op img');
+      final imageList = images.isEmpty ? postContent.querySelectorAll('img') : images;
+      for (final img in imageList) {
+        final src = img.attributes['zoomfile'] ??
+            img.attributes['file'] ??
+            img.attributes['src'] ??
+            '';
+        if (src.isNotEmpty &&
+            !src.contains('static/image/common') &&
+            !src.endsWith('.svg') &&
+            !src.endsWith('.ico')) {
+          screenshots.add(src);
+        }
+      }
+
+      if (downloads.isEmpty) {
+        downloads.addAll(extractDownloadLinks(fullText));
+      }
+
+      // 先提取解压码，然后在过滤描述时排除它
+      // 尝试多个可能的section名称
+      description = _extractSection(fullText, '概要') ??
+                    _extractSection(fullText, '游戏介绍') ??
+                    _extractSection(fullText, '简介');
+      if (description != null) {
+        description = filterDescription(description, unzipCodeFromSign: unzipCode);
+        if (description.isEmpty) description = null;
+      }
+
+      // 提取更新日志
+      changelog = _extractSection(fullText, '更新日志') ??
+                  _extractSection(fullText, '更新内容');
+      if (changelog != null) {
+        changelog = filterCommonNoise(changelog);
+        if (changelog.isEmpty) changelog = null;
+      }
+    }
+
+    final ptgLinks = document.querySelectorAll('div.ptg a');
+    for (final a in ptgLinks) {
+      final tag = a.text.trim();
+      if (tag.isNotEmpty && !tags.contains(tag)) {
+        tags.add(tag);
+      }
+    }
+
+    if (unzipCode != null && downloads.isNotEmpty) {
+      final last = downloads.last;
+      downloads[downloads.length - 1] = DownloadLink(
+        url: last.url,
+        label: last.label,
+        provider: last.provider,
+        password: last.password,
+        unzipCode: unzipCode,
+      );
+    }
+
+    return GameInfo(
+      title: cleanTitle,
+      version: version,
+      tags: tags,
+      category: category,
+      description: description,
+      changelog: changelog,
+      screenshots: screenshots,
+      downloads: downloads,
+      platforms: platforms,
+      sourceUrl: url,
+    );
+  }
 
   @override
   GameMetadata parse(Document document, String url) {
@@ -502,8 +772,10 @@ class FeiXueAcgParser extends SiteParser {
     if (contentStart == null) return null;
 
     // Find next section or end
+    // 使用行首匹配，避免匹配到"本次更新内容："中的"更新内容："
     final nextSectionMatch = RegExp(
-      '(游戏介绍[：:]|游戏特点[：:]|更新内容[：:]|链接[：:]|下载|解压)',
+      r'(?:^|\n)\s*(游戏介绍[：:]|游戏特点[：:]|更新日志[：:]|更新内容[：:]|链接[：:]|下载链接[：:]|解压码[：:]|解压密码[：:])',
+      multiLine: true,
     ).firstMatch(fullText.substring(contentStart));
 
     final contentEnd = nextSectionMatch != null
@@ -519,6 +791,140 @@ class FeiXueAcgParser extends SiteParser {
 class VikAcgParser extends SiteParser {
   @override
   String get domain => 'vikacg';
+
+  @override
+  GameInfo? parseGameInfo(Document document, String url) {
+    final ogTitle = document.querySelector('meta[property="og:title"]');
+    var rawTitle = ogTitle?.attributes['content']?.trim() ?? '';
+    if (rawTitle.isEmpty) {
+      rawTitle = document.querySelector('title')?.text.trim() ?? '';
+    }
+    if (rawTitle.isEmpty) return null;
+
+    final dashIndex = rawTitle.lastIndexOf(' - ');
+    if (dashIndex > 0) {
+      rawTitle = rawTitle.substring(0, dashIndex).trim();
+    }
+
+    final tags = extractBracketsFromTitle(rawTitle) ?? [];
+    final category = normalizeSeries(tags.isNotEmpty ? tags.first : null);
+
+    final cleanTitle = rawTitle
+        .replaceAll(RegExp(r'【[^】]*】'), '')
+        .replaceAll(RegExp(r'\[[^\]]*\]'), '')
+        .trim();
+
+    final version = extractVersion(cleanTitle);
+
+    final ogDesc = document.querySelector('meta[property="og:description"]') ??
+        document.querySelector('meta[name="description"]');
+    String? description = ogDesc?.attributes['content']?.trim();
+
+    final tagMetas = document.querySelectorAll('meta[property="article:tag"]');
+    for (final meta in tagMetas) {
+      final tag = meta.attributes['content']?.trim() ?? '';
+      if (tag.isNotEmpty && !tags.contains(tag)) {
+        tags.add(tag);
+      }
+    }
+
+    final tagLinks = document.querySelectorAll('a[href^="/post/tag/"]');
+    for (final a in tagLinks) {
+      var tag = a.text.trim();
+      if (tag.startsWith('#')) tag = tag.substring(1).trim();
+      if (tag.isNotEmpty && !tags.contains(tag)) {
+        tags.add(tag);
+      }
+    }
+
+    final screenshots = <String>[];
+    final ogImage = document.querySelector('meta[property="og:image"]');
+    if (ogImage != null) {
+      final imgUrl = ogImage.attributes['content'];
+      if (imgUrl != null && imgUrl.isNotEmpty) {
+        screenshots.add(imgUrl);
+      }
+    }
+
+    final contentImages = document.querySelectorAll(
+      'img.render-arco-image, div.arco-image img',
+    );
+    for (final img in contentImages) {
+      final src = img.attributes['src'] ?? '';
+      if (src.isNotEmpty && !screenshots.contains(src)) {
+        screenshots.add(src);
+      }
+    }
+
+    final downloads = <DownloadLink>[];
+    final externalLinks = document.querySelectorAll('a[href^="/external?"]');
+    for (final a in externalLinks) {
+      final href = a.attributes['href'] ?? '';
+      final text = a.text.trim();
+      if (href.isNotEmpty) {
+        downloads.add(DownloadLink(
+          url: href,
+          label: text,
+          provider: 'external',
+        ));
+      }
+    }
+
+    final bodyText = document.body?.text ?? '';
+    downloads.addAll(extractDownloadLinks(bodyText));
+
+    final paragraphs = document.querySelectorAll('p');
+    final introBuffer = StringBuffer();
+    bool collecting = false;
+    for (final p in paragraphs) {
+      final text = p.text.trim();
+      if (text.contains('游戏介绍') || text.contains('游戏内容')) {
+        collecting = true;
+        final afterMarker = text.replaceFirst(
+          RegExp(r'^(?:游戏介绍|游戏内容)[：:]?\s*'),
+          '',
+        );
+        if (afterMarker.isNotEmpty) introBuffer.writeln(afterMarker);
+        continue;
+      }
+      if (collecting) {
+        if (text.contains('游戏特点') ||
+            text.contains('更新内容') ||
+            text.contains('下载') ||
+            text.contains('链接')) {
+          collecting = false;
+          continue;
+        }
+        if (text.isNotEmpty) introBuffer.writeln(text);
+      }
+    }
+    if (introBuffer.isNotEmpty && (description == null || description.isEmpty)) {
+      description = introBuffer.toString().trim();
+    }
+
+    final unzipCode = extractUnzipCode(bodyText);
+    if (unzipCode != null && downloads.isNotEmpty) {
+      final last = downloads.last;
+      downloads[downloads.length - 1] = DownloadLink(
+        url: last.url,
+        label: last.label,
+        provider: last.provider,
+        password: last.password,
+        unzipCode: unzipCode,
+      );
+    }
+
+    return GameInfo(
+      title: cleanTitle,
+      version: version,
+      tags: tags,
+      category: category,
+      description: description,
+      screenshots: screenshots,
+      downloads: downloads,
+      sourceUrl: url,
+    );
+  }
 
   @override
   GameMetadata parse(Document document, String url) {
