@@ -447,6 +447,14 @@ class FeiXueAcgParser extends SiteParser {
         if (description.isEmpty) description = null;
       }
 
+      // 兜底：如果没有匹配到任何section，使用过滤后的全文作为游戏介绍
+      if (description == null && fullText.trim().isNotEmpty) {
+        final filtered = filterDescription(fullText.trim(), unzipCodeFromSign: unzipCode);
+        if (filtered.trim().length > 20) {
+          description = filtered;
+        }
+      }
+
       // 提取更新日志
       changelog = _extractSection(fullText, '更新日志') ??
                   _extractSection(fullText, '更新内容');
