@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -8,6 +9,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/utils/app_paths.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../../core/services/webdav_service.dart';
+import '../../../scraper/html_parser.dart';
 import '../../theme/app_theme.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -38,6 +40,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _isBackingUp = false;
   bool _isLoadingBackups = false;
   List<WebDavFile>? _backupFiles;
+  List<Map<String, String>> _xpathConfigs = [];
 
   @override
   void initState() {
@@ -73,6 +76,31 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _selectedFont = font;
     _fontSize = fontSize;
     _detailFontSize = detailFontSize;
+
+    _loadXpathConfigs();
+  }
+
+  void _loadXpathConfigs() {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final jsonStr = prefs.getString('xpath_parsers');
+    if (jsonStr != null && jsonStr.isNotEmpty) {
+      try {
+        final List<dynamic> list = jsonDecode(jsonStr);
+        _xpathConfigs = list
+            .whereType<Map<String, dynamic>>()
+            .map((m) => m.map((k, v) => MapEntry(k, v?.toString() ?? '')))
+            .toList();
+      } catch (_) {
+        _xpathConfigs = [];
+      }
+    }
+  }
+
+  Future<void> _saveXpathConfigs() async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final jsonStr = jsonEncode(_xpathConfigs);
+    await prefs.setString('xpath_parsers', jsonStr);
+    await HtmlScraper.reloadXpathParsers();
   }
 
   @override
@@ -110,6 +138,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           _buildProxySection(),
           const SizedBox(height: 24),
           _buildCookieSection(),
+          const SizedBox(height: 24),
+          _buildXpathSection(),
           const SizedBox(height: 24),
           _buildFontSection(),
           const SizedBox(height: 24),
@@ -591,6 +621,175 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
+  Widget _buildXpathSection() {
+    return _buildSection(
+      title: '自定义解析器 (XPath)',
+      icon: Icons.code_outlined,
+      children: [
+        Text(
+          '当内置解析器无法覆盖新站点时，可通过配置 XPath 来实现自定义解析。',
+          style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '在浏览器中按 F12 打开开发者工具，右键元素 → Copy → Copy XPath 即可获取。',
+          style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.6), fontSize: 11),
+        ),
+        const SizedBox(height: 16),
+        if (_xpathConfigs.isEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            alignment: Alignment.center,
+            child: Text(
+              '暂无自定义解析器配置',
+              style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.4), fontSize: 13),
+            ),
+          ),
+        ..._xpathConfigs.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final cfg = entry.value;
+          return _buildXpathConfigCard(idx, cfg);
+        }),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _addXpathConfig,
+            icon: const Icon(Icons.add, size: 16),
+            label: const Text('添加站点', style: TextStyle(fontSize: 12)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.primaryColor,
+              side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildXpathConfigCard(int index, Map<String, String> cfg) {
+    final domain = cfg['domain'] ?? '';
+    final name = cfg['name'] ?? '';
+    final fields = [
+      MapEntry('title', '标题'),
+      MapEntry('description', '内容/介绍'),
+      MapEntry('images', '图片'),
+      MapEntry('downloadLinks', '下载链接'),
+      MapEntry('tags', '标签'),
+      MapEntry('signUnzipCode', '签名/解压码'),
+      MapEntry('version', '版本'),
+      MapEntry('changelog', '更新日志'),
+      MapEntry('features', '游戏特点'),
+    ];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+            child: Row(
+              children: [
+                Icon(Icons.language, size: 16, color: AppTheme.primaryColor),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    name.isNotEmpty ? '$name ($domain)' : domain,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  color: AppTheme.primaryColor,
+                  tooltip: '编辑',
+                  onPressed: () => _editXpathConfig(index),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  color: AppTheme.errorColor,
+                  tooltip: '删除',
+                  onPressed: () => _removeXpathConfig(index),
+                ),
+              ],
+            ),
+          ),
+          ...fields.map((f) {
+            final value = cfg[f.key];
+            if (value == null || value.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 2, 16, 2),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 80,
+                    child: Text(
+                      f.value,
+                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondary.withValues(alpha: 0.7)),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      value,
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textPrimary, fontFamily: 'monospace'),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  void _addXpathConfig() {
+    showGlassDialog(
+      context: context,
+      child: _XpathConfigDialog(
+        onSave: (config) {
+          setState(() {
+            _xpathConfigs.add(config);
+          });
+          _saveXpathConfigs();
+        },
+      ),
+    );
+  }
+
+  void _editXpathConfig(int index) {
+    showGlassDialog(
+      context: context,
+      child: _XpathConfigDialog(
+        initialConfig: _xpathConfigs[index],
+        onSave: (config) {
+          setState(() {
+            _xpathConfigs[index] = config;
+          });
+          _saveXpathConfigs();
+        },
+      ),
+    );
+  }
+
+  void _removeXpathConfig(int index) {
+    setState(() {
+      _xpathConfigs.removeAt(index);
+    });
+    _saveXpathConfigs();
+  }
+
   Widget _buildFontSection() {
     return _buildSection(
       title: '字体设置',
@@ -898,7 +1097,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Widget _buildAboutSection() {
-    const currentVersion = '1.0.4';
+    const currentVersion = '1.0.6';
 
     return _buildSection(
       title: '关于',
@@ -1929,6 +2128,192 @@ class _MiniIconButton extends StatelessWidget {
           child: Icon(icon, size: 18, color: color),
         ),
       ),
+    );
+  }
+}
+
+class _XpathConfigDialog extends StatefulWidget {
+  final Map<String, String>? initialConfig;
+  final void Function(Map<String, String>) onSave;
+
+  const _XpathConfigDialog({this.initialConfig, required this.onSave});
+
+  @override
+  State<_XpathConfigDialog> createState() => _XpathConfigDialogState();
+}
+
+class _XpathConfigDialogState extends State<_XpathConfigDialog> {
+  late final TextEditingController _domainController;
+  late final TextEditingController _nameController;
+  late final Map<String, TextEditingController> _fieldControllers;
+
+  static const _fieldDefs = [
+    MapEntry('title', '标题 XPath *'),
+    MapEntry('description', '内容/介绍 XPath'),
+    MapEntry('images', '图片 XPath (/@src)'),
+    MapEntry('downloadLinks', '下载链接区域 XPath'),
+    MapEntry('tags', '标签 XPath'),
+    MapEntry('signUnzipCode', '签名/解压码区域 XPath'),
+    MapEntry('version', '版本 XPath'),
+    MapEntry('changelog', '更新日志 XPath'),
+    MapEntry('features', '游戏特点 XPath'),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final cfg = widget.initialConfig ?? {};
+    _domainController = TextEditingController(text: cfg['domain'] ?? '');
+    _nameController = TextEditingController(text: cfg['name'] ?? '');
+    _fieldControllers = {
+      for (final def in _fieldDefs)
+        def.key: TextEditingController(text: cfg[def.key] ?? ''),
+    };
+  }
+
+  @override
+  void dispose() {
+    _domainController.dispose();
+    _nameController.dispose();
+    for (final c in _fieldControllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  void _save() {
+    final domain = _domainController.text.trim();
+    if (domain.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请填写域名'), backgroundColor: AppTheme.errorColor),
+      );
+      return;
+    }
+    final titleXpath = _fieldControllers['title']!.text.trim();
+    if (titleXpath.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请填写标题 XPath'), backgroundColor: AppTheme.errorColor),
+      );
+      return;
+    }
+
+    final config = <String, String>{
+      'domain': domain,
+      'name': _nameController.text.trim(),
+    };
+    for (final def in _fieldDefs) {
+      final val = _fieldControllers[def.key]!.text.trim();
+      if (val.isNotEmpty) {
+        config[def.key] = val;
+      }
+    }
+
+    widget.onSave(config);
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isEdit = widget.initialConfig != null;
+    return Padding(
+      padding: const EdgeInsets.all(28),
+      child: SizedBox(
+        width: 600,
+        height: 560,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.code_outlined, color: AppTheme.primaryColor, size: 22),
+                const SizedBox(width: 12),
+                Text(
+                  isEdit ? '编辑解析器配置' : '添加解析器配置',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '填写站点域名和各字段的 XPath 表达式。带 * 的为必填项。',
+              style: TextStyle(
+                color: AppTheme.textSecondary.withValues(alpha: 0.6),
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildTextField('域名 *', _domainController, '例如: newgameforum.com'),
+                    const SizedBox(height: 12),
+                    _buildTextField('站点名称', _nameController, '例如: 新游戏论坛 (可选)'),
+                    const SizedBox(height: 16),
+                    ..._fieldDefs.map((def) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildTextField(def.value, _fieldControllers[def.key]!, 'XPath 表达式'),
+                    )),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: _save,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                    foregroundColor: AppTheme.primaryColor,
+                  ),
+                  child: Text(isEdit ? '保存' : '添加'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(String label, TextEditingController controller, String hint) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.4), fontSize: 11),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.5),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+              borderSide: BorderSide(color: AppTheme.textSecondary.withValues(alpha: 0.2)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+              borderSide: BorderSide(color: AppTheme.textSecondary.withValues(alpha: 0.2)),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          ),
+        ),
+      ],
     );
   }
 }

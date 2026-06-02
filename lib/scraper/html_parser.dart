@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
 import '../core/services/app_logger.dart';
+import '../core/utils/app_settings.dart';
 import 'site_parsers.dart';
 import 'parse_utils.dart';
+import 'xpath_evaluator.dart';
 
 /// Base class for site-specific parsers
 abstract class SiteParser {
@@ -64,6 +67,10 @@ class ParserRegistry {
     _parsers.add(parser);
   }
 
+  static void unregister(String domain) {
+    _parsers.removeWhere((p) => p.domain == domain);
+  }
+
   static SiteParser? getParserForUrl(String url) {
     final uri = Uri.tryParse(url);
     if (uri == null) return null;
@@ -84,6 +91,7 @@ class ParserRegistry {
 /// Main scraper that dispatches to site-specific parsers
 class HtmlScraper {
   static bool _registered = false;
+  static bool _xpathLoaded = false;
   final _log = AppLogger.instance;
 
   /// Ensure all site parsers are registered (called once).
@@ -93,13 +101,73 @@ class HtmlScraper {
     registerAllParsers();
   }
 
+  /// Load user-configured XPath parsers from settings.
+  Future<void> _ensureXpathParsersLoaded() async {
+    if (_xpathLoaded) return;
+    _xpathLoaded = true;
+    try {
+      final prefs = await AppSettings.load();
+      final jsonStr = prefs.getString('xpath_parsers');
+      if (jsonStr == null || jsonStr.isEmpty) return;
+      final List<dynamic> list = jsonDecode(jsonStr);
+      for (final item in list) {
+        if (item is! Map<String, dynamic>) continue;
+        final domain = item['domain'] as String? ?? '';
+        if (domain.isEmpty) continue;
+        final xpathMap = <String, String>{};
+        for (final key in ['title', 'description', 'images', 'downloadLinks', 'tags', 'signUnzipCode', 'version', 'changelog', 'features']) {
+          final val = item[key] as String?;
+          if (val != null && val.isNotEmpty) {
+            xpathMap[key] = val;
+          }
+        }
+        if (xpathMap.isNotEmpty) {
+          ParserRegistry.register(XpathParser(domain, xpathMap));
+          _log.info('Scraper', 'Loaded XPath parser for domain: $domain');
+        }
+      }
+    } catch (e) {
+      _log.error('Scraper', 'Failed to load XPath parsers', e);
+    }
+  }
+
+  /// Reload XPath parsers from settings (called after user updates config).
+  static Future<void> reloadXpathParsers() async {
+    _xpathLoaded = false;
+    try {
+      final prefs = await AppSettings.load();
+      final jsonStr = prefs.getString('xpath_parsers');
+      if (jsonStr == null || jsonStr.isEmpty) return;
+      final List<dynamic> list = jsonDecode(jsonStr);
+      for (final item in list) {
+        if (item is! Map<String, dynamic>) continue;
+        final domain = item['domain'] as String? ?? '';
+        if (domain.isEmpty) continue;
+        ParserRegistry.unregister(domain);
+      }
+    } catch (_) {}
+    _xpathLoaded = false;
+  }
+
   GameInfo? scrapeGameInfo(String htmlContent, String url) {
     _ensureRegistered();
 
     var parser = ParserRegistry.getParserForUrl(url);
+    if (parser != null) {
+      _log.info('Scraper', 'Using built-in parser: ${parser.runtimeType} for: $url');
+    }
+
     if (parser == null) {
-      _log.warning('Scraper', 'No specific parser found for URL: $url');
-      return null;
+      if (!_xpathLoaded) {
+        _log.warning('Scraper', 'XPath parsers not yet loaded (async), returning null for: $url');
+        return null;
+      }
+      parser = ParserRegistry.getParserForUrl(url);
+      if (parser == null) {
+        _log.warning('Scraper', 'No parser found (built-in or XPath) for URL: $url');
+        return null;
+      }
+      _log.info('Scraper', 'Using XPath parser for: $url');
     }
 
     try {
@@ -117,6 +185,11 @@ class HtmlScraper {
       _log.error('Scraper', 'Parse error for $url', e, stackTrace);
       return null;
     }
+  }
+
+  Future<void> ensureLoaded() async {
+    _ensureRegistered();
+    await _ensureXpathParsersLoaded();
   }
 
   GameInfo _metadataToGameInfo(GameMetadata metadata) {
@@ -212,6 +285,194 @@ class HtmlScraper {
 String? _collapseNewlines(String? text) {
   if (text == null) return null;
   return text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+}
+
+/// XPath-based parser for user-configured sites.
+/// Uses XPath expressions from settings to extract game info from any site.
+class XpathParser extends SiteParser {
+  final String _domain;
+  final Map<String, String> _xpaths;
+
+  XpathParser(this._domain, this._xpaths);
+
+  @override
+  String get domain => _domain;
+
+  @override
+  GameInfo? parseGameInfo(Document document, String url) {
+    final titleXpath = _xpaths['title'];
+    String? rawTitle;
+    if (titleXpath != null) {
+      rawTitle = XPathEvaluator.queryText(document, titleXpath);
+    }
+    if (rawTitle == null || rawTitle.isEmpty) return null;
+
+    final tags = extractBracketsFromTitle(rawTitle) ?? [];
+    final category = normalizeSeries(tags.isNotEmpty ? tags.first : null);
+    final cleanTitle = rawTitle
+        .replaceAll(RegExp(r'【[^】]*】'), '')
+        .replaceAll(RegExp(r'\[[^\]]*\]'), '')
+        .trim();
+    final version = extractVersion(cleanTitle);
+
+    String? description;
+    final descXpath = _xpaths['description'];
+    if (descXpath != null) {
+      final rawDesc = XPathEvaluator.queryText(document, descXpath);
+      if (rawDesc != null && rawDesc.isNotEmpty) {
+        description = _extractSection(rawDesc, '概要') ??
+            _extractSection(rawDesc, '游戏介绍') ??
+            _extractSection(rawDesc, '简介') ??
+            rawDesc;
+        description = filterDescription(description);
+        if (description.isEmpty) description = null;
+      }
+    }
+
+    List<String> features = [];
+    final featuresXpath = _xpaths['features'];
+    if (featuresXpath != null) {
+      final featuresText = XPathEvaluator.queryText(document, featuresXpath);
+      if (featuresText != null) {
+        final filtered = filterCommonNoise(featuresText);
+        features = filtered
+            .split('\n')
+            .map((l) => l.trim())
+            .where((l) => l.isNotEmpty)
+            .toList();
+      }
+    }
+
+    String? changelog;
+    final changelogXpath = _xpaths['changelog'];
+    if (changelogXpath != null) {
+      changelog = XPathEvaluator.queryText(document, changelogXpath);
+      if (changelog != null) {
+        changelog = filterCommonNoise(changelog);
+        if (changelog.isEmpty) changelog = null;
+      }
+    }
+
+    final screenshots = <String>[];
+    final imagesXpath = _xpaths['images'];
+    if (imagesXpath != null && imagesXpath.isNotEmpty) {
+      screenshots.addAll(XPathEvaluator.queryAllAttributes(document, imagesXpath));
+    } else if (descXpath != null) {
+      final contentEl = XPathEvaluator.query(document, descXpath);
+      if (contentEl != null) {
+        for (final img in contentEl.querySelectorAll('img')) {
+          final src = img.attributes['zoomfile'] ??
+              img.attributes['file'] ??
+              img.attributes['data-original'] ??
+              img.attributes['src'] ??
+              '';
+          if (src.isNotEmpty &&
+              !src.contains('static/image/common') &&
+              !src.contains('smiley') &&
+              !src.endsWith('.svg') &&
+              !src.endsWith('.ico') &&
+              !screenshots.contains(src)) {
+            screenshots.add(src);
+          }
+        }
+      }
+    }
+
+    final downloads = <DownloadLink>[];
+    final dlXpath = _xpaths['downloadLinks'];
+    if (dlXpath != null) {
+      final dlText = XPathEvaluator.queryText(document, dlXpath);
+      if (dlText != null) {
+        final filtered = dlText
+            .replaceAll('本帖隱藏的內容', '')
+            .replaceAll(RegExp(r'[^\n]*(优惠码|折扣码|优惠卷)[^\n]*'), '')
+            .replaceAll(RegExp(r'[^\n]*(VIP|vip|免飞猫)[^\n]*'), '')
+            .trim();
+        downloads.addAll(extractDownloadLinks(filtered));
+      }
+    }
+
+    List<String> tagList = [];
+    final tagsXpath = _xpaths['tags'];
+    if (tagsXpath != null) {
+      tagList = XPathEvaluator.queryAllTexts(document, tagsXpath);
+    }
+    for (final tag in tagList) {
+      if (!tags.contains(tag)) tags.add(tag);
+    }
+
+    String? unzipCode;
+    final signXpath = _xpaths['signUnzipCode'];
+    if (signXpath != null) {
+      final signText = XPathEvaluator.queryText(document, signXpath);
+      if (signText != null) {
+        unzipCode = extractUnzipCode(signText);
+      }
+    }
+
+    if (unzipCode != null && downloads.isNotEmpty) {
+      final last = downloads.last;
+      downloads[downloads.length - 1] = DownloadLink(
+        url: last.url,
+        label: last.label,
+        provider: last.provider,
+        password: last.password,
+        unzipCode: unzipCode,
+      );
+    }
+
+    return GameInfo(
+      title: cleanTitle,
+      version: version,
+      tags: tags,
+      category: category,
+      description: description,
+      features: features,
+      changelog: changelog,
+      screenshots: screenshots,
+      downloads: downloads,
+      sourceUrl: url,
+    );
+  }
+
+  @override
+  GameMetadata parse(Document document, String url) {
+    final gameInfo = parseGameInfo(document, url);
+    if (gameInfo == null) return GameMetadata();
+    return GameMetadata(
+      title: gameInfo.title,
+      version: gameInfo.version,
+      intro: gameInfo.description,
+      features: gameInfo.features.isNotEmpty ? gameInfo.features.join('\n') : null,
+      changelog: gameInfo.changelog,
+      downloadUrl: gameInfo.downloadUrl,
+      sourceUrl: url,
+      imageUrls: gameInfo.screenshots,
+      tags: gameInfo.tags,
+      series: gameInfo.category,
+    );
+  }
+
+  static String? _extractSection(String fullText, String sectionName) {
+    final patterns = ['$sectionName：', '$sectionName:'];
+    int? contentStart;
+    for (final pattern in patterns) {
+      final index = fullText.indexOf(pattern);
+      if (index != -1) {
+        contentStart = index + pattern.length;
+        break;
+      }
+    }
+    if (contentStart == null) return null;
+    final nextSectionMatch = RegExp(
+      r'(?:^|\n)\s*(游戏介绍[：:]|游戏特点[：:]|更新日志[：:]|更新内容[：:]|链接[：:]|下载链接[：:]|解压码[：:]|解压密码[：:])',
+      multiLine: true,
+    ).firstMatch(fullText.substring(contentStart));
+    final contentEnd = nextSectionMatch != null
+        ? contentStart + nextSectionMatch.start
+        : fullText.length;
+    return fullText.substring(contentStart, contentEnd).trim();
+  }
 }
 
 /// Generic fallback parser that tries common HTML patterns

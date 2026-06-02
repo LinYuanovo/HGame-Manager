@@ -602,6 +602,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       final tagRepo = ref.read(tagRepositoryProvider);
       final client = await createProxyClientFromPrefs();
 
+      await _scraper.ensureLoaded();
+
       for (int i = 0; i < _gameItems.length; i++) {
         final item = _gameItems[i];
         final game = item.game;

@@ -77,10 +77,12 @@ QUICK_START.md
 
 # IDE and tools
 .trae/
+.omo/
 .claude/
 .trae/documents
 .metadata
 jav_manager.iml
+.uploads/
 
 # Logs and sensitive data
 *.log
@@ -89,6 +91,7 @@ app_logs/
 *.bak
 *.tmp
 web/
+test/
 
 # Environment files
 .env
