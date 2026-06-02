@@ -583,6 +583,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   Widget _buildListItem(Game game, [double? imgW, double? imgH]) {
     final w = imgW ?? 70;
     final h = imgH ?? 90;
+    final isBackupOnly = game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
     return GestureDetector(
       onSecondaryTapUp: (details) =>
           _showContextMenu(context, details.globalPosition, game),
@@ -595,7 +596,42 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
-                child: _buildGameCover(game, width: w, height: h),
+                child: Stack(
+                  children: [
+                    _buildGameCover(game, width: w, height: h),
+                    if (isBackupOnly)
+                      Positioned(
+                        top: 4,
+                        left: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.cloud_queue,
+                                size: 16,
+                                color: Colors.white70,
+                              ),
+                              SizedBox(width: 2),
+                              Text(
+                                '仅备份',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -694,6 +730,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   Widget _buildPosterItem(Game game) {
+    final isBackupOnly = game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
     return GestureDetector(
       onSecondaryTapUp: (details) =>
           _showContextMenu(context, details.globalPosition, game),
@@ -711,6 +748,40 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   fit: StackFit.expand,
                   children: [
                     _buildGameCover(game, fit: BoxFit.cover),
+                    if (isBackupOnly)
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.cloud_queue,
+                                size: 16,
+                                color: Colors.white70,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                '仅备份',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     Positioned(
                       top: 8,
                       right: 8,
@@ -874,18 +945,20 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   void _showContextMenu(
       BuildContext context, Offset position, Game game) {
+    final isBackupOnly = game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
     showMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(
           position.dx, position.dy, position.dx + 1, position.dy + 1),
       items: [
-        PopupMenuItem(
-            value: 'open_folder',
-            child: ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.folder_open, size: 18),
-                title: const Text('打开文件夹'))),
+        if (!isBackupOnly)
+          PopupMenuItem(
+              value: 'open_folder',
+              child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.folder_open, size: 18),
+                  title: const Text('打开文件夹'))),
         PopupMenuItem(
             value: 'favorite',
             child: ListTile(
@@ -946,15 +1019,16 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     Icon(Icons.block, size: 18, color: const Color(0xFFFFA000)),
                 title: const Text('删除记录',
                     style: TextStyle(color: Color(0xFFFFA000))))),
-        PopupMenuItem(
-            value: 'delete_folder',
-            child: ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading:
-                    Icon(Icons.folder_delete_outlined, size: 18, color: AppTheme.errorColor),
-                title: const Text('删除本地文件夹',
-                    style: TextStyle(color: AppTheme.errorColor)))),
+        if (!isBackupOnly)
+          PopupMenuItem(
+              value: 'delete_folder',
+              child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading:
+                      Icon(Icons.folder_delete_outlined, size: 18, color: AppTheme.errorColor),
+                  title: const Text('删除本地文件夹',
+                      style: TextStyle(color: AppTheme.errorColor)))),
       ],
     ).then((value) async {
       if (value == null) return;
@@ -1027,8 +1101,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           );
           if (confirm == true) {
             _addToBlacklist(game.path);
-            await repo.deleteGame(game.id!);
+            if (game.id != null) {
+              await repo.deleteGame(game.id!);
+            }
             ref.invalidate(allGamesProvider);
+            ref.invalidate(clearedGamesProvider);
           }
           break;
         case 'delete_folder':
@@ -1071,7 +1148,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               }
               await repo.deleteGame(game.id!);
               ref.invalidate(allGamesProvider);
-              if (context.mounted) {
+              if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('已删除文件夹: ${game.title}'),
@@ -1080,7 +1157,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 );
               }
             } catch (e) {
-              if (context.mounted) {
+              if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('删除失败: $e'),
@@ -1104,6 +1181,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   Future<void> _markAsCleared(Game game) async {
+    final gameName = game.title ?? path.basename(game.path);
     // 确认对话框
     final confirm = await showGlassDialog<bool>(
       context: context,
@@ -1115,7 +1193,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           children: [
             const Text('标记已通关', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
             const SizedBox(height: 12),
-            Text('确定要将"${game.title}"标记为已通关吗？\n\n游戏将移动到 Sorted/Cleared 目录，\n并自动创建备份。', style: const TextStyle(color: AppTheme.textSecondary)),
+            Text('确定要将"$gameName"标记为已通关吗？\n\n游戏将移动到 Sorted/Cleared 目录，\n并自动创建备份。', style: const TextStyle(color: AppTheme.textSecondary)),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -1142,9 +1220,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     try {
       final prefs = ref.read(sharedPreferencesProvider);
       final sortedPath = prefs.getString('sorted_path') ?? '';
-      
+
       if (sortedPath.isEmpty) {
-        if (context.mounted) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('请先在设置中配置整理目录'),
@@ -1155,9 +1233,43 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         return;
       }
 
+      // 使用更健壮的路径检查
+      final normalizedPath = game.path.replaceAll('\\', '/');
+      final isBackupOnly = normalizedPath.contains('/Backup/') || 
+                           normalizedPath.endsWith('/Backup') ||
+                           normalizedPath.contains('\\Backup\\') ||
+                           normalizedPath.endsWith('\\Backup');
+
+      if (isBackupOnly) {
+        // 直接删除备份
+        final backupDir = Directory(game.path);
+        if (await backupDir.exists()) {
+          await backupDir.delete(recursive: true);
+        }
+
+        // 如果有数据库记录，也删除
+        if (game.id != null) {
+          final repo = ref.read(gameRepositoryProvider);
+          await repo.deleteGame(game.id!);
+        }
+
+        ref.invalidate(allGamesProvider);
+        ref.invalidate(clearedGamesProvider);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('已删除"$gameName"的备份'),
+              backgroundColor: AppTheme.successColor,
+            ),
+          );
+        }
+        return;
+      }
+
       final gameDir = Directory(game.path);
       if (!await gameDir.exists()) {
-        if (context.mounted) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('游戏目录不存在'),
@@ -1219,7 +1331,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final newPath = '${clearedDir.path}${Platform.pathSeparator}${path.basename(game.path)}';
       final newDir = Directory(newPath);
       if (await newDir.exists()) {
-        if (context.mounted) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('目标目录已存在: ${path.basename(game.path)}，请先处理冲突'),
@@ -1234,20 +1346,47 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final repo = ref.read(gameRepositoryProvider);
       await repo.updateGamePath(game.id!, newPath);
 
-      // 刷新游戏列表
+      final oldImages = await repo.getGameImages(game.id!);
+      if (oldImages.isNotEmpty) {
+        final updatedImages = oldImages.map((img) {
+          // 确保路径格式一致：统一使用正斜杠
+          final normalizedOldPath = game.path.replaceAll('\\', '/');
+          final normalizedNewPath = newPath.replaceAll('\\', '/');
+          final normalizedImagePath = img.imagePath.replaceAll('\\', '/');
+          
+          // 检查旧路径是否在图片路径中
+          String newImagePath;
+          if (normalizedImagePath.startsWith(normalizedOldPath)) {
+            newImagePath = normalizedImagePath.replaceFirst(normalizedOldPath, normalizedNewPath);
+          } else {
+            // 如果路径不匹配，使用 path.basename 重建路径
+            final fileName = path.basename(img.imagePath);
+            newImagePath = '$normalizedNewPath/images/$fileName';
+          }
+          
+          return GameImage(
+            id: img.id,
+            gameId: img.gameId,
+            imagePath: newImagePath,
+            sortOrder: img.sortOrder,
+          );
+        }).toList();
+        await repo.setGameImages(game.id!, updatedImages);
+      }
+
       ref.invalidate(allGamesProvider);
       ref.invalidate(clearedGamesProvider);
 
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('已标记"${game.title}"为已通关'),
+            content: Text('已标记"$gameName"为已通关'),
             backgroundColor: AppTheme.successColor,
           ),
         );
       }
     } catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('操作失败: $e'),
@@ -1259,6 +1398,13 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   Future<void> _unmarkAsCleared(Game game) async {
+    final gameName = game.title ?? path.basename(game.path);
+    // 使用更健壮的路径检查，统一使用正斜杠
+    final normalizedPath = game.path.replaceAll('\\', '/');
+    final isBackupOnly = normalizedPath.contains('/Backup/') || 
+                         normalizedPath.endsWith('/Backup') ||
+                         normalizedPath.contains('\\Backup\\') ||
+                         normalizedPath.endsWith('\\Backup');
     // 确认对话框
     final confirm = await showGlassDialog<bool>(
       context: context,
@@ -1270,7 +1416,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           children: [
             const Text('取消标记已通关', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
             const SizedBox(height: 12),
-            Text('确定要将"${game.title}"取消已通关吗？\n\n游戏将移回 Sorted 目录，备份将被删除。', style: const TextStyle(color: AppTheme.textSecondary)),
+            Text(
+              isBackupOnly
+                  ? '确定要将"$gameName"取消已通关吗？\n\n该备份将被删除，此操作不可恢复。'
+                  : '确定要将"$gameName"取消已通关吗？\n\n游戏将移回 Sorted 目录，备份将被删除。',
+              style: const TextStyle(color: AppTheme.textSecondary),
+            ),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -1297,9 +1448,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     try {
       final prefs = ref.read(sharedPreferencesProvider);
       final sortedPath = prefs.getString('sorted_path') ?? '';
-      
+
       if (sortedPath.isEmpty) {
-        if (context.mounted) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('请先在设置中配置整理目录'),
@@ -1310,9 +1461,36 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         return;
       }
 
+      // 处理仅备份游戏：直接删除备份
+      if (isBackupOnly) {
+        final backupDir = Directory(game.path);
+        if (await backupDir.exists()) {
+          await backupDir.delete(recursive: true);
+        }
+
+        // 如果有数据库记录，也删除
+        if (game.id != null) {
+          final repo = ref.read(gameRepositoryProvider);
+          await repo.deleteGame(game.id!);
+        }
+
+        ref.invalidate(allGamesProvider);
+        ref.invalidate(clearedGamesProvider);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('已删除"$gameName"的备份'),
+              backgroundColor: AppTheme.successColor,
+            ),
+          );
+        }
+        return;
+      }
+
       final gameDir = Directory(game.path);
       if (!await gameDir.exists()) {
-        if (context.mounted) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('游戏目录不存在'),
@@ -1349,7 +1527,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final newPath = '${targetDir.path}${Platform.pathSeparator}${path.basename(game.path)}';
       final newDir = Directory(newPath);
       if (await newDir.exists()) {
-        if (context.mounted) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('目标目录已存在: ${path.basename(game.path)}，请先处理冲突'),
@@ -1363,6 +1541,34 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       await gameDir.rename(newPath);
       final repo = ref.read(gameRepositoryProvider);
       await repo.updateGamePath(game.id!, newPath);
+
+      final oldImages = await repo.getGameImages(game.id!);
+      if (oldImages.isNotEmpty) {
+        final updatedImages = oldImages.map((img) {
+          // 确保路径格式一致：统一使用正斜杠
+          final normalizedOldPath = game.path.replaceAll('\\', '/');
+          final normalizedNewPath = newPath.replaceAll('\\', '/');
+          final normalizedImagePath = img.imagePath.replaceAll('\\', '/');
+          
+          // 检查旧路径是否在图片路径中
+          String newImagePath;
+          if (normalizedImagePath.startsWith(normalizedOldPath)) {
+            newImagePath = normalizedImagePath.replaceFirst(normalizedOldPath, normalizedNewPath);
+          } else {
+            // 如果路径不匹配，使用 path.basename 重建路径
+            final fileName = path.basename(img.imagePath);
+            newImagePath = '$normalizedNewPath/images/$fileName';
+          }
+          
+          return GameImage(
+            id: img.id,
+            gameId: img.gameId,
+            imagePath: newImagePath,
+            sortOrder: img.sortOrder,
+          );
+        }).toList();
+        await repo.setGameImages(game.id!, updatedImages);
+      }
 
       // 删除对应的 Backup 目录
       final backupDir = Directory('$sortedPath${Platform.pathSeparator}Cleared${Platform.pathSeparator}Backup');
@@ -1379,16 +1585,16 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       ref.invalidate(allGamesProvider);
       ref.invalidate(clearedGamesProvider);
 
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('已取消"${game.title}"的已通关标记'),
+            content: Text('已取消"$gameName"的已通关标记'),
             backgroundColor: AppTheme.successColor,
           ),
         );
       }
     } catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('操作失败: $e'),

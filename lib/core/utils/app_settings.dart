@@ -62,7 +62,24 @@ class AppSettings {
       }
       final tempFile = File('$_filePath.tmp');
       await tempFile.writeAsString(jsonEncode(_data), flush: true);
-      await tempFile.rename(_filePath);
+      
+      try {
+        await tempFile.rename(_filePath);
+      } catch (e) {
+        // 如果 rename 失败（文件被占用），尝试先删除再重命名
+        try {
+          if (await file.exists()) {
+            await file.delete();
+          }
+          await tempFile.rename(_filePath);
+        } catch (e2) {
+          // 如果还是失败，尝试直接写入目标文件
+          await file.writeAsString(jsonEncode(_data), flush: true);
+          try {
+            await tempFile.delete();
+          } catch (_) {}
+        }
+      }
       _dirty = false;
     } catch (e) {
       debugPrint('[AppSettings] Save error: $e');

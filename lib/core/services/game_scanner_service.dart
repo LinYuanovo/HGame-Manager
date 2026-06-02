@@ -376,6 +376,11 @@ class GameScannerService {
   Future<void> _removeStaleEntries(List<Game> existingGames) async {
     for (final game in existingGames) {
       try {
+        final sep = Platform.pathSeparator;
+        if (game.path.contains('${sep}Cleared$sep') &&
+            !game.path.contains('${sep}Backup$sep')) {
+          continue;
+        }
         final dir = Directory(game.path);
         if (!await dir.exists()) {
           await _gameRepository.deleteGame(game.id!);
