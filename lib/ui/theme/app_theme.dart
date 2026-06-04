@@ -77,7 +77,7 @@ class AppTheme {
   static const Color glassBorderBlue = Color(0x1A2563EB); // 10%蓝边框
 
   // 文字
-  static const Color textPrimary = Color(0xFF1A1A2E);
+  static const Color textPrimary = Color(0xFF1C1D21);
   static const Color textSecondary = Color(0xFF6B7280);
 
   // 状态色
