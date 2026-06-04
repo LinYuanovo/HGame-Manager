@@ -7,6 +7,8 @@ class SidebarController extends ChangeNotifier {
   final double _minWidth;
   final double _maxWidth;
   double _targetWidth;
+  bool _isCollapsed = false;
+  bool get isCollapsed => _isCollapsed;
 
   SidebarController({
     double width = LayoutConstants.sidebarWidth,
@@ -33,6 +35,18 @@ class SidebarController extends ChangeNotifier {
   /// 平滑过渡到目标宽度
   void animateToWidth(double targetWidth) {
     _targetWidth = targetWidth.clamp(_minWidth, _maxWidth);
+    notifyListeners();
+  }
+
+  /// 切换侧边栏展开/折叠状态
+  void toggle() {
+    _isCollapsed = !_isCollapsed;
+    if (_isCollapsed) {
+      _width = _minWidth;
+    } else {
+      _width = LayoutConstants.sidebarWidth;
+    }
+    _targetWidth = _width;
     notifyListeners();
   }
 
