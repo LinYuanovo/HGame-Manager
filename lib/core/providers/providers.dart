@@ -246,6 +246,8 @@ Future<Game?> _loadGameFromBackup(
       sortOrder: e.key,
     )).toList(),
     coverIndex: existingDbGame?.coverIndex ?? 0,
+    rating: existingDbGame?.rating ?? 0.0,
+    review: existingDbGame?.review,
   );
 }
 

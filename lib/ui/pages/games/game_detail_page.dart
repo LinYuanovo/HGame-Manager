@@ -1088,43 +1088,45 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
             const SizedBox(height: 20),
             const Text('评分', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
             const SizedBox(height: 8),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final starAreaWidth = constraints.maxWidth;
-                return GestureDetector(
-                  onTapDown: (details) {
-                    setState(() {
-                      _rating = _calcRatingFromX(details.localPosition.dx, starAreaWidth);
-                    });
-                  },
-                  onHorizontalDragUpdate: (details) {
-                    setState(() {
-                      _rating = _calcRatingFromX(details.localPosition.dx, starAreaWidth);
-                    });
-                  },
-                  child: Row(
-                    children: List.generate(5, (index) {
-                      final starValue = index + 1;
-                      IconData icon;
-                      if (_rating >= starValue) {
-                        icon = Icons.star;
-                      } else if (_rating >= starValue - 0.5) {
-                        icon = Icons.star_half;
-                      } else {
-                        icon = Icons.star_border;
-                      }
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: Icon(
-                          icon,
-                          size: 32,
-                          color: icon == Icons.star_border ? Colors.grey.shade400 : const Color(0xFFFFD700),
-                        ),
-                      );
-                    }),
-                  ),
-                );
-              },
+            IntrinsicWidth(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final starAreaWidth = constraints.maxWidth;
+                  return GestureDetector(
+                    onTapDown: (details) {
+                      setState(() {
+                        _rating = _calcRatingFromX(details.localPosition.dx, starAreaWidth);
+                      });
+                    },
+                    onHorizontalDragUpdate: (details) {
+                      setState(() {
+                        _rating = _calcRatingFromX(details.localPosition.dx, starAreaWidth);
+                      });
+                    },
+                    child: Row(
+                      children: List.generate(5, (index) {
+                        final starValue = index + 1;
+                        IconData icon;
+                        if (_rating >= starValue) {
+                          icon = Icons.star;
+                        } else if (_rating >= starValue - 0.5) {
+                          icon = Icons.star_half;
+                        } else {
+                          icon = Icons.star_border;
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: Icon(
+                            icon,
+                            size: 32,
+                            color: icon == Icons.star_border ? Colors.grey.shade400 : const Color(0xFFFFD700),
+                          ),
+                        );
+                      }),
+                    ),
+                  );
+                },
+              ),
             ),
             if (_rating > 0)
               Padding(
