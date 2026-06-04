@@ -513,30 +513,26 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     }),
                   ),
                   if (widget.game.review != null && widget.game.review!.isNotEmpty)
-                    Tooltip(
-                      message: widget.game.review!,
-                      waitDuration: const Duration(milliseconds: 300),
-                      child: GestureDetector(
-                        onTap: () => _showReviewDetail(context),
-                        onDoubleTap: () {
-                          Clipboard.setData(ClipboardData(text: widget.game.review!));
-                          AppTheme.showGlassToast(context, message: '已复制评论内容');
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.comment, size: 14, color: Colors.red),
-                              SizedBox(width: 4),
-                              Text('评论', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w500)),
-                            ],
-                          ),
+                    GestureDetector(
+                      onTap: () => _showReviewDetail(context),
+                      onDoubleTap: () {
+                        Clipboard.setData(ClipboardData(text: widget.game.review!));
+                        AppTheme.showGlassToast(context, message: '已复制评论内容');
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.comment, size: 14, color: Colors.red),
+                            SizedBox(width: 4),
+                            Text('评论', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w500)),
+                          ],
                         ),
                       ),
                     ),
