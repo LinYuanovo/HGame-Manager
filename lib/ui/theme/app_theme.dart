@@ -77,7 +77,7 @@ class AppTheme {
   static const Color glassBorderBlue = Color(0x1A2563EB); // 10%蓝边框
 
   // 文字
-  static const Color textPrimary = Color(0xFF1C1D21);
+  static const Color textPrimary = Color(0xFF374244);
   static const Color textSecondary = Color(0xFF6B7280);
 
   // 状态色
@@ -1075,12 +1075,18 @@ class _StaggeredItemState extends State<StaggeredItem>
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: SlideTransition(
-        position: _slideAnimation,
-        child: widget.child,
-      ),
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _fadeAnimation.value,
+          child: Transform.translate(
+            offset: _slideAnimation.value,
+            child: child,
+          ),
+        );
+      },
+      child: widget.child,
     );
   }
 }

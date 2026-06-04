@@ -10,6 +10,7 @@ import '../services/game_scanner_service.dart';
 import '../services/game_count_service.dart';
 import '../services/webdav_service.dart';
 import '../models/models.dart';
+import '../../scraper/parse_utils.dart';
 
 final sharedPreferencesProvider = Provider<AppSettings>((ref) {
   throw UnimplementedError('AppSettings not initialized');
@@ -82,36 +83,97 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
         ? Directory('$sortedPath${sep}Cleared${sep}Backup')
         : null;
 
+    debugPrint('=== CLEARED GAMES DEBUG START ===');
+    debugPrint('sortedPath: $sortedPath');
+    debugPrint('dbClearedGames count: ${dbClearedGames.length}');
+    debugPrint('backupDir: ${backupDir?.path}');
+
+    // 先处理本地游戏，用 metadata title 作为 key（去除版本号后比较）
     for (final game in dbClearedGames) {
       final dir = Directory(game.path);
+      debugPrint('[LOCAL] Processing: ${game.path}');
+      debugPrint('[LOCAL] DB title: ${game.title}');
       if (await dir.exists()) {
-        result[(game.title ?? '').toLowerCase()] = game;
-      } else if (backupDir != null && await backupDir.exists()) {
-        final backupGame = await _loadGameFromBackup(
-          backupDir.path, game.title, game,
-        );
-        if (backupGame != null) {
-          result[(game.title ?? '').toLowerCase()] = backupGame;
+        String title = game.title ?? path.basename(game.path);
+        try {
+          final metadataFile = File('${game.path}${sep}metadata.json');
+          debugPrint('[LOCAL] metadataFile exists: ${await metadataFile.exists()}');
+          if (await metadataFile.exists()) {
+            final content = await metadataFile.readAsString();
+            final metadata = jsonDecode(content) as Map<String, dynamic>;
+            debugPrint('[LOCAL] metadata title: ${metadata['title']}');
+            if (metadata['title'] != null && (metadata['title'] as String).isNotEmpty) {
+              title = metadata['title'] as String;
+            }
+          }
+        } catch (e) {
+          debugPrint('[LOCAL] metadata read error: $e');
         }
+        final normalizedTitle = removeVersionFromTitle(title);
+        debugPrint('[LOCAL] final title: $title -> normalized: $normalizedTitle');
+        debugPrint('[LOCAL] key: ${normalizedTitle.toLowerCase()}');
+        result[normalizedTitle.toLowerCase()] = game.copyWith(title: normalizedTitle);
+      } else {
+        debugPrint('[LOCAL] dir NOT exists: ${game.path}');
       }
     }
+    debugPrint('[LOCAL] result count after local: ${result.length}');
 
+    // 再处理 Backup 目录，跳过本地已存在的游戏（去除版本号后比较）
     if (backupDir != null && await backupDir.exists()) {
-      await for (final entity in backupDir.list()) {
-        if (entity is Directory) {
-          final folderName = path.basename(entity.path);
-          final key = folderName.toLowerCase();
-          if (!result.containsKey(key)) {
-            final backupGame = await _loadGameFromBackup(
-              backupDir.path, folderName, null,
-            );
-            if (backupGame != null) {
-              result[key] = backupGame;
+      debugPrint('[BACKUP] Backup dir exists: ${backupDir.path}');
+      // 先处理有 DB 记录但本地文件夹不存在的游戏
+      for (final game in dbClearedGames) {
+        final dir = Directory(game.path);
+        if (!await dir.exists()) {
+          debugPrint('[BACKUP-DB] Processing missing local game: ${game.path}, DB title: ${game.title}');
+          final backupGame = await _loadGameFromBackup(
+            backupDir.path, game.title, game,
+          );
+          if (backupGame != null) {
+            final normalizedTitle = removeVersionFromTitle(backupGame.title ?? '');
+            final key = normalizedTitle.toLowerCase();
+            debugPrint('[BACKUP-DB] backup title: ${backupGame.title} -> key: $key');
+            debugPrint('[BACKUP-DB] key already exists: ${result.containsKey(key)}');
+            if (!result.containsKey(key)) {
+              result[key] = backupGame.copyWith(title: normalizedTitle);
             }
+          } else {
+            debugPrint('[BACKUP-DB] backupGame is null');
           }
         }
       }
+
+      // 扫描 Backup 目录中没有 DB 记录的游戏
+      debugPrint('[BACKUP-SCAN] Scanning backup dir...');
+      await for (final entity in backupDir.list()) {
+        if (entity is Directory) {
+          final folderName = path.basename(entity.path);
+          debugPrint('[BACKUP-SCAN] Found folder: $folderName');
+          final backupGame = await _loadGameFromBackup(
+            backupDir.path, folderName, null,
+          );
+          if (backupGame != null) {
+            final normalizedTitle = removeVersionFromTitle(backupGame.title ?? '');
+            final key = normalizedTitle.toLowerCase();
+            debugPrint('[BACKUP-SCAN] backup title: ${backupGame.title} -> normalized: $normalizedTitle -> key: $key');
+            debugPrint('[BACKUP-SCAN] key already exists: ${result.containsKey(key)}');
+            debugPrint('[BACKUP-SCAN] existing keys: ${result.keys.toList()}');
+            if (!result.containsKey(key)) {
+              result[key] = backupGame.copyWith(title: normalizedTitle);
+              debugPrint('[BACKUP-SCAN] ADDED to result');
+            } else {
+              debugPrint('[BACKUP-SCAN] SKIPPED (duplicate)');
+            }
+          } else {
+            debugPrint('[BACKUP-SCAN] backupGame is null for: $folderName');
+          }
+        }
+      }
+    } else {
+      debugPrint('[BACKUP] Backup dir NOT exists or sortedPath empty');
     }
+    debugPrint('=== CLEARED GAMES DEBUG END, total: ${result.length} ===');
 
     return result.values.toList();
   } catch (e, stackTrace) {

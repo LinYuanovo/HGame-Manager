@@ -68,8 +68,8 @@ class SidebarWidget extends ConsumerWidget {
                           ref: ref,
                         );
                       }),
-                      _buildToggleButton(),
                       const Spacer(),
+                      _buildToggleButton(fontSize: fontSize),
                       _buildNavItem(
                         route: NavRoute.settings,
                         selectedIndex: selectedIndex,
@@ -89,7 +89,7 @@ class SidebarWidget extends ConsumerWidget {
     );
   }
 
-  Widget _buildToggleButton() {
+  Widget _buildToggleButton({double fontSize = 14.0}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Material(
@@ -116,29 +116,23 @@ class SidebarWidget extends ConsumerWidget {
               children: [
                 Icon(
                   controller.isExpanded ? Icons.menu_open : Icons.menu,
-                  color: AppTheme.textSecondary,
+                  color: AppTheme.textPrimary,
                   size: 22,
                 ),
-                AnimatedOpacity(
-                  opacity: controller.isExpanded ? 1.0 : 0.0,
-                  duration: GlassConstants.animMedium,
-                  curve: GlassConstants.animCurve,
-                  child: controller.isExpanded
-                      ? Row(
-                          children: [
-                            const SizedBox(width: 12),
-                            Text(
-                              '收起侧边栏',
-                              style: TextStyle(
-                                color: AppTheme.textSecondary,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ],
-                        )
-                      : const SizedBox.shrink(),
-                ),
+                if (controller.isExpanded) ...[
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(
+                      '收起',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: fontSize,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -199,68 +193,58 @@ class SidebarWidget extends ConsumerWidget {
                   isSelected ? route.selectedIcon : route.icon,
                   color: isSelected
                       ? AppTheme.primaryColor
-                      : AppTheme.textSecondary,
+                      : AppTheme.textPrimary,
                   size: 22,
                 ),
-                AnimatedOpacity(
-                  opacity: controller.isExpanded ? 1.0 : 0.0,
-                  duration: GlassConstants.animMedium,
-                  curve: GlassConstants.animCurve,
-                  child: controller.isExpanded
-                      ? Flexible(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(width: 12),
-                              Flexible(
-                                child: Text(
-                                  route.label,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: isSelected
-                                        ? AppTheme.primaryColor
-                                        : AppTheme.textSecondary,
-                                    fontSize: fontSize,
-                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                                  ),
-                                ),
-                              ),
-                              if (count != null && count > 0)
-                                Container(
-                                  margin: const EdgeInsets.only(left: 8),
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    gradient: isSelected
-                                        ? LinearGradient(
-                                            colors: [
-                                              AppTheme.primaryColor.withValues(alpha: 0.8),
-                                              AppTheme.secondaryColor.withValues(alpha: 0.8),
-                                            ],
-                                          )
-                                        : null,
-                                    color: isSelected
-                                        ? null
-                                        : AppTheme.textSecondary.withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  constraints: const BoxConstraints(minWidth: 20, minHeight: 18),
-                                  child: Text(
-                                    '$count',
-                                    style: TextStyle(
-                                      color: isSelected
-                                          ? Colors.white
-                                          : AppTheme.textSecondary,
-                                      fontSize: (fontSize * 0.78).clamp(9, 14),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                            ],
+                if (controller.isExpanded) ...[
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(
+                      route.label,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: isSelected
+                            ? AppTheme.primaryColor
+                            : AppTheme.textPrimary,
+                        fontSize: fontSize,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                  if (count != null && count > 0)
+                    Flexible(
+                      child: Container(
+                        margin: const EdgeInsets.only(left: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          gradient: isSelected
+                              ? LinearGradient(
+                                  colors: [
+                                    AppTheme.primaryColor.withValues(alpha: 0.8),
+                                    AppTheme.secondaryColor.withValues(alpha: 0.8),
+                                  ],
+                                )
+                              : null,
+                          color: isSelected
+                              ? null
+                              : AppTheme.textSecondary.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(minHeight: 18),
+                        child: Text(
+                          '$count',
+                          style: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : AppTheme.textSecondary,
+                            fontSize: (fontSize * 0.78).clamp(9, 14),
+                            fontWeight: FontWeight.w600,
                           ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
               ],
             ),
           ),

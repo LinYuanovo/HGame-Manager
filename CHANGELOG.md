@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.0.8 (2026-06-04)
+
+### ✨ 新功能
+
+- **Glass 风格统一**：全面应用毛玻璃设计语言
+  - 所有 SnackBar 替换为 Glass 风格的 `showGlassSnackBar`
+  - GameDetailDialog、右键菜单、侧边栏、设置页、刮削页统一应用 Glass 样式
+- **呼吸动画效果**：新增视觉动效组件
+  - 新增 `BreathingBorder` 组件，支持边框脉冲呼吸动画
+  - `GradientBackground` 新增呼吸发光动画效果
+- **侧边栏增强**：新增收起/展开切换按钮，优化交互体验
+
+### 🔧 优化
+
+- 游戏详情页文字颜色从 `#1C1D21` 调整为 `#374244`，提升阅读舒适度
+- 侧边栏导航项和切换按钮的文本使用 `Flexible` 布局，避免窄宽度下溢出
+- 移除计数徽章的 `minWidth` 约束，使其在空间不足时可自适应收缩
+
+### 🐛 修复
+
+- 修复侧边栏宽度不足时 `Row` 水平溢出 19px 的问题
+- 修复 `BreathingBorder` 组件的 `duration`/`minOpacity`/`maxOpacity` 属性变化时未正确更新的问题
+- 修复飞雪ACG解析器在未匹配到 section 时的兜底逻辑
+
+***
+
 ## v1.0.7 (2026-06-02)
 
 ### ✨ 新功能

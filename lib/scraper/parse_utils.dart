@@ -138,6 +138,17 @@ String? extractVersion(String text) {
   return match != null ? 'V${match.group(1)}' : null;
 }
 
+/// 从标题中移除版本号文本（如 "v5.0.3"、"V1.2"、"ver1.0"、"Build123"）
+String removeVersionFromTitle(String title) {
+  return title
+      .replaceAll(
+        RegExp(r'\s*(?:[Vv](?:er(?:sion)?)?|build)\s*\d[\w.]*', caseSensitive: false),
+        '',
+      )
+      .replaceAll(RegExp(r'\s{2,}'), ' ')
+      .trim();
+}
+
 String? extractUnzipCode(String text) {
   final match = RegExp(
     r'(?:默认)?解压(?:码|密码)[：:]\s*(.{1,50})',

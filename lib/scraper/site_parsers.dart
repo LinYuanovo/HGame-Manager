@@ -46,6 +46,7 @@ class AcgYingParser extends SiteParser {
         .trim();
 
     final version = extractVersion(cleanTitle);
+    final titleWithoutVersion = version != null ? removeVersionFromTitle(cleanTitle) : cleanTitle;
 
     final postContent = document.querySelector('div.post-content');
     String? description;
@@ -110,7 +111,7 @@ class AcgYingParser extends SiteParser {
     }
 
     return GameInfo(
-      title: cleanTitle,
+      title: titleWithoutVersion,
       version: version,
       tags: tags,
       category: category,
@@ -158,6 +159,7 @@ class AcgYingParser extends SiteParser {
           RegExp(r'(?:[Vv](?:er(?:sion)?)?|build)\s*(\d[\w.]*)', caseSensitive: false).firstMatch(metadata.title!);
       if (versionMatch != null) {
         metadata.version = 'V${versionMatch.group(1)}';
+        metadata.title = removeVersionFromTitle(metadata.title!);
       }
     }
 
@@ -328,6 +330,7 @@ class FeiXueAcgParser extends SiteParser {
         .trim();
 
     final version = extractVersion(cleanTitle);
+    final titleWithoutVersion = version != null ? removeVersionFromTitle(cleanTitle) : cleanTitle;
 
     final typeOption = document.querySelector('div.typeoption table');
     final platforms = <String>[];
@@ -484,7 +487,7 @@ class FeiXueAcgParser extends SiteParser {
     }
 
     return GameInfo(
-      title: cleanTitle,
+      title: titleWithoutVersion,
       version: version,
       tags: tags,
       category: category,
@@ -533,6 +536,7 @@ class FeiXueAcgParser extends SiteParser {
           RegExp(r'(?:[Vv](?:er(?:sion)?)?|build)\s*(\d[\w.]*)', caseSensitive: false).firstMatch(metadata.title!);
       if (versionMatch != null) {
         metadata.version = 'V${versionMatch.group(1)}';
+        metadata.title = removeVersionFromTitle(metadata.title!);
       }
     }
 
@@ -823,6 +827,7 @@ class VikAcgParser extends SiteParser {
         .trim();
 
     final version = extractVersion(cleanTitle);
+    final titleWithoutVersion = version != null ? removeVersionFromTitle(cleanTitle) : cleanTitle;
 
     final ogDesc = document.querySelector('meta[property="og:description"]') ??
         document.querySelector('meta[name="description"]');
@@ -923,7 +928,7 @@ class VikAcgParser extends SiteParser {
     }
 
     return GameInfo(
-      title: cleanTitle,
+      title: titleWithoutVersion,
       version: version,
       tags: tags,
       category: category,
@@ -977,6 +982,7 @@ class VikAcgParser extends SiteParser {
           RegExp(r'(?:[Vv](?:er(?:sion)?)?|build)\s*(\d[\w.]*)', caseSensitive: false).firstMatch(metadata.title!);
       if (versionMatch != null) {
         metadata.version = 'V${versionMatch.group(1)}';
+        metadata.title = removeVersionFromTitle(metadata.title!);
       }
     }
 

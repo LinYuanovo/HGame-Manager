@@ -314,6 +314,7 @@ class XpathParser extends SiteParser {
         .replaceAll(RegExp(r'\[[^\]]*\]'), '')
         .trim();
     final version = extractVersion(cleanTitle);
+    final titleWithoutVersion = version != null ? removeVersionFromTitle(cleanTitle) : cleanTitle;
 
     String? description;
     final descXpath = _xpaths['description'];
@@ -422,7 +423,7 @@ class XpathParser extends SiteParser {
     }
 
     return GameInfo(
-      title: cleanTitle,
+      title: titleWithoutVersion,
       version: version,
       tags: tags,
       category: category,
