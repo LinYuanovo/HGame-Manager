@@ -320,6 +320,19 @@ class GameRepository {
     );
   }
 
+  Future<void> updateRatingReview(int id, int rating, String? review) async {
+    final db = await _db;
+    await db.update(
+      'games',
+      {
+        'rating': rating,
+        'review': review,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   Future<int> getGameCount() async {
     final db = await _db;
     final result = await db.rawQuery('SELECT COUNT(*) as count FROM games');
