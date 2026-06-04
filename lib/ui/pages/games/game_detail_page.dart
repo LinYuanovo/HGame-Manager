@@ -520,20 +520,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                         onTap: () => _showReviewDetail(context),
                         onDoubleTap: () {
                           Clipboard.setData(ClipboardData(text: widget.game.review!));
-                          final messenger = ScaffoldMessenger.of(context);
-                          messenger.clearSnackBars();
-                          messenger.showSnackBar(
-                            SnackBar(
-                              content: const Text('已复制评论内容'),
-                              duration: const Duration(seconds: 1),
-                              behavior: SnackBarBehavior.floating,
-                              margin: EdgeInsets.only(
-                                bottom: MediaQuery.of(context).size.height - 100,
-                                left: 16,
-                                right: 16,
-                              ),
-                            ),
-                          );
+                          AppTheme.showGlassToast(context, message: '已复制评论内容');
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -696,7 +683,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       GestureDetector(
                         onDoubleTap: () {
                           Clipboard.setData(ClipboardData(text: url));
-                          _showCopyToast('已复制链接');
+                          AppTheme.showGlassToast(context, message: '已复制链接');
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -713,7 +700,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                         GestureDetector(
                           onDoubleTap: () {
                             Clipboard.setData(ClipboardData(text: extractCode));
-                            _showCopyToast('已复制提取码');
+                            AppTheme.showGlassToast(context, message: '已复制提取码');
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -748,7 +735,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 child: GestureDetector(
                   onDoubleTap: () {
                     Clipboard.setData(ClipboardData(text: code));
-                    _showCopyToast('已复制解压码');
+                    AppTheme.showGlassToast(context, message: '已复制解压码');
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -905,51 +892,14 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       ref.invalidate(allTagsProvider);
       if (mounted) {
         setState(() => _isEditing = false);
-        _showCopyToast('保存成功');
+        AppTheme.showGlassToast(context, message: '保存成功');
       }
     } catch (e) {
       if (mounted) {
-        _showCopyToast('保存失败: $e');
+        AppTheme.showGlassToast(context, message: '保存失败: $e');
       }
     }
   }
-
-  void _showCopyToast(String message) {
-  final overlay = Overlay.of(context);
-  final overlayEntry = OverlayEntry(
-    builder: (context) => Positioned(
-      top: 40,
-      left: MediaQuery.of(context).size.width / 2 - 100,
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceColor.withValues(alpha: 0.95),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 20, offset: const Offset(0, 4)),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.check_circle, size: 18, color: AppTheme.successColor),
-              const SizedBox(width: 8),
-              Text(message, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-
-  overlay.insert(overlayEntry);
-  Future.delayed(const Duration(seconds: 2), () {
-    overlayEntry.remove();
-  });
-}
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
@@ -961,34 +911,64 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       builder: (dialogContext) => _DetailReviewDialog(
         game: widget.game,
         onSave: (rating, review) async {
-          final repo = ref.read(gameRepositoryProvider);
-          var gameId = widget.game.id;
-          if (gameId == null) {
-            debugPrint('[Review] Game has no id, inserting into DB: ${widget.game.path}');
-            gameId = await repo.insertGame(widget.game);
-            debugPrint('[Review] Inserted game with id: $gameId');
+          try {
+            final repo = ref.read(gameRepositoryProvider);
+            var gameId = widget.game.id;
+            if (gameId == null) {
+              debugPrint('[Review] Game has no id, inserting into DB: ${widget.game.path}');
+              gameId = await repo.insertGame(widget.game);
+              debugPrint('[Review] Inserted game with id: $gameId');
+            }
+            await repo.updateRatingReview(gameId, rating, review.isEmpty ? null : review);
+            debugPrint('[Review] Updated rating=$rating, review=${review.isEmpty ? "null" : review} for game id=$gameId');
+            ref.invalidate(allGamesProvider);
+            ref.invalidate(playedGamesProvider);
+            ref.invalidate(clearedGamesProvider);
+            ref.invalidate(favoriteGamesProvider);
+            if (mounted) {
+              AppTheme.showGlassToast(context, message: '评论已保存');
+            }
+          } catch (e, stackTrace) {
+            debugPrint('[Review] Error saving review: $e\n$stackTrace');
+            if (mounted) {
+              AppTheme.showGlassToast(
+                context,
+                message: '保存失败: $e',
+                icon: Icons.error_outline,
+                iconColor: AppTheme.errorColor,
+              );
+            }
           }
-          await repo.updateRatingReview(gameId, rating, review.isEmpty ? null : review);
-          debugPrint('[Review] Updated rating=$rating, review=${review.isEmpty ? "null" : review} for game id=$gameId');
-          ref.invalidate(allGamesProvider);
-          ref.invalidate(playedGamesProvider);
-          ref.invalidate(clearedGamesProvider);
-          ref.invalidate(favoriteGamesProvider);
         },
         onDelete: () async {
-          final repo = ref.read(gameRepositoryProvider);
-          var gameId = widget.game.id;
-          if (gameId == null) {
-            debugPrint('[Review] Game has no id, inserting into DB: ${widget.game.path}');
-            gameId = await repo.insertGame(widget.game);
-            debugPrint('[Review] Inserted game with id: $gameId');
+          try {
+            final repo = ref.read(gameRepositoryProvider);
+            var gameId = widget.game.id;
+            if (gameId == null) {
+              debugPrint('[Review] Game has no id, inserting into DB: ${widget.game.path}');
+              gameId = await repo.insertGame(widget.game);
+              debugPrint('[Review] Inserted game with id: $gameId');
+            }
+            await repo.deleteRatingReview(gameId);
+            debugPrint('[Review] Deleted rating/review for game id=$gameId');
+            ref.invalidate(allGamesProvider);
+            ref.invalidate(playedGamesProvider);
+            ref.invalidate(clearedGamesProvider);
+            ref.invalidate(favoriteGamesProvider);
+            if (mounted) {
+              AppTheme.showGlassToast(context, message: '评论已删除');
+            }
+          } catch (e, stackTrace) {
+            debugPrint('[Review] Error deleting review: $e\n$stackTrace');
+            if (mounted) {
+              AppTheme.showGlassToast(
+                context,
+                message: '删除失败: $e',
+                icon: Icons.error_outline,
+                iconColor: AppTheme.errorColor,
+              );
+            }
           }
-          await repo.deleteRatingReview(gameId);
-          debugPrint('[Review] Deleted rating/review for game id=$gameId');
-          ref.invalidate(allGamesProvider);
-          ref.invalidate(playedGamesProvider);
-          ref.invalidate(clearedGamesProvider);
-          ref.invalidate(favoriteGamesProvider);
         },
       ),
     );

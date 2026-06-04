@@ -1206,20 +1206,34 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       builder: (dialogContext) => _ReviewDialog(
         game: game,
         onSave: (rating, review) async {
-          final repo = ref.read(gameRepositoryProvider);
-          var gameId = game.id;
-          if (gameId == null) {
-            // Backup-only game without DB record — insert first
-            debugPrint('[Review] Game has no id, inserting into DB: ${game.path}');
-            gameId = await repo.insertGame(game);
-            debugPrint('[Review] Inserted game with id: $gameId');
+          try {
+            final repo = ref.read(gameRepositoryProvider);
+            var gameId = game.id;
+            if (gameId == null) {
+              debugPrint('[Review] Game has no id, inserting into DB: ${game.path}');
+              gameId = await repo.insertGame(game);
+              debugPrint('[Review] Inserted game with id: $gameId');
+            }
+            await repo.updateRatingReview(gameId, rating, review.isEmpty ? null : review);
+            debugPrint('[Review] Updated rating=$rating, review=${review.isEmpty ? "null" : review} for game id=$gameId');
+            ref.invalidate(allGamesProvider);
+            ref.invalidate(playedGamesProvider);
+            ref.invalidate(clearedGamesProvider);
+            ref.invalidate(favoriteGamesProvider);
+            if (mounted) {
+              AppTheme.showGlassToast(context, message: '评论已保存');
+            }
+          } catch (e, stackTrace) {
+            debugPrint('[Review] Error saving review: $e\n$stackTrace');
+            if (mounted) {
+              AppTheme.showGlassToast(
+                context,
+                message: '保存失败: $e',
+                icon: Icons.error_outline,
+                iconColor: AppTheme.errorColor,
+              );
+            }
           }
-          await repo.updateRatingReview(gameId, rating, review.isEmpty ? null : review);
-          debugPrint('[Review] Updated rating=$rating, review=${review.isEmpty ? "null" : review} for game id=$gameId');
-          ref.invalidate(allGamesProvider);
-          ref.invalidate(playedGamesProvider);
-          ref.invalidate(clearedGamesProvider);
-          ref.invalidate(favoriteGamesProvider);
         },
       ),
     );

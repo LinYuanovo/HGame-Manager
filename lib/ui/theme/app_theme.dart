@@ -357,6 +357,75 @@ class AppTheme {
       initialValue: initialValue,
     );
   }
+
+  static void showGlassToast(
+    BuildContext context, {
+    required String message,
+    IconData icon = Icons.check_circle,
+    Color iconColor = const Color(0xFF10B981),
+    Duration duration = const Duration(seconds: 2),
+  }) {
+    final overlay = Overlay.of(context);
+    late OverlayEntry overlayEntry;
+    final controller = AnimationController(
+      vsync: Navigator.of(context),
+      duration: const Duration(milliseconds: 300),
+    );
+    final animation = CurvedAnimation(parent: controller, curve: Curves.easeOut);
+
+    overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: 40,
+        left: MediaQuery.of(context).size.width / 2 - 120,
+        child: AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) => Opacity(
+            opacity: animation.value,
+            child: Transform.translate(
+              offset: Offset(0, -20 * (1 - animation.value)),
+              child: child,
+            ),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 18, color: iconColor),
+                      const SizedBox(width: 8),
+                      Text(message, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    overlay.insert(overlayEntry);
+    controller.forward();
+    Future.delayed(duration, () async {
+      await controller.reverse();
+      overlayEntry.remove();
+      controller.dispose();
+    });
+  }
 }
 
 // ===== 玻璃拟态容器 =====
