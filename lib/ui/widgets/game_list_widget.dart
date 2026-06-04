@@ -12,6 +12,8 @@ import '../pages/games/game_detail_page.dart';
 enum PaginationMode { paginated, infiniteScroll }
 enum ContextMenuMode { games, played }
 
+final epoch0 = DateTime.fromMillisecondsSinceEpoch(0);
+
 class GameListWidget extends ConsumerStatefulWidget {
   final List<Game> games;
   final Widget? appBarTitle;
@@ -112,8 +114,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   List<Game> _sortGames(List<Game> games) {
     final sorted = List<Game>.from(games);
     sorted.sort((a, b) {
+      // 收藏优先
       final fav = (b.isFavorite ? 1 : 0).compareTo(a.isFavorite ? 1 : 0);
       if (fav != 0) return fav;
+      // 评分高的优先（仅在已玩/已通关页面生效）
+      if (widget.contextMenuMode == ContextMenuMode.played || widget.isClearedPage) {
+        final ratingDiff = b.rating.compareTo(a.rating);
+        if (ratingDiff != 0) return ratingDiff;
+      }
       switch (_sortMode) {
         case SortMode.titleAsc:
           return (a.title ?? '').compareTo(b.title ?? '');
@@ -126,15 +134,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           return (a.addedTime ?? DateTime.now())
               .compareTo(b.addedTime ?? DateTime.now());
         case SortMode.recentlyPlayedDesc:
-          return (b.lastPlayedTime ??
-                  DateTime.fromMillisecondsSinceEpoch(0))
-              .compareTo(a.lastPlayedTime ??
-                  DateTime.fromMillisecondsSinceEpoch(0));
+          return (b.lastPlayedTime ?? epoch0)
+              .compareTo(a.lastPlayedTime ?? epoch0);
         case SortMode.recentlyPlayedAsc:
-          return (a.lastPlayedTime ??
-                  DateTime.fromMillisecondsSinceEpoch(0))
-              .compareTo(b.lastPlayedTime ??
-                  DateTime.fromMillisecondsSinceEpoch(0));
+          return (a.lastPlayedTime ?? epoch0)
+              .compareTo(b.lastPlayedTime ?? epoch0);
       }
     });
     return sorted;
