@@ -303,6 +303,12 @@ class AcgYingParser extends SiteParser {
           result['游戏介绍'] = introText;
         }
       }
+    } else if (positions.isNotEmpty) {
+      // "游戏介绍" found — merge any text before the first marker into it
+      final preText = fullText.substring(0, positions.first.pos).trim();
+      if (preText.isNotEmpty) {
+        result['游戏介绍'] = '$preText\n\n${result['游戏介绍']}';
+      }
     }
 
     return result;

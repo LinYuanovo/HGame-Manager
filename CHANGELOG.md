@@ -23,6 +23,7 @@
 - 修复侧边栏宽度不足时 `Row` 水平溢出 19px 的问题
 - 修复 `BreathingBorder` 组件的 `duration`/`minOpacity`/`maxOpacity` 属性变化时未正确更新的问题
 - 修复飞雪ACG解析器在未匹配到 section 时的兜底逻辑
+- 修复ACG嘤嘤怪解析器 `游戏介绍` 标记前的文本被丢弃的问题，现在前置文本会并入游戏介绍
 
 ***
 
