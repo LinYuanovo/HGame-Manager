@@ -6,12 +6,14 @@ class SidebarController extends ChangeNotifier {
   double _width;
   final double _minWidth;
   final double _maxWidth;
+  double _targetWidth;
 
   SidebarController({
     double width = LayoutConstants.sidebarWidth,
     double minWidth = LayoutConstants.minSidebarWidth,
     double maxWidth = LayoutConstants.maxSidebarWidth,
   })  : _width = width,
+        _targetWidth = width,
         _minWidth = minWidth,
         _maxWidth = maxWidth;
 
@@ -23,7 +25,20 @@ class SidebarController extends ChangeNotifier {
     final newWidth = (_width - delta).clamp(_minWidth, _maxWidth);
     if (newWidth != _width) {
       _width = newWidth;
+      _targetWidth = newWidth;
       notifyListeners();
     }
+  }
+
+  /// 平滑过渡到目标宽度
+  void animateToWidth(double targetWidth) {
+    _targetWidth = targetWidth.clamp(_minWidth, _maxWidth);
+    notifyListeners();
+  }
+
+  /// 更新当前宽度（由动画驱动）
+  void updateAnimatedWidth(double width) {
+    _width = width;
+    notifyListeners();
   }
 }

@@ -132,19 +132,17 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     final isRunning = _isProcessing;
     return SizedBox(
       width: 200,
-      child: Container(
+      child: GlassContainer(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        decoration: BoxDecoration(
+        color: isRunning
+            ? AppTheme.successColor.withValues(alpha: 0.15)
+            : Colors.grey.withValues(alpha: 0.1),
+        border: Border.all(
           color: isRunning
-              ? AppTheme.successColor.withValues(alpha: 0.15)
-              : Colors.grey.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-          border: Border.all(
-            color: isRunning
-                ? AppTheme.successColor.withValues(alpha: 0.3)
-                : Colors.grey.withValues(alpha: 0.3),
-          ),
+              ? AppTheme.successColor.withValues(alpha: 0.3)
+              : Colors.grey.withValues(alpha: 0.3),
         ),
+        enableBlur: false,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -217,13 +215,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   Widget _buildStatsPanel() {
     return SizedBox(
       width: 200,
-      child: Container(
+      child: GlassContainer(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-          border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.15)),
-        ),
+        color: AppTheme.glassFillColor,
+        border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.15)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -439,12 +434,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           const SizedBox(height: 12),
 
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.04),
-                borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
-              ),
+            child: GlassContainer(
+              color: Colors.black.withValues(alpha: 0.04),
+              border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+              enableBlur: false,
               padding: const EdgeInsets.all(12),
               child: _logs.isEmpty
                   ? Center(

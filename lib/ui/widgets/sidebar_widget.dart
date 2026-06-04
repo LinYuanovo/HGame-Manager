@@ -38,7 +38,9 @@ class SidebarWidget extends ConsumerWidget {
                   sigmaX: GlassConstants.blurMedium,
                   sigmaY: GlassConstants.blurMedium,
                 ),
-                child: Container(
+                child: AnimatedContainer(
+                  duration: GlassConstants.animMedium,
+                  curve: GlassConstants.animCurve,
                   width: controller.width,
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.4),
@@ -141,52 +143,59 @@ class SidebarWidget extends ConsumerWidget {
                       : AppTheme.textSecondary,
                   size: 22,
                 ),
-                if (controller.isExpanded) ...[
-                  const SizedBox(width: 12),
-                  Text(
-                    route.label,
-                    style: TextStyle(
-                      color: isSelected
-                          ? AppTheme.primaryColor
-                          : AppTheme.textSecondary,
-                      fontSize: fontSize,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    ),
-                  ),
-                ],
-                if (count != null && count > 0 && controller.isExpanded)
-                  Container(
-                    margin: const EdgeInsets.only(left: 8),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      gradient: isSelected
-                          ? LinearGradient(
-                              colors: [
-                                AppTheme.primaryColor.withValues(alpha: 0.8),
-                                AppTheme.secondaryColor.withValues(alpha: 0.8),
-                              ],
-                            )
-                          : null,
-                      color: isSelected
-                          ? null
-                          : AppTheme.textSecondary.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    constraints:
-                        const BoxConstraints(minWidth: 20, minHeight: 18),
-                    child: Text(
-                      '$count',
-                      style: TextStyle(
-                        color: isSelected
-                            ? Colors.white
-                            : AppTheme.textSecondary,
-                        fontSize: (fontSize * 0.78).clamp(9, 14),
-                        fontWeight: FontWeight.w600,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
+                AnimatedOpacity(
+                  opacity: controller.isExpanded ? 1.0 : 0.0,
+                  duration: GlassConstants.animMedium,
+                  curve: GlassConstants.animCurve,
+                  child: controller.isExpanded
+                      ? Row(
+                          children: [
+                            const SizedBox(width: 12),
+                            Text(
+                              route.label,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? AppTheme.primaryColor
+                                    : AppTheme.textSecondary,
+                                fontSize: fontSize,
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                              ),
+                            ),
+                            if (count != null && count > 0)
+                              Container(
+                                margin: const EdgeInsets.only(left: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  gradient: isSelected
+                                      ? LinearGradient(
+                                          colors: [
+                                            AppTheme.primaryColor.withValues(alpha: 0.8),
+                                            AppTheme.secondaryColor.withValues(alpha: 0.8),
+                                          ],
+                                        )
+                                      : null,
+                                  color: isSelected
+                                      ? null
+                                      : AppTheme.textSecondary.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                constraints: const BoxConstraints(minWidth: 20, minHeight: 18),
+                                child: Text(
+                                  '$count',
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? Colors.white
+                                        : AppTheme.textSecondary,
+                                    fontSize: (fontSize * 0.78).clamp(9, 14),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                          ],
+                        )
+                      : const SizedBox.shrink(),
+                ),
               ],
             ),
           ),

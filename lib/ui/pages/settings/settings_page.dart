@@ -684,13 +684,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       MapEntry('features', '游戏特点'),
     ];
 
-    return Container(
+    return GlassContainer(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
-      ),
+      color: Colors.white.withValues(alpha: 0.3),
+      border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

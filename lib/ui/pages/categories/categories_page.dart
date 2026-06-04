@@ -244,7 +244,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
   }
 
   void _showTagContextMenu(Tag tag, Offset position) {
-    showMenu<String>(
+    AppTheme.showGlassMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx + 1, position.dy + 1),
       items: [

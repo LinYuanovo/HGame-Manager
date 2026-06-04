@@ -946,19 +946,18 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   void _showContextMenu(
       BuildContext context, Offset position, Game game) {
     final isBackupOnly = game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
-    showMenu<String>(
+    AppTheme.showGlassMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(
           position.dx, position.dy, position.dx + 1, position.dy + 1),
       items: [
-        if (!isBackupOnly)
-          PopupMenuItem(
-              value: 'open_folder',
-              child: ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.folder_open, size: 18),
-                  title: const Text('打开文件夹'))),
+        PopupMenuItem(
+            value: 'open_folder',
+            child: ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.folder_open, size: 18),
+                title: const Text('打开文件夹'))),
         PopupMenuItem(
             value: 'favorite',
             child: ListTile(
