@@ -1802,14 +1802,12 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                   final starAreaWidth = constraints.maxWidth;
                   return GestureDetector(
                     onTapDown: (details) {
-                      setState(() {
-                        _rating = _calcRatingFromX(details.localPosition.dx, starAreaWidth);
-                      });
+                      final newRating = _calcRatingFromX(details.localPosition.dx, starAreaWidth);
+                      Future.microtask(() => setState(() => _rating = newRating));
                     },
                     onHorizontalDragUpdate: (details) {
-                      setState(() {
-                        _rating = _calcRatingFromX(details.localPosition.dx, starAreaWidth);
-                      });
+                      final newRating = _calcRatingFromX(details.localPosition.dx, starAreaWidth);
+                      Future.microtask(() => setState(() => _rating = newRating));
                     },
                     child: Row(
                       children: List.generate(5, (index) {
