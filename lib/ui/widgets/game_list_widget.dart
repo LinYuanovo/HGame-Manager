@@ -1803,11 +1803,15 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                   return GestureDetector(
                     onTapDown: (details) {
                       final newRating = _calcRatingFromX(details.localPosition.dx, starAreaWidth);
-                      Future.microtask(() => setState(() => _rating = newRating));
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) setState(() => _rating = newRating);
+                      });
                     },
                     onHorizontalDragUpdate: (details) {
                       final newRating = _calcRatingFromX(details.localPosition.dx, starAreaWidth);
-                      Future.microtask(() => setState(() => _rating = newRating));
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) setState(() => _rating = newRating);
+                      });
                     },
                     child: Row(
                       children: List.generate(5, (index) {
