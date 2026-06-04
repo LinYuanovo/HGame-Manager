@@ -404,7 +404,7 @@ class AppTheme {
                     children: [
                       Icon(icon, size: 18, color: iconColor),
                       const SizedBox(width: 8),
-                      Text(message, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+                      Text(message, style: const TextStyle(fontSize: 16, color: AppTheme.textPrimary)),
                     ],
                   ),
                 ),

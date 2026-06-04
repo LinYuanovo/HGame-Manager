@@ -84,7 +84,7 @@ class _GamesPageState extends ConsumerState<GamesPage> {
 
                         if (scanPath.isEmpty) {
                           if (mounted) {
-                            AppTheme.showGlassSnackBar(context, '请先在设置中配置游戏库路径或整理目录', color: AppTheme.warningColor);
+                            AppTheme.showGlassToast(context, message: '请先在设置中配置游戏库路径或整理目录', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
                           }
                           return;
                         }
@@ -108,7 +108,7 @@ class _GamesPageState extends ConsumerState<GamesPage> {
                         ref.invalidate(playedGamesProvider);
                       } catch (e) {
                         if (mounted) {
-                          AppTheme.showGlassSnackBar(context, '扫描失败: $e', color: AppTheme.errorColor);
+                          AppTheme.showGlassToast(context, message: '扫描失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
                         }
                       } finally {
                         setState(() {

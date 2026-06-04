@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -843,30 +844,54 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       final tagRepo = ref.read(tagRepositoryProvider);
       final gameId = widget.game.id;
 
+      final newTitle = _titleController.text.trim().isEmpty ? null : _titleController.text.trim();
+      final newVersion = _versionController.text.trim().isEmpty ? null : _versionController.text.trim();
+      final newIntro = _introController.text.trim().isEmpty ? null : _introController.text.trim();
+      final newFeatures = _featuresController.text.trim().isEmpty ? null : _featuresController.text.trim();
+      final newChangelog = _changelogController.text.trim().isEmpty ? null : _changelogController.text.trim();
+      final newDownloadUrl = _downloadUrlController.text.trim().isEmpty ? null : _downloadUrlController.text.trim();
+
       await repo.updateGame(widget.game.copyWith(
-        title: _titleController.text.trim().isEmpty ? null : _titleController.text.trim(),
-        version: _versionController.text.trim().isEmpty ? null : _versionController.text.trim(),
-        intro: _introController.text.trim().isEmpty ? null : _introController.text.trim(),
-        features: _featuresController.text.trim().isEmpty ? null : _featuresController.text.trim(),
-        changelog: _changelogController.text.trim().isEmpty ? null : _changelogController.text.trim(),
-        downloadUrl: _downloadUrlController.text.trim().isEmpty ? null : _downloadUrlController.text.trim(),
+        title: newTitle,
+        version: newVersion,
+        intro: newIntro,
+        features: newFeatures,
+        changelog: newChangelog,
+        downloadUrl: newDownloadUrl,
         tags: _editedTags,
       ));
 
       // Update tag relations if game has an id
       if (gameId != null) {
-        // Remove all existing tag relations
         final existingTags = widget.game.tags;
         for (final tag in existingTags) {
           if (tag.id != null) {
             await repo.removeTagFromGame(gameId, tag.id!);
           }
         }
-        // Add new tag relations
         for (final tag in _editedTags) {
           final tagId = await tagRepo.insertOrGetTag(tag.name, tag.type);
           await repo.addTagToGame(gameId, tagId);
         }
+      }
+
+      // Sync metadata.json
+      try {
+        final metadataFile = File('${widget.game.path}${Platform.pathSeparator}metadata.json');
+        if (await metadataFile.exists()) {
+          final content = await metadataFile.readAsString();
+          final metadata = jsonDecode(content) as Map<String, dynamic>;
+          if (newTitle != null) metadata['title'] = newTitle;
+          if (newVersion != null) metadata['version'] = newVersion;
+          if (newIntro != null) metadata['intro'] = newIntro;
+          if (newFeatures != null) metadata['features'] = newFeatures;
+          if (newChangelog != null) metadata['changelog'] = newChangelog;
+          if (newDownloadUrl != null) metadata['download_url'] = newDownloadUrl;
+          await metadataFile.writeAsString(jsonEncode(metadata), flush: true);
+          debugPrint('[Edit] metadata.json updated for: ${widget.game.path}');
+        }
+      } catch (e) {
+        debugPrint('[Edit] Failed to update metadata.json: $e');
       }
 
       ref.invalidate(allGamesProvider);

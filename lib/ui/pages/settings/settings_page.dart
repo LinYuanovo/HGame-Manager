@@ -1194,7 +1194,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     ref.invalidate(pageSizeProvider);
 
     if (mounted) {
-      AppTheme.showGlassSnackBar(context, '设置已保存', color: AppTheme.successColor);
+      AppTheme.showGlassToast(context, message: '设置已保存');
     }
   }
 
@@ -1207,7 +1207,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _scanNow() async {
     if (_libraryPathController.text.isEmpty) {
-      AppTheme.showGlassSnackBar(context, '请先配置游戏库目录', color: AppTheme.warningColor);
+      AppTheme.showGlassToast(context, message: '请先配置游戏库目录', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
       return;
     }
 
@@ -1223,11 +1223,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ref.invalidate(allGamesProvider);
 
       if (mounted) {
-        AppTheme.showGlassSnackBar(context, '扫描完成', color: AppTheme.successColor);
+        AppTheme.showGlassToast(context, message: '扫描完成');
       }
     } catch (e) {
       if (mounted) {
-        AppTheme.showGlassSnackBar(context, '扫描失败: $e', color: AppTheme.errorColor);
+        AppTheme.showGlassToast(context, message: '扫描失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
     }
   }
@@ -1419,7 +1419,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final dbFile = File(dbPath);
     if (!dbFile.existsSync()) {
       if (mounted) {
-        AppTheme.showGlassSnackBar(context, '数据库文件不存在', color: AppTheme.errorColor);
+        AppTheme.showGlassToast(context, message: '数据库文件不存在', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
       return;
     }
@@ -1450,12 +1450,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       await File(result).writeAsBytes(zipBytes);
 
       if (mounted) {
-        AppTheme.showGlassSnackBar(context, '导出成功: $result', color: AppTheme.successColor);
+        AppTheme.showGlassToast(context, message: '导出成功: $result');
       }
     } catch (e) {
       debugPrint('Export backup error: $e');
       if (mounted) {
-        AppTheme.showGlassSnackBar(context, '导出失败', color: AppTheme.errorColor);
+        AppTheme.showGlassToast(context, message: '导出失败', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
     }
   }
@@ -1519,12 +1519,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       }
 
       if (mounted) {
-        AppTheme.showGlassSnackBar(context, '导入成功！请重启应用使数据生效。', color: AppTheme.successColor);
+        AppTheme.showGlassToast(context, message: '导入成功！请重启应用使数据生效。');
       }
     } catch (e) {
       debugPrint('Import local backup error: $e');
       if (mounted) {
-        AppTheme.showGlassSnackBar(context, '导入失败', color: AppTheme.errorColor);
+        AppTheme.showGlassToast(context, message: '导入失败', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
     }
   }
@@ -1536,7 +1536,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     if (url.isEmpty || username.isEmpty || password.isEmpty) {
       if (mounted) {
-        AppTheme.showGlassSnackBar(context, '请先填写完整的 WebDAV 配置', color: AppTheme.warningColor);
+        AppTheme.showGlassToast(context, message: '请先填写完整的 WebDAV 配置', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
       }
       return;
     }
@@ -1663,7 +1663,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     if (url.isEmpty || username.isEmpty || password.isEmpty) {
       if (mounted) {
-        AppTheme.showGlassSnackBar(context, '请先填写完整的 WebDAV 配置', color: AppTheme.warningColor);
+        AppTheme.showGlassToast(context, message: '请先填写完整的 WebDAV 配置', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
       }
       return;
     }
@@ -1676,7 +1676,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       if (!dbFile.existsSync()) {
         if (mounted) {
           setState(() => _isBackingUp = false);
-          AppTheme.showGlassSnackBar(context, '数据库文件不存在', color: AppTheme.errorColor);
+          AppTheme.showGlassToast(context, message: '数据库文件不存在', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
         return;
       }
@@ -1712,17 +1712,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
       if (mounted) {
         setState(() => _isBackingUp = false);
-        AppTheme.showGlassSnackBar(
-          context,
-          ok ? '备份成功' : '备份失败，请检查配置和服务器状态',
-          color: ok ? AppTheme.successColor : AppTheme.errorColor,
-        );
+        if (ok) {
+          AppTheme.showGlassToast(context, message: '备份成功');
+        } else {
+          AppTheme.showGlassToast(context, message: '备份失败，请检查配置和服务器状态', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        }
       }
     } catch (e) {
       debugPrint('WebDAV backup error: $e');
       if (mounted) {
         setState(() => _isBackingUp = false);
-        AppTheme.showGlassSnackBar(context, '备份失败: $e', color: AppTheme.errorColor);
+        AppTheme.showGlassToast(context, message: '备份失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
     }
   }
@@ -1746,11 +1746,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
 
     if (mounted) {
-      AppTheme.showGlassSnackBar(
-        context,
-        ok ? '下载成功: $localPath' : '下载失败',
-        color: ok ? AppTheme.successColor : AppTheme.errorColor,
-      );
+      if (ok) {
+        AppTheme.showGlassToast(context, message: '下载成功: $localPath');
+      } else {
+        AppTheme.showGlassToast(context, message: '下载失败', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+      }
     }
   }
 
@@ -1799,7 +1799,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         final tempFile = File(tempPath);
         if (!tempFile.existsSync()) {
           if (mounted) {
-            AppTheme.showGlassSnackBar(context, '导入失败：临时文件不存在', color: AppTheme.errorColor);
+            AppTheme.showGlassToast(context, message: '导入失败：临时文件不存在', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
           }
           return;
         }
@@ -1841,11 +1841,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
 
     if (mounted) {
-      AppTheme.showGlassSnackBar(
-        context,
-        ok ? '导入成功！请重启应用使数据生效。' : '导入失败',
-        color: ok ? AppTheme.successColor : AppTheme.errorColor,
-      );
+      if (ok) {
+        AppTheme.showGlassToast(context, message: '导入成功！请重启应用使数据生效。');
+      } else {
+        AppTheme.showGlassToast(context, message: '导入失败', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+      }
     }
   }
 
@@ -2141,12 +2141,12 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
   void _save() {
     final domain = _domainController.text.trim();
     if (domain.isEmpty) {
-      AppTheme.showGlassSnackBar(context, '请填写域名', color: AppTheme.errorColor);
+      AppTheme.showGlassToast(context, message: '请填写域名', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       return;
     }
     final titleXpath = _fieldControllers['title']!.text.trim();
     if (titleXpath.isEmpty) {
-      AppTheme.showGlassSnackBar(context, '请填写标题 XPath', color: AppTheme.errorColor);
+      AppTheme.showGlassToast(context, message: '请填写标题 XPath', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       return;
     }
 

@@ -1187,11 +1187,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               await repo.deleteGame(game.id!);
               ref.invalidate(allGamesProvider);
               if (mounted) {
-                AppTheme.showGlassSnackBar(context, '已删除文件夹: ${game.title}', color: AppTheme.successColor);
+                AppTheme.showGlassToast(context, message: '已删除文件夹: ${game.title}');
               }
             } catch (e) {
               if (mounted) {
-                AppTheme.showGlassSnackBar(context, '删除失败: $e', color: AppTheme.errorColor);
+                AppTheme.showGlassToast(context, message: '删除失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
               }
             }
           }
@@ -1290,7 +1290,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
       if (sortedPath.isEmpty) {
         if (mounted) {
-          AppTheme.showGlassSnackBar(context, '请先在设置中配置整理目录', color: AppTheme.errorColor);
+          AppTheme.showGlassToast(context, message: '请先在设置中配置整理目录', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
         return;
       }
@@ -1319,7 +1319,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         ref.invalidate(clearedGamesProvider);
 
         if (mounted) {
-          AppTheme.showGlassSnackBar(context, '已删除"$gameName"的备份', color: AppTheme.successColor);
+          AppTheme.showGlassToast(context, message: '已删除"$gameName"的备份');
         }
         return;
       }
@@ -1327,7 +1327,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final gameDir = Directory(game.path);
       if (!await gameDir.exists()) {
         if (mounted) {
-          AppTheme.showGlassSnackBar(context, '游戏目录不存在', color: AppTheme.errorColor);
+          AppTheme.showGlassToast(context, message: '游戏目录不存在', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
         return;
       }
@@ -1384,7 +1384,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final newDir = Directory(newPath);
       if (await newDir.exists()) {
         if (mounted) {
-          AppTheme.showGlassSnackBar(context, '目标目录已存在: ${path.basename(game.path)}，请先处理冲突', color: AppTheme.errorColor);
+          AppTheme.showGlassToast(context, message: '目标目录已存在: ${path.basename(game.path)}，请先处理冲突', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
         return;
       }
@@ -1425,11 +1425,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       ref.invalidate(clearedGamesProvider);
 
       if (mounted) {
-        AppTheme.showGlassSnackBar(context, '已标记"$gameName"为已通关', color: AppTheme.successColor);
+        AppTheme.showGlassToast(context, message: '已标记"$gameName"为已通关');
       }
     } catch (e) {
       if (mounted) {
-        AppTheme.showGlassSnackBar(context, '操作失败: $e', color: AppTheme.errorColor);
+        AppTheme.showGlassToast(context, message: '操作失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
     }
   }
@@ -1488,7 +1488,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
       if (sortedPath.isEmpty) {
         if (mounted) {
-          AppTheme.showGlassSnackBar(context, '请先在设置中配置整理目录', color: AppTheme.errorColor);
+          AppTheme.showGlassToast(context, message: '请先在设置中配置整理目录', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
         return;
       }
@@ -1510,7 +1510,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         ref.invalidate(clearedGamesProvider);
 
         if (mounted) {
-          AppTheme.showGlassSnackBar(context, '已删除"$gameName"的备份', color: AppTheme.successColor);
+          AppTheme.showGlassToast(context, message: '已删除"$gameName"的备份');
         }
         return;
       }
@@ -1518,7 +1518,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final gameDir = Directory(game.path);
       if (!await gameDir.exists()) {
         if (mounted) {
-          AppTheme.showGlassSnackBar(context, '游戏目录不存在', color: AppTheme.errorColor);
+          AppTheme.showGlassToast(context, message: '游戏目录不存在', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
         return;
       }
@@ -1550,7 +1550,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final newDir = Directory(newPath);
       if (await newDir.exists()) {
         if (mounted) {
-          AppTheme.showGlassSnackBar(context, '目标目录已存在: ${path.basename(game.path)}，请先处理冲突', color: AppTheme.errorColor);
+          AppTheme.showGlassToast(context, message: '目标目录已存在: ${path.basename(game.path)}，请先处理冲突', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
         return;
       }
@@ -1603,11 +1603,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       ref.invalidate(clearedGamesProvider);
 
       if (mounted) {
-        AppTheme.showGlassSnackBar(context, '已取消"$gameName"的已通关标记', color: AppTheme.successColor);
+        AppTheme.showGlassToast(context, message: '已取消"$gameName"的已通关标记');
       }
     } catch (e) {
       if (mounted) {
-        AppTheme.showGlassSnackBar(context, '操作失败: $e', color: AppTheme.errorColor);
+        AppTheme.showGlassToast(context, message: '操作失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
     }
   }
