@@ -833,11 +833,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                             children: List.generate(5, (index) {
                               final starValue = index + 1;
                               if (game.rating >= starValue) {
-                                return const Icon(Icons.star, size: 16, color: Color(0xFFFFD700));
+                                return const Icon(Icons.star, size: 20, color: Color(0xFFFFD700));
                               } else if (game.rating >= starValue - 0.5) {
-                                return const Icon(Icons.star_half, size: 16, color: Color(0xFFFFD700));
+                                return const Icon(Icons.star_half, size: 20, color: Color(0xFFFFD700));
                               } else {
-                                return Icon(Icons.star_border, size: 16, color: Colors.white.withValues(alpha: 0.5));
+                                return Icon(Icons.star_border, size: 20, color: Colors.white.withValues(alpha: 0.5));
                               }
                             }),
                           ),
@@ -1207,9 +1207,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         game: game,
         onSave: (rating, review) async {
           final repo = ref.read(gameRepositoryProvider);
-          if (game.id != null) {
-            await repo.updateRatingReview(game.id!, rating, review.isEmpty ? null : review);
+          var gameId = game.id;
+          if (gameId == null) {
+            // Backup-only game without DB record — insert first
+            debugPrint('[Review] Game has no id, inserting into DB: ${game.path}');
+            gameId = await repo.insertGame(game);
+            debugPrint('[Review] Inserted game with id: $gameId');
           }
+          await repo.updateRatingReview(gameId, rating, review.isEmpty ? null : review);
+          debugPrint('[Review] Updated rating=$rating, review=${review.isEmpty ? "null" : review} for game id=$gameId');
           ref.invalidate(allGamesProvider);
           ref.invalidate(playedGamesProvider);
           ref.invalidate(clearedGamesProvider);

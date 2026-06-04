@@ -520,8 +520,19 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                         onTap: () => _showReviewDetail(context),
                         onDoubleTap: () {
                           Clipboard.setData(ClipboardData(text: widget.game.review!));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('已复制评论内容'), duration: Duration(seconds: 1)),
+                          final messenger = ScaffoldMessenger.of(context);
+                          messenger.clearSnackBars();
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: const Text('已复制评论内容'),
+                              duration: const Duration(seconds: 1),
+                              behavior: SnackBarBehavior.floating,
+                              margin: EdgeInsets.only(
+                                bottom: MediaQuery.of(context).size.height - 100,
+                                left: 16,
+                                right: 16,
+                              ),
+                            ),
                           );
                         },
                         child: Container(
@@ -951,9 +962,14 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         game: widget.game,
         onSave: (rating, review) async {
           final repo = ref.read(gameRepositoryProvider);
-          if (widget.game.id != null) {
-            await repo.updateRatingReview(widget.game.id!, rating, review.isEmpty ? null : review);
+          var gameId = widget.game.id;
+          if (gameId == null) {
+            debugPrint('[Review] Game has no id, inserting into DB: ${widget.game.path}');
+            gameId = await repo.insertGame(widget.game);
+            debugPrint('[Review] Inserted game with id: $gameId');
           }
+          await repo.updateRatingReview(gameId, rating, review.isEmpty ? null : review);
+          debugPrint('[Review] Updated rating=$rating, review=${review.isEmpty ? "null" : review} for game id=$gameId');
           ref.invalidate(allGamesProvider);
           ref.invalidate(playedGamesProvider);
           ref.invalidate(clearedGamesProvider);
@@ -961,9 +977,14 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         },
         onDelete: () async {
           final repo = ref.read(gameRepositoryProvider);
-          if (widget.game.id != null) {
-            await repo.deleteRatingReview(widget.game.id!);
+          var gameId = widget.game.id;
+          if (gameId == null) {
+            debugPrint('[Review] Game has no id, inserting into DB: ${widget.game.path}');
+            gameId = await repo.insertGame(widget.game);
+            debugPrint('[Review] Inserted game with id: $gameId');
           }
+          await repo.deleteRatingReview(gameId);
+          debugPrint('[Review] Deleted rating/review for game id=$gameId');
           ref.invalidate(allGamesProvider);
           ref.invalidate(playedGamesProvider);
           ref.invalidate(clearedGamesProvider);
