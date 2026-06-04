@@ -273,6 +273,71 @@ class AppTheme {
     );
   }
 
+  static void showGlassSnackBar(BuildContext context, String message, {Color? color}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+            border: Border.all(
+              color: (color ?? AppTheme.primaryColor).withValues(alpha: 0.15),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: (color ?? AppTheme.primaryColor).withValues(alpha: 0.12),
+                blurRadius: 16,
+                spreadRadius: 2,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 30,
+                spreadRadius: 0,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                color == AppTheme.errorColor
+                    ? Icons.error_outline
+                    : color == AppTheme.successColor
+                        ? Icons.check_circle_outline
+                        : Icons.info_outline,
+                color: color ?? AppTheme.primaryColor,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  message,
+                  style: TextStyle(
+                    color: color ?? AppTheme.primaryColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.only(
+          bottom: MediaQuery.of(context).size.height * 0.1,
+          left: MediaQuery.of(context).size.width * 0.3,
+          right: MediaQuery.of(context).size.width * 0.3,
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   static Future<T?> showGlassMenu<T>({
     required BuildContext context,
     required RelativeRect position,
@@ -381,6 +446,7 @@ class GlassCard extends StatefulWidget {
   final double borderRadius;
   final Color? color;
   final bool enableHoverEffect;
+  final bool enableBorderBreathing;
   final VoidCallback? onTap;
 
   const GlassCard({
@@ -391,6 +457,7 @@ class GlassCard extends StatefulWidget {
     this.borderRadius = GlassConstants.radiusLarge,
     this.color,
     this.enableHoverEffect = true,
+    this.enableBorderBreathing = false,
     this.onTap,
   });
 
@@ -398,9 +465,48 @@ class GlassCard extends StatefulWidget {
   State<GlassCard> createState() => _GlassCardState();
 }
 
-class _GlassCardState extends State<GlassCard> {
+class _GlassCardState extends State<GlassCard>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
   bool _isPressed = false;
+  AnimationController? _borderController;
+  Animation<double>? _borderAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupBorderAnimation();
+  }
+
+  @override
+  void didUpdateWidget(GlassCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.enableBorderBreathing != widget.enableBorderBreathing) {
+      _setupBorderAnimation();
+    }
+  }
+
+  void _setupBorderAnimation() {
+    if (widget.enableBorderBreathing) {
+      _borderController?.dispose();
+      _borderController = AnimationController(
+        duration: const Duration(seconds: 3),
+        vsync: this,
+      )..repeat(reverse: true);
+      _borderAnimation = Tween<double>(begin: 0.15, end: 0.35).animate(
+        CurvedAnimation(parent: _borderController!, curve: Curves.easeInOut),
+      );
+    } else {
+      _borderController?.stop();
+      _borderAnimation = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _borderController?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -429,41 +535,50 @@ class _GlassCardState extends State<GlassCard> {
                   sigmaX: GlassConstants.blurMedium,
                   sigmaY: GlassConstants.blurMedium,
                 ),
-                child: AnimatedContainer(
-                  duration: GlassConstants.animFast,
-                  curve: GlassConstants.animCurve,
-                  padding: widget.padding,
-                  decoration: BoxDecoration(
-                    color: widget.color ??
-                        (_isHovered
-                            ? Colors.white.withValues(alpha:0.88)
-                            : Colors.white.withValues(alpha:0.65)),
-                    borderRadius: BorderRadius.circular(widget.borderRadius),
-                    border: Border.all(
-                      color: _isHovered
-                          ? AppTheme.primaryColor.withValues(alpha:0.25)
-                          : Colors.white.withValues(alpha:0.35),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _isHovered
-                            ? AppTheme.primaryColor.withValues(alpha:0.12)
-                            : Colors.black.withValues(alpha:0.05),
-                        blurRadius: _isHovered ? 28 : 16,
-                        spreadRadius: _isHovered ? 2 : 1,
-                        offset: Offset(0, _isHovered ? 6 : 4),
+                child: AnimatedBuilder(
+                  animation: _borderController ?? const AlwaysStoppedAnimation(0),
+                  builder: (context, child) {
+                    final borderOpacity = _borderAnimation?.value ?? 0.35;
+                    return AnimatedContainer(
+                      duration: GlassConstants.animFast,
+                      curve: GlassConstants.animCurve,
+                      padding: widget.padding,
+                      decoration: BoxDecoration(
+                        color: widget.color ??
+                            (_isHovered
+                                ? Colors.white.withValues(alpha: 0.88)
+                                : Colors.white.withValues(alpha: 0.65)),
+                        borderRadius: BorderRadius.circular(widget.borderRadius),
+                        border: Border.all(
+                          color: _isHovered
+                              ? AppTheme.primaryColor.withValues(alpha: 0.25)
+                              : widget.enableBorderBreathing
+                                  ? AppTheme.primaryColor.withValues(alpha: borderOpacity)
+                                  : Colors.white.withValues(alpha: 0.35),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _isHovered
+                                ? AppTheme.primaryColor.withValues(alpha: 0.12)
+                                : Colors.black.withValues(alpha: 0.05),
+                            blurRadius: _isHovered ? 28 : 16,
+                            spreadRadius: _isHovered ? 2 : 1,
+                            offset: Offset(0, _isHovered ? 6 : 4),
+                          ),
+                          BoxShadow(
+                            color: (_isHovered
+                                ? AppTheme.secondaryColor
+                                : AppTheme.primaryColor).withValues(alpha: _isHovered ? 0.06 : 0.03),
+                            blurRadius: _isHovered ? 50 : 40,
+                            spreadRadius: 0,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
                       ),
-                      BoxShadow(
-                        color: (_isHovered
-                            ? AppTheme.secondaryColor
-                            : AppTheme.primaryColor).withValues(alpha: _isHovered ? 0.06 : 0.03),
-                        blurRadius: _isHovered ? 50 : 40,
-                        spreadRadius: 0,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
+                      child: child,
+                    );
+                  },
                   child: widget.child,
                 ),
               ),

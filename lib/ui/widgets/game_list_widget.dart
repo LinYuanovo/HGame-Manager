@@ -1148,21 +1148,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               await repo.deleteGame(game.id!);
               ref.invalidate(allGamesProvider);
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('已删除文件夹: ${game.title}'),
-                    backgroundColor: AppTheme.successColor,
-                  ),
-                );
+                AppTheme.showGlassSnackBar(context, '已删除文件夹: ${game.title}', color: AppTheme.successColor);
               }
             } catch (e) {
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('删除失败: $e'),
-                    backgroundColor: AppTheme.errorColor,
-                  ),
-                );
+                AppTheme.showGlassSnackBar(context, '删除失败: $e', color: AppTheme.errorColor);
               }
             }
           }
@@ -1222,12 +1212,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
       if (sortedPath.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('请先在设置中配置整理目录'),
-              backgroundColor: AppTheme.errorColor,
-            ),
-          );
+          AppTheme.showGlassSnackBar(context, '请先在设置中配置整理目录', color: AppTheme.errorColor);
         }
         return;
       }
@@ -1256,12 +1241,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         ref.invalidate(clearedGamesProvider);
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('已删除"$gameName"的备份'),
-              backgroundColor: AppTheme.successColor,
-            ),
-          );
+          AppTheme.showGlassSnackBar(context, '已删除"$gameName"的备份', color: AppTheme.successColor);
         }
         return;
       }
@@ -1269,12 +1249,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final gameDir = Directory(game.path);
       if (!await gameDir.exists()) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('游戏目录不存在'),
-              backgroundColor: AppTheme.errorColor,
-            ),
-          );
+          AppTheme.showGlassSnackBar(context, '游戏目录不存在', color: AppTheme.errorColor);
         }
         return;
       }
@@ -1331,12 +1306,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final newDir = Directory(newPath);
       if (await newDir.exists()) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('目标目录已存在: ${path.basename(game.path)}，请先处理冲突'),
-              backgroundColor: AppTheme.errorColor,
-            ),
-          );
+          AppTheme.showGlassSnackBar(context, '目标目录已存在: ${path.basename(game.path)}，请先处理冲突', color: AppTheme.errorColor);
         }
         return;
       }
@@ -1377,21 +1347,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       ref.invalidate(clearedGamesProvider);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('已标记"$gameName"为已通关'),
-            backgroundColor: AppTheme.successColor,
-          ),
-        );
+        AppTheme.showGlassSnackBar(context, '已标记"$gameName"为已通关', color: AppTheme.successColor);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('操作失败: $e'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
+        AppTheme.showGlassSnackBar(context, '操作失败: $e', color: AppTheme.errorColor);
       }
     }
   }
@@ -1450,12 +1410,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
       if (sortedPath.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('请先在设置中配置整理目录'),
-              backgroundColor: AppTheme.errorColor,
-            ),
-          );
+          AppTheme.showGlassSnackBar(context, '请先在设置中配置整理目录', color: AppTheme.errorColor);
         }
         return;
       }
@@ -1477,12 +1432,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         ref.invalidate(clearedGamesProvider);
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('已删除"$gameName"的备份'),
-              backgroundColor: AppTheme.successColor,
-            ),
-          );
+          AppTheme.showGlassSnackBar(context, '已删除"$gameName"的备份', color: AppTheme.successColor);
         }
         return;
       }
@@ -1490,12 +1440,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final gameDir = Directory(game.path);
       if (!await gameDir.exists()) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('游戏目录不存在'),
-              backgroundColor: AppTheme.errorColor,
-            ),
-          );
+          AppTheme.showGlassSnackBar(context, '游戏目录不存在', color: AppTheme.errorColor);
         }
         return;
       }
@@ -1527,12 +1472,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final newDir = Directory(newPath);
       if (await newDir.exists()) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('目标目录已存在: ${path.basename(game.path)}，请先处理冲突'),
-              backgroundColor: AppTheme.errorColor,
-            ),
-          );
+          AppTheme.showGlassSnackBar(context, '目标目录已存在: ${path.basename(game.path)}，请先处理冲突', color: AppTheme.errorColor);
         }
         return;
       }
@@ -1585,21 +1525,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       ref.invalidate(clearedGamesProvider);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('已取消"$gameName"的已通关标记'),
-            backgroundColor: AppTheme.successColor,
-          ),
-        );
+        AppTheme.showGlassSnackBar(context, '已取消"$gameName"的已通关标记', color: AppTheme.successColor);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('操作失败: $e'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
+        AppTheme.showGlassSnackBar(context, '操作失败: $e', color: AppTheme.errorColor);
       }
     }
   }

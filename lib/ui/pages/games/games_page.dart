@@ -84,13 +84,7 @@ class _GamesPageState extends ConsumerState<GamesPage> {
 
                         if (scanPath.isEmpty) {
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('请先在设置中配置游戏库路径或整理目录', style: TextStyle(color: Colors.white)),
-                                duration: Duration(seconds: 3),
-                                backgroundColor: Color(0xFF424242),
-                              ),
-                            );
+                            AppTheme.showGlassSnackBar(context, '请先在设置中配置游戏库路径或整理目录', color: AppTheme.warningColor);
                           }
                           return;
                         }
@@ -114,13 +108,7 @@ class _GamesPageState extends ConsumerState<GamesPage> {
                         ref.invalidate(playedGamesProvider);
                       } catch (e) {
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('扫描失败: $e', style: const TextStyle(color: Colors.white)),
-                              duration: const Duration(seconds: 3),
-                              backgroundColor: const Color(0xFF424242),
-                            ),
-                          );
+                          AppTheme.showGlassSnackBar(context, '扫描失败: $e', color: AppTheme.errorColor);
                         }
                       } finally {
                         setState(() {

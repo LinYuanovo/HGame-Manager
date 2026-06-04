@@ -1194,12 +1194,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     ref.invalidate(pageSizeProvider);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('设置已保存'),
-          backgroundColor: AppTheme.successColor,
-        ),
-      );
+      AppTheme.showGlassSnackBar(context, '设置已保存', color: AppTheme.successColor);
     }
   }
 
@@ -1212,12 +1207,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _scanNow() async {
     if (_libraryPathController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('请先配置游戏库目录'),
-          backgroundColor: AppTheme.warningColor,
-        ),
-      );
+      AppTheme.showGlassSnackBar(context, '请先配置游戏库目录', color: AppTheme.warningColor);
       return;
     }
 
@@ -1233,18 +1223,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ref.invalidate(allGamesProvider);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('扫描完成'),
-            backgroundColor: AppTheme.successColor,
-          ),
-        );
+        AppTheme.showGlassSnackBar(context, '扫描完成', color: AppTheme.successColor);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('扫描失败: $e'), backgroundColor: AppTheme.errorColor),
-        );
+        AppTheme.showGlassSnackBar(context, '扫描失败: $e', color: AppTheme.errorColor);
       }
     }
   }
@@ -1436,9 +1419,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final dbFile = File(dbPath);
     if (!dbFile.existsSync()) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('数据库文件不存在'), backgroundColor: AppTheme.errorColor),
-        );
+        AppTheme.showGlassSnackBar(context, '数据库文件不存在', color: AppTheme.errorColor);
       }
       return;
     }
@@ -1469,16 +1450,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       await File(result).writeAsBytes(zipBytes);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导出成功: $result'), backgroundColor: AppTheme.successColor),
-        );
+        AppTheme.showGlassSnackBar(context, '导出成功: $result', color: AppTheme.successColor);
       }
     } catch (e) {
       debugPrint('Export backup error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('导出失败'), backgroundColor: AppTheme.errorColor),
-        );
+        AppTheme.showGlassSnackBar(context, '导出失败', color: AppTheme.errorColor);
       }
     }
   }
@@ -1542,16 +1519,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('导入成功！请重启应用使数据生效。'), backgroundColor: AppTheme.successColor),
-        );
+        AppTheme.showGlassSnackBar(context, '导入成功！请重启应用使数据生效。', color: AppTheme.successColor);
       }
     } catch (e) {
       debugPrint('Import local backup error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('导入失败'), backgroundColor: AppTheme.errorColor),
-        );
+        AppTheme.showGlassSnackBar(context, '导入失败', color: AppTheme.errorColor);
       }
     }
   }
@@ -1563,9 +1536,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     if (url.isEmpty || username.isEmpty || password.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先填写完整的 WebDAV 配置'), backgroundColor: AppTheme.warningColor),
-        );
+        AppTheme.showGlassSnackBar(context, '请先填写完整的 WebDAV 配置', color: AppTheme.warningColor);
       }
       return;
     }
@@ -1692,9 +1663,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     if (url.isEmpty || username.isEmpty || password.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先填写完整的 WebDAV 配置'), backgroundColor: AppTheme.warningColor),
-        );
+        AppTheme.showGlassSnackBar(context, '请先填写完整的 WebDAV 配置', color: AppTheme.warningColor);
       }
       return;
     }
@@ -1707,9 +1676,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       if (!dbFile.existsSync()) {
         if (mounted) {
           setState(() => _isBackingUp = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('数据库文件不存在'), backgroundColor: AppTheme.errorColor),
-          );
+          AppTheme.showGlassSnackBar(context, '数据库文件不存在', color: AppTheme.errorColor);
         }
         return;
       }
@@ -1745,20 +1712,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
       if (mounted) {
         setState(() => _isBackingUp = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(ok ? '备份成功' : '备份失败，请检查配置和服务器状态'),
-            backgroundColor: ok ? AppTheme.successColor : AppTheme.errorColor,
-          ),
+        AppTheme.showGlassSnackBar(
+          context,
+          ok ? '备份成功' : '备份失败，请检查配置和服务器状态',
+          color: ok ? AppTheme.successColor : AppTheme.errorColor,
         );
       }
     } catch (e) {
       debugPrint('WebDAV backup error: $e');
       if (mounted) {
         setState(() => _isBackingUp = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('备份失败: $e'), backgroundColor: AppTheme.errorColor),
-        );
+        AppTheme.showGlassSnackBar(context, '备份失败: $e', color: AppTheme.errorColor);
       }
     }
   }
@@ -1782,11 +1746,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ok ? '下载成功: $localPath' : '下载失败'),
-          backgroundColor: ok ? AppTheme.successColor : AppTheme.errorColor,
-        ),
+      AppTheme.showGlassSnackBar(
+        context,
+        ok ? '下载成功: $localPath' : '下载失败',
+        color: ok ? AppTheme.successColor : AppTheme.errorColor,
       );
     }
   }
@@ -1836,9 +1799,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         final tempFile = File(tempPath);
         if (!tempFile.existsSync()) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('导入失败：临时文件不存在'), backgroundColor: AppTheme.errorColor),
-            );
+            AppTheme.showGlassSnackBar(context, '导入失败：临时文件不存在', color: AppTheme.errorColor);
           }
           return;
         }
@@ -1880,11 +1841,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ok ? '导入成功！请重启应用使数据生效。' : '导入失败'),
-          backgroundColor: ok ? AppTheme.successColor : AppTheme.errorColor,
-        ),
+      AppTheme.showGlassSnackBar(
+        context,
+        ok ? '导入成功！请重启应用使数据生效。' : '导入失败',
+        color: ok ? AppTheme.successColor : AppTheme.errorColor,
       );
     }
   }
@@ -2181,16 +2141,12 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
   void _save() {
     final domain = _domainController.text.trim();
     if (domain.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请填写域名'), backgroundColor: AppTheme.errorColor),
-      );
+      AppTheme.showGlassSnackBar(context, '请填写域名', color: AppTheme.errorColor);
       return;
     }
     final titleXpath = _fieldControllers['title']!.text.trim();
     if (titleXpath.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请填写标题 XPath'), backgroundColor: AppTheme.errorColor),
-      );
+      AppTheme.showGlassSnackBar(context, '请填写标题 XPath', color: AppTheme.errorColor);
       return;
     }
 
