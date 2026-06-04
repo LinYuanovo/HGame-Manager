@@ -1012,6 +1012,13 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   leading: Icon(Icons.image, size: 18),
                   title: Text(
                       '选择封面 (${game.coverIndex + 1}/${game.images.length})'))),
+        PopupMenuItem(
+            value: 'review',
+            child: ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.rate_review_outlined, size: 18, color: AppTheme.primaryColor),
+                title: const Text('评论', style: TextStyle(color: AppTheme.textPrimary)))),
         const PopupMenuDivider(),
         PopupMenuItem(
             value: 'blacklist',
@@ -1059,6 +1066,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           break;
         case 'uncleared':
           await _unmarkAsCleared(game);
+          break;
+        case 'review':
+          _showReviewDialog(game);
           break;
         case 'cover':
           final selected = await showDialog<int>(
