@@ -1165,6 +1165,23 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     });
   }
 
+  void _showReviewDialog(Game game) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => _ReviewDialog(
+        game: game,
+        onSave: (rating, review) async {
+          final repo = ref.read(gameRepositoryProvider);
+          await repo.updateRatingReview(game.id!, rating, review.isEmpty ? null : review);
+          ref.invalidate(allGamesProvider);
+          ref.invalidate(playedGamesProvider);
+          ref.invalidate(clearedGamesProvider);
+          ref.invalidate(favoriteGamesProvider);
+        },
+      ),
+    );
+  }
+
   String _formatPath(String path) {
     return path.replaceAll('\\', '/');
   }
@@ -1649,6 +1666,146 @@ class _CoverPickerDialog extends StatelessWidget {
                 TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     child: const Text('取消')),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReviewDialog extends StatefulWidget {
+  final Game game;
+  final void Function(int rating, String review) onSave;
+
+  const _ReviewDialog({required this.game, required this.onSave});
+
+  @override
+  State<_ReviewDialog> createState() => _ReviewDialogState();
+}
+
+class _ReviewDialogState extends State<_ReviewDialog> {
+  late int _rating;
+  late TextEditingController _reviewController;
+
+  @override
+  void initState() {
+    super.initState();
+    _rating = widget.game.rating;
+    _reviewController = TextEditingController(text: widget.game.review ?? '');
+  }
+
+  @override
+  void dispose() {
+    _reviewController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
+      ),
+      child: Container(
+        width: 400,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.game.title ?? '未命名游戏',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              '评分',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: List.generate(5, (index) {
+                return GestureDetector(
+                  onTap: () => setState(() => _rating = index + 1),
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(
+                      index < _rating ? Icons.star : Icons.star_border,
+                      size: 32,
+                      color: index < _rating ? const Color(0xFFFFD700) : Colors.grey.shade400,
+                    ),
+                  ),
+                );
+              }),
+            ),
+            if (_rating > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '$_rating / 5',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
+              ),
+            const SizedBox(height: 20),
+            const Text(
+              '评论',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _reviewController,
+              maxLines: 5,
+              style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary),
+              decoration: InputDecoration(
+                hintText: '写下你的评论...',
+                hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppTheme.primaryColor),
+                ),
+                contentPadding: const EdgeInsets.all(12),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('取消', style: TextStyle(color: AppTheme.textSecondary)),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: () {
+                    widget.onSave(_rating, _reviewController.text);
+                    Navigator.of(context).pop();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('保存'),
+                ),
               ],
             ),
           ],
