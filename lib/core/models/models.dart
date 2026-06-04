@@ -32,6 +32,8 @@ class Game {
   final List<Tag> tags;
   final List<GameImage> images;
   final int coverIndex;
+  final int rating;           // 评分 0-5
+  final String? review;       // 评论内容
 
   Game({
     this.id,
@@ -51,6 +53,8 @@ class Game {
     this.tags = const [],
     this.images = const [],
     this.coverIndex = 0,
+    this.rating = 0,
+    this.review,
   });
 
   factory Game.fromMap(Map<String, dynamic> map) {
@@ -74,6 +78,8 @@ class Game {
       isFavorite: (map['is_favorite'] as int? ?? 0) == 1,
       isPlayed: (map['is_played'] as int? ?? 0) == 1,
       coverIndex: map['cover_index'] as int? ?? 0,
+      rating: map['rating'] as int? ?? 0,
+      review: map['review'] as String?,
     );
   }
 
@@ -94,6 +100,8 @@ class Game {
       'is_favorite': isFavorite ? 1 : 0,
       'is_played': isPlayed ? 1 : 0,
       'cover_index': coverIndex,
+      'rating': rating,
+      if (review != null) 'review': review,
     };
   }
 
@@ -115,6 +123,8 @@ class Game {
     List<Tag>? tags,
     List<GameImage>? images,
     int? coverIndex,
+    Object? rating = _undefined,
+    Object? review = _undefined,
   }) {
     return Game(
       id: id ?? this.id,
@@ -134,6 +144,8 @@ class Game {
       tags: tags ?? this.tags,
       images: images ?? this.images,
       coverIndex: coverIndex ?? this.coverIndex,
+      rating: identical(rating, _undefined) ? this.rating : rating as int,
+      review: identical(review, _undefined) ? this.review : review as String?,
     );
   }
 }
