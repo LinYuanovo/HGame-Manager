@@ -547,9 +547,36 @@ class _GlassButtonState extends State<GlassButton> {
 }
 
 // ===== 渐变背景层 =====
-class GradientBackground extends StatelessWidget {
+class GradientBackground extends StatefulWidget {
   final Widget child;
   const GradientBackground({super.key, required this.child});
+
+  @override
+  State<GradientBackground> createState() => _GradientBackgroundState();
+}
+
+class _GradientBackgroundState extends State<GradientBackground>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _glowAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 5),
+      vsync: this,
+    )..repeat(reverse: true);
+    _glowAnimation = Tween<double>(begin: 0.03, end: 0.06).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -570,42 +597,51 @@ class GradientBackground extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // 径向渐变叠加，增加层次感
-          Positioned(
-            top: -100,
-            right: -100,
-            child: Container(
-              width: 500,
-              height: 500,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF2563EB).withValues(alpha: 0.04),
-                    Colors.transparent,
-                  ],
+          AnimatedBuilder(
+            animation: _glowAnimation,
+            builder: (context, child) {
+              return Positioned(
+                top: -100,
+                right: -100,
+                child: Container(
+                  width: 500,
+                  height: 500,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        Color(0xFF2563EB).withValues(alpha: _glowAnimation.value),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
-          Positioned(
-            bottom: -150,
-            left: -100,
-            child: Container(
-              width: 600,
-              height: 600,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF7C3AED).withValues(alpha: 0.03),
-                    Colors.transparent,
-                  ],
+          AnimatedBuilder(
+            animation: _glowAnimation,
+            builder: (context, child) {
+              return Positioned(
+                bottom: -150,
+                left: -100,
+                child: Container(
+                  width: 600,
+                  height: 600,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        Color(0xFF7C3AED).withValues(alpha: _glowAnimation.value * 0.75),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
-          child,
+          widget.child,
         ],
       ),
     );
