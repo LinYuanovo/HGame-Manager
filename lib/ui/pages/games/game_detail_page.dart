@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -63,56 +62,35 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     return PopScope(
       canPop: !_isImageViewerOpen,
       child: Dialog(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         insetPadding: const EdgeInsets.all(24),
-        child: ClipRRect(
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(
-              sigmaX: GlassConstants.blurLarge,
-              sigmaY: GlassConstants.blurLarge,
-            ),
-            child: Container(
-              width: dialogWidth,
-              height: dialogHeight,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.88),
-                borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.5),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 30,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 8),
-                  ),
-                  BoxShadow(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.05),
-                    blurRadius: 50,
-                    offset: const Offset(0, 16),
-                  ),
-                ],
+        ),
+        child: Container(
+          width: dialogWidth,
+          height: dialogHeight,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 30,
+                spreadRadius: 2,
+                offset: const Offset(0, 8),
               ),
-              child: Column(
-                children: [
-                  _buildHeader(),
-                  Container(
-                    height: 1,
-                    color: Colors.white.withValues(alpha: 0.3),
-                  ),
-                  Expanded(child: _buildBody()),
-                  if (_isEditing)
-                    Container(
-                      height: 1,
-                      color: Colors.white.withValues(alpha: 0.3),
-                    ),
-                  if (_isEditing) _buildEditBar(),
-                ],
-              ),
-            ),
+            ],
+          ),
+          child: Column(
+            children: [
+              _buildHeader(),
+              Container(height: 1, color: AppTheme.borderColor),
+              Expanded(child: _buildBody()),
+              if (_isEditing) Container(height: 1, color: AppTheme.borderColor),
+              if (_isEditing) _buildEditBar(),
+            ],
           ),
         ),
       ),
@@ -164,7 +142,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         SizedBox(width: 320, child: _buildLeftPanel()),
         Container(
           width: 1,
-          color: Colors.white.withValues(alpha: 0.3),
+          color: AppTheme.borderColor,
         ),
         Expanded(child: _buildContentPanel()),
       ],
@@ -744,7 +722,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
+          constraints: const BoxConstraints(maxWidth: 800),
           child: Image.file(
             File(image.imagePath!),
             fit: BoxFit.contain,

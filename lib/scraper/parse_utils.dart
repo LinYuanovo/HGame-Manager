@@ -55,12 +55,17 @@ class GameInfo {
   });
 
   String get downloadUrl {
-    // 只返回 URL，不包含 provider、password、unzipCode
-    return downloads.map((d) {
-      final parts = <String>[d.url];
-      if (d.password != null) parts.add('提取码: ${d.password}');
-      return parts.join(' ');
-    }).join('\n');
+    final parts = downloads.map((d) {
+      final linkParts = <String>[d.url];
+      if (d.password != null) linkParts.add('提取码: ${d.password}');
+      return linkParts.join(' ');
+    }).toList();
+    // Include unzip code if present
+    final code = unzipCode;
+    if (code != null) {
+      parts.add('解压码: $code');
+    }
+    return parts.join('\n');
   }
 
   String? get unzipCode {
