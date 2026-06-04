@@ -1,5 +1,37 @@
 # Changelog
 
+## v1.1.0 (2026-06-05)
+
+### ✨ 新功能
+
+- **游戏评分与评论系统**：为"已玩"和"已通关"页面添加评分评论功能
+  - 右键菜单新增"评论"按钮，支持 0-5 星半星评分和文字评论
+  - 海报卡片左下角显示星星评分图标
+  - 高评分游戏在已玩/已通关页面优先排列
+  - 游戏详情页版本号旁显示星星评分
+  - 红色评论按钮：悬停预览评论内容、点击查看/编辑详情、双击复制评论内容
+  - 评论详情窗口支持直接编辑评分和评论，支持删除评论
+  - 已通关仅备份游戏支持评分评论
+
+### 🔧 优化
+
+- 统一所有提示为顶部玻璃拟态 toast，移除底部 SnackBar
+- toast 字号增大至 16，居中显示不受文本长度影响
+- 编辑游戏时同步更新 metadata.json 文件，确保标题等信息一致性
+- 游戏详情页回退为白色背景，移除毛玻璃效果
+- 游戏详情页内容区文章图片最大宽度从 600 调整为 800
+
+### 🐛 修复
+
+- 修复 MouseTracker 断言错误，星星评分改用 Listener 替代 GestureDetector
+- 修复半星坐标计算问题，移除不兼容的 IntrinsicWidth + LayoutBuilder
+- 修复 showGlassToast 的 AnimationController vsync 崩溃，改用 TweenAnimationBuilder
+- 修复 Tooltip 导致的 MouseTracker 断言错误，改用自定义 HoverReviewButton + Overlay
+- 修复备份游戏评分从 DB 加载时丢失 rating/review 字段的问题
+- 修复解压码未写入 downloadUrl 导致游戏详情页不显示解压码按钮的问题
+
+***
+
 ## v1.0.8 (2026-06-04)
 
 ### ✨ 新功能
