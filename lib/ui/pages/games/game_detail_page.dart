@@ -96,45 +96,118 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       ),
     );
   }
+}
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppTheme.primaryColor.withValues(alpha: 0.08), Colors.transparent],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.videogame_asset, color: AppTheme.primaryColor, size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              _isEditing ? (_titleController.text.isEmpty ? '游戏详情' : _titleController.text) : (widget.game.title ?? '游戏详情'),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+class _HoverReviewButton extends StatefulWidget {
+  final String review;
+  final VoidCallback onTap;
+  final VoidCallback onDoubleTap;
+
+  const _HoverReviewButton({
+    required this.review,
+    required this.onTap,
+    required this.onDoubleTap,
+  });
+
+  @override
+  State<_HoverReviewButton> createState() => _HoverReviewButtonState();
+}
+
+class _HoverReviewButtonState extends State<_HoverReviewButton> {
+  OverlayEntry? _overlayEntry;
+
+  void _showOverlay() {
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: 80,
+        left: MediaQuery.of(context).size.width / 2 - 180,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: 360,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+              border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 24, offset: const Offset(0, 4)),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.comment, size: 14, color: Colors.red),
+                    SizedBox(width: 6),
+                    Text('评论预览', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  widget.review,
+                  style: const TextStyle(fontSize: 13, height: 1.5, color: AppTheme.textPrimary),
+                  maxLines: 5,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
-          if (!_isEditing) ...[
-            IconButton(
-              icon: Icon(Icons.edit_outlined, size: 20, color: AppTheme.textPrimary),
-              tooltip: '编辑',
-              onPressed: () => setState(() => _isEditing = true),
-            ),
-            IconButton(
-              icon: Icon(Icons.close, size: 22, color: AppTheme.textPrimary),
-              tooltip: '关闭 (ESC)',
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-        ],
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _removeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  @override
+  void dispose() {
+    _removeOverlay();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _showOverlay();
+        });
+      },
+      onExit: (_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _removeOverlay();
+        });
+      },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        onDoubleTap: widget.onDoubleTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.red.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.comment, size: 14, color: Colors.red),
+              SizedBox(width: 4),
+              Text('评论', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w500)),
+            ],
+          ),
+        ),
       ),
     );
   }
+}
 
   Widget _buildBody() {
     return Row(
@@ -513,28 +586,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     }),
                   ),
                   if (widget.game.review != null && widget.game.review!.isNotEmpty)
-                    GestureDetector(
+                    _HoverReviewButton(
+                      review: widget.game.review!,
                       onTap: () => _showReviewDetail(context),
                       onDoubleTap: () {
                         Clipboard.setData(ClipboardData(text: widget.game.review!));
                         AppTheme.showGlassToast(context, message: '已复制评论内容');
                       },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.comment, size: 14, color: Colors.red),
-                            SizedBox(width: 4),
-                            Text('评论', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w500)),
-                          ],
-                        ),
-                      ),
                     ),
                 ],
               ],
