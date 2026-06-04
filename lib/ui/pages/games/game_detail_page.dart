@@ -481,15 +481,64 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               widget.game.title ?? '未命名游戏', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.textPrimary, height: 1.4),
             ),
 
-          if (widget.game.version != null) ...[
+          if (widget.game.version != null || widget.game.rating > 0) ...[
             const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(widget.game.version ?? '', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryColor)),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (widget.game.version != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(widget.game.version ?? '',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryColor)),
+                  ),
+                if (widget.game.rating > 0) ...[
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(5, (index) => Icon(
+                      index < widget.game.rating ? Icons.star : Icons.star_border,
+                      size: 18,
+                      color: index < widget.game.rating ? const Color(0xFFFFD700) : Colors.grey.shade400,
+                    )),
+                  ),
+                  if (widget.game.review != null && widget.game.review!.isNotEmpty)
+                    Tooltip(
+                      message: widget.game.review!,
+                      waitDuration: const Duration(milliseconds: 300),
+                      child: GestureDetector(
+                        onTap: () => _showReviewDetail(context),
+                        onDoubleTap: () {
+                          Clipboard.setData(ClipboardData(text: widget.game.review!));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('已复制评论内容'), duration: Duration(seconds: 1)),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.comment, size: 14, color: Colors.red),
+                              SizedBox(width: 4),
+                              Text('评论', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w500)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ],
             ),
           ],
 
@@ -889,6 +938,110 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
+
+  void _showReviewDetail(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
+        ),
+        child: Container(
+          width: 400,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.comment, color: Colors.red, size: 20),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text('评论详情', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: List.generate(5, (index) => Icon(
+                  index < widget.game.rating ? Icons.star : Icons.star_border,
+                  size: 22,
+                  color: index < widget.game.rating ? const Color(0xFFFFD700) : Colors.grey.shade400,
+                )),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: SelectableText(
+                  widget.game.review ?? '暂无评论',
+                  style: const TextStyle(fontSize: 14, height: 1.6, color: AppTheme.textPrimary),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: widget.game.review ?? ''));
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(
+                        const SnackBar(content: Text('已复制评论内容'), duration: Duration(seconds: 1)),
+                      );
+                    },
+                    icon: const Icon(Icons.copy, size: 16),
+                    label: const Text('复制'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      _openEditReview();
+                    },
+                    icon: const Icon(Icons.edit, size: 16),
+                    label: const Text('编辑'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openEditReview() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => _DetailReviewDialog(
+        game: widget.game,
+        onSave: (rating, review) async {
+          final repo = ref.read(gameRepositoryProvider);
+          await repo.updateRatingReview(widget.game.id!, rating, review.isEmpty ? null : review);
+          ref.invalidate(allGamesProvider);
+          ref.invalidate(playedGamesProvider);
+          ref.invalidate(clearedGamesProvider);
+          ref.invalidate(favoriteGamesProvider);
+        },
+      ),
+    );
+  }
 }
 
 class _InfoRow extends StatelessWidget {
@@ -930,6 +1083,133 @@ class _InfoRow extends StatelessWidget {
                 ),
         ),
       ],
+    );
+  }
+}
+
+class _DetailReviewDialog extends StatefulWidget {
+  final Game game;
+  final void Function(int rating, String review) onSave;
+
+  const _DetailReviewDialog({required this.game, required this.onSave});
+
+  @override
+  State<_DetailReviewDialog> createState() => _DetailReviewDialogState();
+}
+
+class _DetailReviewDialogState extends State<_DetailReviewDialog> {
+  late int _rating;
+  late TextEditingController _reviewController;
+
+  @override
+  void initState() {
+    super.initState();
+    _rating = widget.game.rating;
+    _reviewController = TextEditingController(text: widget.game.review ?? '');
+  }
+
+  @override
+  void dispose() {
+    _reviewController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
+      ),
+      child: Container(
+        width: 400,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.game.title ?? '未命名游戏',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 20),
+            const Text('评分', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+            const SizedBox(height: 8),
+            Row(
+              children: List.generate(5, (index) {
+                return GestureDetector(
+                  onTap: () => setState(() => _rating = index + 1),
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(
+                      index < _rating ? Icons.star : Icons.star_border,
+                      size: 32,
+                      color: index < _rating ? const Color(0xFFFFD700) : Colors.grey.shade400,
+                    ),
+                  ),
+                );
+              }),
+            ),
+            if (_rating > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('$_rating / 5', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              ),
+            const SizedBox(height: 20),
+            const Text('评论', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _reviewController,
+              maxLines: 5,
+              style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary),
+              decoration: InputDecoration(
+                hintText: '写下你的评论...',
+                hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppTheme.primaryColor),
+                ),
+                contentPadding: const EdgeInsets.all(12),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('取消', style: TextStyle(color: AppTheme.textSecondary)),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: () {
+                    widget.onSave(_rating, _reviewController.text);
+                    Navigator.of(context).pop();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('保存'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
