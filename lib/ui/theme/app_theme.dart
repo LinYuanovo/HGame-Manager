@@ -475,6 +475,100 @@ class _GlassCardState extends State<GlassCard> {
   }
 }
 
+// ===== 边框呼吸动画 =====
+class BreathingBorder extends StatefulWidget {
+  final Widget child;
+  final bool isBreathing;
+  final Color color;
+  final Duration duration;
+  final double minOpacity;
+  final double maxOpacity;
+  final double borderRadius;
+  final EdgeInsetsGeometry? padding;
+
+  const BreathingBorder({
+    super.key,
+    required this.child,
+    this.isBreathing = false,
+    this.color = AppTheme.primaryColor,
+    this.duration = const Duration(seconds: 3),
+    this.minOpacity = 0.15,
+    this.maxOpacity = 0.35,
+    this.borderRadius = GlassConstants.radiusLarge,
+    this.padding,
+  });
+
+  @override
+  State<BreathingBorder> createState() => _BreathingBorderState();
+}
+
+class _BreathingBorderState extends State<BreathingBorder>
+    with SingleTickerProviderStateMixin {
+  AnimationController? _controller;
+  Animation<double>? _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupAnimation();
+  }
+
+  @override
+  void didUpdateWidget(BreathingBorder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isBreathing != widget.isBreathing) {
+      _setupAnimation();
+    }
+  }
+
+  void _setupAnimation() {
+    if (widget.isBreathing) {
+      _controller?.dispose();
+      _controller = AnimationController(
+        duration: widget.duration,
+        vsync: this,
+      )..repeat(reverse: true);
+      _animation = Tween<double>(
+        begin: widget.minOpacity,
+        end: widget.maxOpacity,
+      ).animate(
+        CurvedAnimation(parent: _controller!, curve: Curves.easeInOut),
+      );
+    } else {
+      _controller?.stop();
+      _animation = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller ?? const AlwaysStoppedAnimation(0),
+      builder: (context, child) {
+        final opacity = _animation?.value ?? widget.minOpacity;
+        return Container(
+          padding: widget.padding,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.borderRadius),
+            border: Border.all(
+              color: widget.color.withValues(alpha: opacity),
+              width: 1,
+            ),
+          ),
+          child: child,
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+
 // ===== 玻璃按钮 =====
 class GlassButton extends StatefulWidget {
   final Widget child;
