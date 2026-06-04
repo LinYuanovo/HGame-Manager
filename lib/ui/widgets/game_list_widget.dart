@@ -1800,18 +1800,14 @@ class _ReviewDialogState extends State<_ReviewDialog> {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final starAreaWidth = constraints.maxWidth;
-                  return GestureDetector(
-                    onTapDown: (details) {
-                      final newRating = _calcRatingFromX(details.localPosition.dx, starAreaWidth);
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) setState(() => _rating = newRating);
-                      });
+                  return Listener(
+                    onPointerDown: (event) {
+                      final newRating = _calcRatingFromX(event.localPosition.dx, starAreaWidth);
+                      if (newRating != _rating) setState(() => _rating = newRating);
                     },
-                    onHorizontalDragUpdate: (details) {
-                      final newRating = _calcRatingFromX(details.localPosition.dx, starAreaWidth);
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) setState(() => _rating = newRating);
-                      });
+                    onPointerMove: (event) {
+                      final newRating = _calcRatingFromX(event.localPosition.dx, starAreaWidth);
+                      if (newRating != _rating) setState(() => _rating = newRating);
                     },
                     child: Row(
                       children: List.generate(5, (index) {
