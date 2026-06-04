@@ -516,7 +516,10 @@ class _BreathingBorderState extends State<BreathingBorder>
   @override
   void didUpdateWidget(BreathingBorder oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.isBreathing != widget.isBreathing) {
+    if (oldWidget.isBreathing != widget.isBreathing ||
+        oldWidget.duration != widget.duration ||
+        oldWidget.minOpacity != widget.minOpacity ||
+        oldWidget.maxOpacity != widget.maxOpacity) {
       _setupAnimation();
     }
   }
