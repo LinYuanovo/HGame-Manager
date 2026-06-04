@@ -92,6 +92,7 @@ app_logs/
 *.tmp
 web/
 test/
+rebuild_link.bat
 
 # Environment files
 .env
@@ -110,3 +111,6 @@ Desktop.ini
 *.zip
 *.tar.gz
 *.7z
+
+# Documentation plans
+docs/
