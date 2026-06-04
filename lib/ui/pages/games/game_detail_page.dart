@@ -143,12 +143,12 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           ),
           if (!_isEditing) ...[
             IconButton(
-              icon: Icon(Icons.edit_outlined, size: 20, color: AppTheme.textSecondary),
+              icon: Icon(Icons.edit_outlined, size: 20, color: AppTheme.textPrimary),
               tooltip: '编辑',
               onPressed: () => setState(() => _isEditing = true),
             ),
             IconButton(
-              icon: Icon(Icons.close, size: 22, color: AppTheme.textSecondary),
+              icon: Icon(Icons.close, size: 22, color: AppTheme.textPrimary),
               tooltip: '关闭 (ESC)',
               onPressed: () => Navigator.of(context).pop(),
             ),
@@ -222,9 +222,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.image_not_supported_outlined, size: 48, color: AppTheme.textSecondary.withValues(alpha: 0.3)),
+              Icon(Icons.image_not_supported_outlined, size: 48, color: AppTheme.textPrimary.withValues(alpha: 0.3)),
               const SizedBox(height: 8),
-              Text('暂无图片', style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5), fontSize: 13)),
+              Text('暂无图片', style: TextStyle(color: AppTheme.textPrimary.withValues(alpha: 0.5), fontSize: 13)),
             ],
           ),
         ),
@@ -249,7 +249,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
                   color: AppTheme.backgroundColor.withValues(alpha: 0.3),
-                  child: Center(child: Icon(Icons.broken_image, size: 36, color: AppTheme.textSecondary.withValues(alpha: 0.3))),
+                  child: Center(child: Icon(Icons.broken_image, size: 36, color: AppTheme.textPrimary.withValues(alpha: 0.3))),
                 ),
               ),
             ),
@@ -319,9 +319,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.tag, size: 15, color: AppTheme.textSecondary),
+                const Icon(Icons.tag, size: 15, color: AppTheme.textPrimary),
                 const SizedBox(width: 8),
-                const Text('版本:', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                const Text('版本:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
                 const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
@@ -347,7 +347,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             icon: widget.game.isPlayed ? Icons.check_circle : Icons.circle_outlined,
             label: '状态',
             value: widget.game.isPlayed ? '已游玩 (${widget.game.playCount}次)' : '未游玩',
-            valueColor: widget.game.isPlayed ? AppTheme.successColor : AppTheme.textSecondary,
+            valueColor: widget.game.isPlayed ? AppTheme.successColor : AppTheme.textPrimary,
           ),
           if (widget.game.lastPlayedTime != null) ...[
             const SizedBox(height: 10),
@@ -362,9 +362,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.download, size: 15, color: AppTheme.textSecondary),
+                const Icon(Icons.download, size: 15, color: AppTheme.textPrimary),
                 const SizedBox(width: 8),
-                const Text('下载:', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                const Text('下载:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
                 const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
@@ -581,7 +581,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         else
           SelectableText(
             content ?? '暂无信息',
-            style: TextStyle(fontSize: ref.watch(detailFontSizeProvider), height: 1.8, color: AppTheme.textSecondary),
+            style: TextStyle(fontSize: ref.watch(detailFontSizeProvider), height: 1.8, color: AppTheme.textPrimary),
           ),
         if (sectionImage != null && !_isEditing) ...[
           const SizedBox(height: 16),
@@ -630,9 +630,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.download, size: 15, color: AppTheme.textSecondary),
+            const Icon(Icons.download, size: 15, color: AppTheme.textPrimary),
             const SizedBox(width: 8),
-            const Text('下载:', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            const Text('下载:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
           ],
         ),
         const SizedBox(height: 8),
@@ -696,9 +696,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.vpn_key_outlined, size: 15, color: AppTheme.textSecondary),
+              const Icon(Icons.vpn_key_outlined, size: 15, color: AppTheme.textPrimary),
               const SizedBox(width: 8),
-              const Text('解压码:', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              const Text('解压码:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
               const SizedBox(width: 8),
               ...decompressCodes.map((code) => Padding(
                 padding: const EdgeInsets.only(right: 6),
@@ -807,7 +807,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             onPressed: () => setState(() => _isEditing = false),
             icon: const Icon(Icons.close, size: 18),
             label: const Text('取消'),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.textSecondary),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.textPrimary),
           ),
           const SizedBox(width: 12),
           ElevatedButton.icon(
@@ -935,9 +935,9 @@ class _InfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 15, color: AppTheme.textSecondary),
+        Icon(icon, size: 15, color: AppTheme.textPrimary),
         const SizedBox(width: 8),
-        Text('$label:', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        Text('$label:', style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
         const SizedBox(width: 6),
         Expanded(
           child: isLink
@@ -1062,7 +1062,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                                 color: Colors.transparent,
                                 alignment: Alignment.center,
                                 child: _currentIndex > 0
-                                    ? Icon(Icons.chevron_left, size: 48, color: AppTheme.textSecondary.withValues(alpha: 0.5))
+                                    ? Icon(Icons.chevron_left, size: 48, color: AppTheme.textPrimary.withValues(alpha: 0.5))
                                     : const SizedBox.shrink(),
                               ),
                             ),
@@ -1076,7 +1076,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                                     ? Image.file(
                                         File(widget.images[_currentIndex].imagePath!),
                                         fit: BoxFit.contain,
-                                        errorBuilder: (_, __, ___) => Icon(Icons.broken_image, size: 64, color: AppTheme.textSecondary.withValues(alpha: 0.3)),
+                                        errorBuilder: (_, __, ___) => Icon(Icons.broken_image, size: 64, color: AppTheme.textPrimary.withValues(alpha: 0.3)),
                                       )
                                     : const SizedBox.shrink(),
                               ),
@@ -1091,7 +1091,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                                 color: Colors.transparent,
                                 alignment: Alignment.center,
                                 child: _currentIndex < widget.images.length - 1
-                                    ? Icon(Icons.chevron_right, size: 48, color: AppTheme.textSecondary.withValues(alpha: 0.5))
+                                    ? Icon(Icons.chevron_right, size: 48, color: AppTheme.textPrimary.withValues(alpha: 0.5))
                                     : const SizedBox.shrink(),
                               ),
                             ),
@@ -1114,7 +1114,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                               color: AppTheme.backgroundColor.withValues(alpha: 0.5),
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(Icons.close, size: 22, color: AppTheme.textSecondary),
+                            child: Icon(Icons.close, size: 22, color: AppTheme.textPrimary),
                           ),
                         ),
                       ),
@@ -1129,7 +1129,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                           color: AppTheme.backgroundColor.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text('${_currentIndex + 1} / ${widget.images.length}', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                        child: Text('${_currentIndex + 1} / ${widget.images.length}', style: TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
                       ),
                     ),
                   ],
