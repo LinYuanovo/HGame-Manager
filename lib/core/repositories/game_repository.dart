@@ -320,13 +320,26 @@ class GameRepository {
     );
   }
 
-  Future<void> updateRatingReview(int id, int rating, String? review) async {
+  Future<void> updateRatingReview(int id, double rating, String? review) async {
     final db = await _db;
     await db.update(
       'games',
       {
         'rating': rating,
         'review': review,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> deleteRatingReview(int id) async {
+    final db = await _db;
+    await db.update(
+      'games',
+      {
+        'rating': 0.0,
+        'review': null,
       },
       where: 'id = ?',
       whereArgs: [id],

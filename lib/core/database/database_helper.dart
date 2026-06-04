@@ -37,7 +37,7 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE games ADD COLUMN cover_index INTEGER NOT NULL DEFAULT 0');
     }
     if (oldVersion < 3) {
-      await db.execute('ALTER TABLE games ADD COLUMN rating INTEGER DEFAULT 0');
+      await db.execute('ALTER TABLE games ADD COLUMN rating REAL DEFAULT 0');
       await db.execute('ALTER TABLE games ADD COLUMN review TEXT');
     }
   }
@@ -60,7 +60,7 @@ class DatabaseHelper {
         is_favorite INTEGER DEFAULT 0,
         is_played INTEGER DEFAULT 0,
         cover_index INTEGER DEFAULT 0,
-        rating INTEGER DEFAULT 0,
+        rating REAL DEFAULT 0,
         review TEXT
       )
     ''');

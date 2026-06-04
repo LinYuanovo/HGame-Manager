@@ -32,7 +32,7 @@ class Game {
   final List<Tag> tags;
   final List<GameImage> images;
   final int coverIndex;
-  final int rating;           // 评分 0-5
+  final double rating;        // 评分 0-5，支持半星
   final String? review;       // 评论内容
 
   Game({
@@ -53,7 +53,7 @@ class Game {
     this.tags = const [],
     this.images = const [],
     this.coverIndex = 0,
-    this.rating = 0,
+    this.rating = 0.0,
     this.review,
   });
 
@@ -78,7 +78,7 @@ class Game {
       isFavorite: (map['is_favorite'] as int? ?? 0) == 1,
       isPlayed: (map['is_played'] as int? ?? 0) == 1,
       coverIndex: map['cover_index'] as int? ?? 0,
-      rating: map['rating'] as int? ?? 0,
+      rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
       review: map['review'] as String?,
     );
   }
@@ -144,7 +144,7 @@ class Game {
       tags: tags ?? this.tags,
       images: images ?? this.images,
       coverIndex: coverIndex ?? this.coverIndex,
-      rating: identical(rating, _undefined) ? this.rating : rating as int,
+      rating: identical(rating, _undefined) ? this.rating : rating as double,
       review: identical(review, _undefined) ? this.review : review as String?,
     );
   }

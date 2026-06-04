@@ -823,25 +823,23 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                         bottom: 8,
                         left: 8,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.55),
+                            color: Colors.black.withValues(alpha: 0.35),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.star, size: 14, color: Color(0xFFFFD700)),
-                              const SizedBox(width: 2),
-                              Text(
-                                '${game.rating}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
+                            children: List.generate(5, (index) {
+                              final starValue = index + 1;
+                              if (game.rating >= starValue) {
+                                return const Icon(Icons.star, size: 16, color: Color(0xFFFFD700));
+                              } else if (game.rating >= starValue - 0.5) {
+                                return const Icon(Icons.star_half, size: 16, color: Color(0xFFFFD700));
+                              } else {
+                                return Icon(Icons.star_border, size: 16, color: Colors.white.withValues(alpha: 0.5));
+                              }
+                            }),
                           ),
                         ),
                       ),
@@ -1012,6 +1010,22 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 title: Text(widget.contextMenuMode == ContextMenuMode.played
                     ? '减少游玩次数'
                     : '增加游玩次数'))),
+        if (game.images.length > 1)
+          PopupMenuItem(
+              value: 'cover',
+              child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.image, size: 18),
+                  title: Text(
+                      '选择封面 (${game.coverIndex + 1}/${game.images.length})'))),
+        PopupMenuItem(
+            value: 'review',
+            child: ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.rate_review_outlined, size: 18, color: AppTheme.primaryColor),
+                title: const Text('评论', style: TextStyle(color: AppTheme.textPrimary)))),
         // 标记已通关（仅在非已通关页面显示）
         if (!widget.isClearedPage)
           PopupMenuItem(
@@ -1030,22 +1044,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.emoji_events_outlined, size: 18, color: Colors.grey),
                   title: const Text('取消标记已通关', style: TextStyle(color: Colors.grey)))),
-        if (game.images.length > 1)
-          PopupMenuItem(
-              value: 'cover',
-              child: ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.image, size: 18),
-                  title: Text(
-                      '选择封面 (${game.coverIndex + 1}/${game.images.length})'))),
-        PopupMenuItem(
-            value: 'review',
-            child: ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.rate_review_outlined, size: 18, color: AppTheme.primaryColor),
-                title: const Text('评论', style: TextStyle(color: AppTheme.textPrimary)))),
         const PopupMenuDivider(),
         PopupMenuItem(
             value: 'blacklist',
@@ -1209,7 +1207,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         game: game,
         onSave: (rating, review) async {
           final repo = ref.read(gameRepositoryProvider);
-          await repo.updateRatingReview(game.id!, rating, review.isEmpty ? null : review);
+          if (game.id != null) {
+            await repo.updateRatingReview(game.id!, rating, review.isEmpty ? null : review);
+          }
           ref.invalidate(allGamesProvider);
           ref.invalidate(playedGamesProvider);
           ref.invalidate(clearedGamesProvider);
@@ -1714,7 +1714,7 @@ class _CoverPickerDialog extends StatelessWidget {
 
 class _ReviewDialog extends StatefulWidget {
   final Game game;
-  final void Function(int rating, String review) onSave;
+  final void Function(double rating, String review) onSave;
 
   const _ReviewDialog({required this.game, required this.onSave});
 
@@ -1723,7 +1723,7 @@ class _ReviewDialog extends StatefulWidget {
 }
 
 class _ReviewDialogState extends State<_ReviewDialog> {
-  late int _rating;
+  late double _rating;
   late TextEditingController _reviewController;
 
   @override
@@ -1737,6 +1737,13 @@ class _ReviewDialogState extends State<_ReviewDialog> {
   void dispose() {
     _reviewController.dispose();
     super.dispose();
+  }
+
+  double _calcRatingFromX(double x, double totalWidth) {
+    final starWidth = totalWidth / 5;
+    final rawRating = (x / starWidth);
+    final clamped = rawRating.clamp(0.0, 5.0);
+    return (clamped * 2).round() / 2; // round to nearest 0.5
   }
 
   @override
@@ -1769,26 +1776,49 @@ class _ReviewDialogState extends State<_ReviewDialog> {
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
             ),
             const SizedBox(height: 8),
-            Row(
-              children: List.generate(5, (index) {
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final starAreaWidth = constraints.maxWidth;
                 return GestureDetector(
-                  onTap: () => setState(() => _rating = index + 1),
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: Icon(
-                      index < _rating ? Icons.star : Icons.star_border,
-                      size: 32,
-                      color: index < _rating ? const Color(0xFFFFD700) : Colors.grey.shade400,
-                    ),
+                  onTapDown: (details) {
+                    setState(() {
+                      _rating = _calcRatingFromX(details.localPosition.dx, starAreaWidth);
+                    });
+                  },
+                  onHorizontalDragUpdate: (details) {
+                    setState(() {
+                      _rating = _calcRatingFromX(details.localPosition.dx, starAreaWidth);
+                    });
+                  },
+                  child: Row(
+                    children: List.generate(5, (index) {
+                      final starValue = index + 1;
+                      IconData icon;
+                      if (_rating >= starValue) {
+                        icon = Icons.star;
+                      } else if (_rating >= starValue - 0.5) {
+                        icon = Icons.star_half;
+                      } else {
+                        icon = Icons.star_border;
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Icon(
+                          icon,
+                          size: 32,
+                          color: icon == Icons.star_border ? Colors.grey.shade400 : const Color(0xFFFFD700),
+                        ),
+                      );
+                    }),
                   ),
                 );
-              }),
+              },
             ),
             if (_rating > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  '$_rating / 5',
+                  _rating == _rating.roundToDouble() ? '${_rating.toInt()} / 5' : '$_rating / 5',
                   style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
               ),

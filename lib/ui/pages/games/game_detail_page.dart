@@ -501,11 +501,16 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 if (widget.game.rating > 0) ...[
                   Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: List.generate(5, (index) => Icon(
-                      index < widget.game.rating ? Icons.star : Icons.star_border,
-                      size: 18,
-                      color: index < widget.game.rating ? const Color(0xFFFFD700) : Colors.grey.shade400,
-                    )),
+                    children: List.generate(5, (index) {
+                      final starValue = index + 1;
+                      if (widget.game.rating >= starValue) {
+                        return const Icon(Icons.star, size: 18, color: Color(0xFFFFD700));
+                      } else if (widget.game.rating >= starValue - 0.5) {
+                        return const Icon(Icons.star_half, size: 18, color: Color(0xFFFFD700));
+                      } else {
+                        return Icon(Icons.star_border, size: 18, color: Colors.grey.shade400);
+                      }
+                    }),
                   ),
                   if (widget.game.review != null && widget.game.review!.isNotEmpty)
                     Tooltip(
@@ -942,98 +947,23 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   void _showReviewDetail(BuildContext context) {
     showDialog(
       context: context,
-      builder: (dialogContext) => Dialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
-        ),
-        child: Container(
-          width: 400,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.comment, color: Colors.red, size: 20),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text('评论详情', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: List.generate(5, (index) => Icon(
-                  index < widget.game.rating ? Icons.star : Icons.star_border,
-                  size: 22,
-                  color: index < widget.game.rating ? const Color(0xFFFFD700) : Colors.grey.shade400,
-                )),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: SelectableText(
-                  widget.game.review ?? '暂无评论',
-                  style: const TextStyle(fontSize: 14, height: 1.6, color: AppTheme.textPrimary),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton.icon(
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: widget.game.review ?? ''));
-                      ScaffoldMessenger.of(dialogContext).showSnackBar(
-                        const SnackBar(content: Text('已复制评论内容'), duration: Duration(seconds: 1)),
-                      );
-                    },
-                    icon: const Icon(Icons.copy, size: 16),
-                    label: const Text('复制'),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.of(dialogContext).pop();
-                      _openEditReview();
-                    },
-                    icon: const Icon(Icons.edit, size: 16),
-                    label: const Text('编辑'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _openEditReview() {
-    showDialog(
-      context: context,
       builder: (dialogContext) => _DetailReviewDialog(
         game: widget.game,
         onSave: (rating, review) async {
           final repo = ref.read(gameRepositoryProvider);
-          await repo.updateRatingReview(widget.game.id!, rating, review.isEmpty ? null : review);
+          if (widget.game.id != null) {
+            await repo.updateRatingReview(widget.game.id!, rating, review.isEmpty ? null : review);
+          }
+          ref.invalidate(allGamesProvider);
+          ref.invalidate(playedGamesProvider);
+          ref.invalidate(clearedGamesProvider);
+          ref.invalidate(favoriteGamesProvider);
+        },
+        onDelete: () async {
+          final repo = ref.read(gameRepositoryProvider);
+          if (widget.game.id != null) {
+            await repo.deleteRatingReview(widget.game.id!);
+          }
           ref.invalidate(allGamesProvider);
           ref.invalidate(playedGamesProvider);
           ref.invalidate(clearedGamesProvider);
@@ -1089,16 +1019,17 @@ class _InfoRow extends StatelessWidget {
 
 class _DetailReviewDialog extends StatefulWidget {
   final Game game;
-  final void Function(int rating, String review) onSave;
+  final void Function(double rating, String review) onSave;
+  final VoidCallback onDelete;
 
-  const _DetailReviewDialog({required this.game, required this.onSave});
+  const _DetailReviewDialog({required this.game, required this.onSave, required this.onDelete});
 
   @override
   State<_DetailReviewDialog> createState() => _DetailReviewDialogState();
 }
 
 class _DetailReviewDialogState extends State<_DetailReviewDialog> {
-  late int _rating;
+  late double _rating;
   late TextEditingController _reviewController;
 
   @override
@@ -1112,6 +1043,13 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
   void dispose() {
     _reviewController.dispose();
     super.dispose();
+  }
+
+  double _calcRatingFromX(double x, double totalWidth) {
+    final starWidth = totalWidth / 5;
+    final rawRating = x / starWidth;
+    final clamped = rawRating.clamp(0.0, 5.0);
+    return (clamped * 2).round() / 2;
   }
 
   @override
@@ -1128,34 +1066,72 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              widget.game.title ?? '未命名游戏',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            Row(
+              children: [
+                const Icon(Icons.comment, color: Colors.red, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    widget.game.title ?? '未命名游戏',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
             const Text('评分', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
             const SizedBox(height: 8),
-            Row(
-              children: List.generate(5, (index) {
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final starAreaWidth = constraints.maxWidth;
                 return GestureDetector(
-                  onTap: () => setState(() => _rating = index + 1),
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: Icon(
-                      index < _rating ? Icons.star : Icons.star_border,
-                      size: 32,
-                      color: index < _rating ? const Color(0xFFFFD700) : Colors.grey.shade400,
-                    ),
+                  onTapDown: (details) {
+                    setState(() {
+                      _rating = _calcRatingFromX(details.localPosition.dx, starAreaWidth);
+                    });
+                  },
+                  onHorizontalDragUpdate: (details) {
+                    setState(() {
+                      _rating = _calcRatingFromX(details.localPosition.dx, starAreaWidth);
+                    });
+                  },
+                  child: Row(
+                    children: List.generate(5, (index) {
+                      final starValue = index + 1;
+                      IconData icon;
+                      if (_rating >= starValue) {
+                        icon = Icons.star;
+                      } else if (_rating >= starValue - 0.5) {
+                        icon = Icons.star_half;
+                      } else {
+                        icon = Icons.star_border;
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Icon(
+                          icon,
+                          size: 32,
+                          color: icon == Icons.star_border ? Colors.grey.shade400 : const Color(0xFFFFD700),
+                        ),
+                      );
+                    }),
                   ),
                 );
-              }),
+              },
             ),
             if (_rating > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text('$_rating / 5', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                child: Text(
+                  _rating == _rating.roundToDouble() ? '${_rating.toInt()} / 5' : '$_rating / 5',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
               ),
             const SizedBox(height: 20),
             const Text('评论', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
@@ -1186,24 +1162,36 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
             ),
             const SizedBox(height: 24),
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('取消', style: TextStyle(color: AppTheme.textSecondary)),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton(
+                TextButton.icon(
                   onPressed: () {
-                    widget.onSave(_rating, _reviewController.text);
+                    widget.onDelete();
                     Navigator.of(context).pop();
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('保存'),
+                  icon: const Icon(Icons.delete_outline, size: 16, color: AppTheme.errorColor),
+                  label: const Text('删除', style: TextStyle(color: AppTheme.errorColor)),
+                ),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('取消', style: TextStyle(color: AppTheme.textSecondary)),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () {
+                        widget.onSave(_rating, _reviewController.text);
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('保存'),
+                    ),
+                  ],
                 ),
               ],
             ),
