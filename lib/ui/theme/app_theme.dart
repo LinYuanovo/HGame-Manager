@@ -371,7 +371,8 @@ class AppTheme {
     overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
         top: 40,
-        left: MediaQuery.of(context).size.width / 2 - 120,
+        left: 0,
+        right: 0,
         child: TweenAnimationBuilder<double>(
           tween: Tween(begin: 0.0, end: 1.0),
           duration: const Duration(milliseconds: 300),
@@ -380,7 +381,7 @@ class AppTheme {
             opacity: value,
             child: Transform.translate(
               offset: Offset(0, -20 * (1 - value)),
-              child: child,
+              child: Center(child: child),
             ),
           ),
           child: Material(
