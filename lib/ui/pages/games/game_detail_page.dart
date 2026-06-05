@@ -619,8 +619,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         continue; // Don't add decompress code line to download links
       }
 
-      // Check for labeled download link (e.g., "飞猫直链① https://...")
-      final labeledMatch = RegExp(r'^([^https]+)\s+(https?://.+)').firstMatch(line.trim());
+      // Check for labeled download link (e.g., "飞猫直连：https://..." or "飞猫直链① https://...")
+      final labeledMatch = RegExp(r'^([^：:]+)[：:]\s*(https?://.+)').firstMatch(line.trim());
       if (labeledMatch != null) {
         final customLabel = labeledMatch.group(1)!.trim();
         final url = labeledMatch.group(2)!.trim();
