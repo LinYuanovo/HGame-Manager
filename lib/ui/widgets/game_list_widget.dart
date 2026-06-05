@@ -12,8 +12,6 @@ import '../pages/games/game_detail_page.dart';
 enum PaginationMode { paginated, infiniteScroll }
 enum ContextMenuMode { games, played }
 
-final epoch0 = DateTime.fromMillisecondsSinceEpoch(0);
-
 class GameListWidget extends ConsumerStatefulWidget {
   final List<Game> games;
   final Widget? appBarTitle;
@@ -133,12 +131,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         case SortMode.addedTimeAsc:
           return (a.addedTime ?? DateTime.now())
               .compareTo(b.addedTime ?? DateTime.now());
-        case SortMode.recentlyPlayedDesc:
-          return (b.lastPlayedTime ?? epoch0)
-              .compareTo(a.lastPlayedTime ?? epoch0);
-        case SortMode.recentlyPlayedAsc:
-          return (a.lastPlayedTime ?? epoch0)
-              .compareTo(b.lastPlayedTime ?? epoch0);
       }
     });
     return sorted;
@@ -307,12 +299,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     final sortOptions = [
       SortMode.titleAsc,
       SortMode.addedTimeDesc,
-      SortMode.recentlyPlayedDesc
     ];
     final sortLabels = {
       'titleAsc': '标题',
       'addedTimeDesc': '添加时间',
-      'recentlyPlayedDesc': '最近游玩'
     };
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -391,9 +381,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       case SortMode.addedTimeDesc:
       case SortMode.addedTimeAsc:
         return '添加时间';
-      case SortMode.recentlyPlayedDesc:
-      case SortMode.recentlyPlayedAsc:
-        return '最近游玩';
     }
   }
 

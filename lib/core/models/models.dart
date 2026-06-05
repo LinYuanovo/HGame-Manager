@@ -8,8 +8,6 @@ enum ViewMode {
 enum SortMode {
   titleAsc,
   titleDesc,
-  recentlyPlayedAsc,
-  recentlyPlayedDesc,
   addedTimeAsc,
   addedTimeDesc,
 }

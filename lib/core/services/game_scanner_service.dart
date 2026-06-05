@@ -326,8 +326,7 @@ class GameScannerService {
 
         int gameId;
         if (existing != null) {
-          // 更新游戏时也更新 added_time
-          gameMap['added_time'] = DateTime.now().toIso8601String();
+          // 更新游戏时保留原有的 added_time
           await txn.update('games', gameMap, where: 'id = ?', whereArgs: [existing.id]);
           gameId = existing.id!;
         } else {
