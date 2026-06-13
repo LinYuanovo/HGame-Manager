@@ -262,12 +262,28 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
   }
 
   void _showTagContextMenu(Tag tag, Offset position) {
+    // 默认系列类型不可右键操作
+    final defaultSeries = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS'];
+    final isDefaultSeries = tag.type == Tag.typeSeries && defaultSeries.contains(tag.name);
+
     AppTheme.showGlassMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx + 1, position.dy + 1),
       items: [
-        PopupMenuItem(value: 'edit', child: ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: Icon(Icons.edit, size: 18), title: Text('修改'))),
-        PopupMenuItem(value: 'delete', child: ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: Icon(Icons.delete, size: 18, color: AppTheme.errorColor), title: Text('删除', style: TextStyle(color: AppTheme.errorColor)))),
+        if (!isDefaultSeries) ...[
+          PopupMenuItem(value: 'edit', child: ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: Icon(Icons.edit, size: 18), title: Text('修改'))),
+          PopupMenuItem(value: 'delete', child: ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: Icon(Icons.delete, size: 18, color: AppTheme.errorColor), title: Text('删除', style: TextStyle(color: AppTheme.errorColor)))),
+        ],
+        if (isDefaultSeries)
+          PopupMenuItem(
+            enabled: false,
+            child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.lock_outline, size: 18, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+              title: Text('默认系列（不可修改）', style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5))),
+            ),
+          ),
       ],
     ).then((value) {
       if (value == null) return;

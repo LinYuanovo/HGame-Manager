@@ -26,7 +26,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   late TextEditingController _cookieAcgyingController;
   late TextEditingController _cookieFeixueController;
   late TextEditingController _cookieVikacgController;
-  late TextEditingController _customSeriesController;
   late TextEditingController _webdavUrlController;
   late TextEditingController _webdavUsernameController;
   late TextEditingController _webdavPasswordController;
@@ -71,7 +70,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _webdavUrlController = TextEditingController(text: prefs.getString('webdav_url') ?? '');
     _webdavUsernameController = TextEditingController(text: prefs.getString('webdav_username') ?? '');
     _webdavPasswordController = TextEditingController(text: prefs.getString('webdav_password') ?? '');
-    _customSeriesController = TextEditingController();
     _proxyMode = proxyMode;
     _selectedFont = font;
     _fontSize = fontSize;
@@ -111,7 +109,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _cookieAcgyingController.dispose();
     _cookieFeixueController.dispose();
     _cookieVikacgController.dispose();
-    _customSeriesController.dispose();
     _webdavUrlController.dispose();
     _webdavUsernameController.dispose();
     _webdavPasswordController.dispose();
@@ -132,8 +129,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           _buildLibrarySection(),
           const SizedBox(height: 24),
           _buildIgnoreFoldersSection(),
-          const SizedBox(height: 24),
-          _buildSeriesSection(),
           const SizedBox(height: 24),
           _buildProxySection(),
           const SizedBox(height: 24),
@@ -994,103 +989,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ),
       ],
     );
-  }
-
-  Widget _buildSeriesSection() {
-    final defaultTypes = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS'];
-    final customTypes = _getCustomSeriesTypes();
-
-    return _buildSection(
-      title: '系列类型',
-      icon: Icons.category_outlined,
-      children: [
-        Text('默认系列类型（不可删除）', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary.withValues(alpha: 0.6))),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: defaultTypes.map((type) => Chip(
-            label: Text(type, style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor)),
-            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-            side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          )).toList(),
-        ),
-        if (customTypes.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Text('自定义系列类型', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary.withValues(alpha: 0.6))),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: customTypes.map((type) => Chip(
-              label: Text(type, style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
-              backgroundColor: AppTheme.backgroundColor.withValues(alpha: 0.3),
-              side: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onDeleted: () => _removeCustomSeriesType(type),
-            )).toList(),
-          ),
-        ],
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _customSeriesController,
-                decoration: InputDecoration(
-                  hintText: '添加系列类型',
-                  hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.4)),
-                  filled: true,
-                  fillColor: AppTheme.backgroundColor.withValues(alpha: 0.3),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  isDense: true,
-                ),
-                style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
-                onSubmitted: (_) => _addCustomSeriesType(),
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: Icon(Icons.add_circle, color: AppTheme.primaryColor, size: 22),
-              onPressed: () => _addCustomSeriesType(),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  List<String> _getCustomSeriesTypes() {
-    final prefs = ref.read(sharedPreferencesProvider);
-    final str = prefs.getString('custom_series_types') ?? '';
-    return str.split(',').where((s) => s.trim().isNotEmpty).toList();
-  }
-
-  void _addCustomSeriesType() {
-    final type = _customSeriesController.text.trim().toUpperCase();
-    if (type.isEmpty) return;
-    final defaultTypes = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS'];
-    if (defaultTypes.contains(type)) return;
-    final types = _getCustomSeriesTypes();
-    if (!types.contains(type)) {
-      types.add(type);
-      final prefs = ref.read(sharedPreferencesProvider);
-      prefs.setString('custom_series_types', types.join(','));
-    }
-    _customSeriesController.clear();
-    setState(() {});
-  }
-
-  void _removeCustomSeriesType(String type) {
-    final types = _getCustomSeriesTypes();
-    types.remove(type);
-    final prefs = ref.read(sharedPreferencesProvider);
-    prefs.setString('custom_series_types', types.join(','));
-    setState(() {});
   }
 
   Widget _buildAboutSection() {
