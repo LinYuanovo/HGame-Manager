@@ -27,6 +27,7 @@ class GameListWidget extends ConsumerStatefulWidget {
   final bool isClearedPage;
   final void Function(List<Game> selectedGames)? onSelectionChanged;
   final VoidCallback? onScanSavePaths;
+  final String scanProgress;
 
   const GameListWidget({
     super.key,
@@ -42,6 +43,7 @@ class GameListWidget extends ConsumerStatefulWidget {
     this.isClearedPage = false,
     this.onSelectionChanged,
     this.onScanSavePaths,
+    this.scanProgress = '',
   });
 
   @override
@@ -525,7 +527,21 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             onTap: () => _multiSelectController.exitMultiSelectMode(),
             child: Text('取消选择', style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
           ),
-          if (widget.onScanSavePaths != null) ...[
+          if (widget.scanProgress.isNotEmpty) ...[
+            const SizedBox(width: 16),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
+                ),
+                const SizedBox(width: 6),
+                Text(widget.scanProgress, style: TextStyle(fontSize: 16, color: AppTheme.primaryColor)),
+              ],
+            ),
+          ] else if (widget.onScanSavePaths != null) ...[
             const SizedBox(width: 16),
             GestureDetector(
               onTap: widget.onScanSavePaths,
@@ -1866,6 +1882,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   Future<void> _scanSavePathForGame(Game game) async {
     try {
+      // 跳过"仅备份"游戏
+      if (game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}')) {
+        return;
+      }
+
       final repo = ref.read(gameRepositoryProvider);
       final saveService = ref.read(savePathServiceProvider);
 

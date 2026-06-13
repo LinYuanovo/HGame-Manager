@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/models.dart';
@@ -32,40 +33,6 @@ class _PlayedPageState extends ConsumerState<PlayedPage> {
                 fontWeight: FontWeight.w600,
                 color: AppTheme.textPrimary),
           ),
-          actions: [
-            _isScanning
-                ? GestureDetector(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _scanProgress,
-                            style: TextStyle(fontSize: 13, color: AppTheme.primaryColor, fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : IconButton(
-                    icon: Icon(Icons.manage_search, color: AppTheme.primaryColor, size: 20),
-                    tooltip: _selectedGames.isNotEmpty
-                        ? '扫描选中的 ${_selectedGames.length} 个游戏的存档位置'
-                        : '扫描所有游戏的存档位置',
-                    onPressed: () => _scanSavePaths(),
-                  ),
-          ],
         ),
         Expanded(
           child: gamesAsync.when(
@@ -82,6 +49,8 @@ class _PlayedPageState extends ConsumerState<PlayedPage> {
                 child: GameListWidget(
                   games: games,
                   contextMenuMode: ContextMenuMode.played,
+                  onScanSavePaths: _isScanning ? null : _scanSavePaths,
+                  scanProgress: _scanProgress,
                   onSelectionChanged: (selected) {
                     setState(() => _selectedGames = selected);
                   },
@@ -130,6 +99,12 @@ class _PlayedPageState extends ConsumerState<PlayedPage> {
         if (game.savePath != null && game.savePath!.isNotEmpty) {
           skipped++;
           found++;
+          continue;
+        }
+
+        // 跳过"仅备份"游戏
+        if (game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}')) {
+          skipped++;
           continue;
         }
 
