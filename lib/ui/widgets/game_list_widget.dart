@@ -567,6 +567,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       ),
       child: Row(
         children: [
+          const Spacer(),
           GestureDetector(
             onTap: () {
               _multiSelectController.selectAll(currentPageGames);
@@ -585,7 +586,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             onTap: () => _multiSelectController.exitMultiSelectMode(),
             child: Text('取消选择', style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
           ),
-          const Spacer(),
+          const SizedBox(width: 24),
           Text(
             '已选择 ${_multiSelectController.selectedCount} 项',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppTheme.primaryColor),
@@ -1149,8 +1150,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   void _showContextMenu(
       BuildContext context, Offset position, Game game) {
-    if (_multiSelectController.isMultiSelectMode) return;
     final isBackupOnly = game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
+    final isMultiSelect = _multiSelectController.isMultiSelectMode;
     AppTheme.showGlassMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -1203,7 +1204,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(Icons.playlist_add, size: 18, color: AppTheme.primaryColor),
                   title: const Text('移入自定义系列'))),
-        if (game.images.length > 1)
+        if (game.images.length > 1 && !isMultiSelect)
           PopupMenuItem(
               value: 'cover',
               child: ListTile(
@@ -1212,13 +1213,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   leading: Icon(Icons.image, size: 18),
                   title: Text(
                       '选择封面 (${game.coverIndex + 1}/${game.images.length})'))),
-        PopupMenuItem(
-            value: 'review',
-            child: ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.rate_review_outlined, size: 18, color: AppTheme.primaryColor),
-                title: const Text('评论', style: TextStyle(color: AppTheme.textPrimary)))),
+        if (!isMultiSelect)
+          PopupMenuItem(
+              value: 'review',
+              child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.rate_review_outlined, size: 18, color: AppTheme.primaryColor),
+                  title: const Text('评论', style: TextStyle(color: AppTheme.textPrimary)))),
         // 标记已通关（仅在非已通关页面显示）
         if (!widget.isClearedPage)
           PopupMenuItem(
