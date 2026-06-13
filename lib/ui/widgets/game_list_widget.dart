@@ -997,6 +997,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 title: Text(widget.contextMenuMode == ContextMenuMode.played
                     ? '减少游玩次数'
                     : '增加游玩次数'))),
+        // 移入自定义系列（仅在有自定义系列时显示）
+        if (_hasCustomSeries())
+          PopupMenuItem(
+              value: 'move_to_series',
+              child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.playlist_add, size: 18, color: AppTheme.primaryColor),
+                  title: const Text('移入自定义系列'))),
         if (game.images.length > 1)
           PopupMenuItem(
               value: 'cover',
@@ -1081,6 +1090,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           break;
         case 'review':
           _showReviewDialog(game);
+          break;
+        case 'move_to_series':
+          _showMoveToSeriesDialog(game);
           break;
         case 'cover':
           final selected = await showDialog<int>(
@@ -1599,6 +1611,56 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     }
   }
 
+  bool _hasCustomSeries() {
+    final tagsAsync = ref.read(allTagsProvider);
+    return tagsAsync.whenOrNull(data: (tags) => tags.isNotEmpty) ?? false;
+  }
+
+  void _showMoveToSeriesDialog(Game game) async {
+    final tagsAsync = ref.read(allTagsProvider);
+    final customTags = tagsAsync.whenOrNull(data: (tags) => tags) ?? [];
+    
+    if (customTags.isEmpty) {
+      AppTheme.showGlassToast(context, message: '暂无自定义标签');
+      return;
+    }
+
+    final currentTagIds = game.tags.map((t) => t.id).toSet();
+    final selectedTagIds = <int>{...currentTagIds.where((id) => id != null).cast<int>()};
+
+    final result = await showDialog<List<int>>(
+      context: context,
+      builder: (ctx) => _MoveToSeriesDialog(
+        customTags: customTags,
+        selectedTagIds: selectedTagIds,
+        gameTitle: game.title ?? '未命名游戏',
+      ),
+    );
+
+    if (result != null && game.id != null) {
+      final repo = ref.read(gameRepositoryProvider);
+
+      for (final tag in customTags) {
+        if (tag.id != null && currentTagIds.contains(tag.id)) {
+          await repo.removeTagFromGame(game.id!, tag.id!);
+        }
+      }
+
+      for (final tagId in result) {
+        await repo.addTagToGame(game.id!, tagId);
+      }
+
+      ref.invalidate(allGamesProvider);
+      ref.invalidate(playedGamesProvider);
+      ref.invalidate(favoriteGamesProvider);
+      ref.invalidate(allTagsProvider);
+
+      if (mounted) {
+        AppTheme.showGlassToast(context, message: '已更新标签');
+      }
+    }
+  }
+
   void _addToBlacklist(String gamePath) {
     final prefs = ref.read(sharedPreferencesProvider);
     final existing = prefs.getString('game_blacklist') ?? '';
@@ -1879,6 +1941,135 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: const Text('保存'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MoveToSeriesDialog extends StatefulWidget {
+  final List<Tag> customTags;
+  final Set<int> selectedTagIds;
+  final String gameTitle;
+
+  const _MoveToSeriesDialog({
+    required this.customTags,
+    required this.selectedTagIds,
+    required this.gameTitle,
+  });
+
+  @override
+  State<_MoveToSeriesDialog> createState() => _MoveToSeriesDialogState();
+}
+
+class _MoveToSeriesDialogState extends State<_MoveToSeriesDialog> {
+  late Set<int> _selectedIds;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIds = Set.from(widget.selectedTagIds);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
+      ),
+      child: Container(
+        width: 400,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '移入自定义系列',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.gameTitle,
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: widget.customTags.map((tag) {
+                    final isSelected = _selectedIds.contains(tag.id);
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          if (isSelected) {
+                            _selectedIds.remove(tag.id);
+                          } else {
+                            _selectedIds.add(tag.id!);
+                          }
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                              : AppTheme.backgroundColor.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppTheme.primaryColor
+                                : AppTheme.borderColor.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isSelected) ...[
+                              Icon(Icons.check, size: 16, color: AppTheme.primaryColor),
+                              const SizedBox(width: 4),
+                            ],
+                            Text(
+                              tag.displayName ?? tag.name,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
+                                fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, _selectedIds.toList()),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('确定'),
                 ),
               ],
             ),
