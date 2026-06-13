@@ -27,6 +27,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   late TextEditingController _changelogController;
   late TextEditingController _downloadUrlController;
   List<Tag> _editedTags = [];
+  late Game _currentGame;
 
   bool _isImageViewerOpen = false;
   int _currentImageIndex = 0;
@@ -34,13 +35,14 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.game.title);
-    _versionController = TextEditingController(text: widget.game.version);
-    _introController = TextEditingController(text: widget.game.intro);
-    _featuresController = TextEditingController(text: widget.game.features);
-    _changelogController = TextEditingController(text: widget.game.changelog);
-    _downloadUrlController = TextEditingController(text: widget.game.downloadUrl ?? '');
-    _editedTags = List.from(widget.game.tags);
+    _currentGame = widget.game;
+    _titleController = TextEditingController(text: _currentGame.title);
+    _versionController = TextEditingController(text: _currentGame.version);
+    _introController = TextEditingController(text: _currentGame.intro);
+    _featuresController = TextEditingController(text: _currentGame.features);
+    _changelogController = TextEditingController(text: _currentGame.changelog);
+    _downloadUrlController = TextEditingController(text: _currentGame.downloadUrl ?? '');
+    _editedTags = List.from(_currentGame.tags);
   }
 
   @override
@@ -114,7 +116,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              _isEditing ? (_titleController.text.isEmpty ? '游戏详情' : _titleController.text) : (widget.game.title ?? '游戏详情'),
+              _isEditing ? (_titleController.text.isEmpty ? '游戏详情' : _titleController.text) : (_currentGame.title ?? '游戏详情'),
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -163,10 +165,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             child: ElevatedButton.icon(
               onPressed: () async {
                 final repo = ref.read(gameRepositoryProvider);
-                await repo.markAsPlayed(widget.game.id!);
+                await repo.markAsPlayed(_currentGame.id!);
                 // Open the game folder
                 try {
-                  await launchUrl(Uri.file(widget.game.path));
+                  await launchUrl(Uri.file(_currentGame.path));
                 } catch (_) {}
                 ref.invalidate(allGamesProvider);
                 ref.invalidate(playedGamesProvider);
@@ -181,6 +183,23 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          // 存档按钮 - 仅在已玩/已通关时显示
+          if (_currentGame.isPlayed || _currentGame.playCount > 0)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _openSaveLocation(),
+                icon: const Icon(Icons.folder_special, size: 18),
+                label: const Text('存档'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.primaryColor,
+                  side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+                ),
+              ),
+            ),
           const SizedBox(height: 24),
           _buildInfoCard(),
         ],
@@ -189,7 +208,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Widget _buildImageCarousel() {
-    final images = widget.game.images;
+    final images = _currentGame.images;
     if (images.isEmpty) {
       return Container(
         height: 200,
@@ -269,11 +288,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           // Tags above path (Change 2)
           if (_isEditing) ...[
             _buildEditableTags(),
-          ] else if (widget.game.tags.isNotEmpty) ...[
+          ] else if (_currentGame.tags.isNotEmpty) ...[
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: {for (final t in widget.game.tags) t.name.toLowerCase(): t}.values.map((tag) => GestureDetector(
+              children: {for (final t in _currentGame.tags) t.name.toLowerCase(): t}.values.map((tag) => GestureDetector(
                 onTap: () {
                   if (widget.onTagTap != null) {
                     Navigator.of(context).pop(tag);
@@ -292,7 +311,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ),
             const SizedBox(height: 10),
           ],
-          _InfoRow(icon: Icons.folder_outlined, label: '路径', value: widget.game.path, isPath: true),
+          _InfoRow(icon: Icons.folder_outlined, label: '路径', value: _currentGame.path, isPath: true),
           if (_isEditing) ...[
             const SizedBox(height: 10),
             Row(
@@ -317,24 +336,55 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 ),
               ],
             ),
-          ] else if (widget.game.version != null) ...[
+          ] else if (_currentGame.version != null) ...[
             const SizedBox(height: 10),
-            _InfoRow(icon: Icons.tag, label: '版本', value: widget.game.version!),
+            _InfoRow(icon: Icons.tag, label: '版本', value: _currentGame.version!),
           ],
           const SizedBox(height: 10),
           _InfoRow(
-            icon: widget.game.isPlayed ? Icons.check_circle : Icons.circle_outlined,
+            icon: _currentGame.isPlayed ? Icons.check_circle : Icons.circle_outlined,
             label: '状态',
-            value: widget.game.isPlayed ? '已游玩 (${widget.game.playCount}次)' : '未游玩',
-            valueColor: widget.game.isPlayed ? AppTheme.successColor : AppTheme.textPrimary,
+            value: _currentGame.isPlayed ? '已游玩 (${_currentGame.playCount}次)' : '未游玩',
+            valueColor: _currentGame.isPlayed ? AppTheme.successColor : AppTheme.textPrimary,
           ),
-          if (widget.game.lastPlayedTime != null) ...[
+          if (_currentGame.lastPlayedTime != null) ...[
             const SizedBox(height: 10),
-            _InfoRow(icon: Icons.access_time, label: '最后游玩', value: _formatDate(widget.game.lastPlayedTime!)),
+            _InfoRow(icon: Icons.access_time, label: '最后游玩', value: _formatDate(_currentGame.lastPlayedTime!)),
           ],
-          if (widget.game.sourceUrl != null && widget.game.sourceUrl!.isNotEmpty) ...[
+          if (_currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty) ...[
             const SizedBox(height: 10),
-            _InfoRow(icon: Icons.link, label: '来源', value: widget.game.sourceUrl!, isLink: true),
+            _InfoRow(icon: Icons.link, label: '来源', value: _currentGame.sourceUrl!, isLink: true),
+          ],
+          // 存档路径信息（仅编辑模式或有存档路径时显示）
+          if (_isEditing && (_currentGame.isPlayed || _currentGame.playCount > 0)) ...[
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.folder_special, size: 15, color: AppTheme.textPrimary),
+                const SizedBox(width: 8),
+                const Text('存档:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _showEditSavePathDialog(),
+                    child: Text(
+                      _currentGame.savePath ?? '点击设置存档路径',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _currentGame.savePath != null ? AppTheme.primaryColor : AppTheme.textSecondary.withValues(alpha: 0.5),
+                        decoration: _currentGame.savePath != null ? TextDecoration.underline : null,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else if (_currentGame.savePath != null && _currentGame.savePath!.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _InfoRow(icon: Icons.folder_special, label: '存档', value: _currentGame.savePath!, isPath: true),
           ],
           if (_isEditing) ...[
             const SizedBox(height: 10),
@@ -362,9 +412,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 ),
               ],
             ),
-          ] else if (widget.game.downloadUrl != null && widget.game.downloadUrl!.isNotEmpty) ...[
+          ] else if (_currentGame.downloadUrl != null && _currentGame.downloadUrl!.isNotEmpty) ...[
             const SizedBox(height: 10),
-            _buildDownloadLinks(widget.game.downloadUrl!),
+            _buildDownloadLinks(_currentGame.downloadUrl!),
           ],
         ],
       ),
@@ -458,7 +508,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Widget _buildContentPanel() {
-    final images = widget.game.images;
+    final images = _currentGame.images;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(28),
       child: Column(
@@ -479,46 +529,46 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             )
           else
             SelectableText(
-              widget.game.title ?? '未命名游戏', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.textPrimary, height: 1.4),
+              _currentGame.title ?? '未命名游戏', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.textPrimary, height: 1.4),
             ),
 
-          if (widget.game.version != null || widget.game.rating > 0) ...[
+          if (_currentGame.version != null || _currentGame.rating > 0) ...[
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                if (widget.game.version != null)
+                if (_currentGame.version != null)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppTheme.primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(widget.game.version ?? '',
+                    child: Text(_currentGame.version ?? '',
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryColor)),
                   ),
-                if (widget.game.rating > 0) ...[
+                if (_currentGame.rating > 0) ...[
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: List.generate(5, (index) {
                       final starValue = index + 1;
-                      if (widget.game.rating >= starValue) {
+                      if (_currentGame.rating >= starValue) {
                         return const Icon(Icons.star, size: 18, color: Color(0xFFFFD700));
-                      } else if (widget.game.rating >= starValue - 0.5) {
+                      } else if (_currentGame.rating >= starValue - 0.5) {
                         return const Icon(Icons.star_half, size: 18, color: Color(0xFFFFD700));
                       } else {
                         return Icon(Icons.star_border, size: 18, color: Colors.grey.shade400);
                       }
                     }),
                   ),
-                  if (widget.game.review != null && widget.game.review!.isNotEmpty)
+                  if (_currentGame.review != null && _currentGame.review!.isNotEmpty)
                     _HoverReviewButton(
-                      review: widget.game.review!,
+                      review: _currentGame.review!,
                       onTap: () => _showReviewDetail(context),
                       onDoubleTap: () {
-                        Clipboard.setData(ClipboardData(text: widget.game.review!));
+                        Clipboard.setData(ClipboardData(text: _currentGame.review!));
                         AppTheme.showGlassToast(context, message: '已复制评论内容');
                       },
                     ),
@@ -535,16 +585,16 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           const SizedBox(height: 16),
 
           // Insert images between sections, matching original article layout
-          _buildSectionWithImages(title: '简介', icon: Icons.description_outlined, content: widget.game.intro, images: images, sectionIndex: 0),
+          _buildSectionWithImages(title: '简介', icon: Icons.description_outlined, content: _currentGame.intro, images: images, sectionIndex: 0),
 
-          if (widget.game.features != null && widget.game.features!.isNotEmpty) ...[
+          if (_currentGame.features != null && _currentGame.features!.isNotEmpty) ...[
             const SizedBox(height: 32),
-            _buildSectionWithImages(title: '特性', icon: Icons.stars_outlined, content: widget.game.features, images: images, sectionIndex: 1),
+            _buildSectionWithImages(title: '特性', icon: Icons.stars_outlined, content: _currentGame.features, images: images, sectionIndex: 1),
           ],
 
-          if (widget.game.changelog != null && widget.game.changelog!.isNotEmpty) ...[
+          if (_currentGame.changelog != null && _currentGame.changelog!.isNotEmpty) ...[
             const SizedBox(height: 32),
-            _buildSectionWithImages(title: '更新日志', icon: Icons.history, content: widget.game.changelog, images: images, sectionIndex: 2),
+            _buildSectionWithImages(title: '更新日志', icon: Icons.history, content: _currentGame.changelog, images: images, sectionIndex: 2),
           ],
 
           // Remaining images at the bottom
@@ -750,7 +800,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Widget _buildArticleImage(GameImage image) {
-    final index = widget.game.images.indexOf(image);
+    final index = _currentGame.images.indexOf(image);
     return GestureDetector(
       onTap: () => _showImageViewer(index >= 0 ? index : 0),
       child: ClipRRect(
@@ -774,7 +824,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       barrierDismissible: true,
       barrierColor: Colors.black.withValues(alpha: 0.6),
       builder: (dialogContext) => _ImageViewerDialog(
-        images: widget.game.images,
+        images: _currentGame.images,
         initialIndex: initialIndex,
         onClose: () {
           setState(() => _isImageViewerOpen = false);
@@ -842,7 +892,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     try {
       final repo = ref.read(gameRepositoryProvider);
       final tagRepo = ref.read(tagRepositoryProvider);
-      final gameId = widget.game.id;
+      final gameId = _currentGame.id;
 
       final newTitle = _titleController.text.trim().isEmpty ? null : _titleController.text.trim();
       final newVersion = _versionController.text.trim().isEmpty ? null : _versionController.text.trim();
@@ -851,7 +901,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       final newChangelog = _changelogController.text.trim().isEmpty ? null : _changelogController.text.trim();
       final newDownloadUrl = _downloadUrlController.text.trim().isEmpty ? null : _downloadUrlController.text.trim();
 
-      await repo.updateGame(widget.game.copyWith(
+      await repo.updateGame(_currentGame.copyWith(
         title: newTitle,
         version: newVersion,
         intro: newIntro,
@@ -863,7 +913,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
       // Update tag relations if game has an id
       if (gameId != null) {
-        final existingTags = widget.game.tags;
+        final existingTags = _currentGame.tags;
         for (final tag in existingTags) {
           if (tag.id != null) {
             await repo.removeTagFromGame(gameId, tag.id!);
@@ -877,7 +927,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
       // Sync metadata.json
       try {
-        final metadataFile = File('${widget.game.path}${Platform.pathSeparator}metadata.json');
+        final metadataFile = File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
         if (await metadataFile.exists()) {
           final content = await metadataFile.readAsString();
           final metadata = jsonDecode(content) as Map<String, dynamic>;
@@ -888,7 +938,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           if (newChangelog != null) metadata['changelog'] = newChangelog;
           if (newDownloadUrl != null) metadata['download_url'] = newDownloadUrl;
           await metadataFile.writeAsString(jsonEncode(metadata), flush: true);
-          debugPrint('[Edit] metadata.json updated for: ${widget.game.path}');
+          debugPrint('[Edit] metadata.json updated for: ${_currentGame.path}');
         }
       } catch (e) {
         debugPrint('[Edit] Failed to update metadata.json: $e');
@@ -896,7 +946,26 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
       ref.invalidate(allGamesProvider);
       ref.invalidate(allTagsProvider);
-      if (mounted) {
+      ref.invalidate(playedGamesProvider);
+      ref.invalidate(favoriteGamesProvider);
+      ref.invalidate(clearedGamesProvider);
+
+      // 更新本地状态以实现实时刷新
+      final freshGame = await repo.getGameById(gameId!);
+      if (freshGame != null && mounted) {
+        setState(() {
+          _currentGame = freshGame;
+          _isEditing = false;
+          _titleController.text = freshGame.title ?? '';
+          _versionController.text = freshGame.version ?? '';
+          _introController.text = freshGame.intro ?? '';
+          _featuresController.text = freshGame.features ?? '';
+          _changelogController.text = freshGame.changelog ?? '';
+          _downloadUrlController.text = freshGame.downloadUrl ?? '';
+          _editedTags = List.from(freshGame.tags);
+        });
+        AppTheme.showGlassToast(context, message: '保存成功');
+      } else if (mounted) {
         setState(() => _isEditing = false);
         AppTheme.showGlassToast(context, message: '保存成功');
       }
@@ -907,6 +976,118 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     }
   }
 
+  void _openSaveLocation() async {
+    if (_currentGame.savePath == null || _currentGame.savePath!.isEmpty) {
+      _showEditSavePathDialog();
+      return;
+    }
+
+    final confirmed = await showGlassDialog<bool>(
+      context: context,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('打开存档位置', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            const SizedBox(height: 12),
+            Text(
+              '该存档位置为自动扫描结果，可能存在错误。\n\n${_currentGame.savePath}',
+              style: const TextStyle(color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context, false);
+                    _showEditSavePathDialog();
+                  },
+                  child: const Text('修改路径'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('打开'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await launchUrl(Uri.file(_currentGame.savePath!));
+      } catch (e) {
+        if (mounted) {
+          AppTheme.showGlassToast(context, message: '无法打开路径: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        }
+      }
+    }
+  }
+
+  void _showEditSavePathDialog() {
+    final controller = TextEditingController(text: _currentGame.savePath ?? '');
+    showGlassDialog(
+      context: context,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('编辑存档路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                hintText: '输入存档文件夹路径',
+                labelText: '存档路径',
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () async {
+                    final newPath = controller.text.trim();
+                    final repo = ref.read(gameRepositoryProvider);
+                    await repo.updateSavePath(_currentGame.id!, newPath.isEmpty ? null : newPath);
+                    final freshGame = await repo.getGameById(_currentGame.id!);
+                    if (freshGame != null && mounted) {
+                      setState(() => _currentGame = freshGame);
+                    }
+                    ref.invalidate(allGamesProvider);
+                    ref.invalidate(playedGamesProvider);
+                    Navigator.pop(context);
+                    AppTheme.showGlassToast(context, message: '存档路径已更新');
+                  },
+                  child: const Text('保存'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
@@ -915,14 +1096,14 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     showDialog(
       context: context,
       builder: (dialogContext) => _DetailReviewDialog(
-        game: widget.game,
+        game: _currentGame,
         onSave: (rating, review) async {
           try {
             final repo = ref.read(gameRepositoryProvider);
-            var gameId = widget.game.id;
+            var gameId = _currentGame.id;
             if (gameId == null) {
-              debugPrint('[Review] Game has no id, inserting into DB: ${widget.game.path}');
-              gameId = await repo.insertGame(widget.game);
+              debugPrint('[Review] Game has no id, inserting into DB: ${_currentGame.path}');
+              gameId = await repo.insertGame(_currentGame);
               debugPrint('[Review] Inserted game with id: $gameId');
             }
             await repo.updateRatingReview(gameId, rating, review.isEmpty ? null : review);
@@ -949,10 +1130,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         onDelete: () async {
           try {
             final repo = ref.read(gameRepositoryProvider);
-            var gameId = widget.game.id;
+            var gameId = _currentGame.id;
             if (gameId == null) {
-              debugPrint('[Review] Game has no id, inserting into DB: ${widget.game.path}');
-              gameId = await repo.insertGame(widget.game);
+              debugPrint('[Review] Game has no id, inserting into DB: ${_currentGame.path}');
+              gameId = await repo.insertGame(_currentGame);
               debugPrint('[Review] Inserted game with id: $gameId');
             }
             await repo.deleteRatingReview(gameId);
@@ -1000,6 +1181,9 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
   OverlayEntry? _overlayEntry;
 
   void _showOverlay() {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final maxHeight = screenHeight * 0.6; // 最大高度为屏幕60%
+
     _overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
         top: 80,
@@ -1008,6 +1192,7 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
           color: Colors.transparent,
           child: Container(
             width: 360,
+            constraints: BoxConstraints(maxHeight: maxHeight),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -1029,11 +1214,13 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  widget.review,
-                  style: const TextStyle(fontSize: 13, height: 1.5, color: AppTheme.textPrimary),
-                  maxLines: 5,
-                  overflow: TextOverflow.ellipsis,
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Text(
+                      widget.review,
+                      style: const TextStyle(fontSize: 13, height: 1.5, color: AppTheme.textPrimary),
+                    ),
+                  ),
                 ),
               ],
             ),
