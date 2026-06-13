@@ -32,6 +32,7 @@ class Game {
   final int coverIndex;
   final double rating;        // 评分 0-5，支持半星
   final String? review;       // 评论内容
+  final String? savePath;  // 新增：存档路径
 
   Game({
     this.id,
@@ -53,6 +54,7 @@ class Game {
     this.coverIndex = 0,
     this.rating = 0.0,
     this.review,
+    this.savePath,  // 新增
   });
 
   factory Game.fromMap(Map<String, dynamic> map) {
@@ -78,6 +80,7 @@ class Game {
       coverIndex: map['cover_index'] as int? ?? 0,
       rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
       review: map['review'] as String?,
+      savePath: map['save_path'] as String?,  // 新增
     );
   }
 
@@ -100,6 +103,7 @@ class Game {
       'cover_index': coverIndex,
       'rating': rating,
       if (review != null) 'review': review,
+      if (savePath != null) 'save_path': savePath,  // 新增
     };
   }
 
@@ -123,6 +127,7 @@ class Game {
     int? coverIndex,
     Object? rating = _undefined,
     Object? review = _undefined,
+    Object? savePath = _undefined,  // 新增
   }) {
     return Game(
       id: id ?? this.id,
@@ -144,6 +149,7 @@ class Game {
       coverIndex: coverIndex ?? this.coverIndex,
       rating: identical(rating, _undefined) ? this.rating : rating as double,
       review: identical(review, _undefined) ? this.review : review as String?,
+      savePath: identical(savePath, _undefined) ? this.savePath : savePath as String?,  // 新增
     );
   }
 }
