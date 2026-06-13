@@ -8,6 +8,7 @@ import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../pages/games/game_detail_page.dart';
+import 'multi_select_controller.dart';
 
 enum PaginationMode { paginated, infiniteScroll }
 enum ContextMenuMode { games, played }
@@ -23,6 +24,7 @@ class GameListWidget extends ConsumerStatefulWidget {
   final bool showRefreshButton;
   final ContextMenuMode contextMenuMode;
   final bool isClearedPage;
+  final void Function(List<Game> selectedGames)? onSelectionChanged;
 
   const GameListWidget({
     super.key,
@@ -36,6 +38,7 @@ class GameListWidget extends ConsumerStatefulWidget {
     this.showRefreshButton = false,
     this.contextMenuMode = ContextMenuMode.games,
     this.isClearedPage = false,
+    this.onSelectionChanged,
   });
 
   @override
@@ -45,6 +48,7 @@ class GameListWidget extends ConsumerStatefulWidget {
 class _GameListWidgetState extends ConsumerState<GameListWidget> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  final MultiSelectController<Game> _multiSelectController = MultiSelectController<Game>();
   ViewMode _viewMode = ViewMode.poster;
   SortMode _sortMode = SortMode.titleAsc;
   PaginationMode _paginationMode = PaginationMode.infiniteScroll;
@@ -59,6 +63,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _multiSelectController.addListener(_onSelectionChanged);
     _loadSettings();
   }
 
@@ -96,6 +101,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   void dispose() {
     _scrollController.dispose();
     _searchController.dispose();
+    _multiSelectController.removeListener(_onSelectionChanged);
+    _multiSelectController.dispose();
     super.dispose();
   }
 
@@ -974,6 +981,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(Icons.folder_open, size: 18),
                 title: const Text('打开文件夹'))),
+        if (widget.contextMenuMode == ContextMenuMode.played && game.savePath != null && game.savePath!.isNotEmpty)
+          PopupMenuItem(
+              value: 'open_save',
+              child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.folder_special, size: 18, color: AppTheme.primaryColor),
+                  title: const Text('打开存档位置'))),
         PopupMenuItem(
             value: 'favorite',
             child: ListTile(
@@ -1102,6 +1117,52 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           if (selected != null) {
             await repo.updateCoverIndex(game.id!, selected);
             ref.invalidate(allGamesProvider);
+          }
+          break;
+        case 'open_save':
+          if (game.savePath != null && game.savePath!.isNotEmpty) {
+            final confirmed = await showGlassDialog<bool>(
+              context: context,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('打开存档位置', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                    const SizedBox(height: 12),
+                    Text(
+                      '该存档位置为自动扫描结果，可能存在错误。\n\n${game.savePath}',
+                      style: const TextStyle(color: AppTheme.textSecondary),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('取消'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('打开'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+            if (confirmed == true) {
+              try {
+                await launchUrl(Uri.file(game.savePath!));
+              } catch (e) {
+                if (mounted) {
+                  AppTheme.showGlassToast(context, message: '无法打开路径: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+                }
+              }
+            }
           }
           break;
         case 'blacklist':
@@ -1668,6 +1729,40 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     if (!paths.contains(gamePath)) {
       paths.add(gamePath);
       prefs.setString('game_blacklist', paths.join('\n'));
+    }
+  }
+
+  void _onSelectionChanged() {
+    if (widget.onSelectionChanged != null) {
+      widget.onSelectionChanged!(_multiSelectController.selectedItems.toList());
+    }
+  }
+
+  Future<void> _scanSavePathForGame(Game game) async {
+    try {
+      final repo = ref.read(gameRepositoryProvider);
+      final saveService = ref.read(savePathServiceProvider);
+
+      final freshGame = await repo.getGameById(game.id!);
+      if (freshGame != null && freshGame.savePath != null && freshGame.savePath!.isNotEmpty) {
+        return;
+      }
+
+      final savePath = await saveService.scanWithConfidence(game.path, game.title);
+      if (savePath != null) {
+        await repo.updateSavePath(game.id!, savePath);
+        if (mounted) {
+          AppTheme.showGlassToast(context, message: '已找到"${game.title}"可能的存档位置');
+        }
+      } else {
+        if (mounted) {
+          AppTheme.showGlassToast(context, message: '未找到"${game.title}"的存档位置', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
+        }
+      }
+
+      ref.invalidate(playedGamesProvider);
+    } catch (e) {
+      debugPrint('[SavePath] Error scanning save path for ${game.title}: $e');
     }
   }
 }

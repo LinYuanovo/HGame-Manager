@@ -1,25 +1,71 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/game_list_widget.dart';
 import '../categories/tag_games_page.dart';
 
-class PlayedPage extends ConsumerWidget {
+class PlayedPage extends ConsumerStatefulWidget {
   const PlayedPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PlayedPage> createState() => _PlayedPageState();
+}
+
+class _PlayedPageState extends ConsumerState<PlayedPage> {
+  bool _isScanning = false;
+  String _scanProgress = '';
+  List<Game> _selectedGames = [];
+
+  @override
+  Widget build(BuildContext context) {
     final gamesAsync = ref.watch(playedGamesProvider);
 
     return Column(
       children: [
         GlassAppBar(
-          title: const Text('已玩',
-              style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary)),
+          title: Text(
+            _selectedGames.isNotEmpty ? '已选 ${_selectedGames.length} 项' : '已玩',
+            style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary),
+          ),
+          actions: [
+            _isScanning
+                ? GestureDetector(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _scanProgress,
+                            style: TextStyle(fontSize: 13, color: AppTheme.primaryColor, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : IconButton(
+                    icon: Icon(Icons.manage_search, color: AppTheme.primaryColor, size: 20),
+                    tooltip: _selectedGames.isNotEmpty
+                        ? '扫描选中的 ${_selectedGames.length} 个游戏的存档位置'
+                        : '扫描所有游戏的存档位置',
+                    onPressed: () => _scanSavePaths(),
+                  ),
+          ],
         ),
         Expanded(
           child: gamesAsync.when(
@@ -34,14 +80,17 @@ class PlayedPage extends ConsumerWidget {
               return Material(
                 color: Colors.transparent,
                 child: GameListWidget(
-                games: games,
-                contextMenuMode: ContextMenuMode.played,
-                onTagTap: (tag) {
-                  Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) =>
-                          TagGamesPage(tagId: tag.id!, tagName: tag.name)));
-                },
-              ),
+                  games: games,
+                  contextMenuMode: ContextMenuMode.played,
+                  onSelectionChanged: (selected) {
+                    setState(() => _selectedGames = selected);
+                  },
+                  onTagTap: (tag) {
+                    Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) =>
+                            TagGamesPage(tagId: tag.id!, tagName: tag.name)));
+                  },
+                ),
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
@@ -50,5 +99,68 @@ class PlayedPage extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _scanSavePaths() async {
+    setState(() {
+      _isScanning = true;
+    });
+
+    try {
+      final repo = ref.read(gameRepositoryProvider);
+      final saveService = ref.read(savePathServiceProvider);
+
+      final List<Game> gamesToScan;
+      if (_selectedGames.isNotEmpty) {
+        gamesToScan = _selectedGames;
+      } else {
+        gamesToScan = await repo.getPlayedAndClearedGames();
+      }
+
+      int found = 0;
+      int skipped = 0;
+      int total = gamesToScan.length;
+
+      for (int i = 0; i < gamesToScan.length; i++) {
+        final game = gamesToScan[i];
+        if (mounted) {
+          setState(() => _scanProgress = '${i + 1}/$total');
+        }
+
+        if (game.savePath != null && game.savePath!.isNotEmpty) {
+          skipped++;
+          found++;
+          continue;
+        }
+
+        final savePath = await saveService.scanWithConfidence(game.path, game.title);
+        if (savePath != null) {
+          await repo.updateSavePath(game.id!, savePath);
+          found++;
+        }
+      }
+
+      ref.invalidate(playedGamesProvider);
+
+      if (mounted) {
+        final newFound = found - skipped;
+        if (skipped > 0) {
+          AppTheme.showGlassToast(context, message: '扫描完成: 新发现 $newFound 个，跳过 $skipped 个已有记录，共 $found/$total 个有存档');
+        } else {
+          AppTheme.showGlassToast(context, message: '扫描完成: 找到 $found/$total 个存档位置');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppTheme.showGlassToast(context, message: '扫描失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isScanning = false;
+          _scanProgress = '';
+        });
+      }
+    }
   }
 }
