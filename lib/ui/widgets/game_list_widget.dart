@@ -252,6 +252,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   _buildPaginationModeToggle(),
                   const SizedBox(width: 12),
                   _buildMultiSelectToggle(sortedGames),
+                  // 扫描存档按钮（始终显示，如果有回调）
+                  if (widget.onScanSavePaths != null || widget.scanProgress.isNotEmpty) ...[
+                    const SizedBox(width: 4),
+                    _buildScanSaveButton(),
+                  ],
                 ],
               ),
             ),
@@ -501,7 +506,59 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     );
   }
 
+  Widget _buildScanSaveButton() {
+    if (widget.scanProgress.isNotEmpty) {
+      return Tooltip(
+        message: '扫描中...',
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
+              ),
+              const SizedBox(width: 6),
+              Text(widget.scanProgress, style: TextStyle(fontSize: 13, color: AppTheme.primaryColor)),
+            ],
+          ),
+        ),
+      );
+    }
+    return Tooltip(
+      message: '扫描存档位置',
+      child: GestureDetector(
+        onTap: widget.onScanSavePaths,
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(Icons.manage_search, size: 18, color: AppTheme.textSecondary),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMultiSelectActionBar() {
+    // 计算当前页面的游戏列表（与 build 方法中的逻辑一致）
+    final sortedGames = _sortGames(widget.games);
+    final List<Game> currentPageGames;
+    if (_paginationMode == PaginationMode.paginated) {
+      final start = _currentPage * _itemsPerPage;
+      final end = (start + _itemsPerPage).clamp(0, sortedGames.length);
+      currentPageGames = start < sortedGames.length ? sortedGames.sublist(start, end) : [];
+    } else {
+      currentPageGames = sortedGames.take(_infiniteScrollCount).toList();
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       decoration: BoxDecoration(
@@ -510,44 +567,29 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       ),
       child: Row(
         children: [
-          Text(
-            '已选择 ${_multiSelectController.selectedCount} 项',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppTheme.primaryColor),
+          GestureDetector(
+            onTap: () {
+              _multiSelectController.selectAll(currentPageGames);
+            },
+            child: Text('全选', style: TextStyle(fontSize: 16, color: AppTheme.primaryColor)),
           ),
           const SizedBox(width: 16),
           GestureDetector(
             onTap: () {
-              final allDisplayed = _sortGames(widget.games);
-              _multiSelectController.selectAll(allDisplayed);
+              _multiSelectController.invertSelection(currentPageGames);
             },
-            child: Text('全选', style: TextStyle(fontSize: 16, color: AppTheme.primaryColor)),
+            child: Text('反选', style: TextStyle(fontSize: 16, color: AppTheme.primaryColor)),
           ),
           const SizedBox(width: 16),
           GestureDetector(
             onTap: () => _multiSelectController.exitMultiSelectMode(),
             child: Text('取消选择', style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
           ),
-          if (widget.scanProgress.isNotEmpty) ...[
-            const SizedBox(width: 16),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
-                ),
-                const SizedBox(width: 6),
-                Text(widget.scanProgress, style: TextStyle(fontSize: 16, color: AppTheme.primaryColor)),
-              ],
-            ),
-          ] else if (widget.onScanSavePaths != null) ...[
-            const SizedBox(width: 16),
-            GestureDetector(
-              onTap: widget.onScanSavePaths,
-              child: Text('扫描存档', style: TextStyle(fontSize: 16, color: AppTheme.primaryColor)),
-            ),
-          ],
+          const Spacer(),
+          Text(
+            '已选择 ${_multiSelectController.selectedCount} 项',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppTheme.primaryColor),
+          ),
         ],
       ),
     );

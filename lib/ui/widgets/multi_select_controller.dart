@@ -66,4 +66,18 @@ class MultiSelectController<T> extends ChangeNotifier {
     _selectedItems.addAll(items);
     notifyListeners();
   }
+
+  void invertSelection(List<T> pageItems) {
+    if (!_isMultiSelectMode) {
+      enterMultiSelectMode();
+    }
+    for (final item in pageItems) {
+      if (_selectedItems.contains(item)) {
+        _selectedItems.remove(item);
+      } else {
+        _selectedItems.add(item);
+      }
+    }
+    notifyListeners();
+  }
 }
