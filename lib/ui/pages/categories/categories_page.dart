@@ -65,7 +65,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
     return tagsAsync.when(
       data: (tags) {
         // 添加"已通关"特殊标签（仅在标签tab）
-        final showClearedTag = type == Tag.typeCustom;
+        final showClearedTag = type == Tag.typeSeries;
         
         // 过滤空标签（仅标签tab适用，系列tab不适用）
         final filteredEmptyTags = type == Tag.typeCustom
@@ -91,13 +91,26 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           return EmptyStateWidget(
             icon: type == Tag.typeCustom ? Icons.label : Icons.category,
             message: type == Tag.typeCustom ? '暂无标签' : '暂无系列',
-            subMessage: type == Tag.typeCustom ? '刮削游戏后自动生成标签' : '系统预定义了 RPG、ADV 等系列',
+            subMessage: type == Tag.typeCustom ? '刮削游戏后自动生成标签' : '系统预定义了 RPG、ADV 等系列，右键可管理自定义系列',
           );
         }
         final searchQuery = _searchController.text.trim().toLowerCase();
         final filteredTags = searchQuery.isEmpty
             ? filteredEmptyTags
             : filteredEmptyTags.where((tag) => (tag.displayName ?? tag.name).toLowerCase().contains(searchQuery)).toList();
+        
+        // 排序：用户自定义系列优先（仅系列tab），然后按游戏数量降序
+        if (type == Tag.typeSeries) {
+          final defaultSeries = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS'];
+          filteredTags.sort((a, b) {
+            final aIsDefault = defaultSeries.contains(a.name);
+            final bIsDefault = defaultSeries.contains(b.name);
+            if (aIsDefault != bIsDefault) return aIsDefault ? 1 : -1; // 用户自定义在前
+            return b.gameCount.compareTo(a.gameCount); // 数量降序
+          });
+        } else {
+          filteredTags.sort((a, b) => b.gameCount.compareTo(a.gameCount)); // 标签按数量降序
+        }
         
         // 计算总数量（包括已通关标签）
         final totalCount = filteredTags.length + (showClearedTag && searchQuery.isEmpty ? 1 : 0);
@@ -163,12 +176,12 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                   children: [
                     Text(
                       '已选择 ${_selectedTagIds.length} 项',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryColor),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppTheme.primaryColor),
                     ),
                     const SizedBox(width: 16),
                     GestureDetector(
                       onTap: () => _deleteSelectedTags(),
-                      child: Text('删除选中', style: TextStyle(fontSize: 13, color: AppTheme.errorColor)),
+                      child: Text('删除选中', style: TextStyle(fontSize: 16, color: AppTheme.errorColor)),
                     ),
                     const SizedBox(width: 16),
                     GestureDetector(
@@ -178,7 +191,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                           _selectedTagIds.clear();
                         });
                       },
-                      child: Text('取消选择', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                      child: Text('取消选择', style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
                     ),
                   ],
                 ),
