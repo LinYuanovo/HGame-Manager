@@ -166,10 +166,25 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               onPressed: () async {
                 final repo = ref.read(gameRepositoryProvider);
                 await repo.markAsPlayed(_currentGame.id!);
-                // Open the game folder
-                try {
-                  await launchUrl(Uri.file(_currentGame.path));
-                } catch (_) {}
+
+                // 尝试查找并启动游戏exe
+                final saveService = ref.read(savePathServiceProvider);
+                final exePath = saveService.findGameExe(_currentGame.path);
+                if (exePath != null) {
+                  try {
+                    await Process.run(exePath, [], workingDirectory: _currentGame.path);
+                  } catch (e) {
+                    if (mounted) {
+                      AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+                    }
+                  }
+                } else {
+                  // 如果找不到exe，打开游戏文件夹
+                  try {
+                    await launchUrl(Uri.file(_currentGame.path));
+                  } catch (_) {}
+                }
+
                 ref.invalidate(allGamesProvider);
                 ref.invalidate(playedGamesProvider);
               },
