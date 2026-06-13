@@ -17,6 +17,8 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _searchController = TextEditingController();
+  bool _isMultiSelectMode = false;
+  final Set<int> _selectedTagIds = {};
 
   @override
   void initState() {
@@ -114,6 +116,34 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                     ),
                   ),
                   const SizedBox(width: 8),
+                  // 多选按钮
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        if (_isMultiSelectMode) {
+                          _isMultiSelectMode = false;
+                          _selectedTagIds.clear();
+                        } else {
+                          _isMultiSelectMode = true;
+                        }
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: _isMultiSelectMode
+                            ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        _isMultiSelectMode ? Icons.deselect : Icons.checklist,
+                        size: 18,
+                        color: _isMultiSelectMode ? AppTheme.primaryColor : AppTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   IconButton(
                     icon: const Icon(Icons.add),
                     onPressed: () => _showAddTagDialog(type),
@@ -121,6 +151,38 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                 ],
               ),
             ),
+            // 多选操作栏
+            if (_isMultiSelectMode)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                  border: Border(bottom: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.2))),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      '已选择 ${_selectedTagIds.length} 项',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryColor),
+                    ),
+                    const SizedBox(width: 16),
+                    GestureDetector(
+                      onTap: () => _deleteSelectedTags(),
+                      child: Text('删除选中', style: TextStyle(fontSize: 13, color: AppTheme.errorColor)),
+                    ),
+                    const SizedBox(width: 16),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _isMultiSelectMode = false;
+                          _selectedTagIds.clear();
+                        });
+                      },
+                      child: Text('取消选择', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                    ),
+                  ],
+                ),
+              ),
             Expanded(
               child: GridView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -151,60 +213,82 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
   }
 
   Widget _buildTagChip(Tag tag) {
+    final isSelected = _selectedTagIds.contains(tag.id);
     return GestureDetector(
-      onSecondaryTapUp: (details) => _showTagContextMenu(tag, details.globalPosition),
+      onSecondaryTapUp: _isMultiSelectMode
+          ? null
+          : (details) => _showTagContextMenu(tag, details.globalPosition),
       child: GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      onTap: () {
-        if (tag.id != null) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => TagGamesPage(tagId: tag.id!, tagName: tag.displayName ?? tag.name)),
-          ).then((_) {
-            ref.invalidate(allTagsProvider);
-            ref.invalidate(allSeriesProvider);
-          });
-        }
-      },
-      child: Row(
-        children: [
-          Icon(
-            tag.type == Tag.typeSeries ? Icons.category : Icons.label,
-            size: 16,
-            color: tag.type == Tag.typeSeries ? AppTheme.secondaryColor : AppTheme.primaryColor,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              tag.displayName ?? tag.name,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (tag.gameCount > 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        onTap: () {
+          if (_isMultiSelectMode) {
+            setState(() {
+              if (isSelected) {
+                _selectedTagIds.remove(tag.id);
+              } else {
+                _selectedTagIds.add(tag.id!);
+              }
+            });
+          } else {
+            if (tag.id != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => TagGamesPage(tagId: tag.id!, tagName: tag.displayName ?? tag.name)),
+              ).then((_) {
+                ref.invalidate(allTagsProvider);
+                ref.invalidate(allSeriesProvider);
+              });
+            }
+          }
+        },
+        child: Container(
+          decoration: isSelected
+              ? BoxDecoration(
+                  border: Border.all(color: AppTheme.primaryColor, width: 2),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                )
+              : null,
+          child: Row(
+            children: [
+              Icon(
+                tag.type == Tag.typeSeries ? Icons.category : Icons.label,
+                size: 16,
+                color: tag.type == Tag.typeSeries ? AppTheme.secondaryColor : AppTheme.primaryColor,
               ),
-              child: Text(
-                '${tag.gameCount}',
-                style: TextStyle(fontSize: 14, color: AppTheme.primaryColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  tag.displayName ?? tag.name,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-          const SizedBox(width: 4),
-          IconButton(
-            icon: Icon(tag.isFavorite ? Icons.favorite : Icons.favorite_border, size: 16, color: tag.isFavorite ? const Color(0xFFFF6B9D) : null),
-            onPressed: () async {
-              await ref.read(tagRepositoryProvider).toggleFavorite(tag.id!, !tag.isFavorite);
-              ref.invalidate(allTagsProvider);
-              ref.invalidate(allSeriesProvider);
-              ref.invalidate(favoriteTagsProvider);
-            },
+              if (tag.gameCount > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${tag.gameCount}',
+                    style: TextStyle(fontSize: 14, color: AppTheme.primaryColor),
+                  ),
+                ),
+              const SizedBox(width: 4),
+              if (!_isMultiSelectMode)
+                IconButton(
+                  icon: Icon(tag.isFavorite ? Icons.favorite : Icons.favorite_border, size: 16, color: tag.isFavorite ? const Color(0xFFFF6B9D) : null),
+                  onPressed: () async {
+                    await ref.read(tagRepositoryProvider).toggleFavorite(tag.id!, !tag.isFavorite);
+                    ref.invalidate(allTagsProvider);
+                    ref.invalidate(allSeriesProvider);
+                    ref.invalidate(favoriteTagsProvider);
+                  },
+                ),
+            ],
           ),
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -259,6 +343,59 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
         ),
       ),
     );
+  }
+
+  Future<void> _deleteSelectedTags() async {
+    if (_selectedTagIds.isEmpty) return;
+
+    final confirmed = await showGlassDialog<bool>(
+      context: context,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('删除选中', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            const SizedBox(height: 12),
+            Text('确定要删除选中的 ${_selectedTagIds.length} 个标签/系列吗？', style: const TextStyle(color: AppTheme.textSecondary)),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
+                  child: const Text('删除'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      final tagRepo = ref.read(tagRepositoryProvider);
+      for (final tagId in _selectedTagIds) {
+        await tagRepo.deleteTag(tagId);
+      }
+      ref.invalidate(allTagsProvider);
+      ref.invalidate(allSeriesProvider);
+      ref.invalidate(favoriteTagsProvider);
+      setState(() {
+        _isMultiSelectMode = false;
+        _selectedTagIds.clear();
+      });
+      if (mounted) {
+        AppTheme.showGlassToast(context, message: '已删除 ${_selectedTagIds.length} 项');
+      }
+    }
   }
 
   void _showTagContextMenu(Tag tag, Offset position) {
