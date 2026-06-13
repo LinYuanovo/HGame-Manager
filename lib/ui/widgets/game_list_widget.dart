@@ -846,7 +846,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                           style: TextStyle(
                               fontSize: 14,
                               color: AppTheme.textSecondary.withValues(alpha: 0.6)),
-                          maxLines: 2,
+                           maxLines: 4,
                           overflow: TextOverflow.ellipsis),
                     ],
                   ],
@@ -1318,7 +1318,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           _showReviewDialog(game);
           break;
         case 'move_to_series':
-          _showMoveToSeriesDialog(targets.length == 1 ? game : targets.first);
+          _showMoveToSeriesDialog(targets);
           break;
         case 'cover':
           final selected = await showDialog<int>(
@@ -1900,7 +1900,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     return seriesAsync.whenOrNull(data: (series) => series.isNotEmpty) ?? false;
   }
 
-  void _showMoveToSeriesDialog(Game game) async {
+  void _showMoveToSeriesDialog(List<Game> games) async {
     final seriesAsync = ref.read(allSeriesProvider);
     final customTags = seriesAsync.whenOrNull(data: (series) => series) ?? [];
     
@@ -1909,29 +1909,39 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       return;
     }
 
-    final currentTagIds = game.tags.map((t) => t.id).toSet();
+    final firstGame = games.first;
+    final currentTagIds = firstGame.tags.map((t) => t.id).toSet();
     final selectedTagIds = <int>{...currentTagIds.where((id) => id != null).cast<int>()};
+
+    final title = games.length == 1
+        ? (firstGame.title ?? '未命名游戏')
+        : '已选择 ${games.length} 个游戏';
 
     final result = await showDialog<List<int>>(
       context: context,
       builder: (ctx) => _MoveToSeriesDialog(
         customTags: customTags,
         selectedTagIds: selectedTagIds,
-        gameTitle: game.title ?? '未命名游戏',
+        gameTitle: title,
       ),
     );
 
-    if (result != null && game.id != null) {
+    if (result != null) {
       final repo = ref.read(gameRepositoryProvider);
 
-      for (final tag in customTags) {
-        if (tag.id != null && currentTagIds.contains(tag.id)) {
-          await repo.removeTagFromGame(game.id!, tag.id!);
-        }
-      }
+      for (final game in games) {
+        if (game.id == null) continue;
+        final gameTagIds = game.tags.map((t) => t.id).toSet();
 
-      for (final tagId in result) {
-        await repo.addTagToGame(game.id!, tagId);
+        for (final tag in customTags) {
+          if (tag.id != null && gameTagIds.contains(tag.id)) {
+            await repo.removeTagFromGame(game.id!, tag.id!);
+          }
+        }
+
+        for (final tagId in result) {
+          await repo.addTagToGame(game.id!, tagId);
+        }
       }
 
       ref.invalidate(allGamesProvider);
@@ -1940,7 +1950,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       ref.invalidate(allSeriesProvider);
 
       if (mounted) {
-        AppTheme.showGlassToast(context, message: '已更新标签');
+        AppTheme.showGlassToast(context, message: '已更新 ${games.length} 个游戏的标签');
       }
     }
   }
