@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher.dart';
@@ -145,116 +146,122 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final searchQuery = _searchController.text.trim();
-    var filteredGames = widget.games;
-    
-    // 搜索词变化时保存/恢复页码 + 持久化
-    if (searchQuery != _lastSearchQuery) {
-      if (searchQuery.isNotEmpty && _lastSearchQuery.isEmpty) {
-        // 开始搜索：保存当前页码
-        _savedPage = _currentPage;
-        _currentPage = 0;
-      } else if (searchQuery.isEmpty && _savedPage >= 0) {
-        // 清除搜索：恢复之前的页码
-        _currentPage = _savedPage;
-        _savedPage = -1;
-      } else if (searchQuery.isNotEmpty) {
-        // 搜索词变化（非从空到有）：重置到第一页
-        _currentPage = 0;
-      }
-      _lastSearchQuery = searchQuery;
-      // 持久化搜索词
-      _saveSetting('game_list_search_query', searchQuery);
-    }
-    
-    if (searchQuery.isNotEmpty) {
-      filteredGames = filteredGames
-          .where((g) =>
-              (g.title ?? '')
-                  .toLowerCase()
-                  .contains(searchQuery.toLowerCase()) ||
-              g.path
-                  .toLowerCase()
-                  .contains(searchQuery.toLowerCase()) ||
-              (g.intro ?? '')
-                  .toLowerCase()
-                  .contains(searchQuery.toLowerCase()))
-          .toList();
-    }
-    final sortedGames = _sortGames(filteredGames);
+    return ListenableBuilder(
+      listenable: _multiSelectController,
+      builder: (context, _) {
+        final searchQuery = _searchController.text.trim();
+        var filteredGames = widget.games;
+        
+        // 搜索词变化时保存/恢复页码 + 持久化
+        if (searchQuery != _lastSearchQuery) {
+          if (searchQuery.isNotEmpty && _lastSearchQuery.isEmpty) {
+            _savedPage = _currentPage;
+            _currentPage = 0;
+          } else if (searchQuery.isEmpty && _savedPage >= 0) {
+            _currentPage = _savedPage;
+            _savedPage = -1;
+          } else if (searchQuery.isNotEmpty) {
+            _currentPage = 0;
+          }
+          _lastSearchQuery = searchQuery;
+          _saveSetting('game_list_search_query', searchQuery);
+        }
+        
+        if (searchQuery.isNotEmpty) {
+          filteredGames = filteredGames
+              .where((g) =>
+                  (g.title ?? '')
+                      .toLowerCase()
+                      .contains(searchQuery.toLowerCase()) ||
+                  g.path
+                      .toLowerCase()
+                      .contains(searchQuery.toLowerCase()) ||
+                  (g.intro ?? '')
+                      .toLowerCase()
+                      .contains(searchQuery.toLowerCase()))
+              .toList();
+        }
+        final sortedGames = _sortGames(filteredGames);
 
-    // Apply pagination
-    List<Game> displayedGames;
-    if (_paginationMode == PaginationMode.paginated) {
-      final start = _currentPage * _itemsPerPage;
-      final end = (start + _itemsPerPage).clamp(0, sortedGames.length);
-      displayedGames =
-          start < sortedGames.length ? sortedGames.sublist(start, end) : [];
-    } else {
-      displayedGames = sortedGames.take(_infiniteScrollCount).toList();
-    }
+        // Apply pagination
+        List<Game> displayedGames;
+        if (_paginationMode == PaginationMode.paginated) {
+          final start = _currentPage * _itemsPerPage;
+          final end = (start + _itemsPerPage).clamp(0, sortedGames.length);
+          displayedGames =
+              start < sortedGames.length ? sortedGames.sublist(start, end) : [];
+        } else {
+          displayedGames = sortedGames.take(_infiniteScrollCount).toList();
+        }
 
-    final totalPages = (sortedGames.length / _itemsPerPage).ceil();
+        final totalPages = (sortedGames.length / _itemsPerPage).ceil();
 
-    return Column(
-      children: [
-        // Toolbar row
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Row(
-            children: [
-              if (widget.showSearchBar) ...[
-                Expanded(
-                  flex: 3,
-                  child: Stack(
-                    alignment: Alignment.centerRight,
-                    children: [
-                      GlassSearchBar(
-                        controller: _searchController,
-                        hintText: '搜索游戏（标题/路径/简介）...',
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      if (_searchController.text.isNotEmpty)
-                        GestureDetector(
-                          onTap: () {
-                            _searchController.clear();
-                            setState(() {});
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            margin: const EdgeInsets.only(right: 30),
-                            decoration: BoxDecoration(
-                              color: AppTheme.textSecondary.withValues(alpha: 0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.close,
-                              size: 14,
-                              color: AppTheme.textSecondary,
-                            ),
+        return Column(
+          children: [
+            // Toolbar row
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Row(
+                children: [
+                  if (widget.showSearchBar) ...[
+                    Expanded(
+                      flex: 3,
+                      child: Stack(
+                        alignment: Alignment.centerRight,
+                        children: [
+                          GlassSearchBar(
+                            controller: _searchController,
+                            hintText: '搜索游戏（标题/路径/简介）...',
+                            onChanged: (_) => setState(() {}),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-              ],
-              _buildViewModeToggle(),
-              const SizedBox(width: 12),
-              _buildSortDropdown(),
-              const SizedBox(width: 4),
-              _buildSortDirectionToggle(),
-              const SizedBox(width: 12),
-              _buildPaginationModeToggle(),
-            ],
-          ),
-        ),
-        // Game list
-        Expanded(child: _buildGameList(displayedGames, sortedGames.length)),
-        // Page navigation (only in paginated mode)
-        if (_paginationMode == PaginationMode.paginated && totalPages > 1)
-          _buildPageNavigation(totalPages),
-      ],
+                          if (_searchController.text.isNotEmpty)
+                            GestureDetector(
+                              onTap: () {
+                                _searchController.clear();
+                                setState(() {});
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                margin: const EdgeInsets.only(right: 30),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.textSecondary.withValues(alpha: 0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.close,
+                                  size: 14,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                  ],
+                  _buildViewModeToggle(),
+                  const SizedBox(width: 12),
+                  _buildSortDropdown(),
+                  const SizedBox(width: 4),
+                  _buildSortDirectionToggle(),
+                  const SizedBox(width: 12),
+                  _buildPaginationModeToggle(),
+                  const SizedBox(width: 12),
+                  _buildMultiSelectToggle(sortedGames),
+                ],
+              ),
+            ),
+            // 多选操作栏
+            if (_multiSelectController.isMultiSelectMode)
+              _buildMultiSelectActionBar(),
+            // Game list
+            Expanded(child: _buildGameList(displayedGames, sortedGames.length)),
+            // Page navigation (only in paginated mode)
+            if (_paginationMode == PaginationMode.paginated && totalPages > 1)
+              _buildPageNavigation(totalPages),
+          ],
+        );
+      },
     );
   }
 
@@ -447,6 +454,65 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     );
   }
 
+  Widget _buildMultiSelectToggle(List<Game> allGames) {
+    return GestureDetector(
+      onTap: () {
+        if (_multiSelectController.isMultiSelectMode) {
+          _multiSelectController.exitMultiSelectMode();
+        } else {
+          _multiSelectController.enterMultiSelectMode();
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: _multiSelectController.isMultiSelectMode
+              ? AppTheme.primaryColor.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          _multiSelectController.isMultiSelectMode ? Icons.deselect : Icons.checklist,
+          size: 18,
+          color: _multiSelectController.isMultiSelectMode
+              ? AppTheme.primaryColor
+              : AppTheme.textSecondary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMultiSelectActionBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withValues(alpha: 0.08),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.2))),
+      ),
+      child: Row(
+        children: [
+          Text(
+            '已选择 ${_multiSelectController.selectedCount} 项',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryColor),
+          ),
+          const SizedBox(width: 16),
+          GestureDetector(
+            onTap: () {
+              final allDisplayed = _sortGames(widget.games);
+              _multiSelectController.selectAll(allDisplayed);
+            },
+            child: Text('全选', style: TextStyle(fontSize: 13, color: AppTheme.primaryColor)),
+          ),
+          const SizedBox(width: 16),
+          GestureDetector(
+            onTap: () => _multiSelectController.exitMultiSelectMode(),
+            child: Text('取消选择', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPageNavigation(int totalPages) {
     final pageController = TextEditingController();
     return Container(
@@ -586,7 +652,18 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       onSecondaryTapUp: (details) =>
           _showContextMenu(context, details.globalPosition, game),
       child: InkWell(
-        onTap: () => _showGameDetail(game),
+        onTap: () {
+          if (_multiSelectController.isMultiSelectMode) {
+            final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
+            if (isShiftPressed) {
+              setState(() => _multiSelectController.selectRange(game, widget.games));
+            } else {
+              setState(() => _multiSelectController.toggleSelection(game));
+            }
+          } else {
+            _showGameDetail(game);
+          }
+        },
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
@@ -729,12 +806,32 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   Widget _buildPosterItem(Game game) {
     final isBackupOnly = game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
+    final isSelected = _multiSelectController.isSelected(game);
     return GestureDetector(
-      onSecondaryTapUp: (details) =>
-          _showContextMenu(context, details.globalPosition, game),
-      child: GlassCard(
+      onSecondaryTapUp: _multiSelectController.isMultiSelectMode
+          ? null
+          : (details) => _showContextMenu(context, details.globalPosition, game),
+      child: Container(
+        decoration: isSelected
+            ? BoxDecoration(
+                borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
+                border: Border.all(color: AppTheme.primaryColor, width: 2),
+              )
+            : null,
+        child: GlassCard(
         padding: EdgeInsets.zero,
-        onTap: () => _showGameDetail(game),
+        onTap: () {
+          if (_multiSelectController.isMultiSelectMode) {
+            final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
+            if (isShiftPressed) {
+              setState(() => _multiSelectController.selectRange(game, widget.games));
+            } else {
+              setState(() => _multiSelectController.toggleSelection(game));
+            }
+          } else {
+            _showGameDetail(game);
+          }
+        },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -862,6 +959,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -968,6 +1066,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   void _showContextMenu(
       BuildContext context, Offset position, Game game) {
+    if (_multiSelectController.isMultiSelectMode) return;
     final isBackupOnly = game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
     AppTheme.showGlassMenu<String>(
       context: context,
