@@ -26,6 +26,7 @@ class GameListWidget extends ConsumerStatefulWidget {
   final ContextMenuMode contextMenuMode;
   final bool isClearedPage;
   final void Function(List<Game> selectedGames)? onSelectionChanged;
+  final VoidCallback? onScanSavePaths;
 
   const GameListWidget({
     super.key,
@@ -40,6 +41,7 @@ class GameListWidget extends ConsumerStatefulWidget {
     this.contextMenuMode = ContextMenuMode.games,
     this.isClearedPage = false,
     this.onSelectionChanged,
+    this.onScanSavePaths,
   });
 
   @override
@@ -270,7 +272,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final mode in [ViewMode.list, ViewMode.poster])
-          GestureDetector(
+          Tooltip(
+            message: mode == ViewMode.list ? '列表视图' : '海报视图',
+            child: GestureDetector(
             onTap: () {
               setState(() {
                 _viewMode = mode;
@@ -295,6 +299,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     : AppTheme.textSecondary,
               ),
             ),
+          ),
           ),
       ],
     );
@@ -363,7 +368,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   Widget _buildSortDirectionToggle() {
     final isAsc = _sortMode.name.endsWith('Asc');
-    return GestureDetector(
+    return Tooltip(
+      message: isAsc ? '升序' : '降序',
+      child: GestureDetector(
       onTap: () {
         setState(() {
           _sortMode = _toggleDirection(_sortMode);
@@ -384,6 +391,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           color: AppTheme.primaryColor,
         ),
       ),
+    ),
     );
   }
 
@@ -402,7 +410,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        GestureDetector(
+        Tooltip(
+          message: '分页模式',
+          child: GestureDetector(
           onTap: () {
             setState(() {
               _paginationMode = PaginationMode.paginated;
@@ -426,7 +436,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     : AppTheme.textSecondary),
           ),
         ),
-        GestureDetector(
+        ),
+        Tooltip(
+          message: '无限滚动',
+          child: GestureDetector(
           onTap: () {
             setState(() {
               _paginationMode = PaginationMode.infiniteScroll;
@@ -450,12 +463,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     : AppTheme.textSecondary),
           ),
         ),
+        ),
       ],
     );
   }
 
   Widget _buildMultiSelectToggle(List<Game> allGames) {
-    return GestureDetector(
+    return Tooltip(
+      message: _multiSelectController.isMultiSelectMode ? '退出多选' : '多选模式',
+      child: GestureDetector(
       onTap: () {
         if (_multiSelectController.isMultiSelectMode) {
           _multiSelectController.exitMultiSelectMode();
@@ -479,6 +495,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               : AppTheme.textSecondary,
         ),
       ),
+    ),
     );
   }
 
@@ -493,7 +510,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         children: [
           Text(
             '已选择 ${_multiSelectController.selectedCount} 项',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryColor),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppTheme.primaryColor),
           ),
           const SizedBox(width: 16),
           GestureDetector(
@@ -501,13 +518,20 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               final allDisplayed = _sortGames(widget.games);
               _multiSelectController.selectAll(allDisplayed);
             },
-            child: Text('全选', style: TextStyle(fontSize: 13, color: AppTheme.primaryColor)),
+            child: Text('全选', style: TextStyle(fontSize: 16, color: AppTheme.primaryColor)),
           ),
           const SizedBox(width: 16),
           GestureDetector(
             onTap: () => _multiSelectController.exitMultiSelectMode(),
-            child: Text('取消选择', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            child: Text('取消选择', style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
           ),
+          if (widget.onScanSavePaths != null) ...[
+            const SizedBox(width: 16),
+            GestureDetector(
+              onTap: widget.onScanSavePaths,
+              child: Text('扫描存档', style: TextStyle(fontSize: 16, color: AppTheme.primaryColor)),
+            ),
+          ],
         ],
       ),
     );
@@ -656,7 +680,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           if (_multiSelectController.isMultiSelectMode) {
             final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
             if (isShiftPressed) {
-              setState(() => _multiSelectController.selectRange(game, widget.games));
+              setState(() => _multiSelectController.selectRange(game, _sortGames(widget.games)));
             } else {
               setState(() => _multiSelectController.toggleSelection(game));
             }
@@ -819,12 +843,13 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               )
             : null,
         child: GlassCard(
-        padding: EdgeInsets.zero,
+          enableHoverEffect: !isSelected,
+          padding: EdgeInsets.zero,
         onTap: () {
           if (_multiSelectController.isMultiSelectMode) {
             final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
             if (isShiftPressed) {
-              setState(() => _multiSelectController.selectRange(game, widget.games));
+              setState(() => _multiSelectController.selectRange(game, _sortGames(widget.games)));
             } else {
               setState(() => _multiSelectController.toggleSelection(game));
             }
@@ -1774,13 +1799,13 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   bool _hasCustomSeries() {
-    final tagsAsync = ref.read(allTagsProvider);
-    return tagsAsync.whenOrNull(data: (tags) => tags.isNotEmpty) ?? false;
+    final seriesAsync = ref.read(allSeriesProvider);
+    return seriesAsync.whenOrNull(data: (series) => series.isNotEmpty) ?? false;
   }
 
   void _showMoveToSeriesDialog(Game game) async {
-    final tagsAsync = ref.read(allTagsProvider);
-    final customTags = tagsAsync.whenOrNull(data: (tags) => tags) ?? [];
+    final seriesAsync = ref.read(allSeriesProvider);
+    final customTags = seriesAsync.whenOrNull(data: (series) => series) ?? [];
     
     if (customTags.isEmpty) {
       AppTheme.showGlassToast(context, message: '暂无自定义标签');
@@ -1815,7 +1840,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       ref.invalidate(allGamesProvider);
       ref.invalidate(playedGamesProvider);
       ref.invalidate(favoriteGamesProvider);
-      ref.invalidate(allTagsProvider);
+      ref.invalidate(allSeriesProvider);
 
       if (mounted) {
         AppTheme.showGlassToast(context, message: '已更新标签');
