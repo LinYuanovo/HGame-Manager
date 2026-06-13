@@ -4,7 +4,7 @@
 
 **黄油仓库** - 基于 Flutter 开发的 Windows 本地 HGame 管理器
 
-- **版本**: 1.1.0
+- **版本**: 1.2.0
 - **平台**: Windows 10/11 (64位)
 - **Flutter SDK**: >= 3.41.9
 - **Dart SDK**: >= 3.11.5
@@ -136,6 +136,9 @@ class Game {
   final List<Tag> tags;        // 标签列表
   final List<GameImage> images; // 图片列表
   final int coverIndex;        // 封面图片索引
+  final int? rating;           // 评分 (1-10)
+  final String? review;        // 评论内容
+  final String? savePath;      // 存档路径
 }
 ```
 
@@ -181,7 +184,10 @@ CREATE TABLE games (
   added_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   is_favorite INTEGER DEFAULT 0,
   is_played INTEGER DEFAULT 0,
-  cover_index INTEGER DEFAULT 0
+  cover_index INTEGER DEFAULT 0,
+  rating REAL DEFAULT 0,
+  review TEXT,
+  save_path TEXT
 );
 ```
 
@@ -242,6 +248,9 @@ CREATE TABLE game_tag_relation (
 - `isScanningProvider` - 扫描状态
 - `scanProcessedProvider` - 扫描进度
 - `pageSizeProvider` - 分页大小
+- `savePathServiceProvider` - 存档路径扫描服务
+- `saveScanProgressProvider` - 存档扫描进度
+- `isSaveScanningProvider` - 存档扫描状态
 
 ## 页面路由
 
@@ -270,6 +279,12 @@ enum NavRoute {
 - 支持文件日志
 - 错误捕获和记录
 
+### SavePathService
+- 自动扫描游戏存档位置
+- 基于 AppData\LocalLow 和 AppData\Local 目录
+- 智能识别游戏名（排除引擎 EXE）
+- 置信度评分排序
+
 ### WebdavService
 - WebDAV 同步支持
 - 配置文件同步
@@ -285,6 +300,9 @@ enum NavRoute {
 - `GlassSearchBar` - 搜索栏
 - `GlassTabBar` - 标签栏
 - `GlassDialog` - 对话框
+
+### 多选控制器
+- `MultiSelectController<T>` - 通用多选状态管理（支持全选、范围选择）
 
 ### 动画组件
 - `StaggeredItem` - 交错动画列表项
