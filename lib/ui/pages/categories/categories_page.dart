@@ -41,16 +41,16 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
         GlassTabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: '标签', icon: Icon(Icons.label_outline)),
             Tab(text: '系列', icon: Icon(Icons.category_outlined)),
+            Tab(text: '标签', icon: Icon(Icons.label_outline)),
           ],
         ),
         Expanded(
           child: TabBarView(
             controller: _tabController,
             children: [
-              _buildTagsTab(Tag.typeCustom, allTagsProvider),
               _buildTagsTab(Tag.typeSeries, allSeriesProvider),
+              _buildTagsTab(Tag.typeCustom, allTagsProvider),
             ],
           ),
         ),
@@ -65,7 +65,27 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
         // 添加"已通关"特殊标签（仅在标签tab）
         final showClearedTag = type == Tag.typeCustom;
         
-        if (tags.isEmpty && !showClearedTag) {
+        // 过滤空标签（仅标签tab适用，系列tab不适用）
+        final filteredEmptyTags = type == Tag.typeCustom
+            ? tags.where((t) => t.gameCount > 0).toList()
+            : tags;
+        
+        // 异步删除空的自定义标签
+        if (type == Tag.typeCustom) {
+          final emptyTags = tags.where((t) => t.gameCount == 0).toList();
+          if (emptyTags.isNotEmpty) {
+            Future.microtask(() async {
+              final tagRepo = ref.read(tagRepositoryProvider);
+              for (final tag in emptyTags) {
+                if (tag.id != null) {
+                  await tagRepo.deleteTag(tag.id!);
+                }
+              }
+            });
+          }
+        }
+        
+        if (filteredEmptyTags.isEmpty && !showClearedTag) {
           return EmptyStateWidget(
             icon: type == Tag.typeCustom ? Icons.label : Icons.category,
             message: type == Tag.typeCustom ? '暂无标签' : '暂无系列',
@@ -74,8 +94,8 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
         }
         final searchQuery = _searchController.text.trim().toLowerCase();
         final filteredTags = searchQuery.isEmpty
-            ? tags
-            : tags.where((tag) => (tag.displayName ?? tag.name).toLowerCase().contains(searchQuery)).toList();
+            ? filteredEmptyTags
+            : filteredEmptyTags.where((tag) => (tag.displayName ?? tag.name).toLowerCase().contains(searchQuery)).toList();
         
         // 计算总数量（包括已通关标签）
         final totalCount = filteredTags.length + (showClearedTag && searchQuery.isEmpty ? 1 : 0);
@@ -93,13 +113,11 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
-                  if (type == Tag.typeCustom) ...[
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.add),
-                      onPressed: () => _showAddTagDialog(type),
-                    ),
-                  ],
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: () => _showAddTagDialog(type),
+                  ),
                 ],
               ),
             ),
