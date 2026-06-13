@@ -1093,6 +1093,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             await repo.decrementPlayCount(game.id!);
           } else {
             await repo.incrementPlayCount(game.id!);
+            // 首次游玩时静默扫描存档位置
+            _scanSavePathForGame(game);
           }
           ref.invalidate(allGamesProvider);
           ref.invalidate(playedGamesProvider);
