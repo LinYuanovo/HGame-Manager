@@ -8,6 +8,7 @@ import '../repositories/game_repository.dart';
 import '../repositories/tag_repository.dart';
 import '../services/game_scanner_service.dart';
 import '../services/game_count_service.dart';
+import '../services/save_path_service.dart';
 import '../services/webdav_service.dart';
 import '../models/models.dart';
 import '../../scraper/parse_utils.dart';
@@ -384,3 +385,10 @@ final fixedColumnCountProvider = StateProvider<int>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
   return prefs.getInt('column_count') ?? 3;
 });
+
+final savePathServiceProvider = Provider<SavePathService>((ref) {
+  return SavePathService();
+});
+
+final saveScanProgressProvider = StateProvider<String>((ref) => '');
+final isSaveScanningProvider = StateProvider<bool>((ref) => false);
