@@ -731,10 +731,18 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     final w = imgW ?? 70;
     final h = imgH ?? 90;
     final isBackupOnly = game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
+    final isSelected = _multiSelectController.isSelected(game);
     return GestureDetector(
       onSecondaryTapUp: (details) =>
           _showContextMenu(context, details.globalPosition, game),
-      child: InkWell(
+      child: Container(
+        decoration: isSelected
+            ? BoxDecoration(
+                borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                border: Border.all(color: AppTheme.primaryColor, width: 2),
+              )
+            : null,
+        child: InkWell(
         onTap: () {
           if (_multiSelectController.isMultiSelectMode) {
             final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
@@ -803,14 +811,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                             color: AppTheme.textPrimary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 4),
-                    Text(_formatPath(game.path),
-                        style: TextStyle(
-                            fontSize: 16,
-                            color:
-                                AppTheme.textSecondary.withValues(alpha: 0.5)),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
                     if (game.tags.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Wrap(
@@ -840,6 +840,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                         }).toList(),
                       ),
                     ],
+                    if (game.intro != null && game.intro!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(game.intro!,
+                          style: TextStyle(
+                              fontSize: 14,
+                              color: AppTheme.textSecondary.withValues(alpha: 0.6)),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis),
+                    ],
                   ],
                 ),
               ),
@@ -850,6 +859,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -1262,37 +1272,53 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     ).then((value) async {
       if (value == null) return;
       final repo = ref.read(gameRepositoryProvider);
+
+      // 多选模式下对所有选中游戏执行操作，否则只对右键的游戏
+      final List<Game> targets = (isMultiSelect && _multiSelectController.selectedCount > 1)
+          ? _multiSelectController.selectedItems.toList()
+          : [game];
+
       switch (value) {
         case 'open_folder':
-          await launchUrl(Uri.file(game.path));
+          for (final g in targets) {
+            await launchUrl(Uri.file(g.path));
+          }
           break;
         case 'favorite':
-          await repo.updateFavoriteStatus(game.id!, !game.isFavorite);
+          final newFav = !game.isFavorite;
+          for (final g in targets) {
+            await repo.updateFavoriteStatus(g.id!, newFav);
+          }
           ref.invalidate(allGamesProvider);
           ref.invalidate(favoriteGamesProvider);
           break;
         case 'played':
-          if (widget.contextMenuMode == ContextMenuMode.played) {
-            await repo.decrementPlayCount(game.id!);
-          } else {
-            await repo.incrementPlayCount(game.id!);
-            // 首次游玩时静默扫描存档位置
-            _scanSavePathForGame(game);
+          for (final g in targets) {
+            if (widget.contextMenuMode == ContextMenuMode.played) {
+              await repo.decrementPlayCount(g.id!);
+            } else {
+              await repo.incrementPlayCount(g.id!);
+              _scanSavePathForGame(g);
+            }
           }
           ref.invalidate(allGamesProvider);
           ref.invalidate(playedGamesProvider);
           break;
         case 'cleared':
-          await _markAsCleared(game);
+          for (final g in targets) {
+            await _markAsCleared(g);
+          }
           break;
         case 'uncleared':
-          await _unmarkAsCleared(game);
+          for (final g in targets) {
+            await _unmarkAsCleared(g);
+          }
           break;
         case 'review':
           _showReviewDialog(game);
           break;
         case 'move_to_series':
-          _showMoveToSeriesDialog(game);
+          _showMoveToSeriesDialog(targets.length == 1 ? game : targets.first);
           break;
         case 'cover':
           final selected = await showDialog<int>(
@@ -1361,7 +1387,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 children: [
                   const Text('删除记录', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                   const SizedBox(height: 12),
-                  Text('确定要删除"${game.title}"的记录吗？\n路径将加入黑名单，后续扫描不再入库。\n不会删除实际文件。', style: const TextStyle(color: AppTheme.textSecondary)),
+                  Text(targets.length > 1
+                      ? '确定要删除选中的 ${targets.length} 个游戏的记录吗？\n路径将加入黑名单，后续扫描不再入库。\n不会删除实际文件。'
+                      : '确定要删除"${game.title}"的记录吗？\n路径将加入黑名单，后续扫描不再入库。\n不会删除实际文件。',
+                      style: const TextStyle(color: AppTheme.textSecondary)),
                   const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -1383,10 +1412,13 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             ),
           );
           if (confirm == true) {
-            _addToBlacklist(game.path);
-            if (game.id != null) {
-              await repo.deleteGame(game.id!);
+            for (final g in targets) {
+              _addToBlacklist(g.path);
+              if (g.id != null) {
+                await repo.deleteGame(g.id!);
+              }
             }
+            _multiSelectController.exitMultiSelectMode();
             ref.invalidate(allGamesProvider);
             ref.invalidate(clearedGamesProvider);
           }
@@ -1402,7 +1434,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 children: [
                   const Text('删除本地文件夹', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                   const SizedBox(height: 12),
-                  Text('确定要删除"${game.title}"的本地文件夹吗？\n此操作不可恢复！\n\n${game.path}', style: const TextStyle(color: AppTheme.textSecondary)),
+                  Text(targets.length > 1
+                      ? '确定要删除选中的 ${targets.length} 个游戏的本地文件夹吗？\n此操作不可恢复！'
+                      : '确定要删除"${game.title}"的本地文件夹吗？\n此操作不可恢复！\n\n${game.path}',
+                      style: const TextStyle(color: AppTheme.textSecondary)),
                   const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -1424,20 +1459,23 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             ),
           );
           if (confirm == true) {
-            try {
-              final dir = Directory(game.path);
-              if (await dir.exists()) {
-                await dir.delete(recursive: true);
+            int successCount = 0;
+            for (final g in targets) {
+              try {
+                final dir = Directory(g.path);
+                if (await dir.exists()) {
+                  await dir.delete(recursive: true);
+                }
+                await repo.deleteGame(g.id!);
+                successCount++;
+              } catch (e) {
+                // continue with other games
               }
-              await repo.deleteGame(game.id!);
-              ref.invalidate(allGamesProvider);
-              if (mounted) {
-                AppTheme.showGlassToast(context, message: '已删除文件夹: ${game.title}');
-              }
-            } catch (e) {
-              if (mounted) {
-                AppTheme.showGlassToast(context, message: '删除失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-              }
+            }
+            _multiSelectController.exitMultiSelectMode();
+            ref.invalidate(allGamesProvider);
+            if (mounted) {
+              AppTheme.showGlassToast(context, message: '已删除 $successCount 个文件夹');
             }
           }
           break;
