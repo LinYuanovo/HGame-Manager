@@ -377,4 +377,25 @@ class GameRepository {
     final games = maps.map((map) => Game.fromMap(map)).toList();
     return _fillGameRelations(games);
   }
+
+  Future<void> updateSavePath(int gameId, String? savePath) async {
+    final db = await _db;
+    await db.update(
+      'games',
+      {'save_path': savePath},
+      where: 'id = ?',
+      whereArgs: [gameId],
+    );
+  }
+
+  Future<List<Game>> getPlayedAndClearedGames() async {
+    final db = await _db;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'games',
+      where: 'is_played = 1 OR play_count > 0',
+      orderBy: 'title ASC',
+    );
+    final games = maps.map((map) => Game.fromMap(map)).toList();
+    return _fillGameRelations(games);
+  }
 }
