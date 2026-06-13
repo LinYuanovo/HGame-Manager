@@ -61,6 +61,29 @@ class SavePathService {
     return null;
   }
 
+  String? findGameExe(String gamePath) {
+    final dir = Directory(gamePath);
+    if (!dir.existsSync()) return null;
+
+    final exeFiles = dir
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.toLowerCase().endsWith('.exe'))
+        .toList();
+
+    for (final exe in exeFiles) {
+      final exeName = path.basename(exe.path);
+      if (_commonEngineExes.contains(exeName.toLowerCase())) continue;
+      if (exeName.toLowerCase().contains('unity') ||
+          exeName.toLowerCase().contains('unreal') ||
+          exeName.toLowerCase().contains('godot') ||
+          exeName.toLowerCase().contains('renpy')) continue;
+      return exe.path;
+    }
+
+    return null;
+  }
+
   String _cleanGameName(String name) {
     var cleaned = name;
     for (final pattern in _versionSuffixPatterns) {
