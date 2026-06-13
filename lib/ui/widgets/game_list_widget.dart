@@ -891,9 +891,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     final isBackupOnly = game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
     final isSelected = _multiSelectController.isSelected(game);
     return GestureDetector(
-      onSecondaryTapUp: _multiSelectController.isMultiSelectMode
-          ? null
-          : (details) => _showContextMenu(context, details.globalPosition, game),
+      onSecondaryTapUp: (details) =>
+          _showContextMenu(context, details.globalPosition, game),
       child: Container(
         decoration: isSelected
             ? BoxDecoration(
