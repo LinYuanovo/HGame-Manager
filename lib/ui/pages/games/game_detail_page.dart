@@ -670,7 +670,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     final spans = <InlineSpan>[];
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i].trimRight();
-      final isHeading = RegExp(r'.*[：:]\s*$').hasMatch(line);
+      // 冒号前6个字以内，且冒号后直接换行才作为标题
+      final isHeading = RegExp(r'^.{1,6}[：:]\s*$').hasMatch(line);
       if (isHeading && i > 0 && lines[i - 1].trim().isNotEmpty) {
         spans.add(const TextSpan(text: '\n'));
       }

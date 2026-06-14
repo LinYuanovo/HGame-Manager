@@ -223,7 +223,7 @@ class GameScannerService {
         await for (final entity in imageDir.list(followLinks: false)) {
           if (entity is File) {
             final ext = path.extension(entity.path).toLowerCase();
-            if (ext == '.jpg' || ext == '.jpeg' || ext == '.png' || ext == '.webp') {
+            if (ext == '.jpg' || ext == '.jpeg' || ext == '.png' || ext == '.gif' || ext == '.webp') {
               imagePaths.add(entity.path);
             }
           }

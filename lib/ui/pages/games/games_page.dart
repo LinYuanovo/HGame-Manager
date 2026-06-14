@@ -149,7 +149,7 @@ class _GamesPageState extends ConsumerState<GamesPage> {
     await for (final entity in imageDir.list(followLinks: false)) {
       if (entity is File) {
         final ext = path.extension(entity.path).toLowerCase();
-        if (['.jpg', '.jpeg', '.png', '.webp'].contains(ext)) {
+        if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext)) {
           imagePaths.add(entity.path);
         }
       }
