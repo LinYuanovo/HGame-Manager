@@ -145,9 +145,12 @@ class GameRepository {
 
   Future<int> insertGame(Game game) async {
     final db = await _db;
+    final gameToInsert = game.addedTime == null 
+        ? game.copyWith(addedTime: DateTime.now()) 
+        : game;
     return await db.insert(
       'games',
-      game.toMap(),
+      gameToInsert.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }

@@ -156,10 +156,10 @@ String removeVersionFromTitle(String title) {
 
 String? extractUnzipCode(String text) {
   final match = RegExp(
-    r'(?:默认)?解压(?:码|密码)[：:]\s*(.{1,50})',
+    r'(?:默认)?解压(?:码|密码)[：:]?\s*(.{1,50})|(?<!提取)密码[：:]?\s*(\S+)',
     multiLine: true,
   ).firstMatch(text);
-  final code = match?.group(1)?.trim();
+  final code = (match?.group(1) ?? match?.group(2))?.trim();
   return (code != null && code.isNotEmpty) ? code : null;
 }
 

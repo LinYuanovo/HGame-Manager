@@ -138,11 +138,17 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         case SortMode.titleDesc:
           return (b.title ?? '').compareTo(a.title ?? '');
         case SortMode.addedTimeDesc:
-          return (b.addedTime ?? DateTime.now())
-              .compareTo(a.addedTime ?? DateTime.now());
+          // null值排到最后
+          if (a.addedTime == null && b.addedTime == null) return 0;
+          if (a.addedTime == null) return 1;
+          if (b.addedTime == null) return -1;
+          return b.addedTime!.compareTo(a.addedTime!);
         case SortMode.addedTimeAsc:
-          return (a.addedTime ?? DateTime.now())
-              .compareTo(b.addedTime ?? DateTime.now());
+          // null值排到最后
+          if (a.addedTime == null && b.addedTime == null) return 0;
+          if (a.addedTime == null) return 1;
+          if (b.addedTime == null) return -1;
+          return a.addedTime!.compareTo(b.addedTime!);
       }
     });
     return sorted;

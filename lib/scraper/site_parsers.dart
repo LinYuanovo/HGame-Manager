@@ -5,6 +5,26 @@ import '../core/services/app_logger.dart';
 
 const kValidSeriesTypes = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS'];
 
+String _elementText(Element element) {
+  final buffer = StringBuffer();
+  for (final node in element.nodes) {
+    if (node is Text) {
+      buffer.write(node.text);
+    } else if (node is Element && node.localName == 'br') {
+      buffer.write('\n');
+    } else if (node is Element) {
+      buffer.write(_elementText(node));
+    }
+  }
+  return buffer.toString();
+}
+
+final _copyrightPattern = RegExp(r'Copyright\s*©|All\s+rights\s+reserved|版权所有|ICP备|粤ICP|京ICP', caseSensitive: false);
+final _unzipPattern = RegExp(r'(?:默认)?解压(?:码|密码)|(?<!提取)密码[：:]?\s*\S+');
+
+bool _isCopyrightText(String text) => _copyrightPattern.hasMatch(text);
+bool _containsUnzipCode(String text) => _unzipPattern.hasMatch(text);
+
 String? normalizeSeries(String? series) {
   if (series == null || series.isEmpty) return null;
   final upper = series.toUpperCase().trim();
@@ -810,6 +830,22 @@ class VikAcgParser extends SiteParser {
   @override
   String get domain => 'vikacg';
 
+  Element _findContentContainer(Document document) {
+    const selectors = [
+      'article',
+      '.prose',
+      '.p-4',
+      '.content',
+      '.article-content',
+      'main',
+    ];
+    for (final selector in selectors) {
+      final el = document.querySelector(selector);
+      if (el != null && el.querySelectorAll('p').isNotEmpty) return el;
+    }
+    return document.body ?? document.documentElement!;
+  }
+
   @override
   GameInfo? parseGameInfo(Document document, String url) {
     final ogTitle = document.querySelector('meta[property="og:title"]');
@@ -875,32 +911,19 @@ class VikAcgParser extends SiteParser {
       }
     }
 
-    final downloads = <DownloadLink>[];
-    final externalLinks = document.querySelectorAll('a[href^="/external?"]');
-    for (final a in externalLinks) {
-      final href = a.attributes['href'] ?? '';
-      final text = a.text.trim();
-      if (href.isNotEmpty) {
-        downloads.add(DownloadLink(
-          url: href,
-          label: text,
-          provider: 'external',
-        ));
-      }
-    }
-
-    final bodyText = document.body?.text ?? '';
-    downloads.addAll(extractDownloadLinks(bodyText));
-
-    final paragraphs = document.querySelectorAll('p');
+    final contentContainer = _findContentContainer(document);
+    final paragraphs = contentContainer.querySelectorAll('p');
     final introBuffer = StringBuffer();
     bool collecting = false;
+    bool foundStartMarker = false;
     for (final p in paragraphs) {
-      final text = p.text.trim();
-      if (text.contains('游戏介绍') || text.contains('游戏内容')) {
+      final text = _elementText(p).trim();
+      if (_isCopyrightText(text)) continue;
+      if (RegExp(r'^游戏(?:介绍|内容|概述)[：:]\s*').hasMatch(text)) {
         collecting = true;
+        foundStartMarker = true;
         final afterMarker = text.replaceFirst(
-          RegExp(r'^(?:游戏介绍|游戏内容)[：:]?\s*'),
+          RegExp(r'^游戏(?:介绍|内容|概述)[：:]\s*'),
           '',
         );
         if (afterMarker.isNotEmpty) introBuffer.writeln(afterMarker);
@@ -909,28 +932,43 @@ class VikAcgParser extends SiteParser {
       if (collecting) {
         if (text.contains('游戏特点') ||
             text.contains('更新内容') ||
-            text.contains('下载') ||
-            text.contains('链接')) {
+            RegExp(r'^下载(?:链接|地址)?[：:]?\s*$').hasMatch(text) ||
+            RegExp(r'^链接[：:]?\s*$').hasMatch(text)) {
           collecting = false;
           continue;
         }
-        if (text.isNotEmpty) introBuffer.writeln(text);
+        if (text.isNotEmpty && !_containsUnzipCode(text)) introBuffer.writeln(text);
       }
     }
-    if (introBuffer.isNotEmpty && (description == null || description.isEmpty)) {
-      description = introBuffer.toString().trim();
+    // Fallback: if no start marker found, collect all text before first stop marker
+    if (!foundStartMarker) {
+      for (final p in paragraphs) {
+        final text = _elementText(p).trim();
+        if (_isCopyrightText(text)) continue;
+        if (text.contains('游戏特点') ||
+            text.contains('更新内容') ||
+            RegExp(r'^下载(?:链接|地址)?[：:]?\s*$').hasMatch(text) ||
+            RegExp(r'^链接[：:]?\s*$').hasMatch(text)) {
+          break;
+        }
+        if (text.isNotEmpty && !_containsUnzipCode(text)) introBuffer.writeln(text);
+      }
+    }
+    if (introBuffer.isNotEmpty) {
+      final collected = introBuffer.toString().trim();
+      if (description == null || description.isEmpty || collected.length > description.length) {
+        description = collected;
+      }
     }
 
-    final unzipCode = extractUnzipCode(bodyText);
-    if (unzipCode != null && downloads.isNotEmpty) {
-      final last = downloads.last;
-      downloads[downloads.length - 1] = DownloadLink(
-        url: last.url,
-        label: last.label,
-        provider: last.provider,
-        password: last.password,
+    final downloads = <DownloadLink>[];
+    final contentText = _elementText(contentContainer);
+    final unzipCode = extractUnzipCode(contentText);
+    if (unzipCode != null) {
+      downloads.add(DownloadLink(
+        url: '',
         unzipCode: unzipCode,
-      );
+      ));
     }
 
     return GameInfo(
@@ -1045,51 +1083,20 @@ class VikAcgParser extends SiteParser {
     }
     metadata.imageUrls = imageUrls;
 
-    // Extract download URLs - pair each URL with its extract code
-    final downloadUrls = <String>[];
-
-    // External links: a[href^="/external?"]
-    final externalLinks = document.querySelectorAll('a[href^="/external?"]');
-    for (final a in externalLinks) {
-      final href = a.attributes['href'] ?? '';
-      final text = a.text.trim();
-      if (href.isNotEmpty) {
-        downloadUrls.add('$text: $href');
-      }
-    }
-
-    // Also search body text for pan/download URLs with paired extract codes
-    final bodyText = document.body?.text ?? '';
-    final linkMatches =
-        RegExp(r'https?://[^\s<>"\u3000\]]+').allMatches(bodyText);
-    for (final match in linkMatches) {
-      final link = match.group(0)!;
-      if (_isDownloadLink(link) && !downloadUrls.any((u) => u.contains(link))) {
-        final afterUrl = bodyText.substring(match.end).trim();
-        final codeMatch = RegExp(r'^(?:提取码|密码)[：:]\s*(\w+)').firstMatch(afterUrl);
-        if (codeMatch != null) {
-          downloadUrls.add('$link 提取码: ${codeMatch.group(1)}');
-        } else {
-          downloadUrls.add(link);
-        }
-      }
-    }
-
-    if (downloadUrls.isNotEmpty) {
-      metadata.downloadUrl = downloadUrls.join('\n');
-    }
-
     // Extract game intro from rendered content paragraphs
-    final paragraphs = document.querySelectorAll('p');
+    final contentContainer = _findContentContainer(document);
+    final paragraphs = contentContainer.querySelectorAll('p');
     final introBuffer = StringBuffer();
     bool collecting = false;
+    bool foundStartMarker = false;
     for (final p in paragraphs) {
-      final text = p.text.trim();
-      if (text.contains('游戏介绍') || text.contains('游戏内容')) {
+      final text = _elementText(p).trim();
+      if (_isCopyrightText(text)) continue;
+      if (RegExp(r'^游戏(?:介绍|内容|概述)[：:]\s*').hasMatch(text)) {
         collecting = true;
-        // If there's text after the marker on the same line, include it
+        foundStartMarker = true;
         final afterMarker = text.replaceFirst(
-          RegExp(r'^(?:游戏介绍|游戏内容)[：:]?\s*'),
+          RegExp(r'^游戏(?:介绍|内容|概述)[：:]\s*'),
           '',
         );
         if (afterMarker.isNotEmpty) {
@@ -1100,24 +1107,43 @@ class VikAcgParser extends SiteParser {
       if (collecting) {
         if (text.contains('游戏特点') ||
             text.contains('更新内容') ||
-            text.contains('下载') ||
-            text.contains('链接')) {
+            RegExp(r'^下载(?:链接|地址)?[：:]?\s*$').hasMatch(text) ||
+            RegExp(r'^链接[：:]?\s*$').hasMatch(text)) {
           collecting = false;
           continue;
         }
-        if (text.isNotEmpty) {
+        if (text.isNotEmpty && !_containsUnzipCode(text)) {
           introBuffer.writeln(text);
         }
       }
     }
+    // Fallback: if no start marker found, collect all text before first stop marker
+    if (!foundStartMarker) {
+      for (final p in paragraphs) {
+        final text = _elementText(p).trim();
+        if (_isCopyrightText(text)) continue;
+        if (text.contains('游戏特点') ||
+            text.contains('更新内容') ||
+            RegExp(r'^下载(?:链接|地址)?[：:]?\s*$').hasMatch(text) ||
+            RegExp(r'^链接[：:]?\s*$').hasMatch(text)) {
+          break;
+        }
+        if (text.isNotEmpty && !_containsUnzipCode(text)) introBuffer.writeln(text);
+      }
+    }
     if (introBuffer.isNotEmpty) {
-      metadata.intro ??= introBuffer.toString().trim();
+      final collected = introBuffer.toString().trim();
+      // Prefer paragraph-collected intro over meta description if it's longer
+      if (metadata.intro == null || metadata.intro!.isEmpty || collected.length > metadata.intro!.length) {
+        metadata.intro = collected;
+      }
     }
 
-    // Extract unzip code from content
-    final unzipMatch = RegExp(r'(?:默认)?解压(?:码|密码)[：:]\s*(.{1,50})', multiLine: true).firstMatch(bodyText);
+    // Extract unzip code from content container
+    final contentText = _elementText(contentContainer);
+    final unzipMatch = RegExp(r'(?:默认)?解压(?:码|密码)[：:]?\s*(.{1,50})|(?<!提取)密码[：:]?\s*(\S+)', multiLine: true).firstMatch(contentText);
     if (unzipMatch != null) {
-      final unzipCode = unzipMatch.group(1)?.trim() ?? '';
+      final unzipCode = (unzipMatch.group(1) ?? unzipMatch.group(2))?.trim() ?? '';
       if (unzipCode.isNotEmpty) {
         if (metadata.downloadUrl != null && metadata.downloadUrl!.isNotEmpty) {
           metadata.downloadUrl = '${metadata.downloadUrl}\n解压码: $unzipCode';
@@ -1128,15 +1154,6 @@ class VikAcgParser extends SiteParser {
     }
 
     return metadata;
-  }
-
-  /// Check if a URL is a known download/pan link
-  bool _isDownloadLink(String url) {
-    return url.contains('pan.baidu.com') ||
-        url.contains('pan.xunlei.com') ||
-        url.contains('share.weiyun.com') ||
-        url.contains('drive.uc.cn') ||
-        url.contains('gofile.io');
   }
 }
 

@@ -656,16 +656,32 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ),
           )
         else
-          SelectableText(
-            content ?? '暂无信息',
-            style: TextStyle(fontSize: ref.watch(detailFontSizeProvider), height: 1.8, color: AppTheme.textPrimary),
-          ),
+          _buildRichIntro(content ?? '暂无信息', ref.watch(detailFontSizeProvider)),
         if (sectionImage != null && !_isEditing) ...[
           const SizedBox(height: 16),
           _buildArticleImage(sectionImage),
         ],
       ],
     );
+  }
+
+  Widget _buildRichIntro(String content, double fontSize) {
+    final lines = content.split('\n');
+    final spans = <InlineSpan>[];
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i].trimRight();
+      final isHeading = RegExp(r'.*[：:]\s*$').hasMatch(line);
+      if (isHeading && i > 0 && lines[i - 1].trim().isNotEmpty) {
+        spans.add(const TextSpan(text: '\n'));
+      }
+      spans.add(TextSpan(
+        text: '$line\n',
+        style: isHeading
+            ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)
+            : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.textPrimary),
+      ));
+    }
+    return SelectableText.rich(TextSpan(children: spans));
   }
 
   Widget _buildDownloadLinks(String downloadUrl) {
@@ -675,7 +691,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
     for (final line in lines) {
       // Check for decompress code
-      final decompressMatch = RegExp(r'解压(?:码|密码)[：:]\s*(.{1,50})').firstMatch(line);
+      final decompressMatch = RegExp(r'解压(?:码|密码)[：:]?\s*(.{1,50})').firstMatch(line);
       if (decompressMatch != null) {
         final code = decompressMatch.group(1)?.trim() ?? '';
         if (code.isNotEmpty) {
