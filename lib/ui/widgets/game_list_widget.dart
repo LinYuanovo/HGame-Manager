@@ -986,6 +986,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                               game.id!, !game.isFavorite);
                           ref.invalidate(allGamesProvider);
                           ref.invalidate(favoriteGamesProvider);
+                          ref.invalidate(playedGamesProvider);
+                          ref.invalidate(clearedGamesProvider);
                         },
                         child: Container(
                           padding: const EdgeInsets.all(6),
@@ -1104,6 +1106,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         await repo.updateFavoriteStatus(game.id!, !game.isFavorite);
         ref.invalidate(allGamesProvider);
         ref.invalidate(favoriteGamesProvider);
+        ref.invalidate(playedGamesProvider);
+        ref.invalidate(clearedGamesProvider);
       },
       child: Icon(
         game.isFavorite ? Icons.favorite : Icons.favorite_border,
@@ -1297,6 +1301,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           }
           ref.invalidate(allGamesProvider);
           ref.invalidate(favoriteGamesProvider);
+          ref.invalidate(playedGamesProvider);
+          ref.invalidate(clearedGamesProvider);
           break;
         case 'played':
           for (final g in targets) {

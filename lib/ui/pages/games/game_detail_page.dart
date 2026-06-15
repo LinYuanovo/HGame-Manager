@@ -26,6 +26,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   late TextEditingController _featuresController;
   late TextEditingController _changelogController;
   late TextEditingController _downloadUrlController;
+  late TextEditingController _sourceUrlController;
   List<Tag> _editedTags = [];
   late Game _currentGame;
 
@@ -42,6 +43,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _featuresController = TextEditingController(text: _currentGame.features);
     _changelogController = TextEditingController(text: _currentGame.changelog);
     _downloadUrlController = TextEditingController(text: _currentGame.downloadUrl ?? '');
+    _sourceUrlController = TextEditingController(text: _currentGame.sourceUrl ?? '');
     _editedTags = List.from(_currentGame.tags);
   }
 
@@ -53,6 +55,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _featuresController.dispose();
     _changelogController.dispose();
     _downloadUrlController.dispose();
+    _sourceUrlController.dispose();
     super.dispose();
   }
 
@@ -366,7 +369,32 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             const SizedBox(height: 10),
             _InfoRow(icon: Icons.access_time, label: '最后游玩', value: _formatDate(_currentGame.lastPlayedTime!)),
           ],
-          if (_currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty) ...[
+          if (_isEditing) ...[
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.link, size: 15, color: AppTheme.textPrimary),
+                const SizedBox(width: 8),
+                const Text('来源:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: TextField(
+                    controller: _sourceUrlController,
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.5),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      isDense: true,
+                      hintText: '输入来源链接',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else if (_currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty) ...[
             const SizedBox(height: 10),
             _InfoRow(icon: Icons.link, label: '来源', value: _currentGame.sourceUrl!, isLink: true),
           ],
@@ -932,6 +960,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       final newFeatures = _featuresController.text.trim().isEmpty ? null : _featuresController.text.trim();
       final newChangelog = _changelogController.text.trim().isEmpty ? null : _changelogController.text.trim();
       final newDownloadUrl = _downloadUrlController.text.trim().isEmpty ? null : _downloadUrlController.text.trim();
+      final newSourceUrl = _sourceUrlController.text.trim().isEmpty ? null : _sourceUrlController.text.trim();
 
       await repo.updateGame(_currentGame.copyWith(
         title: newTitle,
@@ -940,6 +969,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         features: newFeatures,
         changelog: newChangelog,
         downloadUrl: newDownloadUrl,
+        sourceUrl: newSourceUrl,
         tags: _editedTags,
       ));
 
@@ -994,8 +1024,53 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           _featuresController.text = freshGame.features ?? '';
           _changelogController.text = freshGame.changelog ?? '';
           _downloadUrlController.text = freshGame.downloadUrl ?? '';
+          _sourceUrlController.text = freshGame.sourceUrl ?? '';
           _editedTags = List.from(freshGame.tags);
         });
+
+        if (newSourceUrl != null && newSourceUrl != _currentGame.sourceUrl) {
+          final shouldRescrape = await showGlassDialog<bool>(
+            context: context,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('重新刮削', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                  const SizedBox(height: 12),
+                  const Text('来源链接已修改，是否立即重新刮削该游戏？', style: TextStyle(color: AppTheme.textSecondary)),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('稍后手动刮削'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('立即刮削'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+
+          if (shouldRescrape == true && mounted) {
+            Navigator.of(context).pop();
+            AppTheme.showGlassToast(context, message: '请在刮削页面点击"扫描游戏库"后刮削该游戏');
+            return;
+          }
+        }
+
         AppTheme.showGlassToast(context, message: '保存成功');
       } else if (mounted) {
         setState(() => _isEditing = false);
