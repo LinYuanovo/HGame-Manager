@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../theme/app_theme.dart';
+import '../../../core/services/version_check_service.dart';
 
 class GameDetailDialog extends ConsumerStatefulWidget {
   final Game game;
@@ -32,6 +33,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   bool _isImageViewerOpen = false;
   int _currentImageIndex = 0;
+  bool _isCheckingUpdate = false;
 
   @override
   void initState() {
@@ -589,8 +591,24 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       color: AppTheme.primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(_currentGame.version ?? '',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryColor)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_currentGame.version ?? '',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryColor)),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: _isCheckingUpdate ? null : _checkForUpdate,
+                          child: _isCheckingUpdate
+                              ? SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
+                                )
+                              : Icon(Icons.system_update, size: 16, color: AppTheme.primaryColor),
+                        ),
+                      ],
+                    ),
                   ),
                 if (_currentGame.rating > 0) ...[
                   Row(
@@ -1186,6 +1204,142 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     AppTheme.showGlassToast(context, message: '存档路径已更新');
                   },
                   child: const Text('保存'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _checkForUpdate() async {
+    if (_currentGame.title == null || _currentGame.title!.isEmpty) {
+      AppTheme.showGlassToast(context, message: '游戏标题为空，无法检查更新');
+      return;
+    }
+
+    setState(() => _isCheckingUpdate = true);
+
+    final overlay = Overlay.of(context);
+    late OverlayEntry toastEntry;
+    toastEntry = OverlayEntry(
+      builder: (ctx) => Positioned(
+        top: MediaQuery.of(context).padding.top + 8,
+        left: MediaQuery.of(context).size.width / 2 - 120,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: 240,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 16, offset: const Offset(0, 4)),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    '正在检查更新...',
+                    style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    overlay.insert(toastEntry);
+
+    try {
+      final service = VersionCheckService();
+      final result = await service.checkForUpdate(
+        _currentGame.title!,
+        _currentGame.version ?? '',
+      );
+
+      toastEntry.remove();
+
+      if (!mounted) return;
+
+      setState(() => _isCheckingUpdate = false);
+
+      if (result != null) {
+        _showUpdateDialog(result);
+      } else {
+        AppTheme.showGlassToast(context, message: '未发现新版本');
+      }
+    } catch (e) {
+      toastEntry.remove();
+      if (mounted) {
+        setState(() => _isCheckingUpdate = false);
+        AppTheme.showGlassToast(context, message: '检查更新失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+      }
+    }
+  }
+
+  void _showUpdateDialog(VersionCheckResult result) {
+    showGlassDialog(
+      context: context,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.system_update, color: AppTheme.successColor, size: 22),
+                const SizedBox(width: 8),
+                const Text('发现新版本', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text('来源: ${result.siteName}', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            const SizedBox(height: 4),
+            Text('当前版本: ${_currentGame.version ?? "未知"}', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            const SizedBox(height: 4),
+            Text('最新版本: ${result.maxVersion}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
+            const SizedBox(height: 8),
+            Text('帖子标题: ${result.postTitle}', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary), maxLines: 2, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('关闭'),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: result.downloadUrl == null
+                      ? null
+                      : () async {
+                          Navigator.of(context).pop();
+                          try {
+                            await launchUrl(Uri.parse(result.downloadUrl!));
+                          } catch (_) {}
+                        },
+                  icon: const Icon(Icons.open_in_new, size: 16),
+                  label: const Text('前往下载'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
                 ),
               ],
             ),
