@@ -748,7 +748,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     }
   }
 
-  Future<void> _downloadImages(Game game, List<String> imageUrls, http.Client client, Map<String, String> headers) async {
+  Future<void> _downloadImages(Game game, List<String> imageUrls, http.Client client, Map<String, String> pageHeaders) async {
     final gameRepo = ref.read(gameRepositoryProvider);
     final imagesDir = Directory(path.join(game.path, 'images'));
 
@@ -776,9 +776,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           continue;
         }
 
-        // Download if not exists
+        // Download if not exists - rebuild headers with image URL for proper cookie/auth
         if (!File(filePath).existsSync()) {
-          final imgResponse = await client.get(uri, headers: headers).timeout(const Duration(seconds: 15));
+          final imgHeaders = await buildScrapeHeaders(imageUrl);
+          final imgResponse = await client.get(uri, headers: imgHeaders).timeout(const Duration(seconds: 15));
           if (imgResponse.statusCode == 200 && imgResponse.bodyBytes.isNotEmpty) {
             await File(filePath).writeAsBytes(imgResponse.bodyBytes, flush: true);
           } else {

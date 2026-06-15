@@ -317,22 +317,13 @@ class VersionCheckService {
 
     for (final keyword in keywords) {
       final vikacgResult = await searchVikAcg(keyword);
-      if (vikacgResult != null) {
-        allResults.add(vikacgResult);
-        break;
-      }
+      if (vikacgResult != null) allResults.add(vikacgResult);
 
       final feixueResult = await searchFeiXue(keyword);
-      if (feixueResult != null) {
-        allResults.add(feixueResult);
-        break;
-      }
+      if (feixueResult != null) allResults.add(feixueResult);
 
       final acgyingResult = await searchAcgYing(keyword);
-      if (acgyingResult != null) {
-        allResults.add(acgyingResult);
-        break;
-      }
+      if (acgyingResult != null) allResults.add(acgyingResult);
     }
 
     if (allResults.isEmpty) {
@@ -344,22 +335,13 @@ class VersionCheckService {
 
       for (final keyword in secondaryKeywords) {
         final vikacgResult = await searchVikAcg(keyword);
-        if (vikacgResult != null) {
-          allResults.add(vikacgResult);
-          break;
-        }
+        if (vikacgResult != null) allResults.add(vikacgResult);
 
         final feixueResult = await searchFeiXue(keyword);
-        if (feixueResult != null) {
-          allResults.add(feixueResult);
-          break;
-        }
+        if (feixueResult != null) allResults.add(feixueResult);
 
         final acgyingResult = await searchAcgYing(keyword);
-        if (acgyingResult != null) {
-          allResults.add(acgyingResult);
-          break;
-        }
+        if (acgyingResult != null) allResults.add(acgyingResult);
       }
     }
 
