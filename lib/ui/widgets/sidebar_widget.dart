@@ -22,6 +22,7 @@ class SidebarWidget extends ConsumerWidget {
     final fontSize = ref.watch(fontSizeProvider);
     final gamesAsync = ref.watch(allGamesProvider);
     final playedAsync = ref.watch(playedGamesProvider);
+    final clearedAsync = ref.watch(clearedGamesProvider);
 
     return MouseRegion(
       cursor: SystemMouseCursors.resizeColumn,
@@ -59,6 +60,8 @@ class SidebarWidget extends ConsumerWidget {
                           count = gamesAsync.valueOrNull?.length;
                         } else if (route == NavRoute.played) {
                           count = playedAsync.valueOrNull?.length;
+                        } else if (route == NavRoute.cleared) {
+                          count = clearedAsync.valueOrNull?.length;
                         }
                         return _buildNavItem(
                           route: route,
