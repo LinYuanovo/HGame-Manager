@@ -26,6 +26,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   late TextEditingController _cookieAcgyingController;
   late TextEditingController _cookieFeixueController;
   late TextEditingController _cookieVikacgController;
+  late TextEditingController _domainAcgyingController;
+  late TextEditingController _domainFeixueController;
+  late TextEditingController _domainVikacgController;
   late TextEditingController _webdavUrlController;
   late TextEditingController _webdavUsernameController;
   late TextEditingController _webdavPasswordController;
@@ -67,6 +70,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _cookieAcgyingController = TextEditingController(text: cookieAcgying);
     _cookieFeixueController = TextEditingController(text: cookieFeixue);
     _cookieVikacgController = TextEditingController(text: cookieVikacg);
+    _domainAcgyingController = TextEditingController(text: prefs.getString('domain_acgying') ?? '');
+    _domainFeixueController = TextEditingController(text: prefs.getString('domain_feixue') ?? '');
+    _domainVikacgController = TextEditingController(text: prefs.getString('domain_vikacg') ?? '');
     _webdavUrlController = TextEditingController(text: prefs.getString('webdav_url') ?? '');
     _webdavUsernameController = TextEditingController(text: prefs.getString('webdav_username') ?? '');
     _webdavPasswordController = TextEditingController(text: prefs.getString('webdav_password') ?? '');
@@ -109,6 +115,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _cookieAcgyingController.dispose();
     _cookieFeixueController.dispose();
     _cookieVikacgController.dispose();
+    _domainAcgyingController.dispose();
+    _domainFeixueController.dispose();
+    _domainVikacgController.dispose();
     _webdavUrlController.dispose();
     _webdavUsernameController.dispose();
     _webdavPasswordController.dispose();
@@ -131,6 +140,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           _buildIgnoreFoldersSection(),
           const SizedBox(height: 24),
           _buildProxySection(),
+          const SizedBox(height: 24),
+          _buildForumDomainSection(),
           const SizedBox(height: 24),
           _buildCookieSection(),
           const SizedBox(height: 24),
@@ -543,6 +554,64 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ],
           ),
         ],
+      ],
+    );
+  }
+
+  Widget _buildForumDomainSection() {
+    return _buildSection(
+      title: '论坛自定义域名',
+      icon: Icons.language,
+      children: [
+        Text(
+          '自定义论坛域名，修改后搜索和刮削将使用新域名访问对应论坛',
+          style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+        ),
+        const SizedBox(height: 16),
+        _buildDomainInput(
+          label: 'ACG嘤嘤怪',
+          controller: _domainAcgyingController,
+          hint: '默认: acgyyg.ru',
+        ),
+        const SizedBox(height: 12),
+        _buildDomainInput(
+          label: '飞雪ACG',
+          controller: _domainFeixueController,
+          hint: '默认: feixueacg.org',
+        ),
+        const SizedBox(height: 12),
+        _buildDomainInput(
+          label: '维咔ACG',
+          controller: _domainVikacgController,
+          hint: '默认: vikacg.com',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDomainInput({
+    required String label,
+    required TextEditingController controller,
+    required String hint,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.4), fontSize: 11),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.5),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium), borderSide: BorderSide(color: AppTheme.textSecondary.withValues(alpha: 0.2))),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium), borderSide: BorderSide(color: AppTheme.textSecondary.withValues(alpha: 0.2))),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          ),
+        ),
       ],
     );
   }
@@ -1080,6 +1149,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     await prefs.setString('cookie_acgying', _cookieAcgyingController.text.trim());
     await prefs.setString('cookie_feixue', _cookieFeixueController.text.trim());
     await prefs.setString('cookie_vikacg', _cookieVikacgController.text.trim());
+    await prefs.setString('domain_acgying', _domainAcgyingController.text.trim());
+    await prefs.setString('domain_feixue', _domainFeixueController.text.trim());
+    await prefs.setString('domain_vikacg', _domainVikacgController.text.trim());
     await prefs.setString('webdav_url', _webdavUrlController.text.trim());
     await prefs.setString('webdav_username', _webdavUsernameController.text.trim());
     await prefs.setString('webdav_password', _webdavPasswordController.text);
