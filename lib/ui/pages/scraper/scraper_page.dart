@@ -685,7 +685,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               // Download images
               if (gameInfo.screenshots.isNotEmpty) {
                 _addLog('  -> 下载 ${gameInfo.screenshots.length} 张配图...');
-                await _downloadImages(updated.copyWith(id: gameId), gameInfo.screenshots, client, headers);
+                await _downloadImages(updated.copyWith(id: gameId), gameInfo.screenshots, client, headers, game.sourceUrl!);
               }
 
               // Reload game with images from database
@@ -748,7 +748,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     }
   }
 
-  Future<void> _downloadImages(Game game, List<String> imageUrls, http.Client client, Map<String, String> pageHeaders) async {
+  Future<void> _downloadImages(Game game, List<String> imageUrls, http.Client client, Map<String, String> pageHeaders, String sourceUrl) async {
     final gameRepo = ref.read(gameRepositoryProvider);
     final imagesDir = Directory(path.join(game.path, 'images'));
 
@@ -776,9 +776,16 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           continue;
         }
 
-        // Download if not exists - rebuild headers with image URL for proper cookie/auth
+        // Download if not exists - build headers based on image URL, fall back to source URL cookie
         if (!File(filePath).existsSync()) {
-          final imgHeaders = await buildScrapeHeaders(imageUrl);
+          var imgHeaders = await buildScrapeHeaders(imageUrl);
+          // If image URL has no cookie, use source page's headers as fallback
+          if (!imgHeaders.containsKey('Cookie') && !imgHeaders.containsKey('Authorization')) {
+            imgHeaders = pageHeaders;
+            _addLog('    图片 ${i + 1} 使用源站cookie: $imageUrl');
+          } else {
+            _addLog('    图片 ${i + 1} 使用图片域cookie: $imageUrl');
+          }
           final imgResponse = await client.get(uri, headers: imgHeaders).timeout(const Duration(seconds: 15));
           if (imgResponse.statusCode == 200 && imgResponse.bodyBytes.isNotEmpty) {
             await File(filePath).writeAsBytes(imgResponse.bodyBytes, flush: true);

@@ -369,7 +369,8 @@ class AppTheme {
     late OverlayEntry overlayEntry;
 
     overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
+      builder: (context) => ExcludeSemantics(
+        child: Positioned(
         top: 40,
         left: 0,
         right: 0,
@@ -414,6 +415,7 @@ class AppTheme {
           ),
         ),
       ),
+    ),
     );
 
     overlay.insert(overlayEntry);
@@ -1161,7 +1163,8 @@ void showCopyToast(BuildContext context, String text) {
   late OverlayEntry overlayEntry;
 
   overlayEntry = OverlayEntry(
-    builder: (ctx) => Positioned(
+    builder: (ctx) => ExcludeSemantics(
+      child: Positioned(
       top: 60,
       left: MediaQuery.of(context).size.width * 0.3,
       right: MediaQuery.of(context).size.width * 0.3,
@@ -1184,6 +1187,7 @@ void showCopyToast(BuildContext context, String text) {
         ),
       ),
     ),
+  ),
   );
 
   overlay.insert(overlayEntry);
