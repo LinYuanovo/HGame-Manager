@@ -776,17 +776,9 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           continue;
         }
 
-        // Download if not exists - build headers based on image URL, fall back to source URL cookie
+        // Download if not exists - always use parser's cookie
         if (!File(filePath).existsSync()) {
-          var imgHeaders = await buildScrapeHeaders(imageUrl);
-          // If image URL has no cookie, use source page's headers as fallback
-          if (!imgHeaders.containsKey('Cookie') && !imgHeaders.containsKey('Authorization')) {
-            imgHeaders = pageHeaders;
-            _addLog('    图片 ${i + 1} 使用源站cookie: $imageUrl');
-          } else {
-            _addLog('    图片 ${i + 1} 使用图片域cookie: $imageUrl');
-          }
-          final imgResponse = await client.get(uri, headers: imgHeaders).timeout(const Duration(seconds: 15));
+          final imgResponse = await client.get(uri, headers: pageHeaders).timeout(const Duration(seconds: 15));
           if (imgResponse.statusCode == 200 && imgResponse.bodyBytes.isNotEmpty) {
             await File(filePath).writeAsBytes(imgResponse.bodyBytes, flush: true);
           } else {
