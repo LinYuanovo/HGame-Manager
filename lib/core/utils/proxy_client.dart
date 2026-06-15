@@ -53,10 +53,11 @@ http.Client createProxyClient({String? proxyMode, String? proxyUrl}) {
 
   if (mode == 'none') {
     AppLogger.instance.info('Proxy', 'No proxy configured');
-    return http.Client();
+    final httpClient = HttpClient()..autoUncompress = true;
+    return IOClient(httpClient);
   }
 
-  final httpClient = HttpClient();
+  final httpClient = HttpClient()..autoUncompress = true;
 
   if (mode == 'system') {
     final systemProxy = readWindowsSystemProxy();
