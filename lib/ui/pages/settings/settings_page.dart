@@ -734,6 +734,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Widget _buildXpathConfigCard(int index, Map<String, String> cfg) {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final userFont = prefs.getString('font_family') ?? '';
     final domain = cfg['domain'] ?? '';
     final name = cfg['name'] ?? '';
     final fields = [
@@ -800,7 +802,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   Expanded(
                     child: Text(
                       value,
-                      style: const TextStyle(fontSize: 11, color: AppTheme.textPrimary, fontFamily: 'monospace'),
+                      style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textPrimary,
+                      fontFamily: userFont.isNotEmpty ? userFont : 'monospace',
+                    ),
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                     ),
