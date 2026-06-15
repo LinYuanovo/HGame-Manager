@@ -1153,26 +1153,24 @@ void showCopyToast(BuildContext context, String text) {
   late OverlayEntry overlayEntry;
 
   overlayEntry = OverlayEntry(
-    builder: (ctx) => ExcludeSemantics(
-      child: Positioned(
-        top: 60,
-        left: MediaQuery.of(context).size.width * 0.3,
-        right: MediaQuery.of(context).size.width * 0.3,
-        child: IgnorePointer(
-          child: Material(
-            color: Colors.transparent,
-            child: Center(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(
-                    sigmaX: GlassConstants.blurSmall,
-                    sigmaY: GlassConstants.blurSmall,
-                  ),
-                  child: _CopyToastContent(
-                    text: text,
-                    onRemove: () => overlayEntry.remove(),
-                  ),
+    builder: (ctx) => Positioned(
+      top: 60,
+      left: MediaQuery.of(context).size.width * 0.3,
+      right: MediaQuery.of(context).size.width * 0.3,
+      child: IgnorePointer(
+        child: Material(
+          color: Colors.transparent,
+          child: Center(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: GlassConstants.blurSmall,
+                  sigmaY: GlassConstants.blurSmall,
+                ),
+                child: _CopyToastContent(
+                  text: text,
+                  onRemove: () => overlayEntry.remove(),
                 ),
               ),
             ),

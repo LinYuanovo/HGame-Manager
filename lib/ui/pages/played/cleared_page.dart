@@ -14,27 +14,14 @@ class ClearedPage extends ConsumerStatefulWidget {
   ConsumerState<ClearedPage> createState() => _ClearedPageState();
 }
 
-class _ClearedPageState extends ConsumerState<ClearedPage>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _ClearedPageState extends ConsumerState<ClearedPage> {
   bool _isScanning = false;
   String _scanProgress = '';
   List<Game> _selectedGames = [];
 
   @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final gamesAsync = ref.watch(clearedGamesProvider);
     return Column(
       children: [
         GlassAppBar(
@@ -46,134 +33,40 @@ class _ClearedPageState extends ConsumerState<ClearedPage>
                 color: AppTheme.textPrimary),
           ),
         ),
-        GlassTabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: '游戏', icon: Icon(Icons.sports_esports_outlined)),
-            Tab(text: '分类', icon: Icon(Icons.category_outlined)),
-          ],
-        ),
         Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildClearedGamesTab(),
-              _buildClearedTagsTab(),
-            ],
+          child: gamesAsync.when(
+            data: (games) {
+              if (games.isEmpty) {
+                return const EmptyStateWidget(
+                  icon: Icons.emoji_events_outlined,
+                  message: '暂无通关游戏',
+                  subMessage: '在游戏列表中右键标记通关',
+                );
+              }
+              return Material(
+                color: Colors.transparent,
+                child: GameListWidget(
+                  games: games,
+                  contextMenuMode: ContextMenuMode.played,
+                  isClearedPage: true,
+                  onScanSavePaths: _isScanning ? null : _scanSavePaths,
+                  scanProgress: _scanProgress,
+                  onSelectionChanged: (selected) {
+                    setState(() => _selectedGames = selected);
+                  },
+                  onTagTap: (tag) {
+                    Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) =>
+                            TagGamesPage(tagId: tag.id!, tagName: tag.name)));
+                  },
+                ),
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('加载失败: $e')),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildClearedGamesTab() {
-    final gamesAsync = ref.watch(clearedGamesProvider);
-
-    return gamesAsync.when(
-      data: (games) {
-        if (games.isEmpty) {
-          return const EmptyStateWidget(
-            icon: Icons.emoji_events_outlined,
-            message: '暂无通关游戏',
-            subMessage: '在游戏列表中右键标记通关',
-          );
-        }
-        return Material(
-          color: Colors.transparent,
-          child: GameListWidget(
-            games: games,
-            contextMenuMode: ContextMenuMode.played,
-            isClearedPage: true,
-            onScanSavePaths: _isScanning ? null : _scanSavePaths,
-            scanProgress: _scanProgress,
-            onSelectionChanged: (selected) {
-              setState(() => _selectedGames = selected);
-            },
-            onTagTap: (tag) {
-              Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) =>
-                      TagGamesPage(tagId: tag.id!, tagName: tag.name)));
-            },
-          ),
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('加载失败: $e')),
-    );
-  }
-
-  Widget _buildClearedTagsTab() {
-    final tagsAsync = ref.watch(favoriteTagsProvider);
-
-    return tagsAsync.when(
-      data: (tags) {
-        if (tags.isEmpty) {
-          return const EmptyStateWidget(
-            icon: Icons.category_outlined,
-            message: '暂无收藏分类',
-            subMessage: '在分类页面中收藏标签',
-          );
-        }
-        return GridView.builder(
-          padding: const EdgeInsets.all(16),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 200,
-            childAspectRatio: 2.5,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: tags.length,
-          itemBuilder: (context, index) {
-            final tag = tags[index];
-            return _buildTagCard(tag);
-          },
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('加载失败: $e')),
-    );
-  }
-
-  Widget _buildTagCard(Tag tag) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => TagGamesPage(tagId: tag.id!, tagName: tag.name)));
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.cardColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.borderColor),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                tag.name,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textPrimary,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            GestureDetector(
-              onTap: () async {
-                await ref.read(tagRepositoryProvider).toggleFavorite(tag.id!, false);
-                ref.invalidate(favoriteTagsProvider);
-              },
-              child: const Icon(
-                Icons.favorite,
-                size: 18,
-                color: AppTheme.primaryColor,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
