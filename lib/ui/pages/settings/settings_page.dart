@@ -1163,6 +1163,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     ref.invalidate(detailFontSizeProvider);
     ref.invalidate(pageSizeProvider);
 
+    await HtmlScraper.reloadCustomDomains();
+
     if (mounted) {
       AppTheme.showGlassToast(context, message: '设置已保存');
     }

@@ -2,6 +2,7 @@ import 'package:html/dom.dart';
 import 'html_parser.dart';
 import 'parse_utils.dart';
 import '../core/services/app_logger.dart';
+import '../core/utils/app_settings.dart';
 
 const kValidSeriesTypes = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS'];
 
@@ -1168,6 +1169,28 @@ void registerAllParsers() {
     ParserRegistry.register(_AliasParser('acgying', AcgYingParser()));
     ParserRegistry.register(_AliasParser('weika', VikAcgParser()));
     AppLogger.instance.info('Scraper', 'Registered ${ParserRegistry.allParsers.length} site parsers (including aliases): AcgYing/acgying, VikAcg/weika, FeiXueAcg');
+  }
+}
+
+Future<void> registerCustomDomainParsers() async {
+  final prefs = await AppSettings.load();
+
+  final domainAcgying = prefs.getString('domain_acgying') ?? '';
+  if (domainAcgying.isNotEmpty) {
+    ParserRegistry.register(_AliasParser(domainAcgying.toLowerCase(), AcgYingParser()));
+    AppLogger.instance.info('Scraper', 'Registered custom domain for AcgYing: $domainAcgying');
+  }
+
+  final domainFeixue = prefs.getString('domain_feixue') ?? '';
+  if (domainFeixue.isNotEmpty) {
+    ParserRegistry.register(_AliasParser(domainFeixue.toLowerCase(), FeiXueAcgParser()));
+    AppLogger.instance.info('Scraper', 'Registered custom domain for FeiXue: $domainFeixue');
+  }
+
+  final domainVikacg = prefs.getString('domain_vikacg') ?? '';
+  if (domainVikacg.isNotEmpty) {
+    ParserRegistry.register(_AliasParser(domainVikacg.toLowerCase(), VikAcgParser()));
+    AppLogger.instance.info('Scraper', 'Registered custom domain for VikAcg: $domainVikacg');
   }
 }
 

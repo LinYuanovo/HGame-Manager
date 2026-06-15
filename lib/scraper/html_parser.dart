@@ -99,6 +99,7 @@ class HtmlScraper {
     if (_registered) return;
     _registered = true;
     registerAllParsers();
+    registerCustomDomainParsers();
   }
 
   /// Load user-configured XPath parsers from settings.
@@ -147,6 +148,17 @@ class HtmlScraper {
       }
     } catch (_) {}
     _xpathLoaded = false;
+  }
+
+  static Future<void> reloadCustomDomains() async {
+    final prefs = await AppSettings.load();
+    for (final key in ['domain_acgying', 'domain_feixue', 'domain_vikacg']) {
+      final domain = prefs.getString(key) ?? '';
+      if (domain.isNotEmpty) {
+        ParserRegistry.unregister(domain.toLowerCase());
+      }
+    }
+    await registerCustomDomainParsers();
   }
 
   GameInfo? scrapeGameInfo(String htmlContent, String url) {
