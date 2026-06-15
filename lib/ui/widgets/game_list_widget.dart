@@ -802,6 +802,27 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                           ),
                         ),
                       ),
+                    if (game.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}') &&
+                        !game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}'))
+                      Positioned(
+                        top: 4,
+                        left: isBackupOnly ? 60 : 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFD700).withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.emoji_events, size: 14, color: Colors.white),
+                              SizedBox(width: 2),
+                              Text('通关', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -972,6 +993,28 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    if (game.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}') &&
+                        !game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}'))
+                      Positioned(
+                        top: 8,
+                        left: isBackupOnly ? 80 : 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFD700).withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.emoji_events, size: 16, color: Colors.white),
+                              SizedBox(width: 4),
+                              Text('通关', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ),
