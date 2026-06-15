@@ -4,7 +4,7 @@
 
 **黄油仓库** - 基于 Flutter 开发的 Windows 本地 HGame 管理器
 
-- **版本**: 1.2.1
+- **版本**: 1.3.0
 - **平台**: Windows 10/11 (64位)
 - **Flutter SDK**: >= 3.41.9
 - **Dart SDK**: >= 3.11.5
@@ -261,7 +261,8 @@ enum NavRoute {
   categories(2, '分类'), // 分类管理页面
   favorites(3, '收藏'),  // 收藏游戏页面
   played(4, '已玩'),     // 已玩游戏页面
-  settings(5, '设置');   // 设置页面
+  cleared(5, '通关'),    // 通关游戏页面
+  settings(6, '设置');   // 设置页面
 }
 ```
 
@@ -288,6 +289,12 @@ enum NavRoute {
 ### WebdavService
 - WebDAV 同步支持
 - 配置文件同步
+
+### VersionCheckService
+- 从游戏标题提取搜索关键词
+- 在维咔/飞雪/嘤嘤怪三个站点搜索
+- 版本号对比取最大值
+- 支持自定义域名
 
 ## UI 组件
 
