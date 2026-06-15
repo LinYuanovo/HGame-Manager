@@ -9,6 +9,7 @@
     <img src="https://img.shields.io/badge/Flutter-3.41+-02569B?style=flat-square&logo=flutter" alt="Flutter">
     <img src="https://img.shields.io/badge/Dart-3.11+-0175C2?style=flat-square&logo=dart" alt="Dart">
     <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows">
+    <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License">
     <img src="https://img.shields.io/badge/Version-1.3.0-blue?style=flat-square" alt="Version">
   </nobr>
 </p>
@@ -20,60 +21,47 @@
 
 ***
 
-## 功能特性
-
-### 游戏管理
-- **多种视图模式**：列表 / 海报墙
-- **灵活排序**：标题、添加时间、最近游玩
-- **分页 / 瀑布流**：两种浏览模式
-- **收藏功能**：收藏游戏优先排列
-- **游玩追踪**：记录游玩次数和时间
-
-### 智能刮削
-- **多站点支持**：ACG嘤嘤怪 / 飞雪ACG / 微咔ACG
-- **Cookie 认证**：支持登录后刮削付费内容
-- **自动整理**：刮削后按系列分类移动到整理目录
-- **智能标签**：自动关联重叠标签（如"互动SLG"→"SLG"）
-- **系列归一**：仅保留 RPG/ADV/ACT/SLG/AVG/FPS/TPS 七大系列
-
-### 分类系统
-- **标签 / 系列管理**：右键修改删除
-- **智能重叠**：标签自动关联
-- **收藏分类**：支持收藏标签和系列
-
-### 游戏详情
-- **图片轮播**：支持键盘导航
-- **大图查看**：80%窗口大小的图片查看器
-- **下载链接**：网盘按钮双击复制
-- **解压码**：独立显示，双击复制
-- **编辑模式**：可编辑版本号、标签、下载地址、解压码等
-
-### 设置
-- **代理支持**：HTTP 代理配置和测试
-- **Cookie 管理**：每个站点独立 Cookie
-- **忽略文件夹**：扫描和刮削分别设置
-- **系列类型管理**：自定义添加系列类型
-- **字体大小**：全局字体大小调整
-
 ## 快速开始
 
 ### 环境要求
 
+<details>
+<summary>点击展开查看环境要求</summary>
+
+#### 用户使用（直接下载）
 - **操作系统**: Windows 10/11 (64位)
+- **内存**: 建议 4GB+
+- **磁盘空间**: 200MB+（解压后）
+
+#### 开发构建
 - **Flutter SDK**: >= 3.41.9
 - **Dart SDK**: >= 3.11.5
+- **操作系统**: Windows 10/11 (64位)
+- **内存**: 建议 8GB+
+- **磁盘空间**: 2GB+（含构建缓存）
 
-### 构建运行
+</details>
+
+### 安装步骤
+
+#### 直接使用
+
+Windows 系统在 [releases](https://github.com/LinYuanovo/HGame-Manager/releases) 页面直接下载 zip 压缩包后**解压**即可使用
+
+#### 自行构建
+
+<details>
+<summary>点击展开查看自行构建方式</summary>
 
 ```bash
 # 克隆仓库
-git clone <repo-url>
+git clone https://github.com/LinYuanovo/HGame-Manager.git
 cd HGame-Manager
 
 # 安装依赖
 flutter pub get
 
-# 运行应用
+# 运行应用（开发模式）
 flutter run -d windows
 
 # 构建发布版本
@@ -85,7 +73,11 @@ flutter build windows --release
 build/windows/x64/runner/Release/hgame_manager.exe
 ```
 
-## 目录结构
+</details>
+
+## 游戏库目录结构
+
+应用期望以下目录结构来正确识别和管理游戏：
 
 ```
 游戏库根目录/
@@ -94,54 +86,124 @@ build/windows/x64/runner/Release/hgame_manager.exe
 │       ├── source_url.txt      # 来源URL（必需）
 │       ├── metadata.json       # 元数据（刮削生成）
 │       └── images/             # 游戏图片（刮削下载）
-└── ...
+├── RPG/
+│   └── ...
+└── 未分类/
+    └── ...
 ```
 
-刮削整理后：
+### 关键文件说明
+
+| 文件 | 说明 | 是否必需 |
+| --- | --- | --- |
+| `source_url.txt` | 游戏来源页面 URL，用于刮削 | 是 |
+| `metadata.json` | 游戏元数据（标题、版本、简介等） | 否（刮削后自动生成） |
+| `images/` | 游戏截图和封面图 | 否（刮削后自动下载） |
+
+### 刮削整理后的目录
+
+刮削功能会自动将游戏按系列分类移动到整理目录：
+
 ```
 整理目录/
-├── SLG/                        # 按系列分类
+├── SLG/
 │   └── GameName/
 │       ├── source_url.txt
 │       ├── metadata.json
 │       └── images/
+├── RPG/
+│   └── ...
 └── 未分类/                     # 无系列标签的游戏
     └── ...
 ```
 
+## 功能特性
+
+### 刮削中心
+
+- **多站点支持**：[ACG嘤嘤怪](https://acgyyg.ru/) / [飞雪ACG](https://feixueacg.org/)/ [维咔ACG](https://www.vikacg.com/)
+- **自动整理**：刮削后按系列分类移动到整理目录
+- **智能标签**：自动关联重叠标签（如"互动SLG" → "SLG"）
+
+![刮削页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/scraper_page.png)
+
+### 游戏管理
+
+- **多种视图模式**：列表 / 海报墙
+- **灵活排序**：标题、添加时间、最近游玩
+- **分页 / 瀑布流**：两种浏览模式
+- **收藏功能**：收藏游戏优先排列
+- **游玩追踪**：记录游玩次数和时间
+
+![游戏页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/games_page.png)
+
+### 分类系统
+
+- **标签 / 系列管理**：右键修改删除
+- **收藏分类**：支持收藏标签和系列
+
+![分类页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/categories_page.png)
+
+![分类详情页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/category_detail_page.png)
+
+### 游戏详情
+
+- **图片轮播**：支持键盘导航
+- **大图查看**：80% 窗口大小的图片查看器
+- **下载链接**：网盘按钮双击复制
+- **解压码**：独立显示，双击复制
+- **编辑模式**：可编辑版本号、标签、下载地址、解压码等
+
+![游戏详情页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/game_detail_page.png)
+
+![游戏更新弹窗](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/game_update_window.png)
+
+![已玩游戏评论弹窗](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/played_comment_window.png)
+
+### 设置
+
+- **忽略文件夹**：扫描和刮削分别设置
+- **系列类型管理**：自定义添加系列类型
+- **字体大小**：全局字体大小调整
+
 ## 技术栈
 
-| 技术 | 用途 |
-| --- | --- |
-| [Flutter](https://flutter.dev) | 跨平台 UI 框架 |
-| [Riverpod](https://riverpod.dev) | 状态管理 |
-| [SQLite](https://www.sqlite.org) (sqflite_common_ffi) | 本地数据存储 |
-| [window_manager](https://pub.dev/packages/window_manager) | 窗口管理 |
-| [html](https://pub.dev/packages/html) | HTML 解析 |
-| [http](https://pub.dev/packages/http) | HTTP 客户端（代理支持） |
-| [file_picker](https://pub.dev/packages/file_picker) | 文件夹选择器 |
+| 技术 | 版本 | 用途 |
+| --- | --- | --- |
+| [Flutter](https://flutter.dev) | 3.41.9 | 跨平台 UI 框架 |
+| [Dart](https://dart.dev) | 3.11.5 | 编程语言 |
+| [Riverpod](https://riverpod.dev) | ^2.4.9 | 状态管理 |
+| [SQLite](https://www.sqlite.org) | via sqflite_common_ffi | 本地数据存储 |
+| [window_manager](https://pub.dev/packages/window_manager) | ^0.3.7 | 窗口管理 |
+| [http](https://pub.dev/packages/http) | ^1.1.0 | HTTP 客户端（代理支持） |
 
 ## 项目结构
 
+<details>
+<summary>点击展开查看完整目录结构</summary>
+
 ```
 HGame-Manager/
-├── lib/
-│   ├── main.dart               # 应用入口
-│   ├── core/
-│   │   ├── database/           # 数据库层
-│   │   ├── models/             # 数据模型
-│   │   ├── providers/          # Riverpod 状态管理
-│   │   ├── repositories/       # 数据访问层
-│   │   ├── services/           # 业务服务
-│   │   └── utils/              # 工具类
-│   └── ui/
-│       ├── theme/              # 主题配置（玻璃拟态）
-│       ├── widgets/            # 共享组件
-│       └── pages/              # 页面模块
-├── windows/                    # Windows 平台代码
-└── pubspec.yaml                # 项目配置
+├── lib/                          # 应用源代码
+│   ├── main.dart                 # 应用入口
+│   ├── core/                     # 核心业务逻辑
+│   │   ├── database/             # 数据库层
+│   │   ├── models/               # 数据模型
+│   │   ├── providers/            # Riverpod 状态管理
+│   │   ├── repositories/         # 数据访问层
+│   │   ├── services/             # 业务服务
+│   │   └── utils/                # 工具类
+│   ├── ui/                       # 用户界面
+│   │   ├── theme/                # 主题配置（玻璃拟态）
+│   │   ├── widgets/              # 共享组件
+│   │   └── pages/                # 页面模块
+│   └── scraper/                  # 网页抓取器
+│       ├── html_parser.dart      # HTML 解析器
+│       ├── site_parsers.dart     # 站点解析器注册
+│       └── xpath_evaluator.dart  # XPath 评估器
+├── windows/                      # Windows 平台代码
+└── pubspec.yaml                  # 项目配置
 ```
 
-## 许可证
+</details>
 
-MIT License
