@@ -782,7 +782,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           if (imgResponse.statusCode == 200 && imgResponse.bodyBytes.isNotEmpty) {
             await File(filePath).writeAsBytes(imgResponse.bodyBytes, flush: true);
           } else {
-            _addLog('    图片 ${i + 1} 下载失败: HTTP ${imgResponse.statusCode}');
+            _addLog('    图片 ${i + 1} 下载失败: HTTP ${imgResponse.statusCode} URL: $imageUrl');
             continue;
           }
         }
@@ -791,7 +791,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         await gameRepo.addGameImage(game.id!, filePath, i);
         downloaded++;
       } catch (e) {
-        _addLog('    图片 ${i + 1} 处理失败: $e');
+        _addLog('    图片 ${i + 1} 处理失败: $e URL: $imageUrl');
       }
     }
     _addLog('  -> 配图处理完成: $downloaded/${imageUrls.length}');

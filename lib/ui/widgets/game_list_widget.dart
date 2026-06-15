@@ -802,11 +802,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                           ),
                         ),
                       ),
-                    if (game.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}') &&
-                        !game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}'))
+                    if (game.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}'))
                       Positioned(
                         top: 4,
-                        left: isBackupOnly ? 60 : 4,
+                        left: isBackupOnly ? 70 : 4,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
@@ -997,11 +996,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                           ),
                         ),
                       ),
-                    if (game.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}') &&
-                        !game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}'))
+                    if (game.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}'))
                       Positioned(
                         top: 8,
-                        left: isBackupOnly ? 80 : 8,
+                        left: isBackupOnly ? 110 : 8,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(

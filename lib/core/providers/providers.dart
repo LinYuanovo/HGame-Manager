@@ -273,7 +273,7 @@ final favoriteGamesProvider = FutureProvider<List<Game>>((ref) async {
   try {
     final repository = ref.watch(gameRepositoryProvider);
     final games = await repository.getFavoriteGames();
-    return games.where((g) => !g.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}')).toList();
+    return games;
   } catch (e, stackTrace) {
     if (kDebugMode) {
       debugPrint('ERROR Loading Favorite Games: $e\n$stackTrace');

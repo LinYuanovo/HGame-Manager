@@ -1024,6 +1024,17 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         debugPrint('[Edit] Failed to update metadata.json: $e');
       }
 
+      // Sync source_url.txt
+      if (newSourceUrl != null) {
+        try {
+          final sourceUrlFile = File('${_currentGame.path}${Platform.pathSeparator}source_url.txt');
+          await sourceUrlFile.writeAsString(newSourceUrl, flush: true);
+          debugPrint('[Edit] source_url.txt updated: $newSourceUrl');
+        } catch (e) {
+          debugPrint('[Edit] Failed to update source_url.txt: $e');
+        }
+      }
+
       ref.invalidate(allGamesProvider);
       ref.invalidate(allTagsProvider);
       ref.invalidate(playedGamesProvider);
@@ -1220,49 +1231,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     }
 
     setState(() => _isCheckingUpdate = true);
-
-    final overlay = Overlay.of(context);
-    late OverlayEntry toastEntry;
-    toastEntry = OverlayEntry(
-      builder: (ctx) => Positioned(
-        top: MediaQuery.of(context).padding.top + 8,
-        left: MediaQuery.of(context).size.width / 2 - 120,
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 240,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 16, offset: const Offset(0, 4)),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    '正在检查更新...',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    overlay.insert(toastEntry);
+    AppTheme.showGlassToast(context, message: '正在检查更新...', icon: Icons.system_update, iconColor: AppTheme.primaryColor);
 
     try {
       final service = VersionCheckService();
@@ -1270,8 +1239,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         _currentGame.title!,
         _currentGame.version ?? '',
       );
-
-      toastEntry.remove();
 
       if (!mounted) return;
 
@@ -1283,7 +1250,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         AppTheme.showGlassToast(context, message: '未发现新版本');
       }
     } catch (e) {
-      toastEntry.remove();
       if (mounted) {
         setState(() => _isCheckingUpdate = false);
         AppTheme.showGlassToast(context, message: '检查更新失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
