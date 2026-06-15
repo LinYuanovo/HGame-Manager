@@ -4,7 +4,6 @@ import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../theme/app_theme.dart';
 import 'tag_games_page.dart';
-import 'cleared_games_page.dart';
 
 class CategoriesPage extends ConsumerStatefulWidget {
   const CategoriesPage({super.key});
@@ -64,9 +63,6 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
     final tagsAsync = ref.watch(provider);
     return tagsAsync.when(
       data: (tags) {
-        // 添加"已通关"特殊标签（仅在标签tab）
-        final showClearedTag = type == Tag.typeSeries;
-        
         // 过滤空标签（仅标签tab适用，系列tab不适用）
         final filteredEmptyTags = type == Tag.typeCustom
             ? tags.where((t) => t.gameCount > 0).toList()
@@ -87,7 +83,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           }
         }
         
-        if (filteredEmptyTags.isEmpty && !showClearedTag) {
+        if (filteredEmptyTags.isEmpty) {
           return EmptyStateWidget(
             icon: type == Tag.typeCustom ? Icons.label : Icons.category,
             message: type == Tag.typeCustom ? '暂无标签' : '暂无系列',
@@ -112,8 +108,8 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           filteredTags.sort((a, b) => b.gameCount.compareTo(a.gameCount)); // 标签按数量降序
         }
         
-        // 计算总数量（包括已通关标签）
-        final totalCount = filteredTags.length + (showClearedTag && searchQuery.isEmpty ? 1 : 0);
+        // 计算总数量
+        final totalCount = filteredTags.length;
         
         return Column(
           children: [
@@ -207,12 +203,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                 ),
                 itemCount: totalCount,
                 itemBuilder: (context, index) {
-                  // 第一个是"已通关"特殊标签
-                  if (showClearedTag && index == 0 && searchQuery.isEmpty) {
-                    return _buildClearedTagChip();
-                  }
-                  final tagIndex = showClearedTag && searchQuery.isEmpty ? index - 1 : index;
-                  final tag = filteredTags[tagIndex];
+                  final tag = filteredTags[index];
                   return _buildTagChip(tag);
                 },
               ),
@@ -301,58 +292,6 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                 ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildClearedTagChip() {
-    final clearedGamesAsync = ref.watch(clearedGamesProvider);
-    final gameCount = clearedGamesAsync.whenOrNull(data: (games) => games.length) ?? 0;
-    
-    return GestureDetector(
-      child: GlassCard(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ClearedGamesPage()),
-          ).then((_) {
-            ref.invalidate(allTagsProvider);
-            ref.invalidate(clearedGamesProvider);
-          });
-        },
-        child: Row(
-          children: [
-            const Icon(
-              Icons.emoji_events,
-              size: 16,
-              color: Color(0xFFFFD700),
-            ),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text(
-                '已通关',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFFFFD700)),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (gameCount > 0) ...[
-              const SizedBox(width: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFD700).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '$gameCount',
-                  style: TextStyle(fontSize: 14, color: Color(0xFFFFD700)),
-                ),
-              ),
-            ],
-            const SizedBox(width: 4),
-          ],
         ),
       ),
     );
