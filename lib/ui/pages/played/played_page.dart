@@ -83,7 +83,11 @@ class _PlayedPageState extends ConsumerState<PlayedPage> {
       if (_selectedGames.isNotEmpty) {
         gamesToScan = _selectedGames;
       } else {
-        gamesToScan = await repo.getPlayedAndClearedGames();
+        final allPlayed = await repo.getPlayedGames();
+        final sep = Platform.pathSeparator;
+        gamesToScan = allPlayed.where((g) =>
+          !g.path.contains('${sep}Cleared$sep')
+        ).toList();
       }
 
       int found = 0;
