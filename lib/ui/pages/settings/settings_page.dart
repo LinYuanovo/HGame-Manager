@@ -1108,6 +1108,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 const Text('本地游戏管理工具', style: TextStyle(color: AppTheme.textPrimary, fontSize: 14)),
               ],
             ),
+            const SizedBox(width: 32),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('作者', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                const SizedBox(height: 4),
+                const Text('临渊', style: TextStyle(color: AppTheme.textPrimary, fontSize: 14)),
+              ],
+            ),
           ],
         ),
       ],
