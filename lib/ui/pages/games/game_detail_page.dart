@@ -1417,41 +1417,43 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
         child: Positioned(
           top: 80,
           left: MediaQuery.of(context).size.width / 2 - 180,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              width: 360,
-              constraints: BoxConstraints(maxHeight: maxHeight),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 24, offset: const Offset(0, 4)),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.comment, size: 14, color: Colors.red),
-                      SizedBox(width: 6),
-                      Text('评论预览', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Flexible(
-                    child: SingleChildScrollView(
-                      child: Text(
-                        widget.review,
-                        style: const TextStyle(fontSize: 13, height: 1.5, color: AppTheme.textPrimary),
+          child: IgnorePointer(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 360,
+                constraints: BoxConstraints(maxHeight: maxHeight),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                  border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 24, offset: const Offset(0, 4)),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.comment, size: 14, color: Colors.red),
+                        SizedBox(width: 6),
+                        Text('评论预览', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Text(
+                          widget.review,
+                          style: const TextStyle(fontSize: 13, height: 1.5, color: AppTheme.textPrimary),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

@@ -383,10 +383,11 @@ class XpathParser extends SiteParser {
       final contentEl = XPathEvaluator.query(document, descXpath);
       if (contentEl != null) {
         for (final img in contentEl.querySelectorAll('img')) {
-          final src = img.attributes['zoomfile'] ??
+          final src = img.attributes['data-original'] ??
+              img.attributes['zoomfile'] ??
               img.attributes['file'] ??
-              img.attributes['data-original'] ??
               img.attributes['src'] ??
+              img.attributes['data-src'] ??
               '';
           if (src.isNotEmpty &&
               !src.contains('static/image/common') &&

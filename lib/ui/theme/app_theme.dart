@@ -369,45 +369,36 @@ class AppTheme {
     late OverlayEntry overlayEntry;
 
     overlayEntry = OverlayEntry(
-      builder: (context) => ExcludeSemantics(
-        child: Positioned(
+      builder: (context) => Positioned(
         top: 40,
         left: 0,
         right: 0,
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.0, end: 1.0),
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-          builder: (context, value, child) => Opacity(
-            opacity: value,
-            child: Transform.translate(
-              offset: Offset(0, -20 * (1 - value)),
-              child: Center(child: child),
-            ),
-          ),
+        child: IgnorePointer(
           child: Material(
             color: Colors.transparent,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 4)),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(icon, size: 18, color: iconColor),
-                      const SizedBox(width: 8),
-                      Text(message, style: const TextStyle(fontSize: 16, color: AppTheme.textPrimary)),
-                    ],
+            child: Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 4)),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(icon, size: 18, color: iconColor),
+                        const SizedBox(width: 8),
+                        Text(message, style: const TextStyle(fontSize: 16, color: AppTheme.textPrimary)),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -415,7 +406,6 @@ class AppTheme {
           ),
         ),
       ),
-    ),
     );
 
     overlay.insert(overlayEntry);
@@ -1165,29 +1155,31 @@ void showCopyToast(BuildContext context, String text) {
   overlayEntry = OverlayEntry(
     builder: (ctx) => ExcludeSemantics(
       child: Positioned(
-      top: 60,
-      left: MediaQuery.of(context).size.width * 0.3,
-      right: MediaQuery.of(context).size.width * 0.3,
-      child: Material(
-        color: Colors.transparent,
-        child: Center(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(
-                sigmaX: GlassConstants.blurSmall,
-                sigmaY: GlassConstants.blurSmall,
-              ),
-              child: _CopyToastContent(
-                text: text,
-                onRemove: () => overlayEntry.remove(),
+        top: 60,
+        left: MediaQuery.of(context).size.width * 0.3,
+        right: MediaQuery.of(context).size.width * 0.3,
+        child: IgnorePointer(
+          child: Material(
+            color: Colors.transparent,
+            child: Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(
+                    sigmaX: GlassConstants.blurSmall,
+                    sigmaY: GlassConstants.blurSmall,
+                  ),
+                  child: _CopyToastContent(
+                    text: text,
+                    onRemove: () => overlayEntry.remove(),
+                  ),
+                ),
               ),
             ),
           ),
         ),
       ),
     ),
-  ),
   );
 
   overlay.insert(overlayEntry);

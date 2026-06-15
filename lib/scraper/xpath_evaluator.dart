@@ -107,10 +107,29 @@ class XPathEvaluator {
     if (trimmed.endsWith('/text()')) {
       final baseXpath = trimmed.substring(0, trimmed.length - '/text()'.length);
       final el = query(doc, baseXpath);
-      return el?.text.trim();
+      if (el == null) return null;
+      return _elementToText(el).trim();
     }
     final el = query(doc, xpath);
-    return el?.text.trim();
+    if (el == null) return null;
+    return _elementToText(el).trim();
+  }
+
+  /// Convert element to text, preserving <br> as newlines.
+  static String _elementToText(Element el) {
+    final buf = StringBuffer();
+    for (final node in el.nodes) {
+      if (node is Text) {
+        buf.write(node.text);
+      } else if (node is Element) {
+        if (node.localName == 'br') {
+          buf.write('\n');
+        } else {
+          buf.write(_elementToText(node));
+        }
+      }
+    }
+    return buf.toString();
   }
 
   static String? queryAttribute(Document doc, String xpath) {
