@@ -83,13 +83,38 @@ Future<http.Client> createProxyClientFromPrefs() async {
   return createProxyClient(proxyMode: proxyMode, proxyUrl: proxyUrl);
 }
 
-/// Get cookie string for a specific site from preferences
+Future<String> getEffectiveDomain(String siteKey) async {
+  final prefs = await AppSettings.load();
+  final customDomain = prefs.getString('domain_$siteKey') ?? '';
+  if (customDomain.isNotEmpty) return customDomain;
+  switch (siteKey) {
+    case 'acgying': return 'acgyyg.ru';
+    case 'feixue': return 'feixueacg.org';
+    case 'vikacg': return 'vikacg.com';
+    default: return '';
+  }
+}
+
 Future<String> getCookieForSite(String url) async {
   final prefs = await AppSettings.load();
   final uri = Uri.tryParse(url);
   if (uri == null) return '';
-
   final host = uri.host.toLowerCase();
+
+  final domainAcgying = prefs.getString('domain_acgying') ?? '';
+  final domainFeixue = prefs.getString('domain_feixue') ?? '';
+  final domainVikacg = prefs.getString('domain_vikacg') ?? '';
+
+  if (domainAcgying.isNotEmpty && host.contains(domainAcgying.toLowerCase())) {
+    return prefs.getString('cookie_acgying') ?? '';
+  }
+  if (domainFeixue.isNotEmpty && host.contains(domainFeixue.toLowerCase())) {
+    return prefs.getString('cookie_feixue') ?? '';
+  }
+  if (domainVikacg.isNotEmpty && host.contains(domainVikacg.toLowerCase())) {
+    return prefs.getString('cookie_vikacg') ?? '';
+  }
+
   if (host.contains('acgyyg') || host.contains('acgying')) {
     return prefs.getString('cookie_acgying') ?? '';
   } else if (host.contains('feixueacg') || host.contains('feixue')) {
@@ -100,8 +125,6 @@ Future<String> getCookieForSite(String url) async {
   return '';
 }
 
-/// Build request headers with User-Agent and site-specific authentication.
-/// VikACG/weika uses Authorization header; other sites use Cookie.
 Future<Map<String, String>> buildScrapeHeaders(String url) async {
   final cookie = await getCookieForSite(url);
   final headers = <String, String>{
@@ -112,7 +135,11 @@ Future<Map<String, String>> buildScrapeHeaders(String url) async {
   if (cookie.isNotEmpty) {
     final uri = Uri.tryParse(url);
     final host = uri?.host.toLowerCase() ?? '';
-    if (host.contains('vikacg') || host.contains('weika')) {
+    final prefs = await AppSettings.load();
+    final domainVikacg = prefs.getString('domain_vikacg') ?? '';
+    final isVikacg = host.contains('vikacg') || host.contains('weika') ||
+        (domainVikacg.isNotEmpty && host.contains(domainVikacg.toLowerCase()));
+    if (isVikacg) {
       headers['Authorization'] = cookie;
     } else {
       headers['Cookie'] = cookie;
