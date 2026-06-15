@@ -398,6 +398,15 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               ),
             ),
           ),
+          SizedBox(
+            width: 32,
+            child: IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 14),
+              color: AppTheme.textSecondary,
+              tooltip: '编辑来源',
+              onPressed: () => _editSourceUrl(item),
+            ),
+          ),
         ],
       ),
     );
@@ -858,6 +867,54 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       _processStatus = '已取消';
     });
     _addLog('用户取消了操作');
+  }
+
+  Future<void> _editSourceUrl(_GameScrapeItem item) async {
+    final controller = TextEditingController(text: item.game.sourceUrl ?? '');
+    final newUrl = await showGlassDialog<String>(
+      context: context,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('编辑来源链接', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(hintText: '输入来源URL'),
+              autofocus: true,
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, controller.text.trim()),
+                  child: const Text('保存'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (newUrl != null && newUrl.isNotEmpty) {
+      setState(() {
+        item.game = item.game.copyWith(sourceUrl: newUrl);
+      });
+      try {
+        final sourceUrlFile = File(path.join(item.game.path, 'source_url.txt'));
+        await sourceUrlFile.writeAsString(newUrl, flush: true);
+      } catch (_) {}
+    }
   }
 
   static final _versionPattern = RegExp(r'\s+(?:build|v(?:er(?:sion)?)?)\s*\.?\d+(?:[\d.]*\d+)?\s*', caseSensitive: false);
