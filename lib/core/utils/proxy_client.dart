@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
@@ -100,6 +101,21 @@ Future<String> getCookieForSite(String url) async {
   final uri = Uri.tryParse(url);
   if (uri == null) return '';
   final host = uri.host.toLowerCase();
+
+  final jsonStr = prefs.getString('xpath_parsers');
+  if (jsonStr != null && jsonStr.isNotEmpty) {
+    try {
+      final List<dynamic> list = jsonDecode(jsonStr);
+      for (final item in list) {
+        if (item is! Map<String, dynamic>) continue;
+        final domain = (item['domain'] as String? ?? '').toLowerCase();
+        final cookie = item['cookie'] as String? ?? '';
+        if (domain.isNotEmpty && cookie.isNotEmpty && host.contains(domain)) {
+          return cookie;
+        }
+      }
+    } catch (_) {}
+  }
 
   final domainAcgying = prefs.getString('domain_acgying') ?? '';
   final domainFeixue = prefs.getString('domain_feixue') ?? '';

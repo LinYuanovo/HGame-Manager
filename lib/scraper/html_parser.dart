@@ -123,7 +123,8 @@ class HtmlScraper {
           }
         }
         if (xpathMap.isNotEmpty) {
-          ParserRegistry.register(XpathParser(domain, xpathMap));
+          final cookie = item['cookie'] as String?;
+          ParserRegistry.register(XpathParser(domain, xpathMap, cookie: cookie));
           _log.info('Scraper', 'Loaded XPath parser for domain: $domain');
         }
       }
@@ -304,8 +305,11 @@ String? _collapseNewlines(String? text) {
 class XpathParser extends SiteParser {
   final String _domain;
   final Map<String, String> _xpaths;
+  final String? _cookie;
 
-  XpathParser(this._domain, this._xpaths);
+  XpathParser(this._domain, this._xpaths, {String? cookie}) : _cookie = cookie;
+
+  String? get cookie => _cookie;
 
   @override
   String get domain => _domain;

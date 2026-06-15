@@ -740,6 +740,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final name = cfg['name'] ?? '';
     final fields = [
       MapEntry('title', '标题'),
+      MapEntry('cookie', 'Cookie'),
       MapEntry('description', '内容/介绍'),
       MapEntry('images', '图片'),
       MapEntry('downloadLinks', '下载链接'),
@@ -2080,6 +2081,7 @@ class _XpathConfigDialog extends StatefulWidget {
 class _XpathConfigDialogState extends State<_XpathConfigDialog> {
   late final TextEditingController _domainController;
   late final TextEditingController _nameController;
+  late final TextEditingController _cookieController;
   late final Map<String, TextEditingController> _fieldControllers;
 
   static const _fieldDefs = [
@@ -2100,6 +2102,7 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
     final cfg = widget.initialConfig ?? {};
     _domainController = TextEditingController(text: cfg['domain'] ?? '');
     _nameController = TextEditingController(text: cfg['name'] ?? '');
+    _cookieController = TextEditingController(text: cfg['cookie'] ?? '');
     _fieldControllers = {
       for (final def in _fieldDefs)
         def.key: TextEditingController(text: cfg[def.key] ?? ''),
@@ -2110,6 +2113,7 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
   void dispose() {
     _domainController.dispose();
     _nameController.dispose();
+    _cookieController.dispose();
     for (final c in _fieldControllers.values) {
       c.dispose();
     }
@@ -2137,6 +2141,11 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
       if (val.isNotEmpty) {
         config[def.key] = val;
       }
+    }
+
+    final cookieVal = _cookieController.text.trim();
+    if (cookieVal.isNotEmpty) {
+      config['cookie'] = cookieVal;
     }
 
     widget.onSave(config);
@@ -2185,6 +2194,8 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
                     _buildTextField('域名 *', _domainController, '例如: newgameforum.com'),
                     const SizedBox(height: 12),
                     _buildTextField('站点名称', _nameController, '例如: 新游戏论坛 (可选)'),
+                    const SizedBox(height: 12),
+                    _buildTextField('Cookie (可选)', _cookieController, '粘贴浏览器 Cookie，刮削时携带'),
                     const SizedBox(height: 16),
                     ..._fieldDefs.map((def) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
