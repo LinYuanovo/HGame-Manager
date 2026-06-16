@@ -249,9 +249,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                 ),
                               ),
                             ),
-                        ],
-                      ),
-                    ),
+            ],
+          ),
+        ),
+      ),
                     const SizedBox(width: 16),
                   ],
                   _buildViewModeToggle(),
@@ -642,10 +643,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               const SizedBox(width: 6),
               Text(widget.scanProgress, style: TextStyle(fontSize: 13, color: AppTheme.primaryColor)),
             ],
-          ),
         ),
-      );
-    }
+      ),
+    );
+  }
     return Tooltip(
       message: '扫描存档位置',
       child: GestureDetector(
@@ -825,26 +826,20 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   Widget _buildListView(List<Game> games) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final imgW = constraints.maxWidth / 4;
-      final imgH = constraints.maxHeight / 3;
-      return ListView.separated(
-        controller: _scrollController,
-        padding: const EdgeInsets.all(GlassConstants.spacingMedium),
-        itemCount: games.length,
-        separatorBuilder: (_, __) =>
-            Divider(height: 1, color: AppTheme.borderColor.withValues(alpha: 0.3)),
-        itemBuilder: (_, index) => StaggeredItem(
-          index: index,
-          child: _buildListItem(games[index], imgW, imgH),
-        ),
-      );
-    });
+    return ListView.separated(
+      controller: _scrollController,
+      padding: const EdgeInsets.all(GlassConstants.spacingMedium),
+      itemCount: games.length,
+      separatorBuilder: (_, __) =>
+          Divider(height: 1, color: AppTheme.borderColor.withValues(alpha: 0.3)),
+      itemBuilder: (_, index) => StaggeredItem(
+        index: index,
+        child: _buildListItem(games[index]),
+      ),
+    );
   }
 
-  Widget _buildListItem(Game game, [double? imgW, double? imgH]) {
-    final w = imgW ?? 70;
-    final h = imgH ?? 90;
+  Widget _buildListItem(Game game) {
     final isBackupOnly = game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
     final isSelected = _multiSelectController.isSelected(game);
     return GestureDetector(
@@ -873,13 +868,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-          child: Row(
-            children: [
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
                 child: Stack(
                   children: [
-                    _buildGameCover(game, width: w, height: h),
+                    _buildGameCover(game, width: 120),
                     if (isBackupOnly)
                       Positioned(
                         top: 4,
@@ -991,7 +988,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               _buildFavoriteButton(game),
               const SizedBox(width: 8),
               _buildPlayInfo(game),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1523,9 +1521,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                       ],
                     ),
                   ],
-                ),
-              ),
-            );
+        ),
+      ),
+      ),
+    );
             if (confirmed == true) {
               try {
                 await launchUrl(Uri.file(game.savePath!));
