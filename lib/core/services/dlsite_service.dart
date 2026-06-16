@@ -45,9 +45,12 @@ class DlsiteService {
     return 'https://www.dlsite.com/maniax/work/=/product_id/$id.html/?locale=zh_CN';
   }
 
-  List<String> extractKeywords(String folderPath) {
+  /// 从文件夹提取游戏名
+  /// 1. 下划线替换为空格
+  /// 2. 清理版本号和括号
+  String? extractGameName(String folderPath) {
     final dir = Directory(folderPath);
-    if (!dir.existsSync()) return [];
+    if (!dir.existsSync()) return null;
 
     // 尝试从exe名提取
     String? gameName;
@@ -72,52 +75,13 @@ class DlsiteService {
     // 回退到文件夹名
     gameName ??= path.basename(folderPath);
 
-    // 将下划线替换为空格
+    // 1. 下划线替换为空格
     gameName = gameName.replaceAll('_', ' ');
 
-    // 清理版本号和括号
+    // 2. 清理版本号和括号
     gameName = _cleanGameName(gameName);
-    if (gameName.isEmpty) return [];
 
-    // 提取关键词（参考VersionCheckService）
-    return _extractKeywords(gameName);
-  }
-
-  List<String> _extractKeywords(String title) {
-    final tokens = title.split(RegExp(r'\s+'));
-
-    const filterWords = ['官中', '+', '存档', '汉化', 'steam', '官方', '中文', '英文', '日文'];
-    final filtered = tokens.where((t) {
-      return !filterWords.any((w) => t.toLowerCase().contains(w.toLowerCase()));
-    }).toList();
-
-    final subTokens = <String>[];
-    for (final token in filtered) {
-      subTokens.addAll(token.split(RegExp(r'[/\-]')));
-    }
-
-    final merged = <String>[];
-    final buffer = StringBuffer();
-
-    for (final token in subTokens) {
-      if (token.isEmpty) continue;
-      final isEnglish = RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(token);
-      if (isEnglish) {
-        if (buffer.isNotEmpty) buffer.write(' ');
-        buffer.write(token);
-      } else {
-        if (buffer.isNotEmpty) {
-          merged.add(buffer.toString().trim());
-          buffer.clear();
-        }
-        merged.add(token);
-      }
-    }
-    if (buffer.isNotEmpty) {
-      merged.add(buffer.toString().trim());
-    }
-
-    return merged.where((k) => k.isNotEmpty).toList();
+    return gameName.isEmpty ? null : gameName;
   }
 
   String _cleanGameName(String name) {
@@ -153,44 +117,42 @@ class DlsiteService {
     }
   }
 
-  /// 搜索游戏，支持回退搜索（先完整关键词，再截断关键词）
+  /// 搜索游戏，支持回退搜索
+  /// 1. 直接用游戏名搜索（搜到即停）
+  /// 2. 搜不到按照空格分词，倒序依次去掉空格搜索（中途命中即停）
+  ///
+  /// 例如游戏名 "SiNiSistar 2"：
+  /// - 搜索 "SiNiSistar 2" → 无结果
+  /// - 搜索 "SiNiSistar2" → 有结果，停止
   Future<List<DlsiteSearchResult>> searchWithFallback(String folderPath) async {
-    final keywords = extractKeywords(folderPath);
-    if (keywords.isEmpty) return [];
+    final gameName = extractGameName(folderPath);
+    if (gameName == null || gameName.isEmpty) return [];
 
-    // 第一轮：完整关键词搜索
-    final allResults = <DlsiteSearchResult>[];
-    final seenIds = <String>{};
+    // 第一步：直接用完整游戏名搜索
+    final results = await search(gameName);
+    if (results.isNotEmpty) return results;
 
-    for (final keyword in keywords) {
-      final results = await search(keyword);
-      for (final r in results) {
-        if (!seenIds.contains(r.id)) {
-          seenIds.add(r.id);
-          allResults.add(r);
-        }
-      }
+    // 第二步：按空格分词，倒序去掉空格搜索
+    final parts = gameName.split(RegExp(r'\s+'));
+    if (parts.length <= 1) return [];
+
+    // 从最后一个空格开始，逐步合并后面的词
+    for (int i = parts.length - 1; i >= 1; i--) {
+      // 合并：前i个部分保持空格，后面的部分合并
+      final merged = [...parts.sublist(0, i), parts.sublist(i).join()].join(' ');
+      if (merged == gameName) continue; // 跳过和原始相同的
+      final partialResults = await search(merged);
+      if (partialResults.isNotEmpty) return partialResults;
     }
 
-    if (allResults.isNotEmpty) return allResults;
-
-    // 第二轮：截断关键词搜索（取前4个字符）
-    final secondaryKeywords = keywords
-        .where((k) => k.length > 4)
-        .map((k) => k.substring(0, 4))
-        .toList();
-
-    for (final keyword in secondaryKeywords) {
-      final results = await search(keyword);
-      for (final r in results) {
-        if (!seenIds.contains(r.id)) {
-          seenIds.add(r.id);
-          allResults.add(r);
-        }
-      }
+    // 最后尝试全部合并（无空格）
+    final fullMerged = parts.join();
+    if (fullMerged != gameName) {
+      final finalResults = await search(fullMerged);
+      if (finalResults.isNotEmpty) return finalResults;
     }
 
-    return allResults;
+    return [];
   }
 
   List<DlsiteSearchResult> _parseSearchResults(String html) {
@@ -357,7 +319,7 @@ class DlsiteService {
   Future<Map<String, String>> _buildHeaders() async {
     return {
       'User-Agent': 'HGame-Manager/1.0',
-      'Cookie': 'adultchecked=1; locale=ja',
+      'Cookie': 'adultchecked=1; locale=zh_CN',
       'Accept-Language': 'ja,en;q=0.8',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     };
