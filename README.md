@@ -46,11 +46,13 @@
 
 #### 直接使用
 
-Windows 系统在 [releases](https://github.com/LinYuanovo/HGame-Manager/releases) 页面直接下载 zip 压缩包后**解压**即可使用([网盘下载](https://docs.qq.com/sheet/DVXZ6U2xmbFZuVGtQ?tab=BB08J2))
+Windows 系统在 [releases](https://github.com/LinYuanovo/HGame-Manager/releases) 页面直接下载 zip 压缩包后**解压**即可使用([网盘](https://docs.qq.com/sheet/DVXZ6U2xmbFZuVGtQ?tab=BB08J2))
 
 #### 使用教程
 
-[图文教程](https://github.com/LinYuanovo/HGame-Manager/blob/master/%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B.docx)
+- [图文教程](https://github.com/LinYuanovo/HGame-Manager/blob/master/%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B.docx)
+
+- [视频教程在网盘内](https://docs.qq.com/sheet/DVXZ6U2xmbFZuVGtQ?tab=BB08J2)
 
 #### 自行构建
 
@@ -124,6 +126,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 ### 刮削中心
 
 - **多站点支持**：[ACG嘤嘤怪](https://acgyyg.ru/) / [飞雪ACG](https://feixueacg.org/)/ [维咔ACG](https://www.vikacg.com/)
+- **DLsite导入**: 支持通过RJ号或游戏名称从DLsite导入游戏信息和封面图
 - **自动整理**：刮削后按系列分类移动到整理目录
 - **智能标签**：自动关联重叠标签（如"互动SLG" → "SLG"）
 
@@ -152,11 +155,11 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 - **图片轮播**：支持键盘导航
 - **大图查看**：80% 窗口大小的图片查看器
-- **图片管理**：自定义添加、删除、拖拽排序图片
-- **封面设置**：拖拽排序第一张自动设为封面
+- **图片管理**：自定义添加、删除、排序图片
 - **下载链接**：网盘按钮双击复制
 - **解压码**：独立显示，双击复制
 - **编辑模式**：可编辑版本号、标签、下载地址、解压码等
+- **检查更新**：根据已有版本号检查更新
 
 ![游戏详情页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/game_detail_page.png)
 

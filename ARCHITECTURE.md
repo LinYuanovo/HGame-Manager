@@ -374,6 +374,7 @@ class GlassConstants {
 - ACG嘤嘤怪
 - 飞雪ACG
 - 微咔ACG
+- DLsite
 
 ### 抓取流程
 1. 解析 HTML 页面
