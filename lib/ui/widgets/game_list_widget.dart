@@ -66,22 +66,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   int get _itemsPerPage {
     if (_viewMode == ViewMode.list) return _listItemsPerPage;
-    // 海报模式：根据窗口高度和列数动态计算
-    final windowHeight = WidgetsBinding.instance.window.physicalSize.height /
-        WidgetsBinding.instance.window.devicePixelRatio;
-    final availableHeight = windowHeight - 160; // 减去工具栏+分页栏+边距
-    final isFixed = ref.read(isFixedColumnCountProvider);
-    final fixedCount = ref.read(fixedColumnCountProvider);
-    final crossAxisCount = isFixed ? fixedCount.clamp(2, 8) : 3;
-    final windowWidth = WidgetsBinding.instance.window.physicalSize.width /
-        WidgetsBinding.instance.window.devicePixelRatio;
-    final totalSpacing = (crossAxisCount - 1) * 16.0 + 40.0;
-    final itemWidth = (windowWidth - totalSpacing) / crossAxisCount;
-    final imageHeight = itemWidth * 9 / 16;
-    final itemHeight = imageHeight + 62.0; // image + title area
-    final rows = (availableHeight / (itemHeight + 16)).floor().clamp(1, 10);
-    return (rows * crossAxisCount).clamp(1, 50);
+    // 海报模式：在 _buildPosterView 中基于实际可用高度动态计算
+    // 这里返回一个默认值，实际值在 buildPosterView 中通过 setState 更新
+    return _posterItemsPerPage;
   }
+
+  int _posterItemsPerPage = 6; // 由 _buildPosterView 动态更新
 
   @override
   void initState() {
@@ -454,7 +444,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       _currentPage = 0;
       _savedPage = -1;
     });
-    _saveSetting('game_list_items_per_page', count.toString());
+    ref.read(sharedPreferencesProvider).setInt('game_list_items_per_page', count);
   }
 
   Widget _buildListItemsPerPageInput() {
@@ -1093,6 +1083,17 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final titleAreaHeight = 62.0;
       final itemHeight = imageHeight + titleAreaHeight;
       final aspectRatio = itemWidth / itemHeight;
+
+      // 根据实际可用高度计算海报模式每页数量
+      final rows = (constraints.maxHeight / (itemHeight + 16)).floor().clamp(1, 10);
+      final newItemsPerPage = (rows * crossAxisCount).clamp(1, 50);
+      if (newItemsPerPage != _posterItemsPerPage) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _posterItemsPerPage = newItemsPerPage);
+          }
+        });
+      }
 
       return GridView.builder(
         controller: _scrollController,
