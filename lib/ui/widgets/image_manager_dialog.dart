@@ -95,7 +95,13 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
     }
   }
 
-  void _deleteImage(int index) {
+  Future<void> _deleteImage(int index) async {
+    final image = _images[index];
+    // 只删除 game_images 目录下的图片，避免误删游戏目录中的图片
+    final storageDir = await _imageService.getImageStorageDir();
+    if (image.imagePath.startsWith(storageDir)) {
+      await _imageService.deleteImageFile(image.imagePath);
+    }
     setState(() => _images.removeAt(index));
   }
 

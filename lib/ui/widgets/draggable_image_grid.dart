@@ -6,7 +6,7 @@ import '../theme/app_theme.dart';
 class DraggableImageGrid extends StatelessWidget {
   final List<GameImage> images;
   final Function(List<GameImage>) onReorder;
-  final Function(int index) onDelete;
+  final Future<void> Function(int index) onDelete;
   final Function(int index) onTap;
 
   const DraggableImageGrid({
