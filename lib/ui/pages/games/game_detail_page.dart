@@ -843,9 +843,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Widget _buildRichIntro(String content, double fontSize) {
-    // 检查是否包含图片标记
-    final imagePattern = RegExp(r'\[图片:(.*?)\]');
-    if (!imagePattern.hasMatch(content)) {
+    // 检查是否包含图片标记 [图片:xxx]
+    final imageTagStart = '[图片:';
+    final imageTagEnd = ']';
+    
+    if (!content.contains(imageTagStart)) {
       // 没有图片标记，使用原来的纯文本显示
       final lines = content.split('\n');
       final spans = <InlineSpan>[];
@@ -866,34 +868,15 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     }
 
     // 包含图片标记，使用 Column 组合文本和图片
-    final parts = content.split(imagePattern);
     final widgets = <Widget>[];
+    final lines = content.split('\n');
     
-    for (var i = 0; i < parts.length; i++) {
-      if (i % 2 == 0) {
-        // 文本部分
-        final text = parts[i].trim();
-        if (text.isNotEmpty) {
-          final lines = text.split('\n');
-          final spans = <InlineSpan>[];
-          for (var j = 0; j < lines.length; j++) {
-            final line = lines[j].trimRight();
-            final isHeading = RegExp(r'^.{1,6}[：:]\s*$').hasMatch(line);
-            if (isHeading && j > 0 && lines[j - 1].trim().isNotEmpty) {
-              spans.add(const TextSpan(text: '\n'));
-            }
-            spans.add(TextSpan(
-              text: '$line\n',
-              style: isHeading
-                  ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)
-                  : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.textPrimary),
-            ));
-          }
-          widgets.add(SelectableText.rich(TextSpan(children: spans)));
-        }
-      } else {
-        // 图片部分
-        final imagePath = parts[i];
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      
+      // 检查是否是图片标记行
+      if (line.startsWith(imageTagStart) && line.endsWith(imageTagEnd)) {
+        final imagePath = line.substring(imageTagStart.length, line.length - imageTagEnd.length);
         final file = File(imagePath);
         if (file.existsSync()) {
           widgets.add(
@@ -913,6 +896,20 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ),
           );
         }
+      } else {
+        // 普通文本行
+        final isHeading = RegExp(r'^.{1,6}[：:]\s*$').hasMatch(line);
+        if (isHeading && i > 0 && lines[i - 1].trim().isNotEmpty) {
+          widgets.add(const SizedBox(height: 8));
+        }
+        widgets.add(
+          SelectableText(
+            line,
+            style: isHeading
+                ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)
+                : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.textPrimary),
+          ),
+        );
       }
     }
 
