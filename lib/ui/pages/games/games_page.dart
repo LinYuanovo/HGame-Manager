@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -469,6 +470,9 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
   String? _folderPath;
   bool _isLoading = false;
   String _statusText = '';
+  List<DlsiteSearchResult> _searchResults = [];
+  DlsiteSearchResult? _selectedResult;
+  bool _showSearchResults = false;
 
   @override
   void dispose() {
@@ -481,21 +485,70 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
     if (result != null) {
       setState(() {
         _folderPath = result;
-        if (_idController.text.isEmpty) {
-          final gameName = _dlsiteService.extractGameNameFromFolder(result);
-          if (gameName != null) {
-            _statusText = '将使用名称搜索: $gameName';
-          }
-        }
+        _searchResults = [];
+        _selectedResult = null;
+        _showSearchResults = false;
       });
     }
   }
 
-  Future<void> _import() async {
+  Future<void> _searchGame() async {
     if (_folderPath == null) {
       AppTheme.showGlassToast(
         context,
-        message: '请选择游戏文件夹',
+        message: '请先选择游戏文件夹',
+        icon: Icons.warning_amber,
+        iconColor: AppTheme.warningColor,
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _statusText = '正在搜索...';
+      _searchResults = [];
+      _selectedResult = null;
+    });
+
+    try {
+      List<DlsiteSearchResult> results;
+
+      final inputId = _idController.text.trim();
+      if (inputId.isNotEmpty) {
+        final normalizedId = _dlsiteService.normalizeId(inputId);
+        if (normalizedId != null) {
+          results = [DlsiteSearchResult(id: normalizedId, name: 'ID: $normalizedId')];
+        } else {
+          setState(() => _statusText = '无效的DLsite ID');
+          return;
+        }
+      } else {
+        results = await _dlsiteService.searchWithFallback(_folderPath!);
+      }
+
+      setState(() {
+        _searchResults = results;
+        _showSearchResults = true;
+        if (results.isEmpty) {
+          _statusText = '未找到游戏，请尝试手动输入ID';
+        } else {
+          _statusText = '找到 ${results.length} 个结果，请选择';
+        }
+      });
+    } catch (e) {
+      setState(() => _statusText = '搜索失败: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _import() async {
+    if (_folderPath == null || _selectedResult == null) {
+      AppTheme.showGlassToast(
+        context,
+        message: '请选择游戏文件夹和搜索结果',
         icon: Icons.warning_amber,
         iconColor: AppTheme.warningColor,
       );
@@ -513,36 +566,18 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
 
       final existingGame = await repo.getGameByPath(_folderPath!);
 
-      GameInfo? gameInfo;
-      final inputId = _idController.text.trim();
-
-      if (inputId.isNotEmpty) {
-        final normalizedId = _dlsiteService.normalizeId(inputId);
-        if (normalizedId != null) {
-          setState(() => _statusText = '正在通过ID获取: $normalizedId');
-          gameInfo = await _dlsiteService.fetchById(normalizedId);
-        } else {
-          setState(() => _statusText = '无效的DLsite ID');
-          return;
-        }
-      } else {
-        final gameName = _dlsiteService.extractGameNameFromFolder(_folderPath!);
-        if (gameName != null && gameName.isNotEmpty) {
-          setState(() => _statusText = '正在搜索: $gameName');
-          gameInfo = await _dlsiteService.fetchByName(gameName);
-        }
-      }
+      setState(() => _statusText = '正在通过ID获取: ${_selectedResult!.id}');
+      final gameInfo = await _dlsiteService.fetchById(_selectedResult!.id);
 
       if (gameInfo == null) {
-        setState(() => _statusText = '未找到游戏信息');
+        setState(() => _statusText = '获取游戏信息失败');
         return;
       }
 
       setState(() => _statusText = '正在下载封面图...');
 
-      String? coverPath;
       if (gameInfo.screenshots.isNotEmpty) {
-        coverPath = await _dlsiteService.downloadCoverImage(
+        await _dlsiteService.downloadCoverImage(
           gameInfo.screenshots.first,
           _folderPath!,
         );
@@ -636,7 +671,8 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
     return Padding(
       padding: const EdgeInsets.all(28),
       child: SizedBox(
-        width: 500,
+        width: 550,
+        height: _showSearchResults ? 600 : 400,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -683,17 +719,33 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
               ],
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _idController,
-              decoration: InputDecoration(
-                hintText: '输入DLsite ID (如 RJ123456)，留空则按文件夹名称搜索',
-                hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _idController,
+                    decoration: InputDecoration(
+                      hintText: '输入DLsite ID (如 RJ123456)，留空按名称搜索',
+                      hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    style: const TextStyle(fontSize: 13),
+                  ),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              ),
-              style: const TextStyle(fontSize: 13),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _searchGame,
+                  icon: const Icon(Icons.search, size: 16),
+                  label: const Text('搜索'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             if (_statusText.isNotEmpty)
@@ -709,6 +761,72 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
                   ),
                 ),
               ),
+            if (_showSearchResults && _searchResults.isNotEmpty) ...[
+              const Text(
+                '选择游戏:',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textPrimary),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceColor.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                    border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.15)),
+                  ),
+                  child: ListView.builder(
+                    itemCount: _searchResults.length,
+                    itemBuilder: (context, index) {
+                      final result = _searchResults[index];
+                      final isSelected = _selectedResult?.id == result.id;
+                      return ListTile(
+                        leading: Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            color: AppTheme.surfaceColor,
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: CachedNetworkImage(
+                              imageUrl: 'https://img.dlsite.jp/resize/images2/work/doujin/${result.id.substring(0, result.id.length - 4)}0000/${result.id}_img_main_240x240.jpg',
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => const Center(
+                                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                              ),
+                              errorWidget: (context, url, error) => const Icon(Icons.gamepad, color: AppTheme.textSecondary),
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          result.name ?? result.id,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          result.id,
+                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                        ),
+                        selected: isSelected,
+                        selectedTileColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        onTap: () {
+                          setState(() {
+                            _selectedResult = result;
+                          });
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -718,7 +836,7 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton(
-                  onPressed: _isLoading ? null : _import,
+                  onPressed: (_isLoading || _selectedResult == null) ? null : _import,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
@@ -733,7 +851,7 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('导入'),
+                      : const Text('导入选中'),
                 ),
               ],
             ),

@@ -45,10 +45,12 @@ class DlsiteService {
     return 'https://www.dlsite.com/maniax/work/=/product_id/$id.html/?locale=zh_CN';
   }
 
-  String? extractGameNameFromFolder(String folderPath) {
+  List<String> extractKeywords(String folderPath) {
     final dir = Directory(folderPath);
-    if (!dir.existsSync()) return null;
+    if (!dir.existsSync()) return [];
 
+    // 尝试从exe名提取
+    String? gameName;
     final exeFiles = dir.listSync()
         .whereType<File>()
         .where((f) => f.path.toLowerCase().endsWith('.exe'))
@@ -63,14 +65,59 @@ class DlsiteService {
           exeName.contains('renpy')) {
         continue;
       }
-
-      var gameName = path.basenameWithoutExtension(exe.path);
-      gameName = _cleanGameName(gameName);
-      if (gameName.isNotEmpty) return gameName;
+      gameName = path.basenameWithoutExtension(exe.path);
+      break;
     }
 
-    final folderName = path.basename(folderPath);
-    return _cleanGameName(folderName);
+    // 回退到文件夹名
+    gameName ??= path.basename(folderPath);
+
+    // 将下划线替换为空格
+    gameName = gameName.replaceAll('_', ' ');
+
+    // 清理版本号和括号
+    gameName = _cleanGameName(gameName);
+    if (gameName.isEmpty) return [];
+
+    // 提取关键词（参考VersionCheckService）
+    return _extractKeywords(gameName);
+  }
+
+  List<String> _extractKeywords(String title) {
+    final tokens = title.split(RegExp(r'\s+'));
+
+    const filterWords = ['官中', '+', '存档', '汉化', 'steam', '官方', '中文', '英文', '日文'];
+    final filtered = tokens.where((t) {
+      return !filterWords.any((w) => t.toLowerCase().contains(w.toLowerCase()));
+    }).toList();
+
+    final subTokens = <String>[];
+    for (final token in filtered) {
+      subTokens.addAll(token.split(RegExp(r'[/\-]')));
+    }
+
+    final merged = <String>[];
+    final buffer = StringBuffer();
+
+    for (final token in subTokens) {
+      if (token.isEmpty) continue;
+      final isEnglish = RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(token);
+      if (isEnglish) {
+        if (buffer.isNotEmpty) buffer.write(' ');
+        buffer.write(token);
+      } else {
+        if (buffer.isNotEmpty) {
+          merged.add(buffer.toString().trim());
+          buffer.clear();
+        }
+        merged.add(token);
+      }
+    }
+    if (buffer.isNotEmpty) {
+      merged.add(buffer.toString().trim());
+    }
+
+    return merged.where((k) => k.isNotEmpty).toList();
   }
 
   String _cleanGameName(String name) {
@@ -104,6 +151,46 @@ class DlsiteService {
       _log.error('DlsiteService', 'Search error', e);
       return [];
     }
+  }
+
+  /// 搜索游戏，支持回退搜索（先完整关键词，再截断关键词）
+  Future<List<DlsiteSearchResult>> searchWithFallback(String folderPath) async {
+    final keywords = extractKeywords(folderPath);
+    if (keywords.isEmpty) return [];
+
+    // 第一轮：完整关键词搜索
+    final allResults = <DlsiteSearchResult>[];
+    final seenIds = <String>{};
+
+    for (final keyword in keywords) {
+      final results = await search(keyword);
+      for (final r in results) {
+        if (!seenIds.contains(r.id)) {
+          seenIds.add(r.id);
+          allResults.add(r);
+        }
+      }
+    }
+
+    if (allResults.isNotEmpty) return allResults;
+
+    // 第二轮：截断关键词搜索（取前4个字符）
+    final secondaryKeywords = keywords
+        .where((k) => k.length > 4)
+        .map((k) => k.substring(0, 4))
+        .toList();
+
+    for (final keyword in secondaryKeywords) {
+      final results = await search(keyword);
+      for (final r in results) {
+        if (!seenIds.contains(r.id)) {
+          seenIds.add(r.id);
+          allResults.add(r);
+        }
+      }
+    }
+
+    return allResults;
   }
 
   List<DlsiteSearchResult> _parseSearchResults(String html) {
@@ -172,6 +259,42 @@ class DlsiteService {
     return fetchById(exactMatch.id);
   }
 
+  /// 获取搜索结果的封面图URL
+  Future<String?> fetchCoverUrl(String id) async {
+    final normalizedId = normalizeId(id);
+    if (normalizedId == null) return null;
+
+    final url = buildUrl(normalizedId);
+    try {
+      final client = await createProxyClientFromPrefs();
+      final headers = await _buildHeaders();
+      final response = await client.get(Uri.parse(url), headers: headers)
+          .timeout(const Duration(seconds: 15));
+      client.close();
+
+      if (response.statusCode != 200) return null;
+
+      final document = html_parser.parse(response.body);
+      
+      // 从product-slider-data获取
+      final productSlider = document.querySelector('.product-slider-data');
+      if (productSlider != null) {
+        final firstSlide = productSlider.querySelector('div[data-src]');
+        if (firstSlide != null) {
+          final dataSrc = firstSlide.attributes['data-src'];
+          if (dataSrc != null && dataSrc.isNotEmpty) {
+            return dataSrc.startsWith('//') ? 'https:$dataSrc' : dataSrc;
+          }
+        }
+      }
+
+      // 回退到og:image
+      return document.querySelector('meta[property="og:image"]')?.attributes['content'];
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<String?> downloadCoverImage(String imageUrl, String saveDir) async {
     try {
       final client = await createProxyClientFromPrefs();
@@ -234,7 +357,7 @@ class DlsiteService {
   Future<Map<String, String>> _buildHeaders() async {
     return {
       'User-Agent': 'HGame-Manager/1.0',
-      'Cookie': 'adultchecked=1; locale=zh_CN',
+      'Cookie': 'adultchecked=1; locale=ja',
       'Accept-Language': 'ja,en;q=0.8',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     };

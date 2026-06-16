@@ -35,7 +35,7 @@ class DlsiteParser extends SiteParser {
     String? description;
     final descEl = document.querySelector('[itemprop="description"]');
     if (descEl != null) {
-      description = descEl.text.trim();
+      description = _extractDescriptionWithImages(descEl);
     }
 
     final tagList = <String>[];
@@ -86,6 +86,43 @@ class DlsiteParser extends SiteParser {
       screenshots: screenshots,
       sourceUrl: url,
     );
+  }
+
+  String _extractDescriptionWithImages(Element descEl) {
+    final buffer = StringBuffer();
+    _processNode(descEl, buffer);
+    return buffer.toString().trim();
+  }
+
+  void _processNode(Element element, StringBuffer buffer) {
+    for (final node in element.nodes) {
+      if (node is Text) {
+        final text = node.text.trim();
+        if (text.isNotEmpty) {
+          buffer.write(text);
+        }
+      } else if (node is Element) {
+        if (node.localName == 'img') {
+          final src = node.attributes['data-original'] ??
+              node.attributes['data-src'] ??
+              node.attributes['src'] ??
+              '';
+          if (src.isNotEmpty && !src.contains('static/image') && !src.endsWith('.svg')) {
+            final imgUrl = src.startsWith('//') ? 'https:$src' : src;
+            buffer.write('\n<img src="$imgUrl">\n');
+          }
+        } else if (node.localName == 'br') {
+          buffer.write('\n');
+        } else if (node.localName == 'p' || node.localName == 'div') {
+          _processNode(node, buffer);
+          buffer.write('\n');
+        } else if (node.localName == 'h3' || node.localName == 'h4') {
+          buffer.write('\n**${node.text.trim()}**\n');
+        } else {
+          _processNode(node, buffer);
+        }
+      }
+    }
   }
 
   @override
