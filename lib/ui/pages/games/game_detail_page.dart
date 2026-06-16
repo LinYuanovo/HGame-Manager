@@ -8,7 +8,6 @@ import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../../core/services/version_check_service.dart';
-import '../../../core/services/image_service.dart';
 import '../../widgets/image_manager_dialog.dart';
 
 class GameDetailDialog extends ConsumerStatefulWidget {
@@ -331,10 +330,27 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     }
   }
 
+  bool _isLocalGame() {
+    final sourceUrlFile = File('${_currentGame.path}${Platform.pathSeparator}source_url.txt');
+    return !sourceUrlFile.existsSync();
+  }
+
   void _insertImageToContent(String sectionTitle) async {
-    final imageService = ImageService();
-    final imagePath = await imageService.pickAndCopyImage();
-    if (imagePath == null) return;
+    // 获取游戏已有图片列表
+    final images = _currentGame.images;
+    if (images.isEmpty) {
+      if (mounted) {
+        AppTheme.showGlassToast(context, message: '请先添加图片');
+      }
+      return;
+    }
+
+    // 显示图片选择对话框
+    final selectedImage = await showDialog<GameImage>(
+      context: context,
+      builder: (context) => _ImageSelectionDialog(images: images),
+    );
+    if (selectedImage == null) return;
 
     // 获取对应的 TextEditingController
     TextEditingController controller;
@@ -355,7 +371,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     // 在光标位置插入图片标记
     final text = controller.text;
     final selection = controller.selection;
-    final imageTag = '\n[图片:$imagePath]\n';
+    final imageTag = '\n[图片:${selectedImage.imagePath}]\n';
     
     final newText = text.replaceRange(selection.start, selection.end, imageTag);
     controller.text = newText;
@@ -736,16 +752,17 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             _buildSectionWithImages(title: '更新日志', icon: Icons.history, content: _currentGame.changelog, images: images, sectionIndex: 2),
           ],
 
-          // Show all remaining images at the bottom
-          if (images.length > 3) ...[
-            const SizedBox(height: 32),
-            _buildImageGallery(images.skip(3).toList()),
-          ],
-
-          // Show all images in gallery section if there are any images
-          if (images.isNotEmpty) ...[
-            const SizedBox(height: 32),
-            _buildAllImagesGallery(images),
+          // 本地游戏显示全部图片画廊，刮削游戏显示更多图片
+          if (_isLocalGame()) ...[
+            if (images.isNotEmpty) ...[
+              const SizedBox(height: 32),
+              _buildAllImagesGallery(images),
+            ],
+          ] else ...[
+            if (images.length > 3) ...[
+              const SizedBox(height: 32),
+              _buildImageGallery(images.skip(3).toList()),
+            ],
           ],
         ],
       ),
@@ -759,8 +776,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     required List<GameImage> images,
     required int sectionIndex,
   }) {
-    // Each section gets 1 image (if available)
-    final sectionImage = sectionIndex < images.length ? images[sectionIndex] : null;
+    // 刮削游戏：每个section显示1张图片
+    // 本地游戏：不自动显示图片，由用户通过插入功能选择
+    final isLocal = _isLocalGame();
+    final sectionImage = isLocal ? null : (sectionIndex < images.length ? images[sectionIndex] : null);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -789,22 +808,24 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Column(
-                children: [
-                  IconButton(
-                    onPressed: () => _insertImageToContent(title),
-                    icon: const Icon(Icons.add_photo_alternate, size: 20),
-                    tooltip: '插入图片',
-                    style: IconButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                      foregroundColor: AppTheme.primaryColor,
+              if (isLocal && images.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Column(
+                  children: [
+                    IconButton(
+                      onPressed: () => _insertImageToContent(title),
+                      icon: const Icon(Icons.add_photo_alternate, size: 20),
+                      tooltip: '插入图片',
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        foregroundColor: AppTheme.primaryColor,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text('插入图片', style: TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
-                ],
-              ),
+                    const SizedBox(height: 4),
+                    const Text('插入图片', style: TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+                  ],
+                ),
+              ],
             ],
           ),
         ] else
@@ -2108,6 +2129,88 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ImageSelectionDialog extends StatelessWidget {
+  final List<GameImage> images;
+
+  const _ImageSelectionDialog({required this.images});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
+      ),
+      child: Container(
+        width: 500,
+        height: 400,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.photo_library, color: AppTheme.primaryColor, size: 24),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    '选择图片',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '选择一张图片插入到内容中',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                  childAspectRatio: 1,
+                ),
+                itemCount: images.length,
+                itemBuilder: (context, index) {
+                  final image = images[index];
+                  return GestureDetector(
+                    onTap: () => Navigator.pop(context, image),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
+                        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(GlassConstants.radiusSmall - 1),
+                        child: Image.file(
+                          File(image.imagePath),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: AppTheme.backgroundColor.withValues(alpha: 0.3),
+                            child: const Center(child: Icon(Icons.broken_image, size: 32)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
