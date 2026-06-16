@@ -119,11 +119,12 @@ class DlsiteService {
 
   /// 搜索游戏，支持回退搜索
   /// 1. 直接用游戏名搜索（搜到即停）
-  /// 2. 搜不到按照空格分词，倒序依次去掉空格搜索（中途命中即停）
+  /// 2. 搜不到按照空格分词，倒序依次去掉后面的词搜索（中途命中即停）
   ///
-  /// 例如游戏名 "SiNiSistar 2"：
-  /// - 搜索 "SiNiSistar 2" → 无结果
-  /// - 搜索 "SiNiSistar2" → 有结果，停止
+  /// 例如游戏名 "Game Name 2"：
+  /// - 搜索 "Game Name 2" → 无结果
+  /// - 搜索 "Game Name" → 无结果
+  /// - 搜索 "Game" → 有结果，停止
   Future<List<DlsiteSearchResult>> searchWithFallback(String folderPath) async {
     final gameName = extractGameName(folderPath);
     if (gameName == null || gameName.isEmpty) return [];
@@ -132,24 +133,15 @@ class DlsiteService {
     final results = await search(gameName);
     if (results.isNotEmpty) return results;
 
-    // 第二步：按空格分词，倒序去掉空格搜索
+    // 第二步：按空格分词，逐步去掉后面的词
     final parts = gameName.split(RegExp(r'\s+'));
     if (parts.length <= 1) return [];
 
-    // 从最后一个空格开始，逐步合并后面的词
+    // 从少一个词开始，逐步缩短
     for (int i = parts.length - 1; i >= 1; i--) {
-      // 合并：前i个部分保持空格，后面的部分合并
-      final merged = [...parts.sublist(0, i), parts.sublist(i).join()].join(' ');
-      if (merged == gameName) continue; // 跳过和原始相同的
-      final partialResults = await search(merged);
+      final shortened = parts.sublist(0, i).join(' ');
+      final partialResults = await search(shortened);
       if (partialResults.isNotEmpty) return partialResults;
-    }
-
-    // 最后尝试全部合并（无空格）
-    final fullMerged = parts.join();
-    if (fullMerged != gameName) {
-      final finalResults = await search(fullMerged);
-      if (finalResults.isNotEmpty) return finalResults;
     }
 
     return [];
