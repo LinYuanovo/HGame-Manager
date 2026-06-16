@@ -1068,7 +1068,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Widget _buildAboutSection() {
-    const currentVersion = '1.3.2';
+    const currentVersion = '1.3.3';
 
     return _buildSection(
       title: '关于',
