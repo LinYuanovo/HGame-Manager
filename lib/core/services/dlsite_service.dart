@@ -122,11 +122,23 @@ class DlsiteService {
     try {
       final client = await createProxyClientFromPrefs();
       final headers = await _buildHeaders();
-      final response = await client.get(Uri.parse(url), headers: headers)
+      var response = await client.get(Uri.parse(url), headers: headers)
           .timeout(const Duration(seconds: 15));
-      client.close();
 
       _log.info('DlsiteService', '[search] HTTP状态码: ${response.statusCode}');
+
+      // 403时将空格替换为+号重试
+      if (response.statusCode == 403 && keyword.contains(' ')) {
+        final retryKeyword = keyword.replaceAll(' ', '+');
+        final retryUrl = 'https://www.dlsite.com/maniax/fsr/=/language/jp/keyword/$retryKeyword/';
+        _log.info('DlsiteService', '[search] 403被拒绝，空格替换为+号重试: "$retryKeyword"');
+        _log.info('DlsiteService', '[search] 重试URL: $retryUrl');
+        response = await client.get(Uri.parse(retryUrl), headers: headers)
+            .timeout(const Duration(seconds: 15));
+        _log.info('DlsiteService', '[search] 重试HTTP状态码: ${response.statusCode}');
+      }
+
+      client.close();
 
       if (response.statusCode != 200) {
         _log.warning('DlsiteService', '[search] 搜索失败: HTTP ${response.statusCode}');
