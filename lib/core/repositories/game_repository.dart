@@ -313,6 +313,38 @@ class GameRepository {
     });
   }
 
+  Future<void> deleteGameImage(int imageId) async {
+    final db = await _db;
+    await db.delete('game_images', where: 'id = ?', whereArgs: [imageId]);
+  }
+
+  Future<void> deleteGameImagesByGameId(int gameId) async {
+    final db = await _db;
+    await db.delete('game_images', where: 'game_id = ?', whereArgs: [gameId]);
+  }
+
+  Future<void> updateImageOrder(int imageId, int newOrder) async {
+    final db = await _db;
+    await db.update(
+      'game_images',
+      {'sort_order': newOrder},
+      where: 'id = ?',
+      whereArgs: [imageId],
+    );
+  }
+
+  Future<void> updateGameImagesOrder(int gameId, List<int> imageIds) async {
+    final db = await _db;
+    for (int i = 0; i < imageIds.length; i++) {
+      await db.update(
+        'game_images',
+        {'sort_order': i},
+        where: 'id = ? AND game_id = ?',
+        whereArgs: [imageIds[i], gameId],
+      );
+    }
+  }
+
   Future<void> updateCoverIndex(int gameId, int coverIndex) async {
     final db = await _db;
     await db.update(
