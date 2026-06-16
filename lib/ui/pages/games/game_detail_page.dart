@@ -8,6 +8,7 @@ import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../../core/services/version_check_service.dart';
+import '../../../core/services/image_service.dart';
 import '../../widgets/image_manager_dialog.dart';
 
 class GameDetailDialog extends ConsumerStatefulWidget {
@@ -327,6 +328,46 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           _currentImageIndex = 0;
         });
       }
+    }
+  }
+
+  void _insertImageToContent(String sectionTitle) async {
+    final imageService = ImageService();
+    final imagePath = await imageService.pickAndCopyImage();
+    if (imagePath == null) return;
+
+    // 获取对应的 TextEditingController
+    TextEditingController controller;
+    switch (sectionTitle) {
+      case '简介':
+        controller = _introController;
+        break;
+      case '特性':
+        controller = _featuresController;
+        break;
+      case '更新日志':
+        controller = _changelogController;
+        break;
+      default:
+        return;
+    }
+
+    // 在光标位置插入图片标记
+    final text = controller.text;
+    final selection = controller.selection;
+    final imageTag = '\n[图片:$imagePath]\n';
+    
+    final newText = text.replaceRange(selection.start, selection.end, imageTag);
+    controller.text = newText;
+    
+    // 更新光标位置
+    final newCursorPos = selection.start + imageTag.length;
+    controller.selection = TextSelection.fromPosition(
+      TextPosition(offset: newCursorPos),
+    );
+
+    if (mounted) {
+      AppTheme.showGlassToast(context, message: '图片已插入');
     }
   }
 
@@ -695,10 +736,16 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             _buildSectionWithImages(title: '更新日志', icon: Icons.history, content: _currentGame.changelog, images: images, sectionIndex: 2),
           ],
 
-          // Remaining images at the bottom
+          // Show all remaining images at the bottom
           if (images.length > 3) ...[
             const SizedBox(height: 32),
             _buildImageGallery(images.skip(3).toList()),
+          ],
+
+          // Show all images in gallery section if there are any images
+          if (images.isNotEmpty) ...[
+            const SizedBox(height: 32),
+            _buildAllImagesGallery(images),
           ],
         ],
       ),
@@ -726,19 +773,41 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           ],
         ),
         const SizedBox(height: 14),
-        if (_isEditing)
-          TextField(
-            controller: title == '简介' ? _introController : title == '特性' ? _featuresController : _changelogController,
-            maxLines: null,
-            style: const TextStyle(fontSize: 14, height: 1.7, color: AppTheme.textPrimary),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.5),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              contentPadding: const EdgeInsets.all(16),
-            ),
-          )
-        else
+        if (_isEditing) ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: title == '简介' ? _introController : title == '特性' ? _featuresController : _changelogController,
+                  maxLines: null,
+                  style: const TextStyle(fontSize: 14, height: 1.7, color: AppTheme.textPrimary),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.5),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.all(16),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                children: [
+                  IconButton(
+                    onPressed: () => _insertImageToContent(title),
+                    icon: const Icon(Icons.add_photo_alternate, size: 20),
+                    tooltip: '插入图片',
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      foregroundColor: AppTheme.primaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text('插入图片', style: TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+                ],
+              ),
+            ],
+          ),
+        ] else
           _buildRichIntro(content ?? '暂无信息', ref.watch(detailFontSizeProvider)),
         if (sectionImage != null && !_isEditing) ...[
           const SizedBox(height: 16),
@@ -749,23 +818,83 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Widget _buildRichIntro(String content, double fontSize) {
-    final lines = content.split('\n');
-    final spans = <InlineSpan>[];
-    for (var i = 0; i < lines.length; i++) {
-      final line = lines[i].trimRight();
-      // 冒号前6个字以内，且冒号后直接换行才作为标题
-      final isHeading = RegExp(r'^.{1,6}[：:]\s*$').hasMatch(line);
-      if (isHeading && i > 0 && lines[i - 1].trim().isNotEmpty) {
-        spans.add(const TextSpan(text: '\n'));
+    // 检查是否包含图片标记
+    final imagePattern = RegExp(r'\[图片:(.*?)\]');
+    if (!imagePattern.hasMatch(content)) {
+      // 没有图片标记，使用原来的纯文本显示
+      final lines = content.split('\n');
+      final spans = <InlineSpan>[];
+      for (var i = 0; i < lines.length; i++) {
+        final line = lines[i].trimRight();
+        final isHeading = RegExp(r'^.{1,6}[：:]\s*$').hasMatch(line);
+        if (isHeading && i > 0 && lines[i - 1].trim().isNotEmpty) {
+          spans.add(const TextSpan(text: '\n'));
+        }
+        spans.add(TextSpan(
+          text: '$line\n',
+          style: isHeading
+              ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)
+              : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.textPrimary),
+        ));
       }
-      spans.add(TextSpan(
-        text: '$line\n',
-        style: isHeading
-            ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)
-            : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.textPrimary),
-      ));
+      return SelectableText.rich(TextSpan(children: spans));
     }
-    return SelectableText.rich(TextSpan(children: spans));
+
+    // 包含图片标记，使用 Column 组合文本和图片
+    final parts = content.split(imagePattern);
+    final widgets = <Widget>[];
+    
+    for (var i = 0; i < parts.length; i++) {
+      if (i % 2 == 0) {
+        // 文本部分
+        final text = parts[i].trim();
+        if (text.isNotEmpty) {
+          final lines = text.split('\n');
+          final spans = <InlineSpan>[];
+          for (var j = 0; j < lines.length; j++) {
+            final line = lines[j].trimRight();
+            final isHeading = RegExp(r'^.{1,6}[：:]\s*$').hasMatch(line);
+            if (isHeading && j > 0 && lines[j - 1].trim().isNotEmpty) {
+              spans.add(const TextSpan(text: '\n'));
+            }
+            spans.add(TextSpan(
+              text: '$line\n',
+              style: isHeading
+                  ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)
+                  : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.textPrimary),
+            ));
+          }
+          widgets.add(SelectableText.rich(TextSpan(children: spans)));
+        }
+      } else {
+        // 图片部分
+        final imagePath = parts[i];
+        final file = File(imagePath);
+        if (file.existsSync()) {
+          widgets.add(
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 800),
+                  child: Image.file(
+                    file,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: widgets,
+    );
   }
 
   Widget _buildDownloadLinks(String downloadUrl) {
@@ -959,6 +1088,27 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             const Icon(Icons.photo_library_outlined, size: 18, color: AppTheme.primaryColor),
             const SizedBox(width: 8),
             const Text('更多图片', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: images.map((img) => _buildArticleImage(img)).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAllImagesGallery(List<GameImage> images) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.photo_library, size: 18, color: AppTheme.primaryColor),
+            const SizedBox(width: 8),
+            Text('全部图片 (${images.length})', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
           ],
         ),
         const SizedBox(height: 14),
