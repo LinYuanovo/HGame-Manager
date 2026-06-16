@@ -373,11 +373,15 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     final selection = controller.selection;
     final imageTag = '\n[图片:${selectedImage.imagePath}]\n';
     
-    final newText = text.replaceRange(selection.start, selection.end, imageTag);
+    // 检查 selection 是否有效
+    final startPos = selection.start >= 0 ? selection.start : text.length;
+    final endPos = selection.end >= 0 ? selection.end : text.length;
+    
+    final newText = text.replaceRange(startPos, endPos, imageTag);
     controller.text = newText;
     
     // 更新光标位置
-    final newCursorPos = selection.start + imageTag.length;
+    final newCursorPos = startPos + imageTag.length;
     controller.selection = TextSelection.fromPosition(
       TextPosition(offset: newCursorPos),
     );
