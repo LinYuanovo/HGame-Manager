@@ -46,9 +46,7 @@
 
 #### 直接使用
 
-Windows 系统在 [releases](https://github.com/LinYuanovo/HGame-Manager/releases) 页面直接下载 zip 压缩包后**解压**即可使用
-
-- [网盘下载]
+Windows 系统在 [releases](https://github.com/LinYuanovo/HGame-Manager/releases) 页面直接下载 zip 压缩包后**解压**即可使用([网盘下载](https://docs.qq.com/sheet/DVXZ6U2xmbFZuVGtQ?tab=BB08J2))
 
 #### 使用教程
 
