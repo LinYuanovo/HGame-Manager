@@ -107,7 +107,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     final savedColumnCount = prefs.getInt('column_count') ?? 3;
     _columnCountController.text = savedColumnCount.toString();
 
-    _listItemsPerPage = prefs.getInt('game_list_items_per_page') ?? 5;
+    // 兼容旧版以 String 存储的情况
+    final rawItemsPerPage = prefs.getString('game_list_items_per_page');
+    _listItemsPerPage = rawItemsPerPage != null
+        ? (int.tryParse(rawItemsPerPage) ?? 5)
+        : (prefs.getInt('game_list_items_per_page') ?? 5);
 
     if (mounted) setState(() {});
   }
