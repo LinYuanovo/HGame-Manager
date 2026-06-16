@@ -325,6 +325,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     );
   }
 
+  void _updateColumnCount(int count) {
+    _columnCountController.text = count.toString();
+    ref.read(isFixedColumnCountProvider.notifier).state = true;
+    ref.read(fixedColumnCountProvider.notifier).state = count;
+    ref.read(sharedPreferencesProvider).setBool('fixed_column_count', true);
+    ref.read(sharedPreferencesProvider).setInt('column_count', count);
+    setState(() {});
+  }
+
   Widget _buildPosterColumnCountInput() {
     if (_viewMode != ViewMode.poster) return const SizedBox.shrink();
     return Row(
@@ -335,15 +344,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           child: GestureDetector(
             onTap: () {
               final current = int.tryParse(_columnCountController.text) ?? 3;
-              if (current > 2) {
-                final newVal = current - 1;
-                _columnCountController.text = newVal.toString();
-                ref.read(isFixedColumnCountProvider.notifier).state = true;
-                ref.read(fixedColumnCountProvider.notifier).state = newVal;
-                ref.read(sharedPreferencesProvider).setBool('fixed_column_count', true);
-                ref.read(sharedPreferencesProvider).setInt('column_count', newVal);
-                setState(() {});
-              }
+              if (current > 2) _updateColumnCount(current - 1);
             },
             child: Container(
               padding: const EdgeInsets.all(6),
@@ -363,6 +364,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           child: TextField(
             controller: _columnCountController,
             keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontWeight: FontWeight.w600),
             decoration: InputDecoration(
@@ -386,14 +388,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             onSubmitted: (value) {
               final count = int.tryParse(value);
               if (count != null && count >= 2 && count <= 8) {
-                ref.read(isFixedColumnCountProvider.notifier).state = true;
-                ref.read(fixedColumnCountProvider.notifier).state = count;
-                ref.read(sharedPreferencesProvider).setBool('fixed_column_count', true);
-                ref.read(sharedPreferencesProvider).setInt('column_count', count);
+                _updateColumnCount(count);
               } else {
                 _columnCountController.text = (ref.read(fixedColumnCountProvider)).toString();
               }
-              setState(() {});
             },
           ),
         ),
@@ -403,15 +401,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           child: GestureDetector(
             onTap: () {
               final current = int.tryParse(_columnCountController.text) ?? 3;
-              if (current < 8) {
-                final newVal = current + 1;
-                _columnCountController.text = newVal.toString();
-                ref.read(isFixedColumnCountProvider.notifier).state = true;
-                ref.read(fixedColumnCountProvider.notifier).state = newVal;
-                ref.read(sharedPreferencesProvider).setBool('fixed_column_count', true);
-                ref.read(sharedPreferencesProvider).setInt('column_count', newVal);
-                setState(() {});
-              }
+              if (current < 8) _updateColumnCount(current + 1);
             },
             child: Container(
               padding: const EdgeInsets.all(6),
@@ -867,15 +857,18 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
-                child: Stack(
-                  children: [
-                    _buildGameCover(game, width: 120),
+                child: SizedBox(
+                  width: 120,
+                  height: 150,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildGameCover(game, fit: BoxFit.cover),
                     if (isBackupOnly)
                       Positioned(
                         top: 4,
@@ -928,6 +921,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                         ),
                       ),
                   ],
+                ),
                 ),
               ),
               const SizedBox(width: 14),
@@ -992,7 +986,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           ),
         ),
       ),
-      ),
     );
   }
 
@@ -1004,9 +997,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     return LayoutBuilder(builder: (context, constraints) {
       final totalSpacing = (crossAxisCount - 1) * 16.0 + 32.0;
       final itemWidth = (constraints.maxWidth - totalSpacing) / crossAxisCount;
-      // 16:9 image height + title area (padding 10*2 + title ~24px)
+      // 16:9 image height + title area (padding 10*2 + title 16*1.3*2)
       final imageHeight = itemWidth * 9 / 16;
-      final titleAreaHeight = 44.0;
+      final titleAreaHeight = 62.0;
       final itemHeight = imageHeight + titleAreaHeight;
       final aspectRatio = itemWidth / itemHeight;
 
