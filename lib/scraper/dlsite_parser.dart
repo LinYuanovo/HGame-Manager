@@ -6,6 +6,8 @@ class DlsiteParser extends SiteParser {
   @override
   String get domain => 'dlsite';
 
+  final List<String> _descriptionImageUrls = [];
+
   @override
   GameInfo? parseGameInfo(Document document, String url) {
     final titleEl = document.querySelector('#work_name');
@@ -65,7 +67,11 @@ class DlsiteParser extends SiteParser {
       }
     }
 
+    // 截图列表：封面 + slider中的图片 + 描述中的图片（去重）
     final screenshots = <String>[];
+    if (coverImage != null) {
+      screenshots.add(coverImage);
+    }
     if (productSlider != null) {
       final slides = productSlider.querySelectorAll('div[data-src]');
       for (final slide in slides) {
@@ -76,6 +82,12 @@ class DlsiteParser extends SiteParser {
             screenshots.add(imgUrl);
           }
         }
+      }
+    }
+    // 将描述中的图片也加入下载列表
+    for (final imgUrl in _descriptionImageUrls) {
+      if (!screenshots.contains(imgUrl)) {
+        screenshots.add(imgUrl);
       }
     }
 
@@ -90,12 +102,11 @@ class DlsiteParser extends SiteParser {
 
   String _extractDescriptionWithImages(Element descEl) {
     final buffer = StringBuffer();
-    final imageUrls = <String>[];
-    _processNode(descEl, buffer, imageUrls);
+    _processNode(descEl, buffer);
     return buffer.toString().trim();
   }
 
-  void _processNode(Element element, StringBuffer buffer, List<String> imageUrls) {
+  void _processNode(Element element, StringBuffer buffer) {
     for (final node in element.nodes) {
       if (node is Text) {
         final text = node.text.trim();
@@ -110,18 +121,18 @@ class DlsiteParser extends SiteParser {
               '';
           if (src.isNotEmpty && !src.contains('static/image') && !src.endsWith('.svg')) {
             final imgUrl = src.startsWith('//') ? 'https:$src' : src;
-            imageUrls.add(imgUrl);
+            _descriptionImageUrls.add(imgUrl);
             buffer.write('\n[图片:$imgUrl]\n');
           }
         } else if (node.localName == 'br') {
           buffer.write('\n');
         } else if (node.localName == 'p' || node.localName == 'div') {
-          _processNode(node, buffer, imageUrls);
+          _processNode(node, buffer);
           buffer.write('\n');
         } else if (node.localName == 'h3' || node.localName == 'h4') {
           buffer.write('\n${node.text.trim()}\n');
         } else {
-          _processNode(node, buffer, imageUrls);
+          _processNode(node, buffer);
         }
       }
     }
