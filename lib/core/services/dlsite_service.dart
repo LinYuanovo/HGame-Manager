@@ -40,9 +40,9 @@ class DlsiteService {
 
   String buildUrl(String id) {
     if (id.startsWith('VJ')) {
-      return 'https://www.dlsite.com/pro/work/=/product_id/$id.html';
+      return 'https://www.dlsite.com/pro/work/=/product_id/$id.html/?locale=zh_CN';
     }
-    return 'https://www.dlsite.com/maniax/work/=/product_id/$id.html';
+    return 'https://www.dlsite.com/maniax/work/=/product_id/$id.html/?locale=zh_CN';
   }
 
   String? extractGameNameFromFolder(String folderPath) {
@@ -234,7 +234,7 @@ class DlsiteService {
   Future<Map<String, String>> _buildHeaders() async {
     return {
       'User-Agent': 'HGame-Manager/1.0',
-      'Cookie': 'adultchecked=1; locale=ja',
+      'Cookie': 'adultchecked=1; locale=zh_CN',
       'Accept-Language': 'ja,en;q=0.8',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     };
