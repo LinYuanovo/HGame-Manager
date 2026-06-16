@@ -371,6 +371,7 @@ class GlassConstants {
 - `game_list_view_mode` - 游戏列表视图模式 ('poster' | 'list')
 - `game_list_sort_mode` - 游戏列表排序模式
 - `game_list_pagination_mode` - 游戏列表分页模式 ('paginated' | 'infiniteScroll')
+- `game_list_items_per_page` - 列表视图每页显示数量 (int, 3-20, 默认5)
 - 代理设置、Cookie 设置等
 
 ## 网页抓取器

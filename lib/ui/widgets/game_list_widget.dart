@@ -62,8 +62,26 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   int _savedPage = -1;  // 保存搜索前的页码，-1表示未保存
   String _lastSearchQuery = '';  // 上次的搜索词（用于检测变化）
   final TextEditingController _columnCountController = TextEditingController();
+  int _listItemsPerPage = 5;  // 列表视图每页显示数量
 
-  int get _itemsPerPage => _viewMode == ViewMode.list ? 5 : 6;
+  int get _itemsPerPage {
+    if (_viewMode == ViewMode.list) return _listItemsPerPage;
+    // 海报模式：根据窗口高度和列数动态计算
+    final windowHeight = WidgetsBinding.instance.window.physicalSize.height /
+        WidgetsBinding.instance.window.devicePixelRatio;
+    final availableHeight = windowHeight - 160; // 减去工具栏+分页栏+边距
+    final isFixed = ref.read(isFixedColumnCountProvider);
+    final fixedCount = ref.read(fixedColumnCountProvider);
+    final crossAxisCount = isFixed ? fixedCount.clamp(2, 8) : 3;
+    final windowWidth = WidgetsBinding.instance.window.physicalSize.width /
+        WidgetsBinding.instance.window.devicePixelRatio;
+    final totalSpacing = (crossAxisCount - 1) * 16.0 + 40.0;
+    final itemWidth = (windowWidth - totalSpacing) / crossAxisCount;
+    final imageHeight = itemWidth * 9 / 16;
+    final itemHeight = imageHeight + 62.0; // image + title area
+    final rows = (availableHeight / (itemHeight + 16)).floor().clamp(1, 10);
+    return (rows * crossAxisCount).clamp(1, 50);
+  }
 
   @override
   void initState() {
@@ -98,7 +116,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     
     final savedColumnCount = prefs.getInt('column_count') ?? 3;
     _columnCountController.text = savedColumnCount.toString();
-    
+
+    _listItemsPerPage = prefs.getInt('game_list_items_per_page') ?? 5;
+
     if (mounted) setState(() {});
   }
 
@@ -264,6 +284,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   const SizedBox(width: 12),
                   _buildPaginationModeToggle(),
                   const SizedBox(width: 12),
+                  _buildListItemsPerPageInput(),
+                  if (_viewMode == ViewMode.list && _paginationMode == PaginationMode.paginated) const SizedBox(width: 12),
                   _buildMultiSelectToggle(sortedGames),
                   // 扫描存档按钮（始终显示，如果有回调）
                   if (widget.onScanSavePaths != null || widget.scanProgress.isNotEmpty) ...[
@@ -424,6 +446,71 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       case ViewMode.poster:
         return Icons.grid_view;
     }
+  }
+
+  void _updateListItemsPerPage(int count) {
+    setState(() {
+      _listItemsPerPage = count;
+      _currentPage = 0;
+      _savedPage = -1;
+    });
+    _saveSetting('game_list_items_per_page', count.toString());
+  }
+
+  Widget _buildListItemsPerPageInput() {
+    if (_viewMode != ViewMode.list || _paginationMode != PaginationMode.paginated) {
+      return const SizedBox.shrink();
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Tooltip(
+          message: '减少每页数量',
+          child: GestureDetector(
+            onTap: () {
+              if (_listItemsPerPage > 3) _updateListItemsPerPage(_listItemsPerPage - 1);
+            },
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(Icons.remove, size: 16, color: AppTheme.primaryColor),
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppTheme.backgroundColor.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            '$_listItemsPerPage',
+            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontWeight: FontWeight.w600),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Tooltip(
+          message: '增加每页数量',
+          child: GestureDetector(
+            onTap: () {
+              if (_listItemsPerPage < 20) _updateListItemsPerPage(_listItemsPerPage + 1);
+            },
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(Icons.add, size: 16, color: AppTheme.primaryColor),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildSortDropdown() {
@@ -815,20 +902,24 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   Widget _buildListView(List<Game> games) {
-    return ListView.separated(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(GlassConstants.spacingMedium),
-      itemCount: games.length,
-      separatorBuilder: (_, __) =>
-          Divider(height: 1, color: AppTheme.borderColor.withValues(alpha: 0.3)),
-      itemBuilder: (_, index) => StaggeredItem(
-        index: index,
-        child: _buildListItem(games[index]),
-      ),
-    );
+    return LayoutBuilder(builder: (context, constraints) {
+      final coverWidth = (constraints.maxWidth * 0.2).clamp(100.0, 200.0);
+      final coverHeight = coverWidth * 9 / 16;
+      return ListView.separated(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(GlassConstants.spacingMedium),
+        itemCount: games.length,
+        separatorBuilder: (_, __) =>
+            Divider(height: 1, color: AppTheme.borderColor.withValues(alpha: 0.3)),
+        itemBuilder: (_, index) => StaggeredItem(
+          index: index,
+          child: _buildListItem(games[index], coverWidth, coverHeight),
+        ),
+      );
+    });
   }
 
-  Widget _buildListItem(Game game) {
+  Widget _buildListItem(Game game, [double coverWidth = 120, double coverHeight = 68]) {
     final isBackupOnly = game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
     final isSelected = _multiSelectController.isSelected(game);
     return GestureDetector(
@@ -863,8 +954,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
                 child: SizedBox(
-                  width: 120,
-                  height: 150,
+                  width: coverWidth,
+                  height: coverHeight,
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
