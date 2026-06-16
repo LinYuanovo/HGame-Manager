@@ -8,6 +8,7 @@ import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../../core/services/version_check_service.dart';
+import '../../widgets/image_manager_dialog.dart';
 
 class GameDetailDialog extends ConsumerStatefulWidget {
   final Game game;
@@ -229,68 +230,104 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   Widget _buildImageCarousel() {
     final images = _currentGame.images;
-    if (images.isEmpty) {
-      return Container(
-        height: 200,
-        decoration: BoxDecoration(
-          color: AppTheme.backgroundColor.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.image_not_supported_outlined, size: 48, color: AppTheme.textPrimary.withValues(alpha: 0.3)),
-              const SizedBox(height: 8),
-              Text('暂无图片', style: TextStyle(color: AppTheme.textPrimary.withValues(alpha: 0.5), fontSize: 13)),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return GestureDetector(
-      onTap: () => setState(() => _currentImageIndex = (_currentImageIndex + 1) % images.length),
-      child: Container(
-        height: 200,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-          border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium - 1),
-              child: Image.file(
-                File(images[_currentImageIndex].imagePath!),
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  color: AppTheme.backgroundColor.withValues(alpha: 0.3),
-                  child: Center(child: Icon(Icons.broken_image, size: 36, color: AppTheme.textPrimary.withValues(alpha: 0.3))),
-                ),
+    
+    return Column(
+      children: [
+        if (images.isEmpty)
+          Container(
+            height: 200,
+            decoration: BoxDecoration(
+              color: AppTheme.backgroundColor.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.image_not_supported_outlined, size: 48, color: AppTheme.textPrimary.withValues(alpha: 0.3)),
+                  const SizedBox(height: 8),
+                  Text('暂无图片', style: TextStyle(color: AppTheme.textPrimary.withValues(alpha: 0.5), fontSize: 13)),
+                ],
               ),
             ),
-            if (images.length > 1)
-              Positioned(
-                bottom: 8,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text('${_currentImageIndex + 1} / ${images.length}', style: const TextStyle(fontSize: 11, color: Colors.white)),
-                  ),
-                ),
+          )
+        else
+          GestureDetector(
+            onTap: () => setState(() => _currentImageIndex = (_currentImageIndex + 1) % images.length),
+            child: Container(
+              height: 200,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
               ),
-          ],
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(GlassConstants.radiusMedium - 1),
+                    child: Image.file(
+                      File(images[_currentImageIndex].imagePath),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: AppTheme.backgroundColor.withValues(alpha: 0.3),
+                        child: Center(child: Icon(Icons.broken_image, size: 36, color: AppTheme.textPrimary.withValues(alpha: 0.3))),
+                      ),
+                    ),
+                  ),
+                  if (images.length > 1)
+                    Positioned(
+                      bottom: 8,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text('${_currentImageIndex + 1} / ${images.length}', style: const TextStyle(fontSize: 11, color: Colors.white)),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _openImageManager,
+            icon: const Icon(Icons.edit, size: 16),
+            label: const Text('管理图片'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.primaryColor,
+              side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+            ),
+          ),
         ),
-      ),
+      ],
     );
+  }
+
+  void _openImageManager() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => ImageManagerDialog(game: _currentGame),
+    );
+
+    if (result == true) {
+      final repo = ref.read(gameRepositoryProvider);
+      final freshGame = await repo.getGameById(_currentGame.id!);
+      if (freshGame != null && mounted) {
+        setState(() {
+          _currentGame = freshGame;
+          _currentImageIndex = 0;
+        });
+      }
+    }
   }
 
   Widget _buildInfoCard() {
