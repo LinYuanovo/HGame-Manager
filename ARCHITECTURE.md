@@ -366,6 +366,11 @@ class GlassConstants {
 - `page_size` - 分页大小
 - `sorted_path` - 整理目录路径
 - `library_path` - 游戏库路径
+- `fixed_column_count` - 海报视图是否固定列数 (bool)
+- `column_count` - 海报视图每行列数 (int, 2-8, 默认3)
+- `game_list_view_mode` - 游戏列表视图模式 ('poster' | 'list')
+- `game_list_sort_mode` - 游戏列表排序模式
+- `game_list_pagination_mode` - 游戏列表分页模式 ('paginated' | 'infiniteScroll')
 - 代理设置、Cookie 设置等
 
 ## 网页抓取器
