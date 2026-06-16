@@ -47,7 +47,7 @@ class _GamesPageState extends ConsumerState<GamesPage> {
             IconButton(
               icon: Icon(Icons.cloud_download_outlined,
                   color: AppTheme.primaryColor, size: 20),
-              tooltip: '从DLsite导入游戏和信息',
+              tooltip: '从DLsite导入游戏信息',
               onPressed: () => _showDlsiteImportDialog(),
             ),
             _isRefreshing
@@ -674,7 +674,7 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '从DLsite导入游戏',
+              '从DLsite导入游戏信息',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
