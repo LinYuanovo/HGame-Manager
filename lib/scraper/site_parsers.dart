@@ -1,6 +1,7 @@
 import 'package:html/dom.dart';
 import 'html_parser.dart';
 import 'parse_utils.dart';
+import 'dlsite_parser.dart';
 import '../core/services/app_logger.dart';
 import '../core/utils/app_settings.dart';
 
@@ -1165,10 +1166,11 @@ void registerAllParsers() {
     ParserRegistry.register(AcgYingParser());
     ParserRegistry.register(VikAcgParser());
     ParserRegistry.register(FeiXueAcgParser());
+    ParserRegistry.register(DlsiteParser());
     // Register domain alias parsers that share the same parsing logic
     ParserRegistry.register(_AliasParser('acgying', AcgYingParser()));
     ParserRegistry.register(_AliasParser('weika', VikAcgParser()));
-    AppLogger.instance.info('Scraper', 'Registered ${ParserRegistry.allParsers.length} site parsers (including aliases): AcgYing/acgying, VikAcg/weika, FeiXueAcg');
+    AppLogger.instance.info('Scraper', 'Registered ${ParserRegistry.allParsers.length} site parsers (including aliases): AcgYing/acgying, VikAcg/weika, FeiXueAcg, Dlsite');
   }
 }
 
