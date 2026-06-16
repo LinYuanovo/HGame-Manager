@@ -10,6 +10,9 @@ class DlsiteParser extends SiteParser {
 
   @override
   GameInfo? parseGameInfo(Document document, String url) {
+    // 每次解析前清空描述图片列表
+    _descriptionImageUrls.clear();
+
     final titleEl = document.querySelector('#work_name');
     var rawTitle = titleEl?.text.trim();
     if (rawTitle == null || rawTitle.isEmpty) return null;
