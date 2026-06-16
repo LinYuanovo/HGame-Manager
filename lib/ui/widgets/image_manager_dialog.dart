@@ -29,14 +29,17 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
   Future<void> _addLocalImage() async {
     setState(() => _isLoading = true);
     try {
-      final imagePath = await _imageService.pickAndCopyImage();
-      if (imagePath != null) {
-        final newImage = GameImage(
-          gameId: widget.game.id!,
-          imagePath: imagePath,
-          sortOrder: _images.length,
-        );
-        setState(() => _images.add(newImage));
+      final imagePaths = await _imageService.pickAndCopyImages();
+      if (imagePaths.isNotEmpty) {
+        setState(() {
+          for (final path in imagePaths) {
+            _images.add(GameImage(
+              gameId: widget.game.id!,
+              imagePath: path,
+              sortOrder: _images.length,
+            ));
+          }
+        });
       }
     } finally {
       setState(() => _isLoading = false);
@@ -202,13 +205,11 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : SingleChildScrollView(
-                      child: DraggableImageGrid(
-                        images: _images,
-                        onReorder: _reorderImages,
-                        onDelete: _deleteImage,
-                        onTap: (_) {},
-                      ),
+                  : DraggableImageGrid(
+                      images: _images,
+                      onReorder: _reorderImages,
+                      onDelete: _deleteImage,
+                      onTap: (_) {},
                     ),
             ),
             const SizedBox(height: 16),

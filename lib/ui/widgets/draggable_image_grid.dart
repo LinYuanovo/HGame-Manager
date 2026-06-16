@@ -36,9 +36,20 @@ class _DraggableImageGridState extends State<DraggableImageGrid> {
   @override
   void didUpdateWidget(DraggableImageGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.images != oldWidget.images) {
+    // 比较列表内容而非引用
+    if (!_listEquals(widget.images, oldWidget.images)) {
       _images = List.from(widget.images);
     }
+  }
+
+  bool _listEquals(List<GameImage> a, List<GameImage> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id || a[i].imagePath != b[i].imagePath) {
+        return false;
+      }
+    }
+    return true;
   }
 
   void _onReorder(int oldIndex, int newIndex) {
@@ -74,8 +85,6 @@ class _DraggableImageGridState extends State<DraggableImageGrid> {
     }
 
     return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         crossAxisSpacing: 8,

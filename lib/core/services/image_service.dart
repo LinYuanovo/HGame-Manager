@@ -17,19 +17,29 @@ class ImageService {
     return imageDir.path;
   }
 
-  /// 从本地文件选择并复制图片
+  /// 从本地文件选择并复制单张图片
   Future<String?> pickAndCopyImage() async {
+    final paths = await pickAndCopyImages();
+    return paths.isNotEmpty ? paths.first : null;
+  }
+
+  /// 从本地文件选择并复制多张图片
+  Future<List<String>> pickAndCopyImages() async {
     final result = await FilePicker.pickFiles(
       type: FileType.image,
-      allowMultiple: false,
+      allowMultiple: true,
     );
 
-    if (result == null || result.files.isEmpty) return null;
+    if (result == null || result.files.isEmpty) return [];
 
-    final file = result.files.first;
-    if (file.path == null) return null;
-
-    return await copyImageToStorage(file.path!);
+    final List<String> copiedPaths = [];
+    for (final file in result.files) {
+      if (file.path != null) {
+        final path = await copyImageToStorage(file.path!);
+        copiedPaths.add(path);
+      }
+    }
+    return copiedPaths;
   }
 
   /// 复制本地图片到应用存储目录
