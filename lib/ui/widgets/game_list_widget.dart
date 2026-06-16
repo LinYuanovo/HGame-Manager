@@ -110,6 +110,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   void dispose() {
     _scrollController.dispose();
     _searchController.dispose();
+    _columnCountController.dispose();
     _multiSelectController.removeListener(_onSelectionChanged);
     _multiSelectController.dispose();
     super.dispose();
@@ -255,6 +256,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   ],
                   _buildViewModeToggle(),
                   const SizedBox(width: 12),
+                  _buildPosterColumnCountInput(),
+                  if (_viewMode == ViewMode.poster) const SizedBox(width: 12),
                   _buildSortDropdown(),
                   const SizedBox(width: 4),
                   _buildSortDirectionToggle(),
@@ -318,6 +321,108 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             ),
           ),
           ),
+      ],
+    );
+  }
+
+  Widget _buildPosterColumnCountInput() {
+    if (_viewMode != ViewMode.poster) return const SizedBox.shrink();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Tooltip(
+          message: '减少每行数量',
+          child: GestureDetector(
+            onTap: () {
+              final current = int.tryParse(_columnCountController.text) ?? 3;
+              if (current > 2) {
+                final newVal = current - 1;
+                _columnCountController.text = newVal.toString();
+                ref.read(isFixedColumnCountProvider.notifier).state = true;
+                ref.read(fixedColumnCountProvider.notifier).state = newVal;
+                ref.read(sharedPreferencesProvider).setBool('fixed_column_count', true);
+                ref.read(sharedPreferencesProvider).setInt('column_count', newVal);
+                setState(() {});
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(Icons.remove, size: 16, color: AppTheme.primaryColor),
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Container(
+          width: 36,
+          height: 28,
+          alignment: Alignment.center,
+          child: TextField(
+            controller: _columnCountController,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontWeight: FontWeight.w600),
+            decoration: InputDecoration(
+              contentPadding: EdgeInsets.zero,
+              filled: true,
+              fillColor: AppTheme.backgroundColor.withValues(alpha: 0.3),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.5)),
+              ),
+              isDense: true,
+            ),
+            onSubmitted: (value) {
+              final count = int.tryParse(value);
+              if (count != null && count >= 2 && count <= 8) {
+                ref.read(isFixedColumnCountProvider.notifier).state = true;
+                ref.read(fixedColumnCountProvider.notifier).state = count;
+                ref.read(sharedPreferencesProvider).setBool('fixed_column_count', true);
+                ref.read(sharedPreferencesProvider).setInt('column_count', count);
+              } else {
+                _columnCountController.text = (ref.read(fixedColumnCountProvider)).toString();
+              }
+              setState(() {});
+            },
+          ),
+        ),
+        const SizedBox(width: 4),
+        Tooltip(
+          message: '增加每行数量',
+          child: GestureDetector(
+            onTap: () {
+              final current = int.tryParse(_columnCountController.text) ?? 3;
+              if (current < 8) {
+                final newVal = current + 1;
+                _columnCountController.text = newVal.toString();
+                ref.read(isFixedColumnCountProvider.notifier).state = true;
+                ref.read(fixedColumnCountProvider.notifier).state = newVal;
+                ref.read(sharedPreferencesProvider).setBool('fixed_column_count', true);
+                ref.read(sharedPreferencesProvider).setInt('column_count', newVal);
+                setState(() {});
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(Icons.add, size: 16, color: AppTheme.primaryColor),
+            ),
+          ),
+        ),
       ],
     );
   }
