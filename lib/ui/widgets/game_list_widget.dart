@@ -61,6 +61,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   int _infiniteScrollCount = 20;
   int _savedPage = -1;  // 保存搜索前的页码，-1表示未保存
   String _lastSearchQuery = '';  // 上次的搜索词（用于检测变化）
+  final TextEditingController _columnCountController = TextEditingController();
 
   int get _itemsPerPage => _viewMode == ViewMode.list ? 5 : 6;
 
@@ -94,6 +95,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       _searchController.text = savedSearch;
       _lastSearchQuery = savedSearch;
     }
+    
+    final savedColumnCount = prefs.getInt('column_count') ?? 3;
+    _columnCountController.text = savedColumnCount.toString();
     
     if (mounted) setState(() {});
   }
@@ -842,7 +846,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                       Wrap(
                         spacing: 4,
                         runSpacing: 4,
-                        children: game.tags.take(3).map((tag) {
+                        children: game.tags.map((tag) {
                           return GestureDetector(
                             onTap: () {
                               if (widget.onTagTap != null) {
@@ -893,16 +897,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   Widget _buildPosterView(List<Game> games) {
     final isFixed = ref.watch(isFixedColumnCountProvider);
     final fixedCount = ref.watch(fixedColumnCountProvider);
-    final crossAxisCount = isFixed ? fixedCount.clamp(2, 5) : 3;
+    final crossAxisCount = isFixed ? fixedCount.clamp(2, 8) : 3;
 
     return LayoutBuilder(builder: (context, constraints) {
-      final itemWidth =
-          (constraints.maxWidth - (crossAxisCount - 1) * 16 - 32) /
-              crossAxisCount;
-      // In paginated mode, each item takes half the height; in infinite scroll, use 2/5
-      final itemHeight = _paginationMode == PaginationMode.paginated
-          ? (constraints.maxHeight - 50) / 2  // 2 rows with 16px mainAxisSpacing
-          : constraints.maxHeight * 2 / 5;
+      final totalSpacing = (crossAxisCount - 1) * 16.0 + 32.0;
+      final itemWidth = (constraints.maxWidth - totalSpacing) / crossAxisCount;
+      // 16:9 image height + title area (padding 10*2 + title ~24px)
+      final imageHeight = itemWidth * 9 / 16;
+      final titleAreaHeight = 44.0;
+      final itemHeight = imageHeight + titleAreaHeight;
       final aspectRatio = itemWidth / itemHeight;
 
       return GridView.builder(
@@ -1742,9 +1745,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           if (normalizedImagePath.startsWith(normalizedOldPath)) {
             newImagePath = normalizedImagePath.replaceFirst(normalizedOldPath, normalizedNewPath);
           } else {
-            // 如果路径不匹配，使用 path.basename 重建路径
-            final fileName = path.basename(img.imagePath);
-            newImagePath = '$normalizedNewPath/images/$fileName';
+            // 如果路径不匹配，保持原路径不变（图片可能在game_images目录中）
+            newImagePath = img.imagePath;
           }
           
           return GameImage(
@@ -1908,9 +1910,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           if (normalizedImagePath.startsWith(normalizedOldPath)) {
             newImagePath = normalizedImagePath.replaceFirst(normalizedOldPath, normalizedNewPath);
           } else {
-            // 如果路径不匹配，使用 path.basename 重建路径
-            final fileName = path.basename(img.imagePath);
-            newImagePath = '$normalizedNewPath/images/$fileName';
+            // 如果路径不匹配，保持原路径不变（图片可能在game_images目录中）
+            newImagePath = img.imagePath;
           }
           
           return GameImage(
