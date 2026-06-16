@@ -7,6 +7,9 @@ import 'package:path/path.dart' as path;
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/repositories/game_repository.dart';
+import '../../../core/repositories/tag_repository.dart';
+import '../../../core/services/dlsite_service.dart';
+import '../../../scraper/parse_utils.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/game_list_widget.dart';
 import '../categories/tag_games_page.dart';
@@ -39,6 +42,12 @@ class _GamesPageState extends ConsumerState<GamesPage> {
                   color: AppTheme.primaryColor, size: 20),
               tooltip: '添加本地游戏',
               onPressed: () => _showAddGameDialog(),
+            ),
+            IconButton(
+              icon: Icon(Icons.cloud_download_outlined,
+                  color: AppTheme.primaryColor, size: 20),
+              tooltip: '从DLsite导入游戏和信息',
+              onPressed: () => _showDlsiteImportDialog(),
             ),
             _isRefreshing
                 ? GestureDetector(
@@ -171,6 +180,17 @@ class _GamesPageState extends ConsumerState<GamesPage> {
     showGlassDialog(
       context: context,
       child: _BatchImportDialog(
+        onImportComplete: () {
+          ref.invalidate(allGamesProvider);
+        },
+      ),
+    );
+  }
+
+  void _showDlsiteImportDialog() {
+    showGlassDialog(
+      context: context,
+      child: _DlsiteImportDialog(
         onImportComplete: () {
           ref.invalidate(allGamesProvider);
         },
@@ -424,6 +444,296 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                   child: _importing
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : Text('导入 (${_selected.length})'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DlsiteImportDialog extends StatefulWidget {
+  final VoidCallback onImportComplete;
+
+  const _DlsiteImportDialog({required this.onImportComplete});
+
+  @override
+  State<_DlsiteImportDialog> createState() => _DlsiteImportDialogState();
+}
+
+class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
+  final _dlsiteService = DlsiteService();
+  final _idController = TextEditingController();
+  String? _folderPath;
+  bool _isLoading = false;
+  String _statusText = '';
+
+  @override
+  void dispose() {
+    _idController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickFolder() async {
+    final result = await FilePicker.getDirectoryPath(dialogTitle: '选择游戏文件夹');
+    if (result != null) {
+      setState(() {
+        _folderPath = result;
+        if (_idController.text.isEmpty) {
+          final gameName = _dlsiteService.extractGameNameFromFolder(result);
+          if (gameName != null) {
+            _statusText = '将使用名称搜索: $gameName';
+          }
+        }
+      });
+    }
+  }
+
+  Future<void> _import() async {
+    if (_folderPath == null) {
+      AppTheme.showGlassToast(
+        context,
+        message: '请选择游戏文件夹',
+        icon: Icons.warning_amber,
+        iconColor: AppTheme.warningColor,
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _statusText = '正在获取游戏信息...';
+    });
+
+    try {
+      final repo = GameRepository();
+      final tagRepo = TagRepository();
+
+      final existingGame = await repo.getGameByPath(_folderPath!);
+
+      GameInfo? gameInfo;
+      final inputId = _idController.text.trim();
+
+      if (inputId.isNotEmpty) {
+        final normalizedId = _dlsiteService.normalizeId(inputId);
+        if (normalizedId != null) {
+          setState(() => _statusText = '正在通过ID获取: $normalizedId');
+          gameInfo = await _dlsiteService.fetchById(normalizedId);
+        } else {
+          setState(() => _statusText = '无效的DLsite ID');
+          return;
+        }
+      } else {
+        final gameName = _dlsiteService.extractGameNameFromFolder(_folderPath!);
+        if (gameName != null && gameName.isNotEmpty) {
+          setState(() => _statusText = '正在搜索: $gameName');
+          gameInfo = await _dlsiteService.fetchByName(gameName);
+        }
+      }
+
+      if (gameInfo == null) {
+        setState(() => _statusText = '未找到游戏信息');
+        return;
+      }
+
+      setState(() => _statusText = '正在下载封面图...');
+
+      String? coverPath;
+      if (gameInfo.screenshots.isNotEmpty) {
+        coverPath = await _dlsiteService.downloadCoverImage(
+          gameInfo.screenshots.first,
+          _folderPath!,
+        );
+      }
+
+      if (gameInfo.screenshots.length > 1) {
+        setState(() => _statusText = '正在下载截图...');
+        await _dlsiteService.downloadScreenshots(
+          gameInfo.screenshots.skip(1).toList(),
+          _folderPath!,
+        );
+      }
+
+      setState(() => _statusText = '正在保存数据...');
+
+      final game = Game(
+        path: _folderPath!,
+        title: gameInfo.title,
+        intro: gameInfo.description,
+        sourceUrl: gameInfo.sourceUrl,
+      );
+
+      int gameId;
+      if (existingGame != null) {
+        await repo.updateGame(game.copyWith(id: existingGame.id));
+        gameId = existingGame.id!;
+      } else {
+        gameId = await repo.insertGame(game);
+      }
+
+      for (final tagName in gameInfo.tags) {
+        final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
+        await repo.addTagToGame(gameId, tagId);
+      }
+
+      final imageDir = Directory(path.join(_folderPath!, 'images'));
+      if (await imageDir.exists()) {
+        final imagePaths = <String>[];
+        await for (final entity in imageDir.list()) {
+          if (entity is File) {
+            final ext = path.extension(entity.path).toLowerCase();
+            if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext)) {
+              imagePaths.add(entity.path);
+            }
+          }
+        }
+        imagePaths.sort();
+        if (imagePaths.isNotEmpty) {
+          final images = imagePaths.asMap().entries.map((e) => GameImage(
+            gameId: gameId,
+            imagePath: e.value,
+            sortOrder: e.key,
+          )).toList();
+          await repo.setGameImages(gameId, images);
+        }
+      }
+
+      final metadataFile = File(path.join(_folderPath!, 'metadata.json'));
+      await metadataFile.writeAsString(
+        jsonEncode(gameInfo.toJson()),
+        flush: true,
+      );
+
+      final sourceUrlFile = File(path.join(_folderPath!, 'source_url.txt'));
+      await sourceUrlFile.writeAsString(
+        gameInfo.sourceUrl,
+        flush: true,
+      );
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        widget.onImportComplete();
+        AppTheme.showGlassToast(
+          context,
+          message: existingGame != null ? '游戏信息已更新' : '游戏导入成功',
+          icon: Icons.check_circle_outline,
+          iconColor: AppTheme.successColor,
+        );
+      }
+    } catch (e) {
+      setState(() => _statusText = '导入失败: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(28),
+      child: SizedBox(
+        width: 500,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '从DLsite导入游戏',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceColor.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                      border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.2)),
+                    ),
+                    child: Text(
+                      _folderPath ?? '未选择文件夹',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: _folderPath != null ? AppTheme.textPrimary : AppTheme.textSecondary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _pickFolder,
+                  icon: const Icon(Icons.folder_open, size: 16),
+                  label: const Text('浏览'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _idController,
+              decoration: InputDecoration(
+                hintText: '输入DLsite ID (如 RJ123456)，留空则按文件夹名称搜索',
+                hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            if (_statusText.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  _statusText,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _statusText.contains('失败') || _statusText.contains('无效')
+                        ? AppTheme.errorColor
+                        : AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _import,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.4),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('导入'),
                 ),
               ],
             ),
