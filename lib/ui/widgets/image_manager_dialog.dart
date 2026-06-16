@@ -198,7 +198,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
             ),
             const SizedBox(height: 8),
             const Text(
-              '拖拽图片可调整顺序，第一张将作为封面',
+              '点击图片设为封面，封面将显示在第一张',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 16),

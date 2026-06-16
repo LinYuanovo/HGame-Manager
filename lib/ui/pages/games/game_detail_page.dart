@@ -1074,6 +1074,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
       ref.invalidate(allGamesProvider);
       ref.invalidate(allTagsProvider);
+      ref.invalidate(allSeriesProvider);
       ref.invalidate(playedGamesProvider);
       ref.invalidate(favoriteGamesProvider);
       ref.invalidate(clearedGamesProvider);
