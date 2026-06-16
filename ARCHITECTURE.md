@@ -290,6 +290,12 @@ enum NavRoute {
 - WebDAV 同步支持
 - 配置文件同步
 
+### ImageService
+- 图片文件管理（复制、删除）
+- 本地文件选择
+- URL图片下载
+- 图片存储目录管理
+
 ### VersionCheckService
 - 从游戏标题提取搜索关键词
 - 在维咔/飞雪/嘤嘤怪三个站点搜索

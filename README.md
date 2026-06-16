@@ -48,6 +48,12 @@
 
 Windows 系统在 [releases](https://github.com/LinYuanovo/HGame-Manager/releases) 页面直接下载 zip 压缩包后**解压**即可使用
 
+- [网盘下载]
+
+#### 使用教程
+
+[图文教程](https://github.com/LinYuanovo/HGame-Manager/blob/master/%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B.docx)
+
 #### 自行构建
 
 <details>
@@ -83,9 +89,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 游戏库根目录/
 ├── SLG/                        # 按系列分类
 │   └── GameName/
-│       ├── source_url.txt      # 来源URL（必需）
-│       ├── metadata.json       # 元数据（刮削生成）
-│       └── images/             # 游戏图片（刮削下载）
+│       └── source_url.txt      # 来源URL（必需）
 ├── RPG/
 │   └── ...
 └── 未分类/
@@ -150,6 +154,8 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 - **图片轮播**：支持键盘导航
 - **大图查看**：80% 窗口大小的图片查看器
+- **图片管理**：自定义添加、删除、拖拽排序图片
+- **封面设置**：拖拽排序第一张自动设为封面
 - **下载链接**：网盘按钮双击复制
 - **解压码**：独立显示，双击复制
 - **编辑模式**：可编辑版本号、标签、下载地址、解压码等
