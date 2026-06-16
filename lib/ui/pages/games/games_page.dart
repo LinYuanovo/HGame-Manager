@@ -574,21 +574,17 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
         return;
       }
 
-      setState(() => _statusText = '正在下载封面图...');
+      // 下载所有图片（封面+截图）到images文件夹
+      setState(() => _statusText = '正在下载图片...');
+      final urlToLocal = await _dlsiteService.downloadAllImages(
+        gameInfo.screenshots,
+        _folderPath!,
+      );
 
-      if (gameInfo.screenshots.isNotEmpty) {
-        await _dlsiteService.downloadCoverImage(
-          gameInfo.screenshots.first,
-          _folderPath!,
-        );
-      }
-
-      if (gameInfo.screenshots.length > 1) {
-        setState(() => _statusText = '正在下载截图...');
-        await _dlsiteService.downloadScreenshots(
-          gameInfo.screenshots.skip(1).toList(),
-          _folderPath!,
-        );
+      // 替换描述中的图片URL为本地路径
+      String? description = gameInfo.description;
+      if (description != null && urlToLocal.isNotEmpty) {
+        description = _dlsiteService.replaceImageUrlsInDescription(description, urlToLocal);
       }
 
       setState(() => _statusText = '正在保存数据...');
@@ -596,7 +592,7 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
       final game = Game(
         path: _folderPath!,
         title: gameInfo.title,
-        intro: gameInfo.description,
+        intro: description,
         sourceUrl: gameInfo.sourceUrl,
       );
 

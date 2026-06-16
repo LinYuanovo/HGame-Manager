@@ -332,55 +332,55 @@ class DlsiteService {
     }
   }
 
-  Future<String?> downloadCoverImage(String imageUrl, String saveDir) async {
-    try {
-      final client = await createProxyClientFromPrefs();
-      final headers = await _buildImageHeaders();
-      final response = await client.get(Uri.parse(imageUrl), headers: headers)
-          .timeout(const Duration(seconds: 30));
-      client.close();
+  /// 下载所有图片（封面+截图）到images文件夹
+  /// 返回 URL -> 本地路径 的映射
+  Future<Map<String, String>> downloadAllImages(List<String> imageUrls, String saveDir) async {
+    final urlToLocal = <String, String>{};
+    if (imageUrls.isEmpty) return urlToLocal;
 
-      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-        final ext = _getExtensionFromUrl(imageUrl);
-        final filePath = path.join(saveDir, 'cover$ext');
-        await File(filePath).writeAsBytes(response.bodyBytes, flush: true);
-        return filePath;
-      }
-      return null;
-    } catch (e) {
-      _log.error('DlsiteService', 'Download cover error', e);
-      return null;
-    }
-  }
-
-  Future<List<String>> downloadScreenshots(List<String> imageUrls, String saveDir) async {
-    final downloadedPaths = <String>[];
     final imagesDir = Directory(path.join(saveDir, 'images'));
     if (!await imagesDir.exists()) {
       await imagesDir.create(recursive: true);
     }
 
+    _log.info('DlsiteService', '[downloadAllImages] 开始下载 ${imageUrls.length} 张图片');
+
     final client = await createProxyClientFromPrefs();
     final headers = await _buildImageHeaders();
 
     for (int i = 0; i < imageUrls.length; i++) {
+      final imageUrl = imageUrls[i];
       try {
-        final response = await client.get(Uri.parse(imageUrls[i]), headers: headers)
+        final response = await client.get(Uri.parse(imageUrl), headers: headers)
             .timeout(const Duration(seconds: 30));
 
         if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-          final ext = _getExtensionFromUrl(imageUrls[i]);
-          final filePath = path.join(imagesDir.path, '${i + 1}$ext');
+          final ext = _getExtensionFromUrl(imageUrl);
+          final fileName = '${i + 1}$ext';
+          final filePath = path.join(imagesDir.path, fileName);
           await File(filePath).writeAsBytes(response.bodyBytes, flush: true);
-          downloadedPaths.add(filePath);
+          urlToLocal[imageUrl] = filePath;
+          _log.info('DlsiteService', '[downloadAllImages] 图片${i + 1} 下载成功: $fileName');
+        } else {
+          _log.warning('DlsiteService', '[downloadAllImages] 图片${i + 1} 下载失败: HTTP ${response.statusCode}');
         }
       } catch (e) {
-        _log.warning('DlsiteService', 'Failed to download image ${i + 1}: $e');
+        _log.warning('DlsiteService', '[downloadAllImages] 图片${i + 1} 下载异常: $e');
       }
     }
 
     client.close();
-    return downloadedPaths;
+    _log.info('DlsiteService', '[downloadAllImages] 下载完成: ${urlToLocal.length}/${imageUrls.length}');
+    return urlToLocal;
+  }
+
+  /// 将描述中的图片URL替换为本地路径标记
+  String replaceImageUrlsInDescription(String description, Map<String, String> urlToLocal) {
+    var result = description;
+    for (final entry in urlToLocal.entries) {
+      result = result.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
+    }
+    return result;
   }
 
   String _getExtensionFromUrl(String url) {

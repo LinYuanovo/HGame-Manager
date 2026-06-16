@@ -90,11 +90,12 @@ class DlsiteParser extends SiteParser {
 
   String _extractDescriptionWithImages(Element descEl) {
     final buffer = StringBuffer();
-    _processNode(descEl, buffer);
+    final imageUrls = <String>[];
+    _processNode(descEl, buffer, imageUrls);
     return buffer.toString().trim();
   }
 
-  void _processNode(Element element, StringBuffer buffer) {
+  void _processNode(Element element, StringBuffer buffer, List<String> imageUrls) {
     for (final node in element.nodes) {
       if (node is Text) {
         final text = node.text.trim();
@@ -109,17 +110,18 @@ class DlsiteParser extends SiteParser {
               '';
           if (src.isNotEmpty && !src.contains('static/image') && !src.endsWith('.svg')) {
             final imgUrl = src.startsWith('//') ? 'https:$src' : src;
-            buffer.write('\n<img src="$imgUrl">\n');
+            imageUrls.add(imgUrl);
+            buffer.write('\n[图片:$imgUrl]\n');
           }
         } else if (node.localName == 'br') {
           buffer.write('\n');
         } else if (node.localName == 'p' || node.localName == 'div') {
-          _processNode(node, buffer);
+          _processNode(node, buffer, imageUrls);
           buffer.write('\n');
         } else if (node.localName == 'h3' || node.localName == 'h4') {
-          buffer.write('\n**${node.text.trim()}**\n');
+          buffer.write('\n${node.text.trim()}\n');
         } else {
-          _processNode(node, buffer);
+          _processNode(node, buffer, imageUrls);
         }
       }
     }
