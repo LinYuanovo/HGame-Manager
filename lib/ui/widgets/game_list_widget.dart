@@ -249,10 +249,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                 ),
                               ),
                             ),
-            ],
-          ),
-        ),
-      ),
+                        ],
+                      ),
+                    ),
                     const SizedBox(width: 16),
                   ],
                   _buildViewModeToggle(),
@@ -643,10 +642,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               const SizedBox(width: 6),
               Text(widget.scanProgress, style: TextStyle(fontSize: 13, color: AppTheme.primaryColor)),
             ],
+          ),
         ),
-      ),
-    );
-  }
+      );
+    }
     return Tooltip(
       message: '扫描存档位置',
       child: GestureDetector(
@@ -1519,13 +1518,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                           child: const Text('打开'),
                         ),
                       ],
-                    ),
-                  ],
-        ),
-      ),
-      ),
-    );
-            if (confirmed == true) {
+                      ),
+                    ],
+                  ),
+                ),
+              );
+              if (confirmed == true) {
               try {
                 await launchUrl(Uri.file(game.savePath!));
               } catch (e) {
