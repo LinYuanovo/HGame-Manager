@@ -209,22 +209,23 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         final searchQuery = _searchController.text.trim();
         var filteredGames = widget.games;
         
-        // 搜索词变化时保存/恢复页码 + 持久化
+        // 搜索词变化时保存/恢复页码
         if (searchQuery != _lastSearchQuery) {
           if (searchQuery.isNotEmpty && _lastSearchQuery.isEmpty) {
             _savedPage = _currentPage;
             _currentPage = 0;
-            _persistCurrentPage();
           } else if (searchQuery.isEmpty && _savedPage >= 0) {
             _currentPage = _savedPage;
             _savedPage = -1;
-            _persistCurrentPage();
           } else if (searchQuery.isNotEmpty) {
             _currentPage = 0;
-            _persistCurrentPage();
           }
           _lastSearchQuery = searchQuery;
           _saveSetting('game_list_search_query', searchQuery);
+          // 延迟到 build 完成后持久化页码
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _persistCurrentPage();
+          });
         }
         
         if (searchQuery.isNotEmpty) {
