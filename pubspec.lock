@@ -297,14 +297,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.0.1"
-  file_icon:
-    dependency: "direct main"
-    description:
-      name: file_icon
-      sha256: c46b6c24d9595d18995758b90722865baeda407f56308eadd757e1ab913f50a1
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.0"
   file_picker:
     dependency: "direct main"
     description:

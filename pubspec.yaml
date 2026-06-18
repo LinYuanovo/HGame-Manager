@@ -22,7 +22,6 @@ dependencies:
   url_launcher: ^6.2.1
   window_manager: ^0.3.7
   file_picker: ^11.0.2
-  file_icon: ^1.0.0
   uuid: ^4.2.1
   archive: ^4.0.4
 
