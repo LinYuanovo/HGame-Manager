@@ -239,8 +239,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   }
                 }
 
-                ref.invalidate(allGamesProvider);
-                ref.invalidate(playedGamesProvider);
+                if (mounted) {
+                  ref.invalidate(allGamesProvider);
+                  ref.invalidate(playedGamesProvider);
+                }
               },
               icon: const Icon(Icons.play_arrow, size: 20),
               label: const Text('开始游玩'),
@@ -1345,12 +1347,14 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         }
       }
 
-      ref.invalidate(allGamesProvider);
-      ref.invalidate(allTagsProvider);
-      ref.invalidate(allSeriesProvider);
-      ref.invalidate(playedGamesProvider);
-      ref.invalidate(favoriteGamesProvider);
-      ref.invalidate(clearedGamesProvider);
+      if (mounted) {
+        ref.invalidate(allGamesProvider);
+        ref.invalidate(allTagsProvider);
+        ref.invalidate(allSeriesProvider);
+        ref.invalidate(playedGamesProvider);
+        ref.invalidate(favoriteGamesProvider);
+        ref.invalidate(clearedGamesProvider);
+      }
 
       // 更新本地状态以实现实时刷新
       final freshGame = await repo.getGameById(gameId!);
@@ -1609,10 +1613,12 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     if (freshGame != null && mounted) {
                       setState(() => _currentGame = freshGame);
                     }
-                    ref.invalidate(allGamesProvider);
-                    ref.invalidate(playedGamesProvider);
-                    Navigator.pop(context);
-                    AppTheme.showGlassToast(context, message: '存档路径已更新');
+                    if (mounted) {
+                      ref.invalidate(allGamesProvider);
+                      ref.invalidate(playedGamesProvider);
+                      Navigator.pop(context);
+                      AppTheme.showGlassToast(context, message: '存档路径已更新');
+                    }
                   },
                   child: const Text('保存'),
                 ),
@@ -1922,11 +1928,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             }
             await repo.updateRatingReview(gameId, rating, review.isEmpty ? null : review);
             debugPrint('[Review] Updated rating=$rating, review=${review.isEmpty ? "null" : review} for game id=$gameId');
-            ref.invalidate(allGamesProvider);
-            ref.invalidate(playedGamesProvider);
-            ref.invalidate(clearedGamesProvider);
-            ref.invalidate(favoriteGamesProvider);
             if (mounted) {
+              ref.invalidate(allGamesProvider);
+              ref.invalidate(playedGamesProvider);
+              ref.invalidate(clearedGamesProvider);
+              ref.invalidate(favoriteGamesProvider);
               AppTheme.showGlassToast(context, message: '评论已保存');
             }
           } catch (e, stackTrace) {
@@ -1952,11 +1958,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             }
             await repo.deleteRatingReview(gameId);
             debugPrint('[Review] Deleted rating/review for game id=$gameId');
-            ref.invalidate(allGamesProvider);
-            ref.invalidate(playedGamesProvider);
-            ref.invalidate(clearedGamesProvider);
-            ref.invalidate(favoriteGamesProvider);
             if (mounted) {
+              ref.invalidate(allGamesProvider);
+              ref.invalidate(playedGamesProvider);
+              ref.invalidate(clearedGamesProvider);
+              ref.invalidate(favoriteGamesProvider);
               AppTheme.showGlassToast(context, message: '评论已删除');
             }
           } catch (e, stackTrace) {
