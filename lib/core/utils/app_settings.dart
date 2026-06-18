@@ -43,7 +43,25 @@ class AppSettings {
       if (await file.exists()) {
         final raw = await file.readAsString();
         if (raw.isNotEmpty) {
-          _data = jsonDecode(raw) as Map<String, dynamic>;
+          try {
+            _data = jsonDecode(raw) as Map<String, dynamic>;
+          } catch (e) {
+            // JSON 解析失败，尝试从备份恢复
+            debugPrint('[AppSettings] JSON parse error, trying backup: $e');
+            final backupFile = File('$_filePath.bak');
+            if (await backupFile.exists()) {
+              try {
+                final backupRaw = await backupFile.readAsString();
+                _data = jsonDecode(backupRaw) as Map<String, dynamic>;
+                // 恢复备份
+                await file.writeAsString(backupRaw, flush: true);
+              } catch (_) {
+                _data = {};
+              }
+            } else {
+              _data = {};
+            }
+          }
         }
       }
     } catch (e) {
@@ -60,6 +78,15 @@ class AppSettings {
       if (!await dir.exists()) {
         await dir.create(recursive: true);
       }
+      
+      // 保存前创建备份
+      if (await file.exists()) {
+        final backupFile = File('$_filePath.bak');
+        try {
+          await file.copy(backupFile.path);
+        } catch (_) {}
+      }
+      
       final tempFile = File('$_filePath.tmp');
       await tempFile.writeAsString(jsonEncode(_data), flush: true);
       

@@ -20,11 +20,25 @@ class WindowController extends ChangeNotifier with WindowListener {
     await windowManager.setPreventClose(true);
     windowManager.addListener(this);
 
-    final width = _prefs.getDouble('window_width') ?? defaultWindowWidth;
-    final height = _prefs.getDouble('window_height') ?? defaultWindowHeight;
-    final x = _prefs.getDouble('window_x');
-    final y = _prefs.getDouble('window_y');
+    var width = _prefs.getDouble('window_width') ?? defaultWindowWidth;
+    var height = _prefs.getDouble('window_height') ?? defaultWindowHeight;
+    var x = _prefs.getDouble('window_x');
+    var y = _prefs.getDouble('window_y');
     _isMaximized = _prefs.getBool('window_maximized') ?? false;
+
+    // 验证窗口大小有效性
+    if (width < 100 || width > 10000 || height < 100 || height > 10000) {
+      width = defaultWindowWidth;
+      height = defaultWindowHeight;
+    }
+
+    // 验证窗口位置有效性（防止超出屏幕范围）
+    if (x != null && (x < -10000 || x > 10000)) {
+      x = null;
+    }
+    if (y != null && (y < -10000 || y > 10000)) {
+      y = null;
+    }
 
     await windowManager.setMinimumSize(const Size(1200, 700));
 
