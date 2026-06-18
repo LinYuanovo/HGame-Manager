@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
+import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
@@ -920,6 +921,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     return GestureDetector(
       onSecondaryTapUp: (details) =>
           _showContextMenu(context, details.globalPosition, game),
+      onDoubleTap: ref.read(doubleClickLaunchProvider) ? () => _launchGameFromList(game) : null,
       child: Container(
         decoration: isSelected
             ? BoxDecoration(
@@ -1124,6 +1126,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     return GestureDetector(
       onSecondaryTapUp: (details) =>
           _showContextMenu(context, details.globalPosition, game),
+      onDoubleTap: ref.read(doubleClickLaunchProvider) ? () => _launchGameFromList(game) : null,
       child: Container(
         decoration: isSelected
             ? BoxDecoration(
@@ -1382,6 +1385,122 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         ],
       ],
     );
+  }
+
+  Future<void> _launchGameFromList(Game game) async {
+    final repo = ref.read(gameRepositoryProvider);
+    await repo.markAsPlayed(game.id!);
+
+    if (game.launcherLocked && game.gameLauncher != null && game.gameLauncher!.isNotEmpty) {
+      final file = File(game.gameLauncher!);
+      if (await file.exists()) {
+        try {
+          await Process.run(game.gameLauncher!, [], workingDirectory: game.path);
+        } catch (e) {
+          if (mounted) {
+            AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          }
+        }
+        ref.invalidate(allGamesProvider);
+        ref.invalidate(playedGamesProvider);
+        return;
+      }
+    }
+
+    final gameDir = Directory(game.path);
+    if (!await gameDir.exists()) return;
+
+    final toolBat = File('${game.path}${Platform.pathSeparator}与工具一同启动.bat');
+    if (await toolBat.exists()) {
+      await repo.updateGame(game.copyWith(gameLauncher: toolBat.path));
+      try {
+        await Process.run(toolBat.path, [], workingDirectory: game.path);
+      } catch (e) {
+        if (mounted) {
+          AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        }
+      }
+      ref.invalidate(allGamesProvider);
+      ref.invalidate(playedGamesProvider);
+      return;
+    }
+
+    await for (final entity in gameDir.list()) {
+      if (entity is File) {
+        final fileName = entity.path.split(RegExp(r'[/\\]')).last.toLowerCase();
+        if (fileName.endsWith('.bat') && (fileName.contains('启动') || fileName.contains('开始'))) {
+          await repo.updateGame(game.copyWith(gameLauncher: entity.path));
+          try {
+            await Process.run(entity.path, [], workingDirectory: game.path);
+          } catch (e) {
+            if (mounted) {
+              AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+            }
+          }
+          ref.invalidate(allGamesProvider);
+          ref.invalidate(playedGamesProvider);
+          return;
+        }
+      }
+    }
+
+    final fallbackExes = ['game.exe', 'Game.exe', 'launcher.exe', 'launch.exe'];
+    for (final exeName in fallbackExes) {
+      final exeFile = File('${game.path}${Platform.pathSeparator}$exeName');
+      if (await exeFile.exists()) {
+        await repo.updateGame(game.copyWith(gameLauncher: exeFile.path));
+        try {
+          await Process.run(exeFile.path, [], workingDirectory: game.path);
+        } catch (e) {
+          if (mounted) {
+            AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          }
+        }
+        ref.invalidate(allGamesProvider);
+        ref.invalidate(playedGamesProvider);
+        return;
+      }
+    }
+
+    final saveService = ref.read(savePathServiceProvider);
+    final exePath = saveService.findGameExe(game.path);
+    if (exePath != null) {
+      await repo.updateGame(game.copyWith(gameLauncher: exePath));
+      try {
+        await Process.run(exePath, [], workingDirectory: game.path);
+      } catch (e) {
+        if (mounted) {
+          AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        }
+      }
+      ref.invalidate(allGamesProvider);
+      ref.invalidate(playedGamesProvider);
+      return;
+    }
+
+    final result = await FilePicker.pickFiles(
+      dialogTitle: '选择游戏启动器',
+      type: FileType.any,
+    );
+    if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
+      final launcherPath = result.files.first.path!;
+      final updated = game.copyWith(gameLauncher: launcherPath, launcherLocked: true);
+      await repo.updateGame(updated);
+      try {
+        await Process.run(launcherPath, [], workingDirectory: game.path);
+      } catch (e) {
+        if (mounted) {
+          AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        }
+      }
+    } else {
+      try {
+        await launchUrl(Uri.file(game.path));
+      } catch (_) {}
+    }
+
+    ref.invalidate(allGamesProvider);
+    ref.invalidate(playedGamesProvider);
   }
 
   void _showGameDetail(Game game) {

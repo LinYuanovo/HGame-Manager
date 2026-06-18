@@ -139,6 +139,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           const SizedBox(height: 24),
           _buildIgnoreFoldersSection(),
           const SizedBox(height: 24),
+          _buildDoubleClickSection(),
+          const SizedBox(height: 24),
           _buildProxySection(),
           const SizedBox(height: 24),
           _buildForumDomainSection(),
@@ -478,6 +480,41 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final prefs = ref.read(sharedPreferencesProvider);
     prefs.setString(key, folders.join(','));
     setState(() {});
+  }
+
+  Widget _buildDoubleClickSection() {
+    return _buildSection(
+      title: '双击启动游戏',
+      icon: Icons.touch_app_outlined,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('双击游戏卡片直接启动游戏', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+                  const SizedBox(height: 4),
+                  Text(
+                    '开启后双击游戏列表中的游戏将直接启动',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondary.withValues(alpha: 0.6)),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: ref.watch(doubleClickLaunchProvider),
+              onChanged: (value) async {
+                ref.read(doubleClickLaunchProvider.notifier).state = value;
+                final prefs = ref.read(sharedPreferencesProvider);
+                await prefs.setBool('double_click_launch', value);
+              },
+              activeColor: AppTheme.primaryColor,
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   Widget _buildProxySection() {

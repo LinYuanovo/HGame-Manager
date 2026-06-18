@@ -409,3 +409,8 @@ final allToolsProvider = FutureProvider<List<Tool>>((ref) async {
     rethrow;
   }
 });
+
+final doubleClickLaunchProvider = StateProvider<bool>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return prefs.getBool('double_click_launch') ?? false;
+});
