@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../theme/app_theme.dart';
@@ -29,6 +30,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   late TextEditingController _changelogController;
   late TextEditingController _downloadUrlController;
   late TextEditingController _sourceUrlController;
+  late TextEditingController _gameLauncherController;
   List<Tag> _editedTags = [];
   late Game _currentGame;
 
@@ -47,6 +49,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _changelogController = TextEditingController(text: _currentGame.changelog);
     _downloadUrlController = TextEditingController(text: _currentGame.downloadUrl ?? '');
     _sourceUrlController = TextEditingController(text: _currentGame.sourceUrl ?? '');
+    _gameLauncherController = TextEditingController(text: _currentGame.gameLauncher ?? '');
     _editedTags = List.from(_currentGame.tags);
   }
 
@@ -59,6 +62,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _changelogController.dispose();
     _downloadUrlController.dispose();
     _sourceUrlController.dispose();
+    _gameLauncherController.dispose();
     super.dispose();
   }
 
@@ -173,22 +177,35 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 final repo = ref.read(gameRepositoryProvider);
                 await repo.markAsPlayed(_currentGame.id!);
 
-                // 尝试查找并启动游戏exe
-                final saveService = ref.read(savePathServiceProvider);
-                final exePath = saveService.findGameExe(_currentGame.path);
-                if (exePath != null) {
-                  try {
-                    await Process.run(exePath, [], workingDirectory: _currentGame.path);
-                  } catch (e) {
-                    if (mounted) {
-                      AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+                final launched = await _launchGame(_currentGame);
+
+                if (!launched && mounted) {
+                  final result = await FilePicker.pickFiles(
+                    dialogTitle: '选择游戏启动器',
+                    type: FileType.any,
+                  );
+                  if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
+                    final launcherPath = result.files.first.path!;
+                    final updated = _currentGame.copyWith(
+                      gameLauncher: launcherPath,
+                      launcherLocked: true,
+                    );
+                    await repo.updateGame(updated);
+                    setState(() {
+                      _currentGame = updated;
+                    });
+                    try {
+                      await Process.run(launcherPath, [], workingDirectory: _currentGame.path);
+                    } catch (e) {
+                      if (mounted) {
+                        AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+                      }
                     }
+                  } else {
+                    try {
+                      await launchUrl(Uri.file(_currentGame.path));
+                    } catch (_) {}
                   }
-                } else {
-                  // 如果找不到exe，打开游戏文件夹
-                  try {
-                    await launchUrl(Uri.file(_currentGame.path));
-                  } catch (_) {}
                 }
 
                 ref.invalidate(allGamesProvider);
@@ -497,6 +514,55 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           ] else if (_currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty) ...[
             const SizedBox(height: 10),
             _InfoRow(icon: Icons.link, label: '来源', value: _currentGame.sourceUrl!, isLink: true),
+          ],
+          if (_isEditing) ...[
+            const SizedBox(height: 12),
+            Text('启动器路径', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _gameLauncherController,
+                    decoration: InputDecoration(
+                      hintText: '留空则自动检测',
+                      hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                      ),
+                      isDense: true,
+                    ),
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final result = await FilePicker.pickFiles(
+                      dialogTitle: '选择启动器文件',
+                      type: FileType.any,
+                    );
+                    if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
+                      _gameLauncherController.text = result.files.first.path!;
+                    }
+                  },
+                  icon: const Icon(Icons.folder_open, size: 16),
+                  label: const Text('浏览', style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primaryColor,
+                    side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  ),
+                ),
+              ],
+            ),
           ],
           // 存档路径信息（仅编辑模式或有存档路径时显示）
           if (_isEditing && (_currentGame.isPlayed || _currentGame.playCount > 0)) ...[
@@ -1188,6 +1254,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       final newChangelog = _changelogController.text.trim().isEmpty ? null : _changelogController.text.trim();
       final newDownloadUrl = _downloadUrlController.text.trim().isEmpty ? null : _downloadUrlController.text.trim();
       final newSourceUrl = _sourceUrlController.text.trim().isEmpty ? null : _sourceUrlController.text.trim();
+      final launcherText = _gameLauncherController.text.trim();
 
       await repo.updateGame(_currentGame.copyWith(
         title: newTitle,
@@ -1197,6 +1264,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         changelog: newChangelog,
         downloadUrl: newDownloadUrl,
         sourceUrl: newSourceUrl,
+        gameLauncher: launcherText.isNotEmpty ? launcherText : null,
+        launcherLocked: launcherText.isNotEmpty ? true : _currentGame.launcherLocked,
         tags: _editedTags,
       ));
 
@@ -1264,6 +1333,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           _changelogController.text = freshGame.changelog ?? '';
           _downloadUrlController.text = freshGame.downloadUrl ?? '';
           _sourceUrlController.text = freshGame.sourceUrl ?? '';
+          _gameLauncherController.text = freshGame.gameLauncher ?? '';
           _editedTags = List.from(freshGame.tags);
         });
 
@@ -1320,6 +1390,94 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         AppTheme.showGlassToast(context, message: '保存失败: $e');
       }
     }
+  }
+
+  Future<bool> _launchGame(Game game) async {
+    final repo = ref.read(gameRepositoryProvider);
+
+    if (game.launcherLocked && game.gameLauncher != null && game.gameLauncher!.isNotEmpty) {
+      final file = File(game.gameLauncher!);
+      if (await file.exists()) {
+        try {
+          await Process.run(game.gameLauncher!, [], workingDirectory: game.path);
+          return true;
+        } catch (e) {
+          if (mounted) {
+            AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          }
+          return true;
+        }
+      }
+    }
+
+    final gameDir = Directory(game.path);
+    if (!await gameDir.exists()) return false;
+
+    final toolBat = File('${game.path}${Platform.pathSeparator}与工具一同启动.bat');
+    if (await toolBat.exists()) {
+      await repo.updateGame(game.copyWith(gameLauncher: toolBat.path));
+      try {
+        await Process.run(toolBat.path, [], workingDirectory: game.path);
+        return true;
+      } catch (e) {
+        if (mounted) {
+          AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        }
+        return true;
+      }
+    }
+
+    await for (final entity in gameDir.list()) {
+      if (entity is File) {
+        final fileName = entity.path.split(RegExp(r'[/\\]')).last.toLowerCase();
+        if (fileName.endsWith('.bat') && (fileName.contains('启动') || fileName.contains('开始'))) {
+          await repo.updateGame(game.copyWith(gameLauncher: entity.path));
+          try {
+            await Process.run(entity.path, [], workingDirectory: game.path);
+            return true;
+          } catch (e) {
+            if (mounted) {
+              AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+            }
+            return true;
+          }
+        }
+      }
+    }
+
+    final fallbackExes = ['game.exe', 'Game.exe', 'launcher.exe', 'launch.exe'];
+    for (final exeName in fallbackExes) {
+      final exeFile = File('${game.path}${Platform.pathSeparator}$exeName');
+      if (await exeFile.exists()) {
+        await repo.updateGame(game.copyWith(gameLauncher: exeFile.path));
+        try {
+          await Process.run(exeFile.path, [], workingDirectory: game.path);
+          return true;
+        } catch (e) {
+          if (mounted) {
+            AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          }
+          return true;
+        }
+      }
+    }
+
+    final saveService = ref.read(savePathServiceProvider);
+    final exePath = saveService.findGameExe(game.path);
+    if (exePath != null) {
+      await repo.updateGame(game.copyWith(gameLauncher: exePath));
+      try {
+        await Process.run(exePath, [], workingDirectory: game.path);
+        return true;
+      } catch (e) {
+        if (mounted) {
+          AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        }
+        return true;
+      }
+    }
+
+    return false;
   }
 
   void _openSaveLocation() async {
