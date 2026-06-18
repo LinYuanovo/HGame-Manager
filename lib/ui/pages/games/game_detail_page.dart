@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/utils/proxy_client.dart';
+import '../../../scraper/html_parser.dart';
 import '../../theme/app_theme.dart';
 import '../../../core/services/version_check_service.dart';
 import '../../widgets/image_manager_dialog.dart';
@@ -37,6 +39,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   bool _isImageViewerOpen = false;
   int _currentImageIndex = 0;
   bool _isCheckingUpdate = false;
+  bool _isRescraping = false;
 
   @override
   void initState() {
@@ -133,6 +136,22 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ),
           ),
           if (!_isEditing) ...[
+            Tooltip(
+              message: _currentGame.sourceUrl == null || _currentGame.sourceUrl!.isEmpty
+                  ? '该游戏没有来源URL，无法重新刮削'
+                  : '重新刮削',
+              child: IconButton(
+                icon: _isRescraping
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : Icon(Icons.refresh, size: 20, color: _currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty
+                        ? AppTheme.textPrimary
+                        : AppTheme.textPrimary.withValues(alpha: 0.3)),
+                tooltip: '重新刮削',
+                onPressed: _currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty && !_isRescraping
+                    ? _rescrapeGame
+                    : null,
+              ),
+            ),
             IconButton(
               icon: Icon(Icons.edit_outlined, size: 20, color: AppTheme.textPrimary),
               tooltip: '编辑',
@@ -1623,6 +1642,193 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         AppTheme.showGlassToast(context, message: '检查更新失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
     }
+  }
+
+  Future<void> _rescrapeGame() async {
+    if (_currentGame.sourceUrl == null || _currentGame.sourceUrl!.isEmpty) return;
+
+    setState(() => _isRescraping = true);
+
+    try {
+      final client = await createProxyClientFromPrefs();
+      final scraper = HtmlScraper();
+      await scraper.ensureLoaded();
+
+      final headers = await buildScrapeHeaders(_currentGame.sourceUrl!);
+      final response = await client.get(Uri.parse(_currentGame.sourceUrl!), headers: headers);
+
+      if (response.statusCode == 200) {
+        final gameInfo = scraper.scrapeGameInfo(response.body, _currentGame.sourceUrl!);
+        if (gameInfo != null) {
+          final repo = ref.read(gameRepositoryProvider);
+          final tagRepo = ref.read(tagRepositoryProvider);
+
+          final displayTitle = gameInfo.title != null
+              ? _stripVersionFromTitle(gameInfo.title!, gameInfo.version)
+              : null;
+          final updated = _currentGame.copyWith(
+            title: displayTitle ?? _currentGame.title,
+            version: gameInfo.version ?? _currentGame.version,
+            intro: gameInfo.description ?? _currentGame.intro,
+            features: gameInfo.features.isNotEmpty ? gameInfo.features.join('\n') : _currentGame.features,
+            changelog: gameInfo.changelog ?? _currentGame.changelog,
+            downloadUrl: gameInfo.downloadUrl.isNotEmpty ? gameInfo.downloadUrl : _currentGame.downloadUrl,
+          );
+
+          final metadataFile = File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
+          await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()), flush: true);
+
+          await repo.updateGame(updated);
+
+          for (final tagName in gameInfo.tags) {
+            final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
+            await repo.addTagToGame(_currentGame.id!, tagId);
+          }
+          if (gameInfo.category != null) {
+            final tagId = await tagRepo.insertOrGetTag(gameInfo.category!, Tag.typeSeries);
+            await repo.addTagToGame(_currentGame.id!, tagId);
+          }
+
+          final allTags = await tagRepo.getAllTags();
+          final gameTagNames = [...gameInfo.tags, if (gameInfo.category != null) gameInfo.category!];
+          for (final existingTag in allTags) {
+            if (existingTag.type == Tag.typeSeries) {
+              final shouldAssociate = gameTagNames.any((name) =>
+                  name.toUpperCase().contains(existingTag.name.toUpperCase()) &&
+                  name.toUpperCase() != existingTag.name.toUpperCase());
+              if (shouldAssociate) {
+                await repo.addTagToGame(_currentGame.id!, existingTag.id!);
+              }
+            }
+          }
+
+          if (gameInfo.screenshots.isNotEmpty) {
+            await _downloadImages(updated, gameInfo.screenshots);
+          }
+
+          await _moveToSorted(updated);
+
+          setState(() {
+            _currentGame = updated;
+          });
+
+          if (mounted) {
+            Navigator.of(context).pop();
+            ref.invalidate(allGamesProvider);
+            ref.invalidate(playedGamesProvider);
+            ref.invalidate(favoriteGamesProvider);
+            ref.invalidate(allTagsProvider);
+            ref.invalidate(allSeriesProvider);
+            AppTheme.showGlassToast(context, message: '重新刮削完成');
+          }
+        } else {
+          if (mounted) {
+            AppTheme.showGlassToast(context, message: '刮削失败：无法解析页面', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          }
+        }
+      } else {
+        if (mounted) {
+          AppTheme.showGlassToast(context, message: '请求失败: HTTP ${response.statusCode}', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        }
+      }
+      client.close();
+    } catch (e) {
+      if (mounted) {
+        AppTheme.showGlassToast(context, message: '刮削失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRescraping = false);
+      }
+    }
+  }
+
+  Future<void> _downloadImages(Game game, List<String> imageUrls) async {
+    final client = await createProxyClientFromPrefs();
+    final imageDir = Directory('${game.path}${Platform.pathSeparator}images');
+    if (!await imageDir.exists()) {
+      await imageDir.create(recursive: true);
+    }
+
+    final repo = ref.read(gameRepositoryProvider);
+    for (int i = 0; i < imageUrls.length; i++) {
+      try {
+        final imageUrl = imageUrls[i];
+        final ext = imageUrl.contains('.') ? '.${imageUrl.split('.').last.split('?').first}' : '.jpg';
+        final fileName = '${i + 1}$ext';
+        final filePath = '${imageDir.path}${Platform.pathSeparator}$fileName';
+        final file = File(filePath);
+
+        if (!await file.exists()) {
+          final response = await client.get(Uri.parse(imageUrl));
+          if (response.statusCode == 200) {
+            await file.writeAsBytes(response.bodyBytes);
+          }
+        }
+        await repo.addGameImage(game.id!, filePath, i);
+      } catch (_) {}
+    }
+    client.close();
+  }
+
+  Future<void> _moveToSorted(Game game) async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final sortedPath = prefs.getString('sorted_path') ?? '';
+    if (sortedPath.isEmpty) return;
+
+    final sourceDir = Directory(game.path);
+    if (!await sourceDir.exists()) return;
+
+    final repo = ref.read(gameRepositoryProvider);
+    final tags = await repo.getGameTags(game.id!);
+    const categoryOrder = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS', '3D'];
+    String categoryName = 'Unclassified';
+    final allNames = tags.map((t) => t.name.toUpperCase()).toList();
+    for (final cat in categoryOrder) {
+      if (allNames.any((name) => name.contains(cat))) {
+        categoryName = cat;
+        break;
+      }
+    }
+
+    final folderName = game.path.split(RegExp(r'[/\\]')).last;
+    final targetDir = Directory('${sortedPath}${Platform.pathSeparator}${categoryName}${Platform.pathSeparator}$folderName');
+    if (!await Directory('${sortedPath}${Platform.pathSeparator}${categoryName}').exists()) {
+      await Directory('${sortedPath}${Platform.pathSeparator}${categoryName}').create(recursive: true);
+    }
+
+    if (await targetDir.exists()) return;
+
+    final existingGame = await repo.getGameByPath(targetDir.path);
+    if (existingGame != null) {
+      await repo.deleteGame(existingGame.id!);
+    }
+
+    await sourceDir.rename(targetDir.path);
+    await repo.updateGamePath(game.id!, targetDir.path);
+    final images = await repo.getGameImages(game.id!);
+    if (images.isNotEmpty) {
+      final updatedImages = images.map((img) => GameImage(
+        id: img.id,
+        gameId: img.gameId,
+        imagePath: img.imagePath.replaceFirst(game.path, targetDir.path),
+        sortOrder: img.sortOrder,
+      )).toList();
+      await repo.setGameImages(game.id!, updatedImages);
+    }
+  }
+
+  static final _versionPattern = RegExp(r'\s+(?:build|v(?:er(?:sion)?)?)\s*\.?\d+(?:[\d.]*\d+)?\s*', caseSensitive: false);
+
+  String _stripVersionFromTitle(String title, [String? version]) {
+    var result = title;
+    if (version != null && version.isNotEmpty) {
+      final escaped = RegExp.escape(version);
+      final precisePattern = RegExp(r'\s+(?:build|v(?:er(?:sion)?)?)?\s*' + escaped + r'\s*', caseSensitive: false);
+      result = result.replaceAll(precisePattern, ' ');
+    }
+    result = result.replaceAll(_versionPattern, ' ');
+    return result.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
   }
 
   void _showUpdateDialog(VersionCheckResult result) {
