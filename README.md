@@ -10,7 +10,7 @@
     <img src="https://img.shields.io/badge/Dart-3.11+-0175C2?style=flat-square&logo=dart" alt="Dart">
     <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows">
     <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License">
-    <img src="https://img.shields.io/badge/Version-1.3.3-blue?style=flat-square" alt="Version">
+    <img src="https://img.shields.io/badge/Version-1.3.4-blue?style=flat-square" alt="Version">
   </nobr>
 </p>
 
