@@ -194,7 +194,18 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             child: ElevatedButton.icon(
               onPressed: () async {
                 final repo = ref.read(gameRepositoryProvider);
-                await repo.markAsPlayed(_currentGame.id!);
+                try {
+                  await repo.markAsPlayed(_currentGame.id!);
+                  setState(() {
+                    _currentGame = _currentGame.copyWith(
+                      isPlayed: true,
+                      playCount: _currentGame.playCount + 1,
+                      lastPlayedTime: DateTime.now(),
+                    );
+                  });
+                } catch (e) {
+                  debugPrint('markAsPlayed error: $e');
+                }
 
                 final launched = await _launchGame(_currentGame);
 

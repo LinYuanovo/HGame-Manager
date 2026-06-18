@@ -1419,7 +1419,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   Future<void> _launchGameFromList(Game game) async {
     final repo = ref.read(gameRepositoryProvider);
-    await repo.markAsPlayed(game.id!);
+    try {
+      await repo.markAsPlayed(game.id!);
+    } catch (e) {
+      debugPrint('markAsPlayed error: $e');
+    }
 
     if (game.launcherLocked && game.gameLauncher != null && game.gameLauncher!.isNotEmpty) {
       final file = File(game.gameLauncher!);
@@ -1438,7 +1442,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     }
 
     final gameDir = Directory(game.path);
-    if (!await gameDir.exists()) return;
+    if (!await gameDir.exists()) {
+      ref.invalidate(allGamesProvider);
+      ref.invalidate(playedGamesProvider);
+      return;
+    }
 
     final toolBat = File('${game.path}${Platform.pathSeparator}与工具一同启动.bat');
     if (await toolBat.exists()) {
