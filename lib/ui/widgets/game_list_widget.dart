@@ -7,6 +7,7 @@ import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/services/image_service.dart';
 import '../theme/app_theme.dart';
 import '../pages/games/game_detail_page.dart';
 import 'multi_select_controller.dart';
@@ -1833,6 +1834,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                            normalizedPath.endsWith('\\Backup');
 
       if (isBackupOnly) {
+        // 删除关联的图片文件
+        final imageService = ImageService();
+        final storageDir = await imageService.getImageStorageDir();
+        for (final img in game.images) {
+          if (img.imagePath.startsWith(storageDir)) {
+            await imageService.deleteImageFile(img.imagePath);
+          }
+        }
+
         // 直接删除备份
         final backupDir = Directory(game.path);
         if (await backupDir.exists()) {
@@ -2024,6 +2034,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
       // 处理仅备份游戏：直接删除备份
       if (isBackupOnly) {
+        // 删除关联的图片文件
+        final imageService = ImageService();
+        final storageDir = await imageService.getImageStorageDir();
+        for (final img in game.images) {
+          if (img.imagePath.startsWith(storageDir)) {
+            await imageService.deleteImageFile(img.imagePath);
+          }
+        }
+
         final backupDir = Directory(game.path);
         if (await backupDir.exists()) {
           await backupDir.delete(recursive: true);
