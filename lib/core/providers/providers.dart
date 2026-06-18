@@ -6,6 +6,7 @@ import 'package:path/path.dart' as path;
 import '../utils/app_settings.dart';
 import '../repositories/game_repository.dart';
 import '../repositories/tag_repository.dart';
+import '../repositories/tool_repository.dart';
 import '../services/game_scanner_service.dart';
 import '../services/game_count_service.dart';
 import '../services/save_path_service.dart';
@@ -23,6 +24,10 @@ final gameRepositoryProvider = Provider<GameRepository>((ref) {
 
 final tagRepositoryProvider = Provider<TagRepository>((ref) {
   return TagRepository();
+});
+
+final toolRepositoryProvider = Provider<ToolRepository>((ref) {
+  return ToolRepository();
 });
 
 final gameScannerServiceProvider = Provider<GameScannerService>((ref) {
@@ -392,3 +397,15 @@ final savePathServiceProvider = Provider<SavePathService>((ref) {
 
 final saveScanProgressProvider = StateProvider<String>((ref) => '');
 final isSaveScanningProvider = StateProvider<bool>((ref) => false);
+
+final allToolsProvider = FutureProvider<List<Tool>>((ref) async {
+  try {
+    final repository = ref.watch(toolRepositoryProvider);
+    return await repository.getAllTools();
+  } catch (e, stackTrace) {
+    if (kDebugMode) {
+      debugPrint('ERROR Loading Tools: $e\n$stackTrace');
+    }
+    rethrow;
+  }
+});
