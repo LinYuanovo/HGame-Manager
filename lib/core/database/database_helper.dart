@@ -4,7 +4,7 @@ import '../utils/app_paths.dart';
 class DatabaseHelper {
   static Database? _database;
   static Future<Database>? _databaseFuture;
-  static const int _databaseVersion = 4;
+  static const int _databaseVersion = 5;
 
   static Future<String> getDataDir() => AppPaths.rootDir;
 
@@ -43,6 +43,19 @@ class DatabaseHelper {
     if (oldVersion < 4) {
       await db.execute('ALTER TABLE games ADD COLUMN save_path TEXT');
     }
+    if (oldVersion < 5) {
+      await db.execute('ALTER TABLE games ADD COLUMN game_launcher TEXT');
+      await db.execute('ALTER TABLE games ADD COLUMN launcher_locked INTEGER NOT NULL DEFAULT 0');
+      await db.execute('''
+        CREATE TABLE tools (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          path TEXT UNIQUE NOT NULL,
+          sort_order INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      ''');
+    }
   }
 
   static Future<void> _onCreate(Database db, int version) async {
@@ -65,7 +78,9 @@ class DatabaseHelper {
         cover_index INTEGER DEFAULT 0,
         rating REAL DEFAULT 0,
         review TEXT,
-        save_path TEXT
+        save_path TEXT,
+        game_launcher TEXT,
+        launcher_locked INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -105,6 +120,16 @@ class DatabaseHelper {
       CREATE TABLE settings (
         key TEXT PRIMARY KEY,
         value TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE tools (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        path TEXT UNIQUE NOT NULL,
+        sort_order INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     ''');
 
