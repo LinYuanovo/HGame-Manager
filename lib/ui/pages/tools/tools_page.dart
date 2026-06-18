@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:file_icon/file_icon.dart';
 import '../../../core/models/tool.dart';
 import '../../../core/providers/providers.dart';
 import '../../theme/app_theme.dart';
@@ -113,6 +112,9 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
 
   Widget _buildToolCard(Tool tool) {
     final fileName = tool.path.split(RegExp(r'[/\\]')).last;
+    final ext = fileName.contains('.') ? '.${fileName.split('.').last.toLowerCase()}' : '';
+    final iconData = _getFileIcon(ext);
+    final iconColor = _getFileIconColor(ext);
 
     return GestureDetector(
       onDoubleTap: () => _launchTool(tool),
@@ -144,7 +146,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
                 children: [
                   Expanded(
                     child: Center(
-                      child: FileIcon(fileName, size: 128),
+                      child: Icon(iconData, size: 80, color: iconColor),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -311,6 +313,115 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
     ref.invalidate(allToolsProvider);
     if (mounted) {
       AppTheme.showGlassToast(context, message: '已删除工具: ${tool.name}');
+    }
+  }
+
+  IconData _getFileIcon(String ext) {
+    switch (ext) {
+      case '.exe':
+        return Icons.apps;
+      case '.bat':
+      case '.cmd':
+      case '.ps1':
+        return Icons.terminal;
+      case '.lnk':
+        return Icons.link;
+      case '.txt':
+      case '.log':
+        return Icons.description;
+      case '.pdf':
+        return Icons.picture_as_pdf;
+      case '.doc':
+      case '.docx':
+        return Icons.article;
+      case '.xls':
+      case '.xlsx':
+        return Icons.table_chart;
+      case '.zip':
+      case '.rar':
+      case '.7z':
+      case '.tar':
+      case '.gz':
+        return Icons.archive;
+      case '.jpg':
+      case '.jpeg':
+      case '.png':
+      case '.gif':
+      case '.bmp':
+      case '.webp':
+        return Icons.image;
+      case '.mp3':
+      case '.wav':
+      case '.flac':
+      case '.aac':
+        return Icons.music_note;
+      case '.mp4':
+      case '.avi':
+      case '.mkv':
+      case '.mov':
+        return Icons.movie;
+      case '.html':
+      case '.htm':
+        return Icons.language;
+      case '.json':
+      case '.xml':
+      case '.yaml':
+      case '.yml':
+        return Icons.data_object;
+      case '.dll':
+      case '.sys':
+        return Icons.settings;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+
+  Color _getFileIconColor(String ext) {
+    switch (ext) {
+      case '.exe':
+        return const Color(0xFF4CAF50);
+      case '.bat':
+      case '.cmd':
+      case '.ps1':
+        return const Color(0xFF2196F3);
+      case '.lnk':
+        return const Color(0xFF9C27B0);
+      case '.txt':
+      case '.log':
+        return const Color(0xFF607D8B);
+      case '.pdf':
+        return const Color(0xFFF44336);
+      case '.doc':
+      case '.docx':
+        return const Color(0xFF1976D2);
+      case '.xls':
+      case '.xlsx':
+        return const Color(0xFF388E3C);
+      case '.zip':
+      case '.rar':
+      case '.7z':
+      case '.tar':
+      case '.gz':
+        return const Color(0xFFFF9800);
+      case '.jpg':
+      case '.jpeg':
+      case '.png':
+      case '.gif':
+      case '.bmp':
+      case '.webp':
+        return const Color(0xFF00BCD4);
+      case '.mp3':
+      case '.wav':
+      case '.flac':
+      case '.aac':
+        return const Color(0xFFE91E63);
+      case '.mp4':
+      case '.avi':
+      case '.mkv':
+      case '.mov':
+        return const Color(0xFF9C27B0);
+      default:
+        return AppTheme.textSecondary.withValues(alpha: 0.6);
     }
   }
 }

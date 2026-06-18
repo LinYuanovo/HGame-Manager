@@ -1255,6 +1255,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     await prefs.setDouble('font_size', _fontSize);
     await prefs.setDouble('detail_font_size', _detailFontSize);
 
+    if (!mounted) return;
+
     ref.invalidate(fontSizeProvider);
     ref.invalidate(detailFontSizeProvider);
     ref.invalidate(pageSizeProvider);

@@ -132,13 +132,16 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   void _updateCurrentPage(int page) {
-    setState(() {
-      _currentPage = page;
-    });
+    _currentPage = page;
+    _persistCurrentPage();
+    if (mounted) setState(() {});
+  }
+
+  void _persistCurrentPage() {
     if (widget.routeIndex != null) {
       final notifier = ref.read(currentPageProvider.notifier);
       final current = Map<int, int>.from(notifier.state);
-      current[widget.routeIndex!] = page;
+      current[widget.routeIndex!] = _currentPage;
       notifier.state = current;
       final prefs = ref.read(sharedPreferencesProvider);
       prefs.setString('current_pages', jsonEncode(current.map((k, v) => MapEntry(k.toString(), v))));
@@ -210,20 +213,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         if (searchQuery != _lastSearchQuery) {
           if (searchQuery.isNotEmpty && _lastSearchQuery.isEmpty) {
             _savedPage = _currentPage;
-            _updateCurrentPage(0);
+            _currentPage = 0;
+            _persistCurrentPage();
           } else if (searchQuery.isEmpty && _savedPage >= 0) {
             _currentPage = _savedPage;
             _savedPage = -1;
-            if (widget.routeIndex != null) {
-              final notifier = ref.read(currentPageProvider.notifier);
-              final current = Map<int, int>.from(notifier.state);
-              current[widget.routeIndex!] = _currentPage;
-              notifier.state = current;
-              final prefs = ref.read(sharedPreferencesProvider);
-              prefs.setString('current_pages', jsonEncode(current.map((k, v) => MapEntry(k.toString(), v))));
-            }
+            _persistCurrentPage();
           } else if (searchQuery.isNotEmpty) {
-            _updateCurrentPage(0);
+            _currentPage = 0;
+            _persistCurrentPage();
           }
           _lastSearchQuery = searchQuery;
           _saveSetting('game_list_search_query', searchQuery);
@@ -1512,6 +1510,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     final result = await FilePicker.pickFiles(
       dialogTitle: '选择游戏启动器',
       type: FileType.any,
+      initialDirectory: game.path,
     );
     if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
       final launcherPath = result.files.first.path!;

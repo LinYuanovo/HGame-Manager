@@ -202,6 +202,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   final result = await FilePicker.pickFiles(
                     dialogTitle: '选择游戏启动器',
                     type: FileType.any,
+                    initialDirectory: _currentGame.path,
                   );
                   if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
                     final launcherPath = result.files.first.path!;
@@ -566,6 +567,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     final result = await FilePicker.pickFiles(
                       dialogTitle: '选择启动器文件',
                       type: FileType.any,
+                      initialDirectory: _currentGame.path,
                     );
                     if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
                       _gameLauncherController.text = result.files.first.path!;
