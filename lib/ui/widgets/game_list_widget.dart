@@ -244,6 +244,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         }
         final sortedGames = _sortGames(filteredGames);
 
+        // 确保当前页不超过总页数
+        final totalPages = (sortedGames.length / _itemsPerPage).ceil();
+        if (_currentPage >= totalPages && totalPages > 0) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _updateCurrentPage(totalPages - 1);
+          });
+        }
+
         // Apply pagination
         List<Game> displayedGames;
         if (_paginationMode == PaginationMode.paginated) {
@@ -254,8 +262,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         } else {
           displayedGames = sortedGames.take(_infiniteScrollCount).toList();
         }
-
-        final totalPages = (sortedGames.length / _itemsPerPage).ceil();
 
         return Column(
           children: [
