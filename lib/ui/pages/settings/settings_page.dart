@@ -23,6 +23,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   late TextEditingController _libraryPathController;
   late TextEditingController _sortedPathController;
   late TextEditingController _proxyUrlController;
+  late TextEditingController _proxyTestUrlController;
   late TextEditingController _cookieAcgyingController;
   late TextEditingController _cookieFeixueController;
   late TextEditingController _cookieVikacgController;
@@ -67,6 +68,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _libraryPathController = TextEditingController(text: libraryPath);
     _sortedPathController = TextEditingController(text: sortedPath);
     _proxyUrlController = TextEditingController(text: proxyUrl);
+    _proxyTestUrlController = TextEditingController(text: prefs.getString('proxy_test_url') ?? '');
     _cookieAcgyingController = TextEditingController(text: cookieAcgying);
     _cookieFeixueController = TextEditingController(text: cookieFeixue);
     _cookieVikacgController = TextEditingController(text: cookieVikacg);
@@ -112,6 +114,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _libraryPathController.dispose();
     _sortedPathController.dispose();
     _proxyUrlController.dispose();
+    _proxyTestUrlController.dispose();
     _cookieAcgyingController.dispose();
     _cookieFeixueController.dispose();
     _cookieVikacgController.dispose();
@@ -542,6 +545,28 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               onTap: () => setState(() => _proxyMode = 'custom'),
             ),
             const SizedBox(width: 12),
+            SizedBox(
+              width: 200,
+              child: TextField(
+                controller: _proxyTestUrlController,
+                decoration: InputDecoration(
+                  hintText: '默认: feixueacg.org',
+                  hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                  ),
+                  isDense: true,
+                ),
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+            const SizedBox(width: 8),
             ElevatedButton.icon(
               onPressed: _isTestingProxy ? null : _testProxy,
               icon: _isTestingProxy
@@ -1178,17 +1203,33 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     await prefs.setString('proxy_mode', _proxyMode);
     await prefs.setString('proxy_url', _proxyUrlController.text);
 
+    final customUrl = _proxyTestUrlController.text.trim();
+    String testUrl;
+    String displayLabel;
+
+    if (customUrl.isNotEmpty) {
+      if (!customUrl.startsWith('http://') && !customUrl.startsWith('https://')) {
+        testUrl = 'https://$customUrl';
+      } else {
+        testUrl = customUrl;
+      }
+      displayLabel = testUrl;
+    } else {
+      testUrl = 'https://feixueacg.org/';
+      displayLabel = 'feixueacg.org';
+    }
+
     setState(() {
       _isTestingProxy = true;
       _proxyTestResult = null;
     });
 
-    final ok = await testProxyConnection('https://feixueacg.org/');
+    final ok = await testProxyConnection(testUrl);
 
     if (mounted) {
       setState(() {
         _isTestingProxy = false;
-        _proxyTestResult = ok ? '连接成功 (feixueacg.org)' : '连接失败，请检查代理设置';
+        _proxyTestResult = ok ? '连接成功 ($displayLabel)' : '连接失败，请检查代理设置';
       });
     }
   }
@@ -1200,6 +1241,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     await prefs.setString('sorted_path', _sortedPathController.text);
     await prefs.setString('proxy_mode', _proxyMode);
     await prefs.setString('proxy_url', _proxyUrlController.text);
+    await prefs.setString('proxy_test_url', _proxyTestUrlController.text.trim());
     await prefs.setString('cookie_acgying', _cookieAcgyingController.text.trim());
     await prefs.setString('cookie_feixue', _cookieFeixueController.text.trim());
     await prefs.setString('cookie_vikacg', _cookieVikacgController.text.trim());
