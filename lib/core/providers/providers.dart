@@ -414,3 +414,15 @@ final doubleClickLaunchProvider = StateProvider<bool>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
   return prefs.getBool('double_click_launch') ?? false;
 });
+
+final currentPageProvider = StateProvider<Map<int, int>>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  final jsonStr = prefs.getString('current_pages');
+  if (jsonStr != null && jsonStr.isNotEmpty) {
+    try {
+      final Map<String, dynamic> decoded = jsonDecode(jsonStr);
+      return decoded.map((k, v) => MapEntry(int.parse(k), v as int));
+    } catch (_) {}
+  }
+  return {};
+});

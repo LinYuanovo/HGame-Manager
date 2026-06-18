@@ -75,6 +75,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
           color: Colors.transparent,
           child: GameListWidget(
           games: games,
+          routeIndex: 3,
           onTagTap: (tag) {
             Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) =>

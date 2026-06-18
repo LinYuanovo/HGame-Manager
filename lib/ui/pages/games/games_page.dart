@@ -137,6 +137,7 @@ class _GamesPageState extends ConsumerState<GamesPage> {
             data: (games) => GameListWidget(
               games: games,
               showSearchBar: true,
+              routeIndex: 1,
               onTagTap: (tag) {
                 Navigator.of(context)
                     .push(MaterialPageRoute(

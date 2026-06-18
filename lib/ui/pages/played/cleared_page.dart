@@ -49,6 +49,7 @@ class _ClearedPageState extends ConsumerState<ClearedPage> {
                   games: games,
                   contextMenuMode: ContextMenuMode.played,
                   isClearedPage: true,
+                  routeIndex: 5,
                   onScanSavePaths: _isScanning ? null : _scanSavePaths,
                   scanProgress: _scanProgress,
                   onSelectionChanged: (selected) {

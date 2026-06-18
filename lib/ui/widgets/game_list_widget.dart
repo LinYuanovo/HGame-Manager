@@ -30,6 +30,7 @@ class GameListWidget extends ConsumerStatefulWidget {
   final void Function(List<Game> selectedGames)? onSelectionChanged;
   final VoidCallback? onScanSavePaths;
   final String scanProgress;
+  final int? routeIndex;
 
   const GameListWidget({
     super.key,
@@ -46,6 +47,7 @@ class GameListWidget extends ConsumerStatefulWidget {
     this.onSelectionChanged,
     this.onScanSavePaths,
     this.scanProgress = '',
+    this.routeIndex,
   });
 
   @override
@@ -81,6 +83,13 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     _scrollController.addListener(_onScroll);
     _multiSelectController.addListener(_onSelectionChanged);
     _loadSettings();
+    if (widget.routeIndex != null) {
+      final savedPages = ref.read(currentPageProvider);
+      final savedPage = savedPages[widget.routeIndex!];
+      if (savedPage != null && savedPage >= 0) {
+        _currentPage = savedPage;
+      }
+    }
   }
 
   Future<void> _loadSettings() async {
@@ -120,6 +129,20 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   void _saveSetting(String key, String value) {
     ref.read(sharedPreferencesProvider).setString(key, value);
+  }
+
+  void _updateCurrentPage(int page) {
+    setState(() {
+      _currentPage = page;
+    });
+    if (widget.routeIndex != null) {
+      final notifier = ref.read(currentPageProvider.notifier);
+      final current = Map<int, int>.from(notifier.state);
+      current[widget.routeIndex!] = page;
+      notifier.state = current;
+      final prefs = ref.read(sharedPreferencesProvider);
+      prefs.setString('current_pages', jsonEncode(current.map((k, v) => MapEntry(k.toString(), v))));
+    }
   }
 
   @override
@@ -187,12 +210,20 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         if (searchQuery != _lastSearchQuery) {
           if (searchQuery.isNotEmpty && _lastSearchQuery.isEmpty) {
             _savedPage = _currentPage;
-            _currentPage = 0;
+            _updateCurrentPage(0);
           } else if (searchQuery.isEmpty && _savedPage >= 0) {
             _currentPage = _savedPage;
             _savedPage = -1;
+            if (widget.routeIndex != null) {
+              final notifier = ref.read(currentPageProvider.notifier);
+              final current = Map<int, int>.from(notifier.state);
+              current[widget.routeIndex!] = _currentPage;
+              notifier.state = current;
+              final prefs = ref.read(sharedPreferencesProvider);
+              prefs.setString('current_pages', jsonEncode(current.map((k, v) => MapEntry(k.toString(), v))));
+            }
           } else if (searchQuery.isNotEmpty) {
-            _currentPage = 0;
+            _updateCurrentPage(0);
           }
           _lastSearchQuery = searchQuery;
           _saveSetting('game_list_search_query', searchQuery);
@@ -316,9 +347,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             onTap: () {
               setState(() {
                 _viewMode = mode;
-                _currentPage = 0;
                 _savedPage = -1;
               });
+              _updateCurrentPage(0);
               _saveSetting('game_list_view_mode', mode == ViewMode.poster ? 'poster' : 'list');
             },
             child: Container(
@@ -447,9 +478,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   void _updateListItemsPerPage(int count) {
     setState(() {
       _listItemsPerPage = count;
-      _currentPage = 0;
       _savedPage = -1;
     });
+    _updateCurrentPage(0);
     ref.read(sharedPreferencesProvider).setInt('game_list_items_per_page', count);
   }
 
@@ -537,9 +568,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 } else {
                   _sortMode = mode;
                 }
-                _currentPage = 0;
                 _savedPage = -1;
               });
+              _updateCurrentPage(0);
               _saveSetting('game_list_sort_mode', _sortMode.name);
             },
           ),
@@ -569,9 +600,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       onTap: () {
         setState(() {
           _sortMode = _toggleDirection(_sortMode);
-          _currentPage = 0;
           _savedPage = -1;
         });
+        _updateCurrentPage(0);
         _saveSetting('game_list_sort_mode', _sortMode.name);
       },
       child: Container(
@@ -611,9 +642,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           onTap: () {
             setState(() {
               _paginationMode = PaginationMode.paginated;
-              _currentPage = 0;
               _savedPage = -1;
             });
+            _updateCurrentPage(0);
             _saveSetting('game_list_pagination_mode', 'paginated');
           },
           child: Container(
@@ -795,7 +826,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildPageButton(Icons.chevron_left, _currentPage > 0 ? () => setState(() => _currentPage--) : null),
+          _buildPageButton(Icons.chevron_left, _currentPage > 0 ? () => _updateCurrentPage(_currentPage - 1) : null),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -807,7 +838,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryColor)),
           ),
           const SizedBox(width: 8),
-          _buildPageButton(Icons.chevron_right, _currentPage < totalPages - 1 ? () => setState(() => _currentPage++) : null),
+          _buildPageButton(Icons.chevron_right, _currentPage < totalPages - 1 ? () => _updateCurrentPage(_currentPage + 1) : null),
           const SizedBox(width: 16),
           SizedBox(
             width: 80,
@@ -840,7 +871,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               onSubmitted: (value) {
                 final page = int.tryParse(value);
                 if (page != null && page >= 1 && page <= totalPages) {
-                  setState(() => _currentPage = page - 1);
+                  _updateCurrentPage(page - 1);
                 }
                 pageController.clear();
               },

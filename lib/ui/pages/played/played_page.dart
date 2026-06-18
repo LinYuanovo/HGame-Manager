@@ -49,6 +49,7 @@ class _PlayedPageState extends ConsumerState<PlayedPage> {
                 child: GameListWidget(
                   games: games,
                   contextMenuMode: ContextMenuMode.played,
+                  routeIndex: 4,
                   onScanSavePaths: _isScanning ? null : _scanSavePaths,
                   scanProgress: _scanProgress,
                   onSelectionChanged: (selected) {
