@@ -1,3 +1,5 @@
+export 'tool.dart';
+
 const _undefined = Object();
 
 enum ViewMode {
