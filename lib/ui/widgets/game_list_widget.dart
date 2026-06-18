@@ -1419,10 +1419,16 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   Future<void> _launchGameFromList(Game game) async {
     final repo = ref.read(gameRepositoryProvider);
-    try {
-      await repo.markAsPlayed(game.id!);
-    } catch (e) {
-      debugPrint('markAsPlayed error: $e');
+    debugPrint('[_launchGameFromList] game.id: ${game.id}, game.path: ${game.path}');
+    if (game.id != null) {
+      try {
+        await repo.markAsPlayed(game.id!);
+        debugPrint('[_launchGameFromList] markAsPlayed success for id: ${game.id}');
+      } catch (e) {
+        debugPrint('[_launchGameFromList] markAsPlayed error: $e');
+      }
+    } else {
+      debugPrint('[_launchGameFromList] game.id is null, skip markAsPlayed');
     }
 
     if (game.launcherLocked && game.gameLauncher != null && game.gameLauncher!.isNotEmpty) {
