@@ -1906,15 +1906,35 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
       // 复制images目录到备份
       final imagesDir = Directory('${game.path}${Platform.pathSeparator}images');
+      final backupImagesDir = Directory('${backupGameDir.path}${Platform.pathSeparator}images');
+      if (!await backupImagesDir.exists()) {
+        await backupImagesDir.create(recursive: true);
+      }
+      
+      // 复制游戏目录下的images文件夹
       if (await imagesDir.exists()) {
-        final backupImagesDir = Directory('${backupGameDir.path}${Platform.pathSeparator}images');
-        if (!await backupImagesDir.exists()) {
-          await backupImagesDir.create(recursive: true);
-        }
         await for (final entity in imagesDir.list()) {
           if (entity is File) {
             final fileName = path.basename(entity.path);
             await entity.copy('${backupImagesDir.path}${Platform.pathSeparator}$fileName');
+          }
+        }
+      }
+      
+      // 复制game_images目录中用户手动添加的图片
+      final repo = ref.read(gameRepositoryProvider);
+      final gameImages = await repo.getGameImages(game.id!);
+      final imageService = ImageService();
+      final storageDir = await imageService.getImageStorageDir();
+      for (final img in gameImages) {
+        if (img.imagePath.startsWith(storageDir)) {
+          final file = File(img.imagePath);
+          if (await file.exists()) {
+            final fileName = path.basename(img.imagePath);
+            final destPath = '${backupImagesDir.path}${Platform.pathSeparator}$fileName';
+            if (!await File(destPath).exists()) {
+              await file.copy(destPath);
+            }
           }
         }
       }
@@ -1930,11 +1950,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       }
       
       await gameDir.rename(newPath);
-      final repo = ref.read(gameRepositoryProvider);
       await repo.updateGamePath(game.id!, newPath);
 
       final oldImages = await repo.getGameImages(game.id!);
       if (oldImages.isNotEmpty) {
+        final storageDir = await imageService.getImageStorageDir();
         final updatedImages = oldImages.map((img) {
           // 确保路径格式一致：统一使用正斜杠
           final normalizedOldPath = game.path.replaceAll('\\', '/');
@@ -1944,9 +1964,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           // 检查旧路径是否在图片路径中
           String newImagePath;
           if (normalizedImagePath.startsWith(normalizedOldPath)) {
+            // 游戏目录中的图片，更新路径
             newImagePath = normalizedImagePath.replaceFirst(normalizedOldPath, normalizedNewPath);
+          } else if (img.imagePath.startsWith(storageDir)) {
+            // game_images目录中的图片，更新为备份目录路径
+            final fileName = path.basename(img.imagePath);
+            newImagePath = '${backupImagesDir.path}${Platform.pathSeparator}$fileName';
           } else {
-            // 如果路径不匹配，保持原路径不变（图片可能在game_images目录中）
+            // 其他情况保持原路径不变
             newImagePath = img.imagePath;
           }
           
