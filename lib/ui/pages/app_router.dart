@@ -7,6 +7,7 @@ import 'played/played_page.dart';
 import 'played/cleared_page.dart';
 import 'settings/settings_page.dart';
 import 'scraper/scraper_page.dart';
+import 'tools/tools_page.dart';
 
 enum NavRoute {
   scraper(0, '刮削', Icons.cloud_download_outlined, Icons.cloud_download),
@@ -15,7 +16,8 @@ enum NavRoute {
   favorites(3, '收藏', Icons.favorite_outline, Icons.favorite),
   played(4, '已玩', Icons.sports_score_outlined, Icons.sports_score),
   cleared(5, '通关', Icons.emoji_events_outlined, Icons.emoji_events),
-  settings(6, '设置', Icons.settings_outlined, Icons.settings);
+  tools(6, '工具', Icons.build_outlined, Icons.build),
+  settings(7, '设置', Icons.settings_outlined, Icons.settings);
 
   final int navIndex;
   final String label;
@@ -45,6 +47,8 @@ enum NavRoute {
         return const PlayedPage();
       case NavRoute.cleared:
         return const ClearedPage();
+      case NavRoute.tools:
+        return const ToolsPage();
       case NavRoute.settings:
         return const SettingsPage();
     }
