@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../database/database_helper.dart';
 import '../models/models.dart';
@@ -166,6 +165,19 @@ class GameRepository {
     );
   }
 
+  Future<void> updateGameLauncher(int id, String? launcher, bool locked) async {
+    final db = await _db;
+    await db.update(
+      'games',
+      {
+        'game_launcher': launcher,
+        'launcher_locked': locked ? 1 : 0,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   Future<void> updateGamePath(int id, String newPath) async {
     final db = await _db;
     await db.update(
@@ -209,14 +221,13 @@ class GameRepository {
 
   Future<void> markAsPlayed(int id) async {
     final db = await _db;
-    final affectedRows = await db.rawUpdate('''
+    await db.rawUpdate('''
       UPDATE games
       SET is_played = 1,
           play_count = play_count + 1,
           last_played_time = ?
       WHERE id = ?
     ''', [DateTime.now().toIso8601String(), id]);
-    debugPrint('[markAsPlayed] id=$id, affectedRows=$affectedRows');
   }
 
   Future<void> markAsUnplayed(int id) async {

@@ -1419,16 +1419,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   Future<void> _launchGameFromList(Game game) async {
     final repo = ref.read(gameRepositoryProvider);
-    debugPrint('[_launchGameFromList] game.id: ${game.id}, game.path: ${game.path}');
     if (game.id != null) {
       try {
         await repo.markAsPlayed(game.id!);
-        debugPrint('[_launchGameFromList] markAsPlayed success for id: ${game.id}');
       } catch (e) {
         debugPrint('[_launchGameFromList] markAsPlayed error: $e');
       }
-    } else {
-      debugPrint('[_launchGameFromList] game.id is null, skip markAsPlayed');
     }
 
     if (game.launcherLocked && game.gameLauncher != null && game.gameLauncher!.isNotEmpty) {
@@ -1456,7 +1452,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
     final toolBat = File('${game.path}${Platform.pathSeparator}与工具一同启动.bat');
     if (await toolBat.exists()) {
-      await repo.updateGame(game.copyWith(gameLauncher: toolBat.path));
+      if (game.id != null) {
+        await repo.updateGameLauncher(game.id!, toolBat.path, false);
+      }
       try {
         await Process.run(toolBat.path, [], workingDirectory: game.path);
       } catch (e) {
@@ -1473,7 +1471,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       if (entity is File) {
         final fileName = entity.path.split(RegExp(r'[/\\]')).last.toLowerCase();
         if (fileName.endsWith('.bat') && (fileName.contains('启动') || fileName.contains('开始'))) {
-          await repo.updateGame(game.copyWith(gameLauncher: entity.path));
+          if (game.id != null) {
+            await repo.updateGameLauncher(game.id!, entity.path, false);
+          }
           try {
             await Process.run(entity.path, [], workingDirectory: game.path);
           } catch (e) {
@@ -1492,7 +1492,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     for (final exeName in fallbackExes) {
       final exeFile = File('${game.path}${Platform.pathSeparator}$exeName');
       if (await exeFile.exists()) {
-        await repo.updateGame(game.copyWith(gameLauncher: exeFile.path));
+        if (game.id != null) {
+          await repo.updateGameLauncher(game.id!, exeFile.path, false);
+        }
         try {
           await Process.run(exeFile.path, [], workingDirectory: game.path);
         } catch (e) {
@@ -1509,7 +1511,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     final saveService = ref.read(savePathServiceProvider);
     final exePath = saveService.findGameExe(game.path);
     if (exePath != null) {
-      await repo.updateGame(game.copyWith(gameLauncher: exePath));
+      if (game.id != null) {
+        await repo.updateGameLauncher(game.id!, exePath, false);
+      }
       try {
         await Process.run(exePath, [], workingDirectory: game.path);
       } catch (e) {
@@ -1529,8 +1533,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     );
     if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
       final launcherPath = result.files.first.path!;
-      final updated = game.copyWith(gameLauncher: launcherPath, launcherLocked: true);
-      await repo.updateGame(updated);
+      if (game.id != null) {
+        await repo.updateGameLauncher(game.id!, launcherPath, true);
+      }
       try {
         await Process.run(launcherPath, [], workingDirectory: game.path);
       } catch (e) {
