@@ -1934,6 +1934,9 @@ _refreshAllProviders();
             await repo.updateRatingReview(gameId, rating, review.isEmpty ? null : review);
             debugPrint('[Review] Updated rating=$rating, review=${review.isEmpty ? "null" : review} for game id=$gameId');
             _refreshGames();
+            _refreshCleared();
+            _refreshPlayed();
+            _refreshFavorites();
             if (mounted) {
               AppTheme.showGlassToast(context, message: '评论已保存');
             }
@@ -2415,7 +2418,7 @@ _refreshAllProviders();
           await repo.addTagToGame(game.id!, tagId);
         }
       }
-      _refreshGames();
+      _refreshAllProviders();
       ref.invalidate(allSeriesProvider);
 
       if (mounted) {
