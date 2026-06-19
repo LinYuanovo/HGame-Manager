@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.3.5 (2026-06-19)
+
+### 🔧 优化
+
+- **性能优化**
+  - 修复 TextEditingController 内存泄漏（游戏列表分页导航）
+  - 将 allGamesProvider 游戏过滤逻辑从 Dart 层下推到 SQL 层，减少内存占用
+  - 缓存 HomePage WindowController 实例，避免每次 rebuild 重复创建
+  - 修复多选操作栏使用未过滤列表的问题，提取共享过滤方法
+
 ## v1.3.4 (2026-06-18)
 
 ### ✨ 新功能
