@@ -131,9 +131,32 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     ref.read(sharedPreferencesProvider).setString(key, value);
   }
 
-  /// 刷新所有游戏相关 provider，操作后调用此方法即可
+  /// 刷新游戏列表（操作后调用）
+  void _refreshGames() {
+    ref.invalidate(allGamesProvider);
+  }
+
+  /// 刷新已玩列表
+  void _refreshPlayed() {
+    ref.invalidate(playedGamesProvider);
+  }
+
+  /// 刷新收藏列表
+  void _refreshFavorites() {
+    ref.invalidate(favoriteGamesProvider);
+  }
+
+  /// 刷新通关列表
+  void _refreshCleared() {
+    ref.invalidate(clearedGamesProvider);
+  }
+
+  /// 刷新所有游戏相关 provider（关闭详情页等场景使用）
   void _refreshAllProviders() {
-_refreshAllProviders();
+    _refreshGames();
+    _refreshPlayed();
+    _refreshFavorites();
+    _refreshCleared();
   }
 
   void _updateCurrentPage(int page) {
@@ -1266,7 +1289,8 @@ _refreshAllProviders();
                           final repo = ref.read(gameRepositoryProvider);
                           await repo.updateFavoriteStatus(
                               game.id!, !game.isFavorite);
-_refreshAllProviders();
+                          _refreshGames();
+                          _refreshFavorites();
                         },
                         child: Container(
                           padding: const EdgeInsets.all(6),
@@ -1383,7 +1407,8 @@ _refreshAllProviders();
       onTap: () async {
         final repo = ref.read(gameRepositoryProvider);
         await repo.updateFavoriteStatus(game.id!, !game.isFavorite);
-_refreshAllProviders();
+        _refreshGames();
+        _refreshFavorites();
       },
       child: Icon(
         game.isFavorite ? Icons.favorite : Icons.favorite_border,
@@ -1444,15 +1469,13 @@ _refreshAllProviders();
             AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
           }
         }
-_refreshAllProviders();
-        return;
+_refreshGames(); _refreshPlayed(); return;
       }
     }
 
     final gameDir = Directory(game.path);
     if (!await gameDir.exists()) {
-_refreshAllProviders();
-      return;
+_refreshGames(); _refreshPlayed(); return;
     }
 
     final toolBat = File('${game.path}${Platform.pathSeparator}与工具一同启动.bat');
@@ -1467,8 +1490,7 @@ _refreshAllProviders();
           AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
       }
-_refreshAllProviders();
-      return;
+_refreshGames(); _refreshPlayed(); return;
     }
 
     await for (final entity in gameDir.list()) {
@@ -1485,8 +1507,7 @@ _refreshAllProviders();
               AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
             }
           }
-_refreshAllProviders();
-          return;
+_refreshGames(); _refreshPlayed(); return;
         }
       }
     }
@@ -1505,8 +1526,7 @@ _refreshAllProviders();
             AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
           }
         }
-_refreshAllProviders();
-        return;
+_refreshGames(); _refreshPlayed(); return;
       }
     }
 
@@ -1523,8 +1543,7 @@ _refreshAllProviders();
           AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
       }
-_refreshAllProviders();
-      return;
+_refreshGames(); _refreshPlayed(); return;
     }
 
     final result = await FilePicker.pickFiles(
@@ -1705,7 +1724,8 @@ _refreshAllProviders();
           for (final g in targets) {
             await repo.updateFavoriteStatus(g.id!, newFav);
           }
-_refreshAllProviders();
+          _refreshGames();
+          _refreshFavorites();
           break;
         case 'played':
           for (final g in targets) {
@@ -1716,7 +1736,8 @@ _refreshAllProviders();
               _scanSavePathForGame(g);
             }
           }
-_refreshAllProviders();
+          _refreshGames();
+          _refreshPlayed();
           break;
         case 'cleared':
           for (final g in targets) {
@@ -1741,7 +1762,7 @@ _refreshAllProviders();
           );
           if (selected != null) {
             await repo.updateCoverIndex(game.id!, selected);
-_refreshAllProviders();
+            _refreshGames();
           }
           break;
         case 'open_save':
@@ -1912,7 +1933,7 @@ _refreshAllProviders();
             }
             await repo.updateRatingReview(gameId, rating, review.isEmpty ? null : review);
             debugPrint('[Review] Updated rating=$rating, review=${review.isEmpty ? "null" : review} for game id=$gameId');
-            _refreshAllProviders();
+            _refreshGames();
             if (mounted) {
               AppTheme.showGlassToast(context, message: '评论已保存');
             }
@@ -2144,8 +2165,11 @@ _refreshAllProviders();
         }).toList();
         await repo.setGameImages(game.id!, updatedImages);
       }
-_refreshAllProviders();
-_refreshAllProviders();
+
+      _refreshGames();
+      _refreshCleared();
+      _refreshPlayed();
+      _refreshFavorites();
 
       if (mounted) {
         AppTheme.showGlassToast(context, message: '已标记"$gameName"为已通关');
@@ -2328,8 +2352,10 @@ _refreshAllProviders();
       }
 
       // 刷新游戏列表
-_refreshAllProviders();
-_refreshAllProviders();
+      _refreshGames();
+      _refreshCleared();
+      _refreshPlayed();
+      _refreshFavorites();
 
       if (mounted) {
         AppTheme.showGlassToast(context, message: '已取消"$gameName"的已通关标记');
@@ -2389,7 +2415,7 @@ _refreshAllProviders();
           await repo.addTagToGame(game.id!, tagId);
         }
       }
-_refreshAllProviders();
+      _refreshGames();
       ref.invalidate(allSeriesProvider);
 
       if (mounted) {
@@ -2440,7 +2466,7 @@ _refreshAllProviders();
           AppTheme.showGlassToast(context, message: '未找到"${game.title}"的存档位置', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
         }
       }
-_refreshAllProviders();
+      _refreshGames();
     } catch (e) {
       debugPrint('[SavePath] Error scanning save path for ${game.title}: $e');
     }

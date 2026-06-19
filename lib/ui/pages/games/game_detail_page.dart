@@ -41,14 +41,39 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   bool _isCheckingUpdate = false;
   bool _isRescraping = false;
 
-  /// 刷新所有游戏相关 provider
-  void _refreshAllProviders() {
+  /// 刷新游戏列表
+  void _refreshGames() {
     ref.invalidate(allGamesProvider);
+  }
+
+  /// 刷新已玩列表
+  void _refreshPlayed() {
     ref.invalidate(playedGamesProvider);
+  }
+
+  /// 刷新收藏列表
+  void _refreshFavorites() {
     ref.invalidate(favoriteGamesProvider);
+  }
+
+  /// 刷新通关列表
+  void _refreshCleared() {
     ref.invalidate(clearedGamesProvider);
+  }
+
+  /// 刷新标签
+  void _refreshTags() {
     ref.invalidate(allTagsProvider);
     ref.invalidate(allSeriesProvider);
+  }
+
+  /// 刷新所有游戏相关 provider（关闭详情页等场景使用）
+  void _refreshAllProviders() {
+    _refreshGames();
+    _refreshPlayed();
+    _refreshFavorites();
+    _refreshCleared();
+    _refreshTags();
   }
 
   @override
