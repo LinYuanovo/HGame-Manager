@@ -1559,6 +1559,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
     ref.invalidate(allGamesProvider);
     ref.invalidate(playedGamesProvider);
+    ref.invalidate(favoriteGamesProvider);
+    ref.invalidate(clearedGamesProvider);
   }
 
   void _showGameDetail(Game game) {
@@ -1574,6 +1576,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         onTagTap: (tag) => Navigator.of(dialogContext).pop(tag),
       ),
     ).then((tag) {
+      // 关闭详情页后刷新列表
+      ref.invalidate(allGamesProvider);
+      ref.invalidate(playedGamesProvider);
+      ref.invalidate(favoriteGamesProvider);
+      ref.invalidate(clearedGamesProvider);
       if (tag != null && widget.onTagTap != null) {
         widget.onTagTap!(tag);
       }
@@ -1728,6 +1735,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           }
           ref.invalidate(allGamesProvider);
           ref.invalidate(playedGamesProvider);
+          ref.invalidate(favoriteGamesProvider);
+          ref.invalidate(clearedGamesProvider);
           break;
         case 'cleared':
           for (final g in targets) {
@@ -2164,6 +2173,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
       ref.invalidate(allGamesProvider);
       ref.invalidate(clearedGamesProvider);
+      ref.invalidate(playedGamesProvider);
+      ref.invalidate(favoriteGamesProvider);
 
       if (mounted) {
         AppTheme.showGlassToast(context, message: '已标记"$gameName"为已通关');
@@ -2350,6 +2361,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       // 刷新游戏列表
       ref.invalidate(allGamesProvider);
       ref.invalidate(clearedGamesProvider);
+      ref.invalidate(playedGamesProvider);
+      ref.invalidate(favoriteGamesProvider);
 
       if (mounted) {
         AppTheme.showGlassToast(context, message: '已取消"$gameName"的已通关标记');
