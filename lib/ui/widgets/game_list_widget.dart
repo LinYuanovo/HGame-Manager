@@ -131,6 +131,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     ref.read(sharedPreferencesProvider).setString(key, value);
   }
 
+  /// 刷新所有游戏相关 provider，操作后调用此方法即可
+  void _refreshAllProviders() {
+_refreshAllProviders();
+  }
+
   void _updateCurrentPage(int page) {
     _currentPage = page;
     _persistCurrentPage();
@@ -1261,10 +1266,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                           final repo = ref.read(gameRepositoryProvider);
                           await repo.updateFavoriteStatus(
                               game.id!, !game.isFavorite);
-                          ref.invalidate(allGamesProvider);
-                          ref.invalidate(favoriteGamesProvider);
-                          ref.invalidate(playedGamesProvider);
-                          ref.invalidate(clearedGamesProvider);
+_refreshAllProviders();
                         },
                         child: Container(
                           padding: const EdgeInsets.all(6),
@@ -1381,10 +1383,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       onTap: () async {
         final repo = ref.read(gameRepositoryProvider);
         await repo.updateFavoriteStatus(game.id!, !game.isFavorite);
-        ref.invalidate(allGamesProvider);
-        ref.invalidate(favoriteGamesProvider);
-        ref.invalidate(playedGamesProvider);
-        ref.invalidate(clearedGamesProvider);
+_refreshAllProviders();
       },
       child: Icon(
         game.isFavorite ? Icons.favorite : Icons.favorite_border,
@@ -1445,16 +1444,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
           }
         }
-        ref.invalidate(allGamesProvider);
-        ref.invalidate(playedGamesProvider);
+_refreshAllProviders();
         return;
       }
     }
 
     final gameDir = Directory(game.path);
     if (!await gameDir.exists()) {
-      ref.invalidate(allGamesProvider);
-      ref.invalidate(playedGamesProvider);
+_refreshAllProviders();
       return;
     }
 
@@ -1470,8 +1467,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
       }
-      ref.invalidate(allGamesProvider);
-      ref.invalidate(playedGamesProvider);
+_refreshAllProviders();
       return;
     }
 
@@ -1489,8 +1485,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
             }
           }
-          ref.invalidate(allGamesProvider);
-          ref.invalidate(playedGamesProvider);
+_refreshAllProviders();
           return;
         }
       }
@@ -1510,8 +1505,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
           }
         }
-        ref.invalidate(allGamesProvider);
-        ref.invalidate(playedGamesProvider);
+_refreshAllProviders();
         return;
       }
     }
@@ -1529,8 +1523,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
       }
-      ref.invalidate(allGamesProvider);
-      ref.invalidate(playedGamesProvider);
+_refreshAllProviders();
       return;
     }
 
@@ -1556,11 +1549,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         await launchUrl(Uri.file(game.path));
       } catch (_) {}
     }
-
-    ref.invalidate(allGamesProvider);
-    ref.invalidate(playedGamesProvider);
-    ref.invalidate(favoriteGamesProvider);
-    ref.invalidate(clearedGamesProvider);
+_refreshAllProviders();
   }
 
   void _showGameDetail(Game game) {
@@ -1577,10 +1566,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       ),
     ).then((tag) {
       // 关闭详情页后刷新列表
-      ref.invalidate(allGamesProvider);
-      ref.invalidate(playedGamesProvider);
-      ref.invalidate(favoriteGamesProvider);
-      ref.invalidate(clearedGamesProvider);
+_refreshAllProviders();
       if (tag != null && widget.onTagTap != null) {
         widget.onTagTap!(tag);
       }
@@ -1719,10 +1705,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           for (final g in targets) {
             await repo.updateFavoriteStatus(g.id!, newFav);
           }
-          ref.invalidate(allGamesProvider);
-          ref.invalidate(favoriteGamesProvider);
-          ref.invalidate(playedGamesProvider);
-          ref.invalidate(clearedGamesProvider);
+_refreshAllProviders();
           break;
         case 'played':
           for (final g in targets) {
@@ -1733,10 +1716,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               _scanSavePathForGame(g);
             }
           }
-          ref.invalidate(allGamesProvider);
-          ref.invalidate(playedGamesProvider);
-          ref.invalidate(favoriteGamesProvider);
-          ref.invalidate(clearedGamesProvider);
+_refreshAllProviders();
           break;
         case 'cleared':
           for (final g in targets) {
@@ -1761,7 +1741,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           );
           if (selected != null) {
             await repo.updateCoverIndex(game.id!, selected);
-            ref.invalidate(allGamesProvider);
+_refreshAllProviders();
           }
           break;
         case 'open_save':
@@ -1853,8 +1833,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               }
             }
             _multiSelectController.exitMultiSelectMode();
-            ref.invalidate(allGamesProvider);
-            ref.invalidate(clearedGamesProvider);
+_refreshAllProviders();
           }
           break;
         case 'delete_folder':
@@ -1907,7 +1886,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               }
             }
             _multiSelectController.exitMultiSelectMode();
-            ref.invalidate(allGamesProvider);
+_refreshAllProviders();
             if (mounted) {
               AppTheme.showGlassToast(context, message: '已删除 $successCount 个文件夹');
             }
@@ -1933,10 +1912,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             }
             await repo.updateRatingReview(gameId, rating, review.isEmpty ? null : review);
             debugPrint('[Review] Updated rating=$rating, review=${review.isEmpty ? "null" : review} for game id=$gameId');
-            ref.invalidate(allGamesProvider);
-            ref.invalidate(playedGamesProvider);
-            ref.invalidate(clearedGamesProvider);
-            ref.invalidate(favoriteGamesProvider);
+            _refreshAllProviders();
             if (mounted) {
               AppTheme.showGlassToast(context, message: '评论已保存');
             }
@@ -2040,9 +2016,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           final repo = ref.read(gameRepositoryProvider);
           await repo.deleteGame(game.id!);
         }
-
-        ref.invalidate(allGamesProvider);
-        ref.invalidate(clearedGamesProvider);
+_refreshAllProviders();
 
         if (mounted) {
           AppTheme.showGlassToast(context, message: '已删除"$gameName"的备份');
@@ -2170,11 +2144,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         }).toList();
         await repo.setGameImages(game.id!, updatedImages);
       }
-
-      ref.invalidate(allGamesProvider);
-      ref.invalidate(clearedGamesProvider);
-      ref.invalidate(playedGamesProvider);
-      ref.invalidate(favoriteGamesProvider);
+_refreshAllProviders();
+_refreshAllProviders();
 
       if (mounted) {
         AppTheme.showGlassToast(context, message: '已标记"$gameName"为已通关');
@@ -2266,9 +2237,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           final repo = ref.read(gameRepositoryProvider);
           await repo.deleteGame(game.id!);
         }
-
-        ref.invalidate(allGamesProvider);
-        ref.invalidate(clearedGamesProvider);
+_refreshAllProviders();
 
         if (mounted) {
           AppTheme.showGlassToast(context, message: '已删除"$gameName"的备份');
@@ -2359,10 +2328,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       }
 
       // 刷新游戏列表
-      ref.invalidate(allGamesProvider);
-      ref.invalidate(clearedGamesProvider);
-      ref.invalidate(playedGamesProvider);
-      ref.invalidate(favoriteGamesProvider);
+_refreshAllProviders();
+_refreshAllProviders();
 
       if (mounted) {
         AppTheme.showGlassToast(context, message: '已取消"$gameName"的已通关标记');
@@ -2422,10 +2389,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           await repo.addTagToGame(game.id!, tagId);
         }
       }
-
-      ref.invalidate(allGamesProvider);
-      ref.invalidate(playedGamesProvider);
-      ref.invalidate(favoriteGamesProvider);
+_refreshAllProviders();
       ref.invalidate(allSeriesProvider);
 
       if (mounted) {
@@ -2476,8 +2440,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           AppTheme.showGlassToast(context, message: '未找到"${game.title}"的存档位置', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
         }
       }
-
-      ref.invalidate(playedGamesProvider);
+_refreshAllProviders();
     } catch (e) {
       debugPrint('[SavePath] Error scanning save path for ${game.title}: $e');
     }
