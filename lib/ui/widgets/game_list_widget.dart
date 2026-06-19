@@ -66,6 +66,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   int _savedPage = -1;  // 保存搜索前的页码，-1表示未保存
   String _lastSearchQuery = '';  // 上次的搜索词（用于检测变化）
   final TextEditingController _columnCountController = TextEditingController();
+  final TextEditingController _pageJumpController = TextEditingController();
   int _listItemsPerPage = 5;  // 列表视图每页显示数量
 
   int get _itemsPerPage {
@@ -180,6 +181,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   void dispose() {
     _scrollController.dispose();
     _searchController.dispose();
+    _pageJumpController.dispose();
     _columnCountController.dispose();
     _multiSelectController.removeListener(_onSelectionChanged);
     _multiSelectController.dispose();
@@ -229,15 +231,33 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     return sorted;
   }
 
+  List<Game> _getFilteredAndSortedGames() {
+    final searchQuery = _searchController.text.trim();
+    var filteredGames = widget.games;
+    if (searchQuery.isNotEmpty) {
+      filteredGames = filteredGames
+          .where((g) =>
+              (g.title ?? '')
+                  .toLowerCase()
+                  .contains(searchQuery.toLowerCase()) ||
+              g.path
+                  .toLowerCase()
+                  .contains(searchQuery.toLowerCase()) ||
+              (g.intro ?? '')
+                  .toLowerCase()
+                  .contains(searchQuery.toLowerCase()))
+          .toList();
+    }
+    return _sortGames(filteredGames);
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: _multiSelectController,
       builder: (context, _) {
         final searchQuery = _searchController.text.trim();
-        var filteredGames = widget.games;
         
-        // 搜索词变化时保存/恢复页码
         if (searchQuery != _lastSearchQuery) {
           if (searchQuery.isNotEmpty && _lastSearchQuery.isEmpty) {
             _savedPage = _currentPage;
@@ -250,27 +270,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           }
           _lastSearchQuery = searchQuery;
           _saveSetting('game_list_search_query', searchQuery);
-          // 延迟到 build 完成后持久化页码
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _persistCurrentPage();
           });
         }
         
-        if (searchQuery.isNotEmpty) {
-          filteredGames = filteredGames
-              .where((g) =>
-                  (g.title ?? '')
-                      .toLowerCase()
-                      .contains(searchQuery.toLowerCase()) ||
-                  g.path
-                      .toLowerCase()
-                      .contains(searchQuery.toLowerCase()) ||
-                  (g.intro ?? '')
-                      .toLowerCase()
-                      .contains(searchQuery.toLowerCase()))
-              .toList();
-        }
-        final sortedGames = _sortGames(filteredGames);
+        final sortedGames = _getFilteredAndSortedGames();
 
         // 确保当前页不超过总页数
         final totalPages = (sortedGames.length / _itemsPerPage).ceil();
@@ -803,7 +808,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   Widget _buildMultiSelectActionBar() {
     // 计算当前页面的游戏列表（与 build 方法中的逻辑一致）
-    final sortedGames = _sortGames(widget.games);
+    final sortedGames = _getFilteredAndSortedGames();
     final List<Game> currentPageGames;
     if (_paginationMode == PaginationMode.paginated) {
       final start = _currentPage * _itemsPerPage;
@@ -851,7 +856,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   Widget _buildPageNavigation(int totalPages) {
-    final pageController = TextEditingController();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
@@ -879,7 +883,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             width: 80,
             height: 30,
             child: TextField(
-              controller: pageController,
+              controller: _pageJumpController,
               keyboardType: TextInputType.number,
               textAlign: TextAlign.center,
               decoration: InputDecoration(
@@ -908,7 +912,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 if (page != null && page >= 1 && page <= totalPages) {
                   _updateCurrentPage(page - 1);
                 }
-                pageController.clear();
+                _pageJumpController.clear();
               },
             ),
           ),

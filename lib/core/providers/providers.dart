@@ -61,12 +61,7 @@ final webdavServiceProvider = Provider<WebdavService>((ref) {
 final allGamesProvider = FutureProvider<List<Game>>((ref) async {
   try {
     final repository = ref.watch(gameRepositoryProvider);
-    final allGames = await repository.getAllGames();
-    return allGames.where((g) =>
-      !g.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}') &&
-      !g.isPlayed &&
-      g.playCount < 1
-    ).toList();
+    return await repository.getUnplayedUnclearedGames();
   } catch (e, stackTrace) {
     if (kDebugMode) {
       debugPrint('ERROR Loading Games: $e\n$stackTrace');

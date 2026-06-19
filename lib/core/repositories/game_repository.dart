@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../database/database_helper.dart';
 import '../models/models.dart';
@@ -63,6 +64,20 @@ class GameRepository {
     final List<Map<String, dynamic>> maps = await db.query(
       'games',
       where: 'is_played = 0',
+      orderBy: 'title ASC',
+    );
+    final games = maps.map((map) => Game.fromMap(map)).toList();
+    return _fillGameRelations(games);
+  }
+
+  Future<List<Game>> getUnplayedUnclearedGames() async {
+    final db = await _db;
+    final sep = Platform.pathSeparator;
+    final clearedPattern = '%${sep}Cleared$sep%';
+    final List<Map<String, dynamic>> maps = await db.query(
+      'games',
+      where: 'is_played = 0 AND play_count < 1 AND path NOT LIKE ?',
+      whereArgs: [clearedPattern],
       orderBy: 'title ASC',
     );
     final games = maps.map((map) => Game.fromMap(map)).toList();

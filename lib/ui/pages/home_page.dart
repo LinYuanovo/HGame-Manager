@@ -19,11 +19,13 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomePageState extends ConsumerState<HomePage> {
   late final SidebarController _sidebarController;
+  late final WindowController _effectiveWindowController;
 
   @override
   void initState() {
     super.initState();
     _sidebarController = SidebarController();
+    _effectiveWindowController = widget.windowController ?? WindowController(ref.read(sharedPreferencesProvider));
   }
 
   @override
@@ -40,7 +42,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       backgroundColor: AppTheme.backgroundColor,
       body: Column(
         children: [
-          TitleBarWidget(windowController: widget.windowController ?? WindowController(ref.read(sharedPreferencesProvider))),
+          TitleBarWidget(windowController: _effectiveWindowController),
           Expanded(
             child: Row(
               children: [
