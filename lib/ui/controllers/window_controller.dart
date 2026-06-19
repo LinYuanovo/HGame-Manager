@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import '../../core/utils/app_settings.dart';
+import '../../core/database/database_helper.dart';
 
 class WindowController extends ChangeNotifier with WindowListener {
   final AppSettings _prefs;
@@ -62,25 +63,36 @@ class WindowController extends ChangeNotifier with WindowListener {
   }
 
   Future<void> close() async {
-    final isMax = await windowManager.isMaximized();
-    Size size;
-    Offset position;
+    try {
+      // 并行获取窗口状态
+      final isMax = await windowManager.isMaximized();
+      Size size;
+      Offset position;
 
-    if (isMax && _lastNormalSize != null) {
-      size = _lastNormalSize!;
-      position = _lastNormalPosition ?? await windowManager.getPosition();
-    } else {
-      size = await windowManager.getSize();
-      position = await windowManager.getPosition();
+      if (isMax && _lastNormalSize != null) {
+        size = _lastNormalSize!;
+        position = _lastNormalPosition ?? await windowManager.getPosition();
+      } else {
+        size = await windowManager.getSize();
+        position = await windowManager.getPosition();
+      }
+
+      // 并行保存设置和关闭数据库
+      await Future.wait([
+        _prefs.setBool('window_maximized', isMax),
+        _prefs.setDouble('window_width', size.width),
+        _prefs.setDouble('window_height', size.height),
+        _prefs.setDouble('window_x', position.dx),
+        _prefs.setDouble('window_y', position.dy),
+        DatabaseHelper.close(),
+      ]);
+
+      await windowManager.destroy();
+    } catch (e) {
+      // 如果保存失败，仍然尝试关闭窗口
+      debugPrint('Error during close: $e');
+      await windowManager.destroy();
     }
-
-    await _prefs.setBool('window_maximized', isMax);
-    await _prefs.setDouble('window_width', size.width);
-    await _prefs.setDouble('window_height', size.height);
-    await _prefs.setDouble('window_x', position.dx);
-    await _prefs.setDouble('window_y', position.dy);
-
-    await windowManager.destroy();
   }
 
   Future<void> toggleMaximize() async {

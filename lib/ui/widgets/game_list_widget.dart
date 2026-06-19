@@ -674,7 +674,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           onTap: () {
             setState(() {
               _paginationMode = PaginationMode.infiniteScroll;
-              _infiniteScrollCount = 20;
+              // 根据每页数量动态计算初始值，确保至少显示3行游戏
+              final itemsPerPage = _itemsPerPage;
+              _infiniteScrollCount = (itemsPerPage * 3).clamp(20, 200);
               _savedPage = -1;
             });
             _saveSetting('game_list_pagination_mode', 'infiniteScroll');

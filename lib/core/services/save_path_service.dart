@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:path/path.dart' as path;
 
 class SavePathService {
@@ -95,41 +96,61 @@ class SavePathService {
 
   Future<String?> findSavePath(String gamePath, String? gameTitle) async {
     final gameName = extractGameNameFromExe(gamePath) ?? gameTitle;
-    if (gameName == null || gameName.isEmpty) return null;
+    if (gameName == null || gameName.isEmpty) {
+      debugPrint('[SavePath] 游戏名为空，跳过扫描');
+      return null;
+    }
 
-    final localLowPath = path.join(
-      Platform.environment['USERPROFILE'] ?? '',
-      'AppData',
-      'LocalLow',
-    );
-    final localPath = path.join(
-      Platform.environment['USERPROFILE'] ?? '',
-      'AppData',
-      'Local',
-    );
+    debugPrint('[SavePath] 开始扫描存档，游戏名: $gameName，游戏路径: $gamePath');
+
+    final userProfile = Platform.environment['USERPROFILE'] ?? '';
+    final localLowPath = path.join(userProfile, 'AppData', 'LocalLow');
+    final localPath = path.join(userProfile, 'AppData', 'Local');
+    final roamingPath = path.join(userProfile, 'AppData', 'Roaming');
 
     final candidates = <String>[];
+    final gameNameLower = gameName.toLowerCase();
 
-    for (final basePath in [localLowPath, localPath]) {
-      if (!Directory(basePath).existsSync()) continue;
+    final searchPaths = [localLowPath, localPath, roamingPath];
+    debugPrint('[SavePath] 搜索目录: $searchPaths');
 
+    for (final basePath in searchPaths) {
+      if (!Directory(basePath).existsSync()) {
+        debugPrint('[SavePath] 目录不存在，跳过: $basePath');
+        continue;
+      }
+
+      debugPrint('[SavePath] 搜索目录: $basePath');
       try {
-        final directMatch = path.join(basePath, gameName);
-        if (Directory(directMatch).existsSync()) {
-          candidates.add(directMatch);
-        }
-
+        // 遍历子目录，查找大小写不敏感匹配
         await for (final entity in Directory(basePath).list()) {
           if (entity is! Directory) continue;
           try {
-            final subDir = path.join(entity.path, gameName);
-            if (Directory(subDir).existsSync()) {
-              candidates.add(subDir);
+            final dirName = path.basename(entity.path).toLowerCase();
+            // 检查目录名是否与游戏名匹配（大小写不敏感）
+            if (dirName == gameNameLower) {
+              debugPrint('[SavePath] 大小写不敏感匹配成功: ${entity.path}');
+              candidates.add(entity.path);
+            } else {
+              // 检查子目录（如 Diamond Visual/SPITE）
+              // 遍历子目录，使用实际目录名进行匹配
+              await for (final subEntity in entity.list()) {
+                if (subEntity is! Directory) continue;
+                final subDirName = path.basename(subEntity.path).toLowerCase();
+                if (subDirName == gameNameLower) {
+                  debugPrint('[SavePath] 子目录大小写不敏感匹配成功: ${subEntity.path}');
+                  candidates.add(subEntity.path);
+                }
+              }
             }
           } catch (_) {}
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[SavePath] 搜索目录出错: $basePath, 错误: $e');
+      }
     }
+
+    debugPrint('[SavePath] 找到 ${candidates.length} 个候选路径: $candidates');
 
     if (candidates.isEmpty) return null;
 
@@ -139,6 +160,7 @@ class SavePathService {
       return bScore.compareTo(aScore);
     });
 
+    debugPrint('[SavePath] 最佳匹配: ${candidates.first}');
     return candidates.first;
   }
 

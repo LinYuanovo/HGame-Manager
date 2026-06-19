@@ -42,12 +42,45 @@ class ImageService {
     return copiedPaths;
   }
 
+  /// 从本地文件选择并复制多张图片到指定游戏目录
+  Future<List<String>> pickAndCopyImagesToGameDir(String gamePath) async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.image,
+      allowMultiple: true,
+    );
+
+    if (result == null || result.files.isEmpty) return [];
+
+    final List<String> copiedPaths = [];
+    for (final file in result.files) {
+      if (file.path != null) {
+        final path = await copyImageToGameDir(file.path!, gamePath);
+        copiedPaths.add(path);
+      }
+    }
+    return copiedPaths;
+  }
+
   /// 复制本地图片到应用存储目录
   Future<String> copyImageToStorage(String sourcePath) async {
     final storageDir = await getImageStorageDir();
     final extension = sourcePath.split('.').last;
     final fileName = '${_uuid.v4()}.$extension';
     final destPath = '$storageDir${Platform.pathSeparator}$fileName';
+
+    await File(sourcePath).copy(destPath);
+    return destPath;
+  }
+
+  /// 复制本地图片到游戏目录的 images 文件夹
+  Future<String> copyImageToGameDir(String sourcePath, String gamePath) async {
+    final imageDir = Directory('$gamePath${Platform.pathSeparator}images');
+    if (!await imageDir.exists()) {
+      await imageDir.create(recursive: true);
+    }
+    final extension = sourcePath.split('.').last;
+    final fileName = '${_uuid.v4()}.$extension';
+    final destPath = '${imageDir.path}${Platform.pathSeparator}$fileName';
 
     await File(sourcePath).copy(destPath);
     return destPath;

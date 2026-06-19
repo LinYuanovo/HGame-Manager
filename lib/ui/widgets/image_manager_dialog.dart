@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/models.dart';
@@ -29,7 +30,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
   Future<void> _addLocalImage() async {
     setState(() => _isLoading = true);
     try {
-      final imagePaths = await _imageService.pickAndCopyImages();
+      final imagePaths = await _imageService.pickAndCopyImagesToGameDir(widget.game.path);
       if (imagePaths.isNotEmpty) {
         setState(() {
           for (final path in imagePaths) {
@@ -97,9 +98,14 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
 
   Future<void> _deleteImage(int index) async {
     final image = _images[index];
-    // 只删除 game_images 目录下的图片，避免误删游戏目录中的图片
+    // 删除应用存储目录下的图片
     final storageDir = await _imageService.getImageStorageDir();
     if (image.imagePath.startsWith(storageDir)) {
+      await _imageService.deleteImageFile(image.imagePath);
+    }
+    // 删除游戏目录 images 文件夹下的图片（刮削下载的图片）
+    final gameImagesDir = '${widget.game.path}${Platform.pathSeparator}images';
+    if (image.imagePath.startsWith(gameImagesDir)) {
       await _imageService.deleteImageFile(image.imagePath);
     }
     setState(() => _images.removeAt(index));
