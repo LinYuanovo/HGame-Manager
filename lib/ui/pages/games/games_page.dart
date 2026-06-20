@@ -856,8 +856,8 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                     controller: _idController,
                     decoration: InputDecoration(
                       hintText: _source == ImportSource.dlsite
-                          ? '输入DLsite ID (如 RJ123456)，留空按名称搜索'
-                          : '输入Steam App ID (如 2254890)，留空按名称搜索',
+                          ? '输入DLsite ID (如 RJ123456)，留空则自动按游戏名称搜索'
+                          : '输入Steam APPID (如 2254890)，留空则自动按游戏名称搜索',
                       hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
