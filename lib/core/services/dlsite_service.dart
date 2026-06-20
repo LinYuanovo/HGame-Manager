@@ -16,7 +16,13 @@ class DlsiteService {
     'game.exe',
     'launch.exe',
     'launcher.exe',
+    'player.exe',
+    'play.exe',
+    'start.exe',
+    'startup.exe',
+    'config.exe',
     'setup.exe',
+    'install.exe',
     'uninstall.exe',
     'unins000.exe',
     'unins001.exe',
@@ -27,6 +33,18 @@ class DlsiteService {
     'vcredist_x86.exe',
     'dxwebsetup.exe',
     'oalinst.exe',
+    'server.exe',
+    'client.exe',
+    'update.exe',
+    'updater.exe',
+    'tool.exe',
+    'tools.exe',
+    'editor.exe',
+    'viewer.exe',
+    'helper.exe',
+    'crashreport.exe',
+    'bugreport.exe',
+    'feedback.exe',
   ];
 
   final _scraper = HtmlScraper();
@@ -54,17 +72,27 @@ class DlsiteService {
     return 'https://www.dlsite.com/maniax/work/=/product_id/$id.html/?locale=zh_CN';
   }
 
-  /// 从文件夹提取游戏名
-  /// 1. 下划线替换为空格
-  /// 2. 清理版本号和括号
-  String? extractGameName(String folderPath) {
+  /// 从文件夹提取DLsite ID或游戏名
+  /// 优先从文件夹名中提取ID（RJ/RE/VJ+数字）
+  /// 如果没有ID，返回清理后的游戏名用于搜索
+  String? extractIdOrGameName(String folderPath) {
     final dir = Directory(folderPath);
     if (!dir.existsSync()) {
-      _log.info('DlsiteService', '[extractGameName] 目录不存在: $folderPath');
+      _log.info('DlsiteService', '[extractIdOrGameName] 目录不存在: $folderPath');
       return null;
     }
 
-    // 尝试从exe名提取
+    final folderName = path.basename(folderPath);
+    _log.info('DlsiteService', '[extractIdOrGameName] 文件夹名: "$folderName"');
+
+    // 1. 先检查文件夹名中是否包含DLsite ID
+    final idFromFolder = normalizeId(folderName);
+    if (idFromFolder != null) {
+      _log.info('DlsiteService', '[extractIdOrGameName] 从文件夹名提取到ID: $idFromFolder');
+      return idFromFolder;
+    }
+
+    // 2. 尝试从exe名提取游戏名
     String? gameName;
     String? source;
     final exeFiles = dir.listSync()
@@ -72,43 +100,62 @@ class DlsiteService {
         .where((f) => f.path.toLowerCase().endsWith('.exe'))
         .toList();
 
-    _log.info('DlsiteService', '[extractGameName] 找到 ${exeFiles.length} 个exe文件');
+    _log.info('DlsiteService', '[extractIdOrGameName] 找到 ${exeFiles.length} 个exe文件');
 
     for (final exe in exeFiles) {
       final exeName = path.basename(exe.path).toLowerCase();
       if (_commonExeNames.contains(exeName)) {
-        _log.info('DlsiteService', '[extractGameName] 跳过通用exe: $exeName');
+        _log.info('DlsiteService', '[extractIdOrGameName] 跳过通用exe: $exeName');
         continue;
       }
       if (exeName.contains('unity') ||
           exeName.contains('unreal') ||
           exeName.contains('godot') ||
           exeName.contains('renpy')) {
-        _log.info('DlsiteService', '[extractGameName] 跳过引擎exe: $exeName');
+        _log.info('DlsiteService', '[extractIdOrGameName] 跳过引擎exe: $exeName');
         continue;
       }
-      gameName = path.basenameWithoutExtension(exe.path);
+      
+      // 检查exe名是否包含ID
+      final exeBaseName = path.basenameWithoutExtension(exe.path);
+      final idFromExe = normalizeId(exeBaseName);
+      if (idFromExe != null) {
+        _log.info('DlsiteService', '[extractIdOrGameName] 从exe名提取到ID: $idFromExe');
+        return idFromExe;
+      }
+      
+      gameName = exeBaseName;
       source = 'exe: ${path.basename(exe.path)}';
       break;
     }
 
-    // 回退到文件夹名
+    // 3. 回退到文件夹名
     if (gameName == null) {
-      gameName = path.basename(folderPath);
+      gameName = folderName;
       source = '文件夹名';
     }
 
-    _log.info('DlsiteService', '[extractGameName] 原始名称: "$gameName" (来源: $source)');
+    _log.info('DlsiteService', '[extractIdOrGameName] 原始名称: "$gameName" (来源: $source)');
 
-    // 1. 下划线替换为空格
+    // 4. 下划线替换为空格
     gameName = gameName.replaceAll('_', ' ');
-    _log.info('DlsiteService', '[extractGameName] 下划线替换后: "$gameName"');
+    _log.info('DlsiteService', '[extractIdOrGameName] 下划线替换后: "$gameName"');
 
-    // 2. 清理版本号和括号
+    // 5. 清理版本号和括号
     final cleaned = _cleanGameName(gameName);
-    _log.info('DlsiteService', '[extractGameName] 清理后: "$cleaned"');
+    _log.info('DlsiteService', '[extractIdOrGameName] 清理后: "$cleaned"');
 
     return cleaned.isEmpty ? null : cleaned;
+  }
+
+  /// 从文件夹提取游戏名（仅用于搜索，不提取ID）
+  String? extractGameName(String folderPath) {
+    final result = extractIdOrGameName(folderPath);
+    // 如果返回的是ID格式，说明应该用ID直接获取，不需要搜索
+    if (result != null && normalizeId(result) != null) {
+      return null; // 返回null表示应该用ID
+    }
+    return result;
   }
 
   String _cleanGameName(String name) {
@@ -171,8 +218,9 @@ class DlsiteService {
   }
 
   /// 搜索游戏，支持回退搜索
-  /// 1. 直接用游戏名搜索（搜到即停）
-  /// 2. 搜不到按照空格分词，倒序依次去掉后面的词搜索（中途命中即停）
+  /// 1. 如果文件夹名中包含ID（RJ/RE/VJ+数字），直接返回
+  /// 2. 直接用游戏名搜索（搜到即停）
+  /// 3. 搜不到按照空格分词，倒序依次去掉后面的词搜索（中途命中即停）
   ///
   /// 例如游戏名 "Game Name 2"：
   /// - 搜索 "Game Name 2" → 无结果
@@ -182,12 +230,20 @@ class DlsiteService {
     _log.info('DlsiteService', '[searchWithFallback] ========== 开始搜索 ==========');
     _log.info('DlsiteService', '[searchWithFallback] 文件夹: $folderPath');
 
-    final gameName = extractGameName(folderPath);
-    if (gameName == null || gameName.isEmpty) {
-      _log.warning('DlsiteService', '[searchWithFallback] 无法提取游戏名，终止搜索');
+    final idOrName = extractIdOrGameName(folderPath);
+    if (idOrName == null || idOrName.isEmpty) {
+      _log.warning('DlsiteService', '[searchWithFallback] 无法提取游戏名或ID，终止搜索');
       return [];
     }
 
+    // 检查是否直接返回了ID
+    final directId = normalizeId(idOrName);
+    if (directId != null) {
+      _log.info('DlsiteService', '[searchWithFallback] 检测到ID: $directId，直接返回');
+      return [DlsiteSearchResult(id: directId, name: 'ID: $directId')];
+    }
+
+    final gameName = idOrName;
     _log.info('DlsiteService', '[searchWithFallback] 提取的游戏名: "$gameName"');
 
     // 第一步：直接用完整游戏名搜索
