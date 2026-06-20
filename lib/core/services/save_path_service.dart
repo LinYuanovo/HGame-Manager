@@ -131,14 +131,16 @@ class SavePathService {
             if (dirName == gameNameLower) {
               debugPrint('[SavePath] 大小写不敏感匹配成功: ${entity.path}');
               candidates.add(entity.path);
+            } else if (dirName.contains(gameNameLower)) {
+              debugPrint('[SavePath] 模糊匹配成功（包含游戏名）: ${entity.path}');
+              candidates.add(entity.path);
             } else {
               // 检查子目录（如 Diamond Visual/SPITE）
-              // 遍历子目录，使用实际目录名进行匹配
               await for (final subEntity in entity.list()) {
                 if (subEntity is! Directory) continue;
                 final subDirName = path.basename(subEntity.path).toLowerCase();
-                if (subDirName == gameNameLower) {
-                  debugPrint('[SavePath] 子目录大小写不敏感匹配成功: ${subEntity.path}');
+                if (subDirName == gameNameLower || subDirName.contains(gameNameLower)) {
+                  debugPrint('[SavePath] 子目录匹配成功: ${subEntity.path}');
                   candidates.add(subEntity.path);
                 }
               }
@@ -168,10 +170,16 @@ class SavePathService {
     double score = 0.0;
     final dirName = path.basename(savePath).toLowerCase();
 
-    if (dirName == gameName.toLowerCase()) {
+    final gameNameLower = gameName.toLowerCase();
+    if (dirName == gameNameLower) {
       score += 50.0;
-    } else if (dirName.contains(gameName.toLowerCase())) {
-      score += 30.0;
+    } else if (dirName.contains(gameNameLower)) {
+      final idx = dirName.indexOf(gameNameLower);
+      if (idx == 0) {
+        score += 40.0;
+      } else {
+        score += 30.0;
+      }
     }
 
     try {
