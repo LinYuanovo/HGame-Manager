@@ -19,10 +19,16 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    setState(() {});
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
   }
@@ -84,27 +90,21 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
         color: AppTheme.backgroundColor,
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
       ),
-      child: TabBar(
-        controller: _tabController,
-        indicator: BoxDecoration(
-          color: AppTheme.primaryColor,
-          borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
-        ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        labelColor: Colors.white,
-        unselectedLabelColor: AppTheme.textSecondary,
-        dividerColor: Colors.transparent,
-        overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
-          if (states.contains(WidgetState.hovered)) {
-            return AppTheme.primaryColor.withValues(alpha: 0.08);
-          }
-          return null;
-        }),
-        tabs: [
-          Tab(text: '普通游戏列表'),
-          Tab(text: '已玩游戏/通关'),
+      child: Row(
+        children: [
+          Expanded(child: _buildTabItem(0, '普通游戏列表')),
+          Expanded(child: _buildTabItem(1, '已玩游戏/通关')),
         ],
       ),
+    );
+  }
+
+  Widget _buildTabItem(int index, String label) {
+    final isSelected = _tabController.index == index;
+    return _TabItemWidget(
+      label: label,
+      isSelected: isSelected,
+      onTap: () => _tabController.animateTo(index),
     );
   }
 
@@ -155,6 +155,57 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
     ref.read(contextMenuPlayedProvider.notifier).save();
     Navigator.pop(context);
     AppTheme.showGlassToast(context, message: '右键菜单配置已保存', icon: Icons.check_circle, iconColor: AppTheme.successColor);
+  }
+}
+
+class _TabItemWidget extends StatefulWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _TabItemWidget({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  State<_TabItemWidget> createState() => _TabItemWidgetState();
+}
+
+class _TabItemWidgetState extends State<_TabItemWidget> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: GlassConstants.animFast,
+          padding: EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: widget.isSelected
+                ? AppTheme.primaryColor
+                : _isHovered
+                    ? AppTheme.primaryColor.withValues(alpha: 0.08)
+                    : Colors.transparent,
+            borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              color: widget.isSelected ? Colors.white : AppTheme.textSecondary,
+              fontWeight: widget.isSelected ? FontWeight.w500 : FontWeight.normal,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
