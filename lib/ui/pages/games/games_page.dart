@@ -558,13 +558,14 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
 
   Future<void> _searchSteam() async {
     List<SteamSearchResult> results;
-    final inputId = _idController.text.trim();
-    if (inputId.isNotEmpty) {
-      if (!RegExp(r'^\d+$').hasMatch(inputId)) {
+    final rawInput = _idController.text.trim();
+    if (rawInput.isNotEmpty) {
+      final parsedId = _parseSteamId(rawInput);
+      if (parsedId == null) {
         setState(() => _statusText = '无效的Steam App ID');
         return;
       }
-      results = [SteamSearchResult(id: inputId, name: 'ID: $inputId')];
+      results = [SteamSearchResult(id: parsedId, name: 'ID: $parsedId')];
     } else {
       results = await _steamService.searchWithFallback(_folderPath!);
     }
@@ -578,6 +579,16 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         _statusText = '找到 ${results.length} 个结果，请选择';
       }
     });
+  }
+
+  /// Parse Steam App ID from raw input.
+  /// Accepts: pure numeric ID, or Steam store URL like
+  /// https://store.steampowered.com/app/413150/Stardew_Valley/
+  static String? _parseSteamId(String input) {
+    final urlMatch = RegExp(r'store\.steampowered\.com/app/(\d+)').firstMatch(input);
+    if (urlMatch != null) return urlMatch.group(1);
+    if (RegExp(r'^\d+$').hasMatch(input)) return input;
+    return null;
   }
 
   Future<void> _import() async {
@@ -857,7 +868,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                     decoration: InputDecoration(
                       hintText: _source == ImportSource.dlsite
                           ? '输入DLsite ID (如 RJ123456)，留空则自动按游戏名称搜索'
-                          : '输入Steam APPID (如 2254890)，留空则自动按游戏名称搜索',
+                          : '输入Steam App ID或商店链接，留空按名称搜索',
                       hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),

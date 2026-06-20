@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.3.6 (2026-06-20)
+
+### ✨ 新功能
+
+- **Steam 云端导入**
+  - "从DLsite导入信息"升级为"从云端导入信息"，支持 DLsite / Steam 双源切换
+  - Steam 支持 App ID 直接获取或按游戏名称智能搜索
+  - 搜索回退：直接搜索 → 智能构建名称（驼峰拆分、数字字母分隔）→ 逐步缩短关键词
+  - 自动识别游戏文件夹中的 `steam_appid.txt` 作为 ID 来源
+  - Steam HTML 描述自动转为纯文本，保留图片和视频标记
+  - 视频优先下载 webm 格式，简介中内嵌循环播放（media_kit）
+  - ID 输入框支持粘贴 Steam 商店 URL 自动解析（如 `https://store.steampowered.com/app/413150/...`）
+
+### 🔧 优化
+
+- media_kit 仅安装 Windows 依赖，减小打包体积
+- MediaKit 初始化添加 try-catch 保护
+
 ## v1.3.5 (2026-06-19)
 
 ### 🔧 优化
