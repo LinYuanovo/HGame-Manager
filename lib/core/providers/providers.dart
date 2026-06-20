@@ -11,6 +11,7 @@ import '../services/game_scanner_service.dart';
 import '../services/game_count_service.dart';
 import '../services/save_path_service.dart';
 import '../services/webdav_service.dart';
+import '../services/game_move_service.dart';
 import '../models/models.dart';
 import '../../scraper/parse_utils.dart';
 
@@ -56,6 +57,12 @@ final gameCountServiceProvider = Provider<GameCountService>((ref) {
 
 final webdavServiceProvider = Provider<WebdavService>((ref) {
   return WebdavService();
+});
+
+final gameMoveServiceProvider = Provider<GameMoveService>((ref) {
+  return GameMoveService(
+    gameRepository: ref.read(gameRepositoryProvider),
+  );
 });
 
 final allGamesProvider = FutureProvider<List<Game>>((ref) async {
