@@ -35,6 +35,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   late TextEditingController _downloadUrlController;
   late TextEditingController _sourceUrlController;
   late TextEditingController _gameLauncherController;
+  late TextEditingController _pathController;
+  bool _pathChanged = false;
   List<Tag> _editedTags = [];
   late Game _currentGame;
 
@@ -90,6 +92,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _downloadUrlController = TextEditingController(text: _currentGame.downloadUrl ?? '');
     _sourceUrlController = TextEditingController(text: _currentGame.sourceUrl ?? '');
     _gameLauncherController = TextEditingController(text: _currentGame.gameLauncher ?? '');
+    _pathController = TextEditingController(text: _currentGame.path);
     _editedTags = List.from(_currentGame.tags);
   }
 
@@ -103,6 +106,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _downloadUrlController.dispose();
     _sourceUrlController.dispose();
     _gameLauncherController.dispose();
+    _pathController.dispose();
     super.dispose();
   }
 
@@ -515,7 +519,53 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ),
             const SizedBox(height: 10),
           ],
-          _InfoRow(icon: Icons.folder_outlined, label: '路径', value: _currentGame.path, isPath: true),
+          if (_isEditing) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.folder_outlined, size: 15, color: AppTheme.textPrimary),
+                const SizedBox(width: 8),
+                const Text('路径:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: TextField(
+                    controller: _pathController,
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.5),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      isDense: true,
+                      hintText: '游戏文件夹路径',
+                    ),
+                    onChanged: (_) {
+                      if (!_pathChanged) setState(() => _pathChanged = true);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: '浏览文件夹',
+                  child: GestureDetector(
+                    onTap: () async {
+                      final selected = await FilePicker.getDirectoryPath(
+                        dialogTitle: '选择游戏文件夹',
+                        initialDirectory: _pathController.text,
+                      );
+                      if (selected != null) {
+                        _pathController.text = selected;
+                        setState(() => _pathChanged = true);
+                      }
+                    },
+                    child: Icon(Icons.folder_open, size: 18, color: AppTheme.primaryColor),
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            _InfoRow(icon: Icons.folder_outlined, label: '路径', value: _currentGame.path, isPath: true),
+          ],
           if (_isEditing) ...[
             const SizedBox(height: 10),
             Row(
@@ -1333,6 +1383,75 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       final newSourceUrl = _sourceUrlController.text.trim().isEmpty ? null : _sourceUrlController.text.trim();
       final launcherText = _gameLauncherController.text.trim();
 
+      // Handle path change
+      final newPath = _pathController.text.trim();
+      if (_pathChanged && newPath.isNotEmpty && newPath != _currentGame.path) {
+        final pathConfirm = await showGlassDialog<bool>(
+          context: context,
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('确认修改路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                const SizedBox(height: 16),
+                Text('原路径: ${_currentGame.path}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                const SizedBox(height: 8),
+                Text('新路径: $newPath', style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 12),
+                const Text('将移动文件夹到新路径并更新数据库记录。', style: TextStyle(color: AppTheme.textSecondary)),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('取消'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('确认修改'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+
+        if (pathConfirm == true) {
+          try {
+            final moveService = ref.read(gameMoveServiceProvider);
+            await moveService.moveGameFolderCrossDrive(
+              gameId: _currentGame.id!,
+              oldPath: _currentGame.path,
+              newPath: newPath,
+            );
+            final refreshed = await repo.getGameById(_currentGame.id!);
+            if (refreshed != null) {
+              _currentGame = refreshed;
+              _pathController.text = refreshed.path;
+            }
+          } catch (e) {
+            if (mounted) {
+              AppTheme.showGlassToast(context, message: '路径修改失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+              return;
+            }
+          }
+        } else {
+          _pathController.text = _currentGame.path;
+          _pathChanged = false;
+          return;
+        }
+      }
+      _pathChanged = false;
+
       await repo.updateGame(_currentGame.copyWith(
         title: newTitle,
         version: newVersion,
@@ -1408,6 +1527,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           _downloadUrlController.text = freshGame.downloadUrl ?? '';
           _sourceUrlController.text = freshGame.sourceUrl ?? '';
           _gameLauncherController.text = freshGame.gameLauncher ?? '';
+          _pathController.text = freshGame.path;
           _editedTags = List.from(freshGame.tags);
         });
 
