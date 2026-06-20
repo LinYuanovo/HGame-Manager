@@ -33,7 +33,16 @@ class DlsiteService {
   final _log = AppLogger.instance;
 
   String? normalizeId(String input) {
-    final match = _idPattern.firstMatch(input);
+    final trimmed = input.trim();
+    
+    // 尝试从URL中提取ID
+    final urlMatch = RegExp(r'(RJ|RE|VJ)\d{4,}', caseSensitive: false).firstMatch(trimmed);
+    if (urlMatch != null) {
+      return urlMatch.group(0)!.toUpperCase();
+    }
+    
+    // 直接匹配ID格式
+    final match = _idPattern.firstMatch(trimmed);
     if (match == null) return null;
     return match.group(0)!.toUpperCase();
   }
