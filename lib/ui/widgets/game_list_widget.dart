@@ -1606,11 +1606,6 @@ _refreshAllProviders();
     return ref.read(contextMenuGamesProvider);
   }
 
-  /// 检查菜单项是否启用
-  bool _isMenuItemEnabled(String id) {
-    return _getMenuConfig().isEnabled(id);
-  }
-
   /// 获取启用的菜单项顺序
   List<String> _getEnabledMenuOrder() {
     return _getMenuConfig().enabledItems.map((i) => i.id).toList();
