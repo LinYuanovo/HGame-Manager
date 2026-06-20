@@ -630,53 +630,35 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ),
             const SizedBox(height: 10),
           ],
-          if (_isEditing) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.folder_outlined, size: 15, color: AppTheme.textPrimary),
-                const SizedBox(width: 8),
-                const Text('路径:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: TextField(
-                    controller: _pathController,
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.5),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      isDense: true,
-                      hintText: '游戏文件夹路径',
-                    ),
-                    onChanged: (_) {
-                      if (!_pathChanged) setState(() => _pathChanged = true);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Tooltip(
-                  message: '浏览文件夹',
-                  child: GestureDetector(
-                    onTap: () async {
-                      final selected = await FilePicker.getDirectoryPath(
-                        dialogTitle: '选择游戏文件夹',
-                        initialDirectory: _pathController.text,
-                      );
-                      if (selected != null) {
-                        _pathController.text = selected;
-                        setState(() => _pathChanged = true);
-                      }
-                    },
-                    child: Icon(Icons.folder_open, size: 18, color: AppTheme.primaryColor),
-                  ),
-                ),
-              ],
-            ),
-          ] else ...[
-            _InfoRow(icon: Icons.folder_outlined, label: '路径', value: _currentGame.path, isPath: true),
-          ],
+if (_isEditing) ...[
+  Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Icon(Icons.folder_outlined, size: 15, color: AppTheme.textPrimary),
+      const SizedBox(width: 8),
+      const Text('路径:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+      const SizedBox(width: 6),
+      Expanded(
+        child: TextField(
+          controller: _pathController,
+          style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.5),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            isDense: true,
+          ),
+          onChanged: (_) {
+            if (!_pathChanged) setState(() => _pathChanged = true);
+          },
+        ),
+      ),
+    ],
+  ),
+] else ...[
+  _InfoRow(icon: Icons.folder_outlined, label: '路径', value: _currentGame.path, isPath: true),
+],
           if (_isEditing) ...[
             const SizedBox(height: 10),
             Row(
@@ -2098,15 +2080,43 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         intro: gameInfo.description ?? _currentGame.intro,
         features: gameInfo.features.isNotEmpty ? gameInfo.features.join('\n') : _currentGame.features,
         changelog: gameInfo.changelog ?? _currentGame.changelog,
+        downloadUrl: gameInfo.downloadUrl.isNotEmpty ? gameInfo.downloadUrl : _currentGame.downloadUrl,
         sourceUrl: url,
       );
+
+      // Write metadata.json
+      try {
+        final metadataFile = File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
+        await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()), flush: true);
+      } catch (e) {
+        debugPrint('[QuickScrape] Failed to write metadata.json: $e');
+      }
+
+      // Write source_url.txt
+      try {
+        final sourceUrlFile = File('${_currentGame.path}${Platform.pathSeparator}source_url.txt');
+        await sourceUrlFile.writeAsString(url, flush: true);
+      } catch (e) {
+        debugPrint('[QuickScrape] Failed to write source_url.txt: $e');
+      }
 
       await repo.updateGame(updatedGame);
 
       if (_currentGame.id != null) {
+        // Add custom tags
         for (final tagName in gameInfo.tags) {
           final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
           await repo.addTagToGame(_currentGame.id!, tagId);
+        }
+        // Add series tag
+        if (gameInfo.category != null) {
+          final tagId = await tagRepo.insertOrGetTag(gameInfo.category!, Tag.typeSeries);
+          await repo.addTagToGame(_currentGame.id!, tagId);
+        }
+
+        // Download images
+        if (gameInfo.screenshots.isNotEmpty) {
+          await _downloadImages(_currentGame.copyWith(id: _currentGame.id!), gameInfo.screenshots);
         }
       }
 
@@ -2119,6 +2129,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           _introController.text = freshGame.intro ?? '';
           _featuresController.text = freshGame.features ?? '';
           _changelogController.text = freshGame.changelog ?? '';
+          _downloadUrlController.text = freshGame.downloadUrl ?? '';
           _sourceUrlController.text = freshGame.sourceUrl ?? '';
           _editedTags = List.from(freshGame.tags);
         });
