@@ -95,6 +95,28 @@ class FolderRenameService {
     }
   }
 
+  /// Count how many games would be renamed (dry run).
+  Future<int> countRenamableGames() async {
+    final games = await _gameRepository.getAllGames();
+    int count = 0;
+
+    for (final game in games) {
+      final newName = buildNewFolderName(game);
+      if (newName == null) continue;
+
+      final oldPath = game.path;
+      final parentDir = path.dirname(oldPath);
+      final newPath = path.join(parentDir, newName);
+
+      if (oldPath == newPath) continue;
+      if (Directory(newPath).existsSync()) continue;
+
+      count++;
+    }
+
+    return count;
+  }
+
   Future<int> renameAllGameFolders() async {
     final games = await _gameRepository.getAllGames();
     int renamed = 0;

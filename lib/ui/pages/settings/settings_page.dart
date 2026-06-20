@@ -595,6 +595,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Future<void> _renameAllFolders() async {
+    final renameService = ref.read(folderRenameServiceProvider);
+    final renamableCount = await renameService.countRenamableGames();
+
+    if (renamableCount == 0) {
+      if (mounted) {
+        AppTheme.showGlassToast(context, message: '没有需要重命名的游戏');
+      }
+      return;
+    }
+
     final confirmed = await showGlassDialog<bool>(
       context: context,
       child: Padding(
@@ -605,8 +615,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           children: [
             const Text('确认重命名', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
             const SizedBox(height: 12),
-            const Text('将重命名所有能刮削到信息的游戏文件夹为:\n[游戏ID] [游戏类型] 游戏标题 游戏版本\n\n此操作不可撤销，是否继续？',
-                style: TextStyle(color: AppTheme.textSecondary)),
+            Text('预计将重命名 $renamableCount 个游戏文件夹为:\n[游戏ID] [游戏类型] 游戏标题 游戏版本\n\n此操作不可撤销，是否继续？',
+                style: const TextStyle(color: AppTheme.textSecondary)),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -635,7 +645,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     setState(() => _isRenamingFolders = true);
     try {
-      final renameService = ref.read(folderRenameServiceProvider);
       final count = await renameService.renameAllGameFolders();
       if (mounted) {
         AppTheme.showGlassToast(context, message: '重命名完成，共处理 $count 个游戏');
