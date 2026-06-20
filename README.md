@@ -89,7 +89,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 游戏库根目录/
 ├── SLG/                        # 按系列分类
 │   └── GameName/
-│       └── source_url.txt      # 来源URL（必需）
+│       └── source_url.txt      # 来源URL（DLsite/Steam，必需）
 ├── RPG/
 │   └── ...
 └── 未分类/
@@ -100,7 +100,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 | 文件 | 说明 | 是否必需 |
 | --- | --- | --- |
-| `source_url.txt` | 游戏来源页面 URL，用于刮削 | 是 |
+| `source_url.txt` | 游戏来源页面 URL（DLsite/Steam），用于刮削和导入 | 是 |
 | `metadata.json` | 游戏元数据（标题、版本、简介等） | 否（刮削后自动生成） |
 | `images/` | 游戏截图和封面图 | 否（刮削后自动下载） |
 
@@ -126,7 +126,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 ### 刮削中心
 
 - **多站点支持**：[ACG嘤嘤怪](https://acgyyg.ru/) / [飞雪ACG](https://feixueacg.org/)/ [维咔ACG](https://www.vikacg.com/)
-- **DLsite导入**: 支持通过RJ号或游戏名称从DLsite导入游戏信息和封面图
+- **云端导入**: 支持从 DLsite（RJ号/名称搜索）或 Steam（App ID/名称搜索）导入游戏信息和封面图
 - **自动整理**：刮削后按系列分类移动到整理目录
 - **智能标签**：自动关联重叠标签（如"互动SLG" → "SLG"）
 
