@@ -12,6 +12,7 @@ import '../../../core/services/webdav_service.dart';
 import '../../../scraper/html_parser.dart';
 import '../../theme/app_theme.dart';
 import '../../../core/utils/app_settings.dart';
+import 'context_menu_manager_dialog.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -326,6 +327,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   label: '扫描游戏库',
                   color: AppTheme.successColor,
                   onPressed: _scanNow,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _ActionButton(
+                  icon: Icons.menu,
+                  label: '右键菜单管理',
+                  color: AppTheme.accentColor,
+                  onPressed: _showContextMenuManager,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1395,6 +1405,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     showGlassDialog(
       context: context,
       child: _BlacklistDialog(),
+    );
+  }
+
+  void _showContextMenuManager() {
+    showDialog(
+      context: context,
+      builder: (context) => const ContextMenuManagerDialog(),
     );
   }
 
