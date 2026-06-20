@@ -13,6 +13,8 @@ import '../services/save_path_service.dart';
 import '../services/webdav_service.dart';
 import '../services/game_move_service.dart';
 import '../services/folder_rename_service.dart';
+import '../services/dlsite_service.dart';
+import '../services/steam_service.dart';
 import '../models/models.dart';
 import '../../scraper/parse_utils.dart';
 
@@ -71,6 +73,9 @@ final folderRenameServiceProvider = Provider<FolderRenameService>((ref) {
     gameRepository: ref.read(gameRepositoryProvider),
   );
 });
+
+final dlsiteServiceProvider = Provider<DlsiteService>((ref) => DlsiteService());
+final steamServiceProvider = Provider<SteamService>((ref) => SteamService());
 
 final allGamesProvider = FutureProvider<List<Game>>((ref) async {
   try {

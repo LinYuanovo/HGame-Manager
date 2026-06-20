@@ -45,6 +45,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   bool _isCheckingUpdate = false;
   bool _isRescraping = false;
 
+  final TextEditingController _quickScrapeController = TextEditingController();
+  String _quickScrapeChannel = 'auto';
+  bool _showChannelSelector = false;
+
   /// 刷新游戏列表
   void _refreshGames() {
     ref.invalidate(allGamesProvider);
@@ -98,6 +102,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   @override
   void dispose() {
+    _quickScrapeController.dispose();
     _titleController.dispose();
     _versionController.dispose();
     _introController.dispose();
@@ -177,6 +182,112 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ),
           ),
           if (!_isEditing) ...[
+            SizedBox(
+              width: 320,
+              height: 36,
+              child: TextField(
+                controller: _quickScrapeController,
+                style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                decoration: InputDecoration(
+                  hintText: '输入链接/id/关键词回车刮削',
+                  hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  isDense: true,
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.6),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.5)),
+                  ),
+                  prefixIcon: GestureDetector(
+                    onTap: () {
+                      setState(() => _showChannelSelector = !_showChannelSelector);
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(width: 8),
+                        Icon(
+                          _quickScrapeChannel == 'steam'
+                              ? Icons.computer
+                              : _quickScrapeChannel == 'dlsite'
+                                  ? Icons.language
+                                  : Icons.auto_fix_high,
+                          size: 16,
+                          color: AppTheme.primaryColor,
+                        ),
+                        if (_showChannelSelector) ...[
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            onTap: () => setState(() {
+                              _quickScrapeChannel = 'auto';
+                              _showChannelSelector = false;
+                            }),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _quickScrapeChannel == 'auto' ? AppTheme.primaryColor.withValues(alpha: 0.2) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text('自动', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'auto' ? AppTheme.primaryColor : AppTheme.textSecondary)),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => setState(() {
+                              _quickScrapeChannel = 'steam';
+                              _showChannelSelector = false;
+                            }),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _quickScrapeChannel == 'steam' ? AppTheme.primaryColor.withValues(alpha: 0.2) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text('Steam', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'steam' ? AppTheme.primaryColor : AppTheme.textSecondary)),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => setState(() {
+                              _quickScrapeChannel = 'dlsite';
+                              _showChannelSelector = false;
+                            }),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _quickScrapeChannel == 'dlsite' ? AppTheme.primaryColor.withValues(alpha: 0.2) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text('DLsite', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'dlsite' ? AppTheme.primaryColor : AppTheme.textSecondary)),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(width: 4),
+                      ],
+                    ),
+                  ),
+                  suffixIcon: _quickScrapeController.text.isNotEmpty
+                      ? GestureDetector(
+                          onTap: () {
+                            _quickScrapeController.clear();
+                            setState(() {});
+                          },
+                          child: Icon(Icons.close, size: 16, color: AppTheme.textSecondary),
+                        )
+                      : null,
+                ),
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (_) => _quickScrape(),
+              ),
+            ),
+            const SizedBox(width: 8),
             Tooltip(
               message: _currentGame.sourceUrl == null || _currentGame.sourceUrl!.isEmpty
                   ? '该游戏没有来源URL，无法重新刮削'
@@ -1912,6 +2023,114 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       if (mounted) {
         setState(() => _isRescraping = false);
       }
+    }
+  }
+
+  Future<void> _quickScrape() async {
+    final input = _quickScrapeController.text.trim();
+    if (input.isEmpty) return;
+
+    setState(() => _isRescraping = true);
+
+    try {
+      final scraper = HtmlScraper();
+      await scraper.ensureLoaded();
+
+      String url = input;
+      String channel = _quickScrapeChannel;
+
+      if (channel == 'auto') {
+        if (input.contains('steampowered.com') || input.contains('steam.com')) {
+          channel = 'steam';
+        } else if (input.contains('dlsite.com') || RegExp(r'^(RJ|RE|VJ)\d+$', caseSensitive: false).hasMatch(input)) {
+          channel = 'dlsite';
+        }
+      }
+
+      if (channel == 'dlsite') {
+        final dlsiteService = ref.read(dlsiteServiceProvider);
+        final normalizedId = dlsiteService.normalizeId(input);
+        if (normalizedId != null) {
+          url = dlsiteService.buildUrl(normalizedId);
+        }
+      } else if (channel == 'steam') {
+        if (RegExp(r'^\d+$').hasMatch(input)) {
+          url = 'https://store.steampowered.com/app/$input/';
+        }
+      }
+
+      final isUrl = url.startsWith('http://') || url.startsWith('https://');
+      if (!isUrl && channel != 'steam' && channel != 'dlsite') {
+        if (mounted) {
+          AppTheme.showGlassToast(context, message: '请输入有效的链接、Steam AppID 或 DLsite ID', icon: Icons.info_outline, iconColor: AppTheme.primaryColor);
+        }
+        return;
+      }
+
+      final headers = await buildScrapeHeaders(url);
+
+      final client = await createProxyClientFromPrefs();
+      final response = await client.get(Uri.parse(url), headers: headers)
+          .timeout(const Duration(seconds: 30));
+      client.close();
+
+      if (response.statusCode != 200) {
+        if (mounted) {
+          AppTheme.showGlassToast(context, message: '请求失败: HTTP ${response.statusCode}', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        }
+        return;
+      }
+
+      final gameInfo = scraper.scrapeGameInfo(response.body, url);
+      if (gameInfo == null) {
+        if (mounted) {
+          AppTheme.showGlassToast(context, message: '刮削失败，无法解析页面内容。请确认链接正确且站点已配置解析器。', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        }
+        return;
+      }
+
+      final repo = ref.read(gameRepositoryProvider);
+      final tagRepo = ref.read(tagRepositoryProvider);
+
+      final updatedGame = _currentGame.copyWith(
+        title: gameInfo.title ?? _currentGame.title,
+        version: gameInfo.version ?? _currentGame.version,
+        intro: gameInfo.description ?? _currentGame.intro,
+        features: gameInfo.features.isNotEmpty ? gameInfo.features.join('\n') : _currentGame.features,
+        changelog: gameInfo.changelog ?? _currentGame.changelog,
+        sourceUrl: url,
+      );
+
+      await repo.updateGame(updatedGame);
+
+      if (_currentGame.id != null) {
+        for (final tagName in gameInfo.tags) {
+          final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
+          await repo.addTagToGame(_currentGame.id!, tagId);
+        }
+      }
+
+      final freshGame = await repo.getGameById(_currentGame.id!);
+      if (freshGame != null && mounted) {
+        setState(() {
+          _currentGame = freshGame;
+          _titleController.text = freshGame.title ?? '';
+          _versionController.text = freshGame.version ?? '';
+          _introController.text = freshGame.intro ?? '';
+          _featuresController.text = freshGame.features ?? '';
+          _changelogController.text = freshGame.changelog ?? '';
+          _sourceUrlController.text = freshGame.sourceUrl ?? '';
+          _editedTags = List.from(freshGame.tags);
+        });
+        _refreshAllProviders();
+        AppTheme.showGlassToast(context, message: '刮削成功: ${gameInfo.title ?? "未知标题"}');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppTheme.showGlassToast(context, message: '刮削失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+      }
+    } finally {
+      if (mounted) setState(() => _isRescraping = false);
     }
   }
 
