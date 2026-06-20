@@ -17,6 +17,7 @@ import '../services/dlsite_service.dart';
 import '../services/steam_service.dart';
 import '../models/models.dart';
 import '../../scraper/parse_utils.dart';
+import '../models/context_menu_config.dart';
 
 final sharedPreferencesProvider = Provider<AppSettings>((ref) {
   throw UnimplementedError('AppSettings not initialized');
@@ -440,3 +441,73 @@ final currentPageProvider = StateProvider<Map<int, int>>((ref) {
   }
   return {};
 });
+
+/// 右键菜单配置 Provider（普通游戏列表）
+final contextMenuGamesProvider = StateNotifierProvider<ContextMenuConfigNotifier, ContextMenuConfig>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return ContextMenuConfigNotifier(prefs, AppSettings.contextMenuGamesKey, 'games');
+});
+
+/// 右键菜单配置 Provider（已玩游戏/通关页面）
+final contextMenuPlayedProvider = StateNotifierProvider<ContextMenuConfigNotifier, ContextMenuConfig>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return ContextMenuConfigNotifier(prefs, AppSettings.contextMenuPlayedKey, 'played');
+});
+
+/// 菜单配置状态管理器
+class ContextMenuConfigNotifier extends StateNotifier<ContextMenuConfig> {
+  final AppSettings _prefs;
+  final String _key;
+  final String _mode;
+
+  ContextMenuConfigNotifier(this._prefs, this._key, this._mode) : super(const ContextMenuConfig(items: [])) {
+    _load();
+  }
+
+  void _load() {
+    final jsonStr = _prefs.getString(_key);
+    if (jsonStr != null && jsonStr.isNotEmpty) {
+      try {
+        final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+        state = ContextMenuConfig.fromMap(map);
+      } catch (e) {
+        state = ContextMenuConfig.defaults(PresetMenuItems.getDefs(_mode));
+      }
+    } else {
+      state = ContextMenuConfig.defaults(PresetMenuItems.getDefs(_mode));
+    }
+  }
+
+  Future<void> save() async {
+    await _prefs.setString(_key, jsonEncode(state.toMap()));
+  }
+
+  void toggleItem(String id) {
+    final updatedItems = state.items.map((item) {
+      if (item.id == id) {
+        return item.copyWith(enabled: !item.enabled);
+      }
+      return item;
+    }).toList();
+    state = ContextMenuConfig(items: updatedItems);
+  }
+
+  void moveItem(String id, int direction) {
+    final items = List<ContextMenuItemState>.from(state.sortedItems);
+    final index = items.indexWhere((i) => i.id == id);
+    if (index < 0) return;
+
+    final newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= items.length) return;
+
+    final temp = items[index].order;
+    items[index] = items[index].copyWith(order: items[newIndex].order);
+    items[newIndex] = items[newIndex].copyWith(order: temp);
+
+    state = ContextMenuConfig(items: items);
+  }
+
+  void resetToDefaults() {
+    state = ContextMenuConfig.defaults(PresetMenuItems.getDefs(_mode));
+  }
+}
