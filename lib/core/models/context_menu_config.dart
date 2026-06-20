@@ -107,3 +107,39 @@ class ContextMenuConfig {
       ).toList(),
     );
 }
+
+/// 预设菜单项定义
+class PresetMenuItems {
+  /// 普通游戏列表页面的菜单项
+  static const List<ContextMenuItemDef> games = [
+    ContextMenuItemDef(id: 'open_folder', label: '打开文件夹', icon: 'folder_open'),
+    ContextMenuItemDef(id: 'move_folder', label: '移动文件夹', icon: 'drive_file_move'),
+    ContextMenuItemDef(id: 'favorite', label: '收藏', icon: 'favorite'),
+    ContextMenuItemDef(id: 'played', label: '增加游玩次数', icon: 'add_circle_outline'),
+    ContextMenuItemDef(id: 'move_to_series', label: '移入自定义系列', icon: 'playlist_add'),
+    ContextMenuItemDef(id: 'cover', label: '选择封面', icon: 'image'),
+    ContextMenuItemDef(id: 'review', label: '评论', icon: 'rate_review_outlined'),
+    ContextMenuItemDef(id: 'cleared', label: '标记已通关', icon: 'emoji_events'),
+    ContextMenuItemDef(id: 'blacklist', label: '删除记录', icon: 'block'),
+    ContextMenuItemDef(id: 'delete_folder', label: '删除本地文件夹', icon: 'folder_delete_outlined'),
+  ];
+
+  /// 已玩游戏/通关页面的菜单项
+  static const List<ContextMenuItemDef> played = [
+    ContextMenuItemDef(id: 'open_folder', label: '打开文件夹', icon: 'folder_open'),
+    ContextMenuItemDef(id: 'move_folder', label: '移动文件夹', icon: 'drive_file_move'),
+    ContextMenuItemDef(id: 'open_save', label: '打开存档位置', icon: 'folder_special'),
+    ContextMenuItemDef(id: 'favorite', label: '收藏', icon: 'favorite'),
+    ContextMenuItemDef(id: 'played', label: '减少游玩次数', icon: 'remove_circle_outline'),
+    ContextMenuItemDef(id: 'move_to_series', label: '移入自定义系列', icon: 'playlist_add'),
+    ContextMenuItemDef(id: 'cover', label: '选择封面', icon: 'image'),
+    ContextMenuItemDef(id: 'review', label: '评论', icon: 'rate_review_outlined'),
+    ContextMenuItemDef(id: 'uncleared', label: '取消标记已通关', icon: 'emoji_events_outlined'),
+    ContextMenuItemDef(id: 'blacklist', label: '删除记录', icon: 'block'),
+    ContextMenuItemDef(id: 'delete_folder', label: '删除本地文件夹', icon: 'folder_delete_outlined'),
+  ];
+
+  /// 根据模式获取预设定义
+  static List<ContextMenuItemDef> getDefs(String mode) =>
+    mode == 'played' ? played : games;
+}
