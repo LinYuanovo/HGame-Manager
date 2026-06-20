@@ -532,16 +532,19 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
 
   Future<void> _searchDlsite() async {
     List<DlsiteSearchResult> results;
-    final inputId = _idController.text.trim();
-    if (inputId.isNotEmpty) {
-      final normalizedId = _dlsiteService.normalizeId(inputId);
+    final inputText = _idController.text.trim();
+    if (inputText.isNotEmpty) {
+      // 用户输入了内容
+      final normalizedId = _dlsiteService.normalizeId(inputText);
       if (normalizedId != null) {
+        // 输入的是ID，直接使用
         results = [DlsiteSearchResult(id: normalizedId, name: 'ID: $normalizedId')];
       } else {
-        setState(() => _statusText = '无效的DLsite ID');
-        return;
+        // 输入的不是ID，当作关键词搜索
+        results = await _dlsiteService.searchWithKeyword(inputText);
       }
     } else {
+      // 未输入，从文件夹名提取并搜索
       results = await _dlsiteService.searchWithFallback(_folderPath!);
     }
 
@@ -549,7 +552,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       _searchResults = results;
       _showSearchResults = true;
       if (results.isEmpty) {
-        _statusText = '未找到游戏，请尝试手动输入ID';
+        _statusText = '未找到游戏，请尝试手动输入ID或关键词';
       } else {
         _statusText = '找到 ${results.length} 个结果，请选择';
       }

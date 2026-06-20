@@ -1,4 +1,5 @@
 import 'package:html/dom.dart';
+import '../core/services/app_logger.dart';
 
 class _Segment {
   final String segment;
@@ -37,13 +38,23 @@ class _XPathStep {
 class XPathEvaluator {
   static List<Element> queryAll(Document doc, String xpath) {
     final trimmed = xpath.trim();
-    if (trimmed.isEmpty) return [];
+    if (trimmed.isEmpty) {
+      AppLogger.instance.info('XPath', '[queryAll] empty xpath, returning []');
+      return [];
+    }
 
     final steps = _parse(trimmed);
-    if (steps.isEmpty) return [];
+    if (steps.isEmpty) {
+      AppLogger.instance.info('XPath', '[queryAll] no parsed steps for: $trimmed');
+      return [];
+    }
+    AppLogger.instance.info('XPath', '[queryAll] xpath=$trimmed, steps=${steps.map((s) => s.toString()).join(' -> ')}');
 
     final root = doc.documentElement ?? doc.body;
-    if (root == null) return [];
+    if (root == null) {
+      AppLogger.instance.info('XPath', '[queryAll] no root element');
+      return [];
+    }
 
     List<Element> current;
     int startIdx;
@@ -51,10 +62,15 @@ class XPathEvaluator {
     if (steps.first.descendant) {
       current = _descendants(root, steps.first);
       startIdx = 1;
+      AppLogger.instance.info('XPath', '[queryAll] step 0 (descendant): ${steps.first.name} -> ${current.length} matches');
     } else {
-      if (steps.first.name != root.localName) return [];
+      if (steps.first.name != root.localName) {
+        AppLogger.instance.info('XPath', '[queryAll] step 0 FAILED: expected <${steps.first.name}>, got <${root.localName}>');
+        return [];
+      }
       current = [root];
       startIdx = 1;
+      AppLogger.instance.info('XPath', '[queryAll] step 0: root=<${root.localName}> matched');
     }
 
     for (var i = startIdx; i < steps.length; i++) {
@@ -66,6 +82,7 @@ class XPathEvaluator {
           final desc = _descendants(el, step);
           next.addAll(desc);
         }
+        AppLogger.instance.info('XPath', '[queryAll] step $i (descendant ${step.name}): ${current.length} parents -> ${next.length} matches');
         current = next;
         continue;
       }
@@ -78,27 +95,42 @@ class XPathEvaluator {
           next.addAll(matching);
         }
       }
+      AppLogger.instance.info('XPath', '[queryAll] step $i (${step.name}): ${current.length} parents, children candidates=${next.length}');
+
       if (step.attrName != null && step.attrValue != null) {
         current = next.where((el) {
           final attrVal = el.attributes[step.attrName];
           return attrVal != null && attrVal.trim() == step.attrValue;
         }).toList();
+        AppLogger.instance.info('XPath', '[queryAll] step $i filter [@${step.attrName}="${step.attrValue}"]: ${next.length} -> ${current.length} matches');
       } else if (step.index != null) {
         if (step.index! < next.length) {
           current = [next[step.index!]];
+          AppLogger.instance.info('XPath', '[queryAll] step $i index [${step.index! + 1}]: selected <${current.first.localName}>');
         } else {
+          AppLogger.instance.info('XPath', '[queryAll] step $i index [${step.index! + 1}] FAILED: only ${next.length} elements available');
           return [];
         }
       } else {
         current = next;
       }
+
+      if (current.isEmpty) {
+        final availableTags = next.isNotEmpty
+            ? next.take(5).map((c) => '<${c.localName}${c.attributes.isNotEmpty ? " ${c.attributes.entries.take(2).map((e) => "${e.key}=\"${e.value.substring(0, e.value.length.clamp(0, 30))}\"").join(" ")}" : ""}>').join(", ")
+            : "none";
+        AppLogger.instance.info('XPath', '[queryAll] step $i (${step.name}): NO MATCHES. Available in parent: $availableTags${next.length > 5 ? " (+${next.length - 5} more)" : ""}');
+        break;
+      }
     }
 
+    AppLogger.instance.info('XPath', '[queryAll] result: ${current.length} elements');
     return current;
   }
 
   static Element? query(Document doc, String xpath) {
     final results = queryAll(doc, xpath);
+    AppLogger.instance.info('XPath', '[query] xpath=$xpath -> ${results.isNotEmpty ? "found" : "null"}');
     return results.isNotEmpty ? results.first : null;
   }
 
@@ -107,12 +139,22 @@ class XPathEvaluator {
     if (trimmed.endsWith('/text()')) {
       final baseXpath = trimmed.substring(0, trimmed.length - '/text()'.length);
       final el = query(doc, baseXpath);
-      if (el == null) return null;
-      return _elementToText(el).trim();
+      if (el == null) {
+        AppLogger.instance.info('XPath', '[queryText] xpath=$trimmed -> null (no element)');
+        return null;
+      }
+      final text = _elementToText(el).trim();
+      AppLogger.instance.info('XPath', '[queryText] xpath=$trimmed -> ${text.length}chars');
+      return text;
     }
     final el = query(doc, xpath);
-    if (el == null) return null;
-    return _elementToText(el).trim();
+    if (el == null) {
+      AppLogger.instance.info('XPath', '[queryText] xpath=$trimmed -> null (no element)');
+      return null;
+    }
+    final text = _elementToText(el).trim();
+    AppLogger.instance.info('XPath', '[queryText] xpath=$trimmed -> ${text.length}chars');
+    return text;
   }
 
   /// Convert element to text, preserving <br> as newlines.
@@ -139,20 +181,27 @@ class XPathEvaluator {
       final attrName = attrMatch.group(1)!;
       final baseXpath = trimmed.substring(0, attrMatch.start);
       final el = query(doc, baseXpath);
-      return el?.attributes[attrName]?.trim();
+      final value = el?.attributes[attrName]?.trim();
+      AppLogger.instance.info('XPath', '[queryAttribute] xpath=$trimmed, attr=$attrName -> ${value ?? "null"}');
+      return value;
     }
+    AppLogger.instance.info('XPath', '[queryAttribute] xpath=$trimmed -> null (no attr pattern)');
     return null;
   }
 
   static List<String> queryAllTexts(Document doc, String xpath) {
     final trimmed = xpath.trim();
+    List<String> result;
     if (trimmed.endsWith('/text()')) {
       final baseXpath = trimmed.substring(0, trimmed.length - '/text()'.length);
       final els = queryAll(doc, baseXpath);
-      return els.map((e) => e.text.trim()).where((t) => t.isNotEmpty).toList();
+      result = els.map((e) => e.text.trim()).where((t) => t.isNotEmpty).toList();
+    } else {
+      final els = queryAll(doc, xpath);
+      result = els.map((e) => e.text.trim()).where((t) => t.isNotEmpty).toList();
     }
-    final els = queryAll(doc, xpath);
-    return els.map((e) => e.text.trim()).where((t) => t.isNotEmpty).toList();
+    AppLogger.instance.info('XPath', '[queryAllTexts] xpath=$trimmed -> ${result.length} texts');
+    return result;
   }
 
   static List<String> queryAllAttributes(Document doc, String xpath) {
@@ -162,11 +211,14 @@ class XPathEvaluator {
       final attrName = attrMatch.group(1)!;
       final baseXpath = trimmed.substring(0, attrMatch.start);
       final els = queryAll(doc, baseXpath);
-      return els
+      final result = els
           .map((e) => e.attributes[attrName]?.trim() ?? '')
           .where((v) => v.isNotEmpty)
           .toList();
+      AppLogger.instance.info('XPath', '[queryAllAttributes] xpath=$trimmed, attr=$attrName -> ${result.length} values');
+      return result;
     }
+    AppLogger.instance.info('XPath', '[queryAllAttributes] xpath=$trimmed -> [] (no attr pattern)');
     return [];
   }
 
@@ -202,6 +254,7 @@ class XPathEvaluator {
       ));
     }
 
+    AppLogger.instance.info('XPath', '[_parse] input=$xpath -> ${steps.length} steps: ${steps.map((s) => "${s.descendant ? "//" : "/"}${s.name}${s.index != null ? "[${s.index! + 1}]" : ""}${s.attrName != null ? "[@${s.attrName}='${s.attrValue}']" : ""}").join("")}');
     return steps;
   }
 

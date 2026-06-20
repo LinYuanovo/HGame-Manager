@@ -1516,7 +1516,7 @@ _refreshGames(); _refreshPlayed(); return;
       }
     }
 
-    final fallbackExes = ['game.exe', 'Game.exe', 'launcher.exe', 'launch.exe'];
+    final fallbackExes = ['game.exe', 'Game.exe', 'launcher.exe', 'launch.exe', 'player.exe', 'play.exe'];
     for (final exeName in fallbackExes) {
       final exeFile = File('${game.path}${Platform.pathSeparator}$exeName');
       if (await exeFile.exists()) {
@@ -1612,7 +1612,7 @@ _refreshAllProviders();
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(Icons.folder_open, size: 18),
                 title: const Text('打开文件夹'))),
-        if (widget.contextMenuMode == ContextMenuMode.played && game.savePath != null && game.savePath!.isNotEmpty)
+        if (widget.contextMenuMode == ContextMenuMode.played && game.savePath != null && game.savePath!.isNotEmpty && !isMultiSelect)
           PopupMenuItem(
               value: 'open_save',
               child: ListTile(

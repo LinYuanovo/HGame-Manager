@@ -1519,7 +1519,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       }
     }
 
-    final fallbackExes = ['game.exe', 'Game.exe', 'launcher.exe', 'launch.exe'];
+    final fallbackExes = ['game.exe', 'Game.exe', 'launcher.exe', 'launch.exe', 'player.exe', 'play.exe'];
     for (final exeName in fallbackExes) {
       final exeFile = File('${game.path}${Platform.pathSeparator}$exeName');
       if (await exeFile.exists()) {
@@ -1802,19 +1802,38 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       await imageDir.create(recursive: true);
     }
 
+    await ref.read(gameRepositoryProvider).deleteGameImagesByGameId(game.id!);
+
+    // 清理旧图片文件
+    if (await imageDir.exists()) {
+      await for (final entity in imageDir.list()) {
+        if (entity is File) await entity.delete();
+      }
+    }
+
     final repo = ref.read(gameRepositoryProvider);
+    final sourceUrl = game.sourceUrl ?? '';
+    final cookie = sourceUrl.isNotEmpty ? await getCookieForSite(sourceUrl) : '';
     for (int i = 0; i < imageUrls.length; i++) {
       try {
         final imageUrl = imageUrls[i];
-        final ext = imageUrl.contains('.') ? '.${imageUrl.split('.').last.split('?').first}' : '.jpg';
-        final fileName = '${i + 1}$ext';
+        final uri = Uri.parse(imageUrl);
+        final ext = imageUrl.contains('.') ? '.${imageUrl.split('.').last.split('?').first.split('#').first}' : '.jpg';
+        final validExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext.toLowerCase()) ? ext : '.jpg';
+        final fileName = '${i + 1}$validExt';
         final filePath = '${imageDir.path}${Platform.pathSeparator}$fileName';
         final file = File(filePath);
 
         if (!await file.exists()) {
-          final response = await client.get(Uri.parse(imageUrl));
-          if (response.statusCode == 200) {
-            await file.writeAsBytes(response.bodyBytes);
+          final imgHeaders = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            'Referer': sourceUrl,
+            if (cookie.isNotEmpty) 'Cookie': cookie,
+          };
+          final response = await client.get(uri, headers: imgHeaders).timeout(const Duration(seconds: 15));
+          if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+            await file.writeAsBytes(response.bodyBytes, flush: true);
           }
         }
         await repo.addGameImage(game.id!, filePath, i);

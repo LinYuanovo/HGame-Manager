@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/models.dart';
 import '../../core/providers/providers.dart';
 import '../../core/services/image_service.dart';
+import '../../core/utils/proxy_client.dart';
 import '../theme/app_theme.dart';
 import 'draggable_image_grid.dart';
 
@@ -18,6 +19,7 @@ class ImageManagerDialog extends ConsumerStatefulWidget {
 
 class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
   late List<GameImage> _images;
+  late int _coverIndex;
   final ImageService _imageService = ImageService();
   bool _isLoading = false;
 
@@ -25,6 +27,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
   void initState() {
     super.initState();
     _images = List.from(widget.game.images);
+    _coverIndex = widget.game.coverIndex;
   }
 
   Future<void> _addLocalImage() async {
@@ -78,7 +81,9 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
 
     setState(() => _isLoading = true);
     try {
-      final imagePath = await _imageService.downloadImageFromUrl(url);
+      final sourceUrl = widget.game.sourceUrl ?? '';
+      final headers = sourceUrl.isNotEmpty ? await buildScrapeHeaders(sourceUrl) : <String, String>{};
+      final imagePath = await _imageService.downloadImageFromUrl(url, headers: headers);
       if (imagePath != null) {
         final newImage = GameImage(
           gameId: widget.game.id!,
@@ -127,6 +132,11 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
       // 添加新图片记录
       for (int i = 0; i < _images.length; i++) {
         await repo.addGameImage(gameId, _images[i].imagePath, i);
+      }
+
+      // 更新封面索引
+      if (_coverIndex < _images.length) {
+        await repo.updateCoverIndex(gameId, _coverIndex);
       }
 
       // 刷新数据
@@ -219,9 +229,12 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                   ? const Center(child: CircularProgressIndicator())
                   : DraggableImageGrid(
                       images: _images,
+                      coverIndex: _coverIndex,
                       onReorder: _reorderImages,
                       onDelete: _deleteImage,
-                      onTap: (_) {},
+                      onTap: (index) {
+                        setState(() => _coverIndex = index);
+                      },
                     ),
             ),
             const SizedBox(height: 16),

@@ -87,9 +87,9 @@ class ImageService {
   }
 
   /// 从URL下载图片
-  Future<String?> downloadImageFromUrl(String url) async {
+  Future<String?> downloadImageFromUrl(String url, {Map<String, String>? headers}) async {
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(Uri.parse(url), headers: headers);
       if (response.statusCode != 200) return null;
 
       final storageDir = await getImageStorageDir();

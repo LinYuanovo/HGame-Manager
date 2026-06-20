@@ -184,7 +184,21 @@ class HtmlScraper {
     }
 
     try {
+      _log.info('Scraper', 'HTML response: ${htmlContent.length} chars, url=$url');
+      _log.info('Scraper', 'HTML preview (first 500 chars): ${htmlContent.substring(0, htmlContent.length.clamp(0, 500))}');
       final document = html_parser.parse(htmlContent);
+      final root = document.documentElement;
+      if (root != null) {
+        _log.info('Scraper', 'Parsed document root: <${root.localName}>, children: ${root.children.length}');
+        final body = root.querySelector('body');
+        if (body != null) {
+          _log.info('Scraper', 'Body element: <body>, children: ${body.children.length}, direct child tags: ${body.children.take(10).map((c) => c.localName).join(", ")}');
+        } else {
+          _log.info('Scraper', 'No <body> element found in document');
+        }
+      } else {
+        _log.info('Scraper', 'No documentElement found');
+      }
       final gameInfo = parser.parseGameInfo(document, url);
       if (gameInfo != null) {
         _log.info('Scraper', 'Parsed GameInfo: ${gameInfo.title}');

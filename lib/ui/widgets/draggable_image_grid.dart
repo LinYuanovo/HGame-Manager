@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 
 class DraggableImageGrid extends StatelessWidget {
   final List<GameImage> images;
+  final int coverIndex;
   final Function(List<GameImage>) onReorder;
   final Future<void> Function(int index) onDelete;
   final Function(int index) onTap;
@@ -12,16 +13,14 @@ class DraggableImageGrid extends StatelessWidget {
   const DraggableImageGrid({
     super.key,
     required this.images,
+    this.coverIndex = 0,
     required this.onReorder,
     required this.onDelete,
     required this.onTap,
   });
 
   void _onImageTap(int index) {
-    // 将选中的图片移到第一位作为封面
-    final selectedImage = images.removeAt(index);
-    images.insert(0, selectedImage);
-    onReorder(images);
+    onTap(index);
   }
 
   @override
@@ -57,7 +56,7 @@ class DraggableImageGrid extends StatelessWidget {
       itemCount: images.length,
       itemBuilder: (context, index) {
         final image = images[index];
-        final isCover = index == 0;
+        final isCover = index == coverIndex;
 
         return Stack(
           children: [

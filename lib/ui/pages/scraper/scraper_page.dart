@@ -685,7 +685,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               // Download images
               if (gameInfo.screenshots.isNotEmpty) {
                 _addLog('  -> 下载 ${gameInfo.screenshots.length} 张配图...');
-                await _downloadImages(updated.copyWith(id: gameId), gameInfo.screenshots, client, headers, game.sourceUrl!);
+                await _downloadImages(updated.copyWith(id: gameId), gameInfo.screenshots, client, game.sourceUrl!);
               }
 
               // Reload game with images from database
@@ -748,7 +748,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     }
   }
 
-  Future<void> _downloadImages(Game game, List<String> imageUrls, http.Client client, Map<String, String> pageHeaders, String sourceUrl) async {
+  Future<void> _downloadImages(Game game, List<String> imageUrls, http.Client client, String sourceUrl) async {
     final gameRepo = ref.read(gameRepositoryProvider);
     final imagesDir = Directory(path.join(game.path, 'images'));
 
@@ -756,9 +756,17 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       await imagesDir.create(recursive: true);
     }
 
-    // Get existing images from database
-    final existingImages = await gameRepo.getGameImages(game.id!);
-    final existingPaths = existingImages.map((img) => img.imagePath).toSet();
+    // Clear existing image records to prevent duplicates on re-scrape
+    await gameRepo.deleteGameImagesByGameId(game.id!);
+
+    // 清理旧图片文件
+    if (await imagesDir.exists()) {
+      await for (final entity in imagesDir.list()) {
+        if (entity is File) await entity.delete();
+      }
+    }
+
+    final cookie = await getCookieForSite(sourceUrl);
 
     int downloaded = 0;
     for (int i = 0; i < imageUrls.length; i++) {
@@ -770,15 +778,15 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         final fileName = '${i + 1}$validExt';
         final filePath = path.join(imagesDir.path, fileName);
 
-        // Check if already in database
-        if (existingPaths.contains(filePath)) {
-          downloaded++;
-          continue;
-        }
-
-        // Download if not exists - always use parser's cookie
+        // Download if not exists - use image-appropriate headers, not page headers
         if (!File(filePath).existsSync()) {
-          final imgResponse = await client.get(uri, headers: pageHeaders).timeout(const Duration(seconds: 15));
+          final imgHeaders = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            'Referer': sourceUrl,
+            if (cookie.isNotEmpty) 'Cookie': cookie,
+          };
+          final imgResponse = await client.get(uri, headers: imgHeaders).timeout(const Duration(seconds: 15));
           if (imgResponse.statusCode == 200 && imgResponse.bodyBytes.isNotEmpty) {
             await File(filePath).writeAsBytes(imgResponse.bodyBytes, flush: true);
           } else {

@@ -168,6 +168,52 @@ class DlsiteService {
     return cleaned;
   }
 
+  /// 使用关键词搜索，支持回退搜索
+  /// 用于用户手动输入的关键词
+  Future<List<DlsiteSearchResult>> searchWithKeyword(String keyword) async {
+    _log.info('DlsiteService', '[searchWithKeyword] ========== 关键词搜索 ==========');
+    _log.info('DlsiteService', '[searchWithKeyword] 输入关键词: "$keyword"');
+
+    // 清理关键词
+    final cleaned = keyword.replaceAll('_', ' ').trim();
+    _log.info('DlsiteService', '[searchWithKeyword] 清理后: "$cleaned"');
+
+    if (cleaned.isEmpty) return [];
+
+    // 第一步：直接用完整关键词搜索
+    _log.info('DlsiteService', '[searchWithKeyword] 第1轮搜索: "$cleaned"');
+    final results = await search(cleaned);
+    if (results.isNotEmpty) {
+      _log.info('DlsiteService', '[searchWithKeyword] 第1轮命中 ${results.length} 个结果，搜索结束');
+      return results;
+    }
+    _log.info('DlsiteService', '[searchWithKeyword] 第1轮无结果');
+
+    // 第二步：按空格分词，逐步去掉后面的词
+    final parts = cleaned.split(RegExp(r'\s+'));
+    _log.info('DlsiteService', '[searchWithKeyword] 分词结果: $parts (${parts.length}个词)');
+
+    if (parts.length <= 1) {
+      _log.info('DlsiteService', '[searchWithKeyword] 只有一个词，无法继续缩短，搜索结束');
+      return [];
+    }
+
+    // 从少一个词开始，逐步缩短
+    for (int i = parts.length - 1; i >= 1; i--) {
+      final shortened = parts.sublist(0, i).join(' ');
+      _log.info('DlsiteService', '[searchWithKeyword] 第${parts.length - i + 1}轮搜索: "$shortened"');
+      final partialResults = await search(shortened);
+      if (partialResults.isNotEmpty) {
+        _log.info('DlsiteService', '[searchWithKeyword] 命中 ${partialResults.length} 个结果，搜索结束');
+        return partialResults;
+      }
+      _log.info('DlsiteService', '[searchWithKeyword] 无结果');
+    }
+
+    _log.info('DlsiteService', '[searchWithKeyword] ========== 所有轮次均无结果 ==========');
+    return [];
+  }
+
   Future<List<DlsiteSearchResult>> search(String keyword) async {
     final encodedKeyword = Uri.encodeComponent(keyword);
     final url = 'https://www.dlsite.com/maniax/fsr/=/language/jp/keyword/$encodedKeyword/';
