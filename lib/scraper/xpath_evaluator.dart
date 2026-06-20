@@ -157,6 +157,91 @@ class XPathEvaluator {
     return text;
   }
 
+  /// Try the xpath as-is first. If it returns null, try replacing each
+  /// indexed step with neighboring indices (±5) and also without the index.
+  static Element? queryWithFallback(Document doc, String xpath) {
+    final result = query(doc, xpath);
+    if (result != null) return result;
+
+    AppLogger.instance.info('XPath', '[queryWithFallback] Original xpath failed: $xpath, trying fallbacks');
+
+    final indexedPattern = RegExp(r'(\w+)\[(\d+)\]');
+    final matches = indexedPattern.allMatches(xpath).toList();
+    if (matches.isEmpty) return null;
+
+    for (final match in matches) {
+      final originalSegment = match.group(0)!;
+      final tagName = match.group(1)!;
+      final originalIndex = int.parse(match.group(2)!);
+
+      for (var i = originalIndex - 5; i <= originalIndex + 5; i++) {
+        if (i == originalIndex) continue;
+        if (i < 1) continue;
+        final newSegment = '$tagName[$i]';
+        final newXpath = xpath.replaceFirst(originalSegment, newSegment);
+        final r = query(doc, newXpath);
+        if (r != null) {
+          AppLogger.instance.info('XPath', '[queryWithFallback] Fallback success with $newSegment: $newXpath');
+          return r;
+        }
+      }
+
+      final newXpath = xpath.replaceFirst(originalSegment, tagName);
+      final r = query(doc, newXpath);
+      if (r != null) {
+        AppLogger.instance.info('XPath', '[queryWithFallback] Fallback success without index: $newXpath');
+        return r;
+      }
+    }
+
+    AppLogger.instance.info('XPath', '[queryWithFallback] All fallbacks failed for: $xpath');
+    return null;
+  }
+
+  /// Same as queryWithFallback but returns text content.
+  static String? queryTextWithFallback(Document doc, String xpath) {
+    final trimmed = xpath.trim();
+    if (trimmed.endsWith('/text()')) {
+      final baseXpath = trimmed.substring(0, trimmed.length - '/text()'.length);
+      final el = queryWithFallback(doc, baseXpath);
+      if (el == null) return null;
+      return _elementToText(el).trim();
+    }
+    final el = queryWithFallback(doc, xpath);
+    if (el == null) return null;
+    return _elementToText(el).trim();
+  }
+
+  /// Same as queryAllAttributes but with index fallback.
+  static List<String> queryAllAttributesWithFallback(Document doc, String xpath) {
+    final result = queryAllAttributes(doc, xpath);
+    if (result.isNotEmpty) return result;
+
+    final indexedPattern = RegExp(r'(\w+)\[(\d+)\]');
+    final matches = indexedPattern.allMatches(xpath).toList();
+    if (matches.isEmpty) return [];
+
+    for (final match in matches) {
+      final originalSegment = match.group(0)!;
+      final tagName = match.group(1)!;
+      final originalIndex = int.parse(match.group(2)!);
+
+      for (var i = originalIndex - 5; i <= originalIndex + 5; i++) {
+        if (i == originalIndex) continue;
+        if (i < 1) continue;
+        final newXpath = xpath.replaceFirst(originalSegment, '$tagName[$i]');
+        final r = queryAllAttributes(doc, newXpath);
+        if (r.isNotEmpty) return r;
+      }
+
+      final newXpath = xpath.replaceFirst(originalSegment, tagName);
+      final r = queryAllAttributes(doc, newXpath);
+      if (r.isNotEmpty) return r;
+    }
+
+    return [];
+  }
+
   /// Convert element to text, preserving <br> as newlines.
   static String _elementToText(Element el) {
     final buf = StringBuffer();

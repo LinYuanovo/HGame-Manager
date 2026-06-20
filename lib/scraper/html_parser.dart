@@ -333,7 +333,7 @@ class XpathParser extends SiteParser {
     final titleXpath = _xpaths['title'];
     String? rawTitle;
     if (titleXpath != null) {
-      rawTitle = XPathEvaluator.queryText(document, titleXpath);
+      rawTitle = XPathEvaluator.queryTextWithFallback(document, titleXpath);
       AppLogger.instance.info('Scraper', '[XpathParser] title xpath=$titleXpath -> ${rawTitle?.substring(0, rawTitle.length.clamp(0, 60)) ?? "null"}');
     }
     if (rawTitle == null || rawTitle.isEmpty) return null;
@@ -350,7 +350,7 @@ class XpathParser extends SiteParser {
     String? description;
     final descXpath = _xpaths['description'];
     if (descXpath != null) {
-      final rawDesc = XPathEvaluator.queryText(document, descXpath);
+      final rawDesc = XPathEvaluator.queryTextWithFallback(document, descXpath);
       AppLogger.instance.info('Scraper', '[XpathParser] description xpath=$descXpath -> ${rawDesc != null ? "${rawDesc.length}chars" : "null"}');
       if (rawDesc != null && rawDesc.isNotEmpty) {
         description = _extractSection(rawDesc, '概要') ??
@@ -365,7 +365,7 @@ class XpathParser extends SiteParser {
     List<String> features = [];
     final featuresXpath = _xpaths['features'];
     if (featuresXpath != null) {
-      final featuresText = XPathEvaluator.queryText(document, featuresXpath);
+      final featuresText = XPathEvaluator.queryTextWithFallback(document, featuresXpath);
       AppLogger.instance.info('Scraper', '[XpathParser] features xpath=$featuresXpath -> ${featuresText != null ? "${featuresText.length}chars" : "null"}');
       if (featuresText != null) {
         final filtered = filterCommonNoise(featuresText);
@@ -380,7 +380,7 @@ class XpathParser extends SiteParser {
     String? changelog;
     final changelogXpath = _xpaths['changelog'];
     if (changelogXpath != null) {
-      changelog = XPathEvaluator.queryText(document, changelogXpath);
+      changelog = XPathEvaluator.queryTextWithFallback(document, changelogXpath);
       AppLogger.instance.info('Scraper', '[XpathParser] changelog xpath=$changelogXpath -> ${changelog != null ? "${changelog.length}chars" : "null"}');
       if (changelog != null) {
         changelog = filterCommonNoise(changelog);
@@ -391,7 +391,7 @@ class XpathParser extends SiteParser {
     final screenshots = <String>[];
     final imagesXpath = _xpaths['images'];
     if (imagesXpath != null && imagesXpath.isNotEmpty) {
-      screenshots.addAll(XPathEvaluator.queryAllAttributes(document, imagesXpath));
+      screenshots.addAll(XPathEvaluator.queryAllAttributesWithFallback(document, imagesXpath));
       AppLogger.instance.info('Scraper', '[XpathParser] images xpath=$imagesXpath -> ${screenshots.length} urls');
     } else if (descXpath != null) {
       final contentEl = XPathEvaluator.query(document, descXpath);
@@ -419,7 +419,7 @@ class XpathParser extends SiteParser {
     final downloads = <DownloadLink>[];
     final dlXpath = _xpaths['downloadLinks'];
     if (dlXpath != null) {
-      final dlText = XPathEvaluator.queryText(document, dlXpath);
+      final dlText = XPathEvaluator.queryTextWithFallback(document, dlXpath);
       AppLogger.instance.info('Scraper', '[XpathParser] downloadLinks xpath=$dlXpath -> ${dlText != null ? "${dlText.length}chars" : "null"}');
       if (dlText != null) {
         final filtered = dlText
@@ -444,7 +444,7 @@ class XpathParser extends SiteParser {
     String? unzipCode;
     final signXpath = _xpaths['signUnzipCode'];
     if (signXpath != null) {
-      final signText = XPathEvaluator.queryText(document, signXpath);
+      final signText = XPathEvaluator.queryTextWithFallback(document, signXpath);
       AppLogger.instance.info('Scraper', '[XpathParser] signUnzipCode xpath=$signXpath -> ${signText != null ? "found" : "null"}');
       if (signText != null) {
         unzipCode = extractUnzipCode(signText);
