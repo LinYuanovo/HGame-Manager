@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/services/folder_rename_service.dart';
+import '../../../core/utils/app_settings.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../../scraper/html_parser.dart';
 import '../../theme/app_theme.dart';
@@ -692,6 +694,26 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               final reloadedGame = await gameRepo.getGameById(gameId);
               if (reloadedGame != null) {
                 item.game = reloadedGame;
+              }
+
+              // Auto-rename folder if setting enabled
+              try {
+                final prefs = await AppSettings.load();
+                final autoRename = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
+                if (autoRename && item.game.id != null) {
+                  final renameService = FolderRenameService(gameRepository: gameRepo);
+                  final newPath = await renameService.renameGameFolder(item.game);
+                  if (newPath != null) {
+                    _addLog('  -> 文件夹已重命名: ${path.basename(newPath)}');
+                    // Reload game with updated path
+                    final renamedGame = await gameRepo.getGameById(item.game.id!);
+                    if (renamedGame != null) {
+                      item.game = renamedGame;
+                    }
+                  }
+                }
+              } catch (e) {
+                _addLog('  -> 重命名失败: $e');
               }
 
               setState(() {

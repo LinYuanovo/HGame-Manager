@@ -13,6 +13,8 @@ import '../../../core/utils/proxy_client.dart';
 import '../../../scraper/html_parser.dart';
 import '../../theme/app_theme.dart';
 import '../../../core/services/version_check_service.dart';
+import '../../../core/services/folder_rename_service.dart';
+import '../../../core/utils/app_settings.dart';
 import '../../widgets/image_manager_dialog.dart';
 
 class GameDetailDialog extends ConsumerStatefulWidget {
@@ -2118,6 +2120,24 @@ if (_isEditing) ...[
         // Download images
         if (gameInfo.screenshots.isNotEmpty) {
           await _downloadImages(_currentGame.copyWith(id: _currentGame.id!), gameInfo.screenshots);
+        }
+
+        // Auto-rename folder if setting enabled
+        try {
+          final prefs = await AppSettings.load();
+          final autoRename = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
+          if (autoRename) {
+            final gameForRename = await repo.getGameById(_currentGame.id!);
+            if (gameForRename != null) {
+              final renameService = FolderRenameService(gameRepository: repo);
+              final newPath = await renameService.renameGameFolder(gameForRename);
+              if (newPath != null) {
+                debugPrint('[QuickScrape] Folder renamed: $newPath');
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('[QuickScrape] Auto-rename failed: $e');
         }
       }
 
