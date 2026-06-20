@@ -38,7 +38,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     final selectedIndex = ref.watch(selectedNavIndexProvider);
 
-    return Scaffold(
+    final body = Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: Column(
         children: [
@@ -58,6 +58,18 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ],
       ),
+    );
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: _effectiveWindowController.isExiting,
+      builder: (context, isExiting, child) {
+        return AnimatedOpacity(
+          opacity: isExiting ? 0.0 : 1.0,
+          duration: const Duration(milliseconds: 200),
+          child: child,
+        );
+      },
+      child: body,
     );
   }
 }

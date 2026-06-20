@@ -125,7 +125,17 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         ? (int.tryParse(rawItemsPerPage) ?? 5)
         : (prefs.getInt('game_list_items_per_page') ?? 5);
 
+    // 同步计算无限滚动初始加载数量
+    _syncInfiniteScrollCount();
+
     if (mounted) setState(() {});
+  }
+
+  /// 同步更新无限滚动模式下的初始加载数量
+  void _syncInfiniteScrollCount() {
+    if (_paginationMode == PaginationMode.infiniteScroll) {
+      _infiniteScrollCount = (_itemsPerPage * 3).clamp(20, 200);
+    }
   }
 
   void _saveSetting(String key, String value) {
@@ -707,9 +717,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           onTap: () {
             setState(() {
               _paginationMode = PaginationMode.infiniteScroll;
-              // 根据每页数量动态计算初始值，确保至少显示3行游戏
-              final itemsPerPage = _itemsPerPage;
-              _infiniteScrollCount = (itemsPerPage * 3).clamp(20, 200);
+              _syncInfiniteScrollCount();
               _savedPage = -1;
             });
             _saveSetting('game_list_pagination_mode', 'infiniteScroll');
@@ -1167,7 +1175,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       if (newItemsPerPage != _posterItemsPerPage) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            setState(() => _posterItemsPerPage = newItemsPerPage);
+            setState(() {
+              _posterItemsPerPage = newItemsPerPage;
+              _syncInfiniteScrollCount();
+            });
           }
         });
       }

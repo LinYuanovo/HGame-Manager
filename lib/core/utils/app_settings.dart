@@ -170,6 +170,14 @@ class AppSettings {
     return true;
   }
 
+  /// 批量设置多个值，仅在最后一次性写入磁盘。
+  /// 适用于需要连续设置多个 key 的场景（如窗口关闭时保存状态）。
+  Future<void> setBatch(Map<String, dynamic> values) async {
+    _data.addAll(values);
+    _dirty = true;
+    await _saveToFile();
+  }
+
   Future<bool> remove(String key) async {
     _data.remove(key);
     _dirty = true;
