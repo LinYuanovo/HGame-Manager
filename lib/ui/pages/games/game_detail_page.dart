@@ -1978,6 +1978,24 @@ if (_isEditing) ...[
             await _downloadImages(updated, gameInfo.screenshots);
           }
 
+          // Auto-rename folder if setting enabled
+          try {
+            final prefs = await AppSettings.load();
+            final autoRename = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
+            if (autoRename) {
+              final gameForRename = await repo.getGameById(_currentGame.id!);
+              if (gameForRename != null) {
+                final renameService = FolderRenameService(gameRepository: repo);
+                final newPath = await renameService.renameGameFolder(gameForRename);
+                if (newPath != null) {
+                  debugPrint('[Rescrape] Folder renamed: $newPath');
+                }
+              }
+            }
+          } catch (e) {
+            debugPrint('[Rescrape] Auto-rename failed: $e');
+          }
+
           await _moveToSorted(updated);
 
           setState(() {
