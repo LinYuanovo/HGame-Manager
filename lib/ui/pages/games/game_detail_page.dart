@@ -2154,6 +2154,7 @@ if (_isEditing) ...[
           _sourceUrlController.text = freshGame.sourceUrl ?? '';
           _editedTags = List.from(freshGame.tags);
         });
+        Navigator.of(context).pop();
         _refreshAllProviders();
         AppTheme.showGlassToast(context, message: '刮削成功: ${gameInfo.title ?? "未知标题"}');
       }
