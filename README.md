@@ -132,6 +132,8 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 ![刮削页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/scraper_page.png)
 
+![多渠道刮削页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/game_scraper.jpg)
+
 ### 游戏管理
 
 - **多种视图模式**：列表 / 海报墙
@@ -139,8 +141,11 @@ build/windows/x64/runner/Release/hgame_manager.exe
 - **分页 / 瀑布流**：两种浏览模式
 - **收藏功能**：收藏游戏优先排列
 - **游玩追踪**：记录游玩次数和时间
+- **存档查找**：智能查找已玩游戏的存档位置
 
 ![游戏页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/games_page.png)
+
+![存档弹窗](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/game_saved_window.png)
 
 ### 分类系统
 
