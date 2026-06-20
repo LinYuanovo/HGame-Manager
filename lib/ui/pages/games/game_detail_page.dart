@@ -2641,6 +2641,7 @@ class _InlineVideoPlayerState extends State<_InlineVideoPlayer> {
   late final Player _player;
   late final VideoController _controller;
   bool _initialized = false;
+  bool _disposed = false;
 
   @override
   void initState() {
@@ -2651,14 +2652,17 @@ class _InlineVideoPlayerState extends State<_InlineVideoPlayer> {
   }
 
   Future<void> _init() async {
-    await _player.open(Media(widget.videoPath));
-    if (mounted) {
+    await _player.open(Media(widget.videoPath), play: false);
+    await _player.setPlaylistMode(PlaylistMode.loop);
+    await _player.play();
+    if (!_disposed && mounted) {
       setState(() => _initialized = true);
     }
   }
 
   @override
   void dispose() {
+    _disposed = true;
     _player.dispose();
     super.dispose();
   }
