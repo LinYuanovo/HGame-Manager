@@ -11,6 +11,7 @@ import '../../../core/utils/proxy_client.dart';
 import '../../../core/services/webdav_service.dart';
 import '../../../scraper/html_parser.dart';
 import '../../theme/app_theme.dart';
+import '../../../core/utils/app_settings.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -44,6 +45,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _isLoadingBackups = false;
   List<WebDavFile>? _backupFiles;
   List<Map<String, String>> _xpathConfigs = [];
+  bool _autoRenameFolders = false;
+  bool _isRenamingFolders = false;
 
   @override
   void initState() {
@@ -82,6 +85,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _selectedFont = font;
     _fontSize = fontSize;
     _detailFontSize = detailFontSize;
+
+    _autoRenameFolders = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
 
     _loadXpathConfigs();
   }
@@ -143,6 +148,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           _buildIgnoreFoldersSection(),
           const SizedBox(height: 24),
           _buildDoubleClickSection(),
+          const SizedBox(height: 24),
+          _buildFolderRenameSection(),
           const SizedBox(height: 24),
           _buildProxySection(),
           const SizedBox(height: 24),
@@ -518,6 +525,122 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ),
       ],
     );
+  }
+
+  Widget _buildFolderRenameSection() {
+    return _buildSection(
+      title: '游戏文件夹重命名',
+      icon: Icons.drive_file_rename_outline,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('自动重命名文件夹', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.textPrimary)),
+                  const SizedBox(height: 4),
+                  Text(
+                    '开启后点击下方按钮，会将游戏文件夹名修改为: [游戏ID] [游戏类型] 游戏标题 游戏版本',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.7)),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '提示：由于可能存在中文路径问题，请谨慎开启',
+                    style: TextStyle(fontSize: 11, color: Colors.orange.withValues(alpha: 0.8)),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: _autoRenameFolders,
+              onChanged: (value) async {
+                setState(() => _autoRenameFolders = value);
+                final prefs = ref.read(sharedPreferencesProvider);
+                await prefs.setBool(AppSettings.autoRenameFoldersKey, value);
+              },
+              activeColor: AppTheme.primaryColor,
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _isRenamingFolders ? null : _renameAllFolders,
+            icon: _isRenamingFolders
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.drive_file_rename_outline, size: 18),
+            label: Text(_isRenamingFolders ? '重命名中...' : '立即重命名所有游戏文件夹'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _renameAllFolders() async {
+    final confirmed = await showGlassDialog<bool>(
+      context: context,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('确认重命名', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            const SizedBox(height: 12),
+            const Text('将重命名所有能刮削到信息的游戏文件夹为:\n[游戏ID] [游戏类型] 游戏标题 游戏版本\n\n此操作不可撤销，是否继续？',
+                style: TextStyle(color: AppTheme.textSecondary)),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('确认重命名'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isRenamingFolders = true);
+    try {
+      final renameService = ref.read(folderRenameServiceProvider);
+      final count = await renameService.renameAllGameFolders();
+      if (mounted) {
+        AppTheme.showGlassToast(context, message: '重命名完成，共处理 $count 个游戏');
+        ref.invalidate(allGamesProvider);
+        ref.invalidate(playedGamesProvider);
+        ref.invalidate(favoriteGamesProvider);
+        ref.invalidate(clearedGamesProvider);
+      }
+    } catch (e) {
+      if (mounted) {
+        AppTheme.showGlassToast(context, message: '重命名失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+      }
+    } finally {
+      if (mounted) setState(() => _isRenamingFolders = false);
+    }
   }
 
   Widget _buildProxySection() {

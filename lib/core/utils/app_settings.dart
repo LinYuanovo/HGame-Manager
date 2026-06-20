@@ -13,6 +13,8 @@ import 'app_paths.dart';
 /// API mirrors [SharedPreferences] so existing call sites need only
 /// a type rename, not logic changes.
 class AppSettings {
+  static const String autoRenameFoldersKey = 'auto_rename_folders';
+
   Map<String, dynamic> _data = {};
   final String _filePath;
   bool _dirty = false;
