@@ -10,7 +10,7 @@
     <img src="https://img.shields.io/badge/Dart-3.11+-0175C2?style=flat-square&logo=dart" alt="Dart">
     <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows">
     <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License">
-    <img src="https://img.shields.io/badge/Version-1.3.6-blue?style=flat-square" alt="Version">
+    <img src="https://img.shields.io/badge/Version-1.3.7-blue?style=flat-square" alt="Version">
   </nobr>
 </p>
 
@@ -177,6 +177,15 @@ build/windows/x64/runner/Release/hgame_manager.exe
 - **忽略文件夹**：扫描和刮削分别设置
 - **系列类型管理**：自定义添加系列类型
 - **字体大小**：全局字体大小调整
+
+### v1.3.7 新功能
+
+- **存档路径模糊匹配**: 自动识别如 `AppData\Roaming\RenPy\游戏名-数字` 格式的存档路径
+- **游戏文件夹移动**: 右键菜单"移动文件夹"，支持跨盘移动，自动更新数据库路径
+- **详情页路径编辑**: 编辑模式下可修改游戏文件夹路径，自动移动文件夹
+- **自定义解析器增强**: XPath 下标自动回退，F12 复制的路径不精确时自动尝试相邻下标
+- **游戏文件夹重命名**: 设置中开启后可一键将文件夹名改为 `[ID] [类型] 标题 版本` 格式
+- **快速刮削**: 游戏详情页输入链接/ID/关键词回车即可快速刮削，支持自动识别 Steam/DLsite
 
 ## 技术栈
 
