@@ -39,7 +39,8 @@ lib/
 │   │   ├── app_logger.dart      # 日志服务
 │   │   ├── game_count_service.dart # 游戏计数服务
 │   │   ├── game_scanner_service.dart # 游戏扫描服务
-│   │   └── webdav_service.dart  # WebDAV 同步服务
+│   │   ├── webdav_service.dart  # WebDAV 同步服务
+│   │   └── steam_service.dart    # Steam API 服务
 │   └── utils/                   # 工具类
 │       ├── app_paths.dart       # 应用路径管理
 │       ├── app_settings.dart    # 配置文件管理
@@ -69,7 +70,8 @@ lib/
     ├── parse_utils.dart         # 解析工具函数
     ├── scraper_init.dart        # 抓取器初始化
     ├── site_parsers.dart        # 站点解析器注册
-    └── xpath_evaluator.dart     # XPath 评估器
+    ├── xpath_evaluator.dart     # XPath 评估器
+    └── steam_html_converter.dart # Steam HTML转纯文本
 ```
 
 ## 架构模式
@@ -296,6 +298,13 @@ enum NavRoute {
 - URL图片下载
 - 图片存储目录管理
 
+### SteamService
+- Steam API 游戏搜索和详情获取
+- 智能名称构建回退搜索
+- steam_appid.txt 自动识别
+- Steam HTML 描述转纯文本
+- 图片批量下载
+
 ### VersionCheckService
 - 从游戏标题提取搜索关键词
 - 在维咔/飞雪/嘤嘤怪三个站点搜索
@@ -381,6 +390,7 @@ class GlassConstants {
 - 飞雪ACG
 - 微咔ACG
 - DLsite
+- Steam
 
 ### 抓取流程
 1. 解析 HTML 页面
