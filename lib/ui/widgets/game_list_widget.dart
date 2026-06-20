@@ -1612,6 +1612,14 @@ _refreshAllProviders();
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(Icons.folder_open, size: 18),
                 title: const Text('打开文件夹'))),
+        if (!isMultiSelect)
+          PopupMenuItem(
+              value: 'move_folder',
+              child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.drive_file_move, size: 18, color: AppTheme.primaryColor),
+                  title: const Text('移动文件夹'))),
         if (widget.contextMenuMode == ContextMenuMode.played && game.savePath != null && game.savePath!.isNotEmpty && !isMultiSelect)
           PopupMenuItem(
               value: 'open_save',
@@ -1722,6 +1730,9 @@ _refreshAllProviders();
           for (final g in targets) {
             await launchUrl(Uri.file(g.path));
           }
+          break;
+        case 'move_folder':
+          await _moveGameFolder(game);
           break;
         case 'favorite':
           final newFav = !game.isFavorite;
@@ -2184,6 +2195,73 @@ _refreshAllProviders();
     } catch (e) {
       if (mounted) {
         AppTheme.showGlassToast(context, message: '操作失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+      }
+    }
+  }
+
+  Future<void> _moveGameFolder(Game game) async {
+    final targetDir = await FilePicker.getDirectoryPath(
+      dialogTitle: '选择移动目标文件夹',
+      initialDirectory: path.dirname(game.path),
+    );
+    if (targetDir == null) return;
+
+    final folderName = path.basename(game.path);
+    final newPath = path.join(targetDir, folderName);
+
+    final confirmed = await showGlassDialog<bool>(
+      context: context,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('确认移动文件夹', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            const SizedBox(height: 16),
+            Text('原路径: ${game.path}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+            const SizedBox(height: 8),
+            Text('新路径: $newPath', style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('确认移动'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final moveService = ref.read(gameMoveServiceProvider);
+      await moveService.moveGameFolderCrossDrive(
+        gameId: game.id!,
+        oldPath: game.path,
+        newPath: newPath,
+      );
+      _refreshAllProviders();
+      if (mounted) {
+        AppTheme.showGlassToast(context, message: '移动成功');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppTheme.showGlassToast(context, message: '移动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
     }
   }
