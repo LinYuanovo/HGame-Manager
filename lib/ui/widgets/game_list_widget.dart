@@ -7,6 +7,7 @@ import 'package:path/path.dart' as path;
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/models/models.dart';
+import '../../../core/models/context_menu_config.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/services/image_service.dart';
 import '../theme/app_theme.dart';
@@ -1596,126 +1597,182 @@ _refreshAllProviders();
     });
   }
 
+  /// 获取菜单配置
+  ContextMenuConfig _getMenuConfig() {
+    final mode = widget.contextMenuMode == ContextMenuMode.played ? 'played' : 'games';
+    if (mode == 'played') {
+      return ref.read(contextMenuPlayedProvider);
+    }
+    return ref.read(contextMenuGamesProvider);
+  }
+
+  /// 检查菜单项是否启用
+  bool _isMenuItemEnabled(String id) {
+    return _getMenuConfig().isEnabled(id);
+  }
+
+  /// 获取启用的菜单项顺序
+  List<String> _getEnabledMenuOrder() {
+    return _getMenuConfig().enabledItems.map((i) => i.id).toList();
+  }
+
   void _showContextMenu(
       BuildContext context, Offset position, Game game) {
     final isBackupOnly = game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
     final isMultiSelect = _multiSelectController.isMultiSelectMode;
+    
+    // 获取菜单配置
+    final menuOrder = _getEnabledMenuOrder();
+    
+    // 定义所有可能的菜单项
+    final allItems = <String, PopupMenuItem<String>>{};
+    
+    allItems['open_folder'] = PopupMenuItem(
+        value: 'open_folder',
+        child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.folder_open, size: 18),
+            title: const Text('打开文件夹')));
+    
+    if (!isMultiSelect) {
+      allItems['move_folder'] = PopupMenuItem(
+          value: 'move_folder',
+          child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.drive_file_move, size: 18, color: AppTheme.primaryColor),
+              title: const Text('移动文件夹')));
+    }
+    
+    if (widget.contextMenuMode == ContextMenuMode.played && game.savePath != null && game.savePath!.isNotEmpty && !isMultiSelect) {
+      allItems['open_save'] = PopupMenuItem(
+          value: 'open_save',
+          child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.folder_special, size: 18, color: AppTheme.primaryColor),
+              title: const Text('打开存档位置')));
+    }
+    
+    allItems['favorite'] = PopupMenuItem(
+        value: 'favorite',
+        child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+                game.isFavorite ? Icons.favorite : Icons.favorite_border,
+                size: 18,
+                color: game.isFavorite ? Color(0xFFFF6B9D) : null),
+            title: Text(game.isFavorite ? '取消收藏' : '添加收藏')));
+    
+    allItems['played'] = PopupMenuItem(
+        value: 'played',
+        child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+                widget.contextMenuMode == ContextMenuMode.played
+                    ? Icons.remove_circle_outline
+                    : Icons.add_circle_outline,
+                size: 18),
+            title: Text(widget.contextMenuMode == ContextMenuMode.played
+                ? '减少游玩次数'
+                : '增加游玩次数')));
+    
+    if (_hasCustomSeries()) {
+      allItems['move_to_series'] = PopupMenuItem(
+          value: 'move_to_series',
+          child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.playlist_add, size: 18, color: AppTheme.primaryColor),
+              title: const Text('移入自定义系列')));
+    }
+    
+    if (game.images.length > 1 && !isMultiSelect) {
+      allItems['cover'] = PopupMenuItem(
+          value: 'cover',
+          child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.image, size: 18),
+              title: Text(
+                  '选择封面 (${game.coverIndex + 1}/${game.images.length})')));
+    }
+    
+    if (!isMultiSelect) {
+      allItems['review'] = PopupMenuItem(
+          value: 'review',
+          child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.rate_review_outlined, size: 18, color: AppTheme.primaryColor),
+              title: const Text('评论', style: TextStyle(color: AppTheme.textPrimary))));
+    }
+    
+    if (!widget.isClearedPage) {
+      allItems['cleared'] = PopupMenuItem(
+          value: 'cleared',
+          child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.emoji_events, size: 18, color: Color(0xFFFFD700)),
+              title: const Text('标记已通关', style: TextStyle(color: Color(0xFFFFD700)))));
+    }
+    
+    if (widget.isClearedPage) {
+      allItems['uncleared'] = PopupMenuItem(
+          value: 'uncleared',
+          child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.emoji_events_outlined, size: 18, color: Colors.grey),
+              title: const Text('取消标记已通关', style: TextStyle(color: Colors.grey))));
+    }
+    
+    allItems['blacklist'] = PopupMenuItem(
+        value: 'blacklist',
+        child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading:
+                Icon(Icons.block, size: 18, color: const Color(0xFFFFA000)),
+            title: const Text('删除记录',
+                style: TextStyle(color: Color(0xFFFFA000)))));
+    
+    if (!isBackupOnly) {
+      allItems['delete_folder'] = PopupMenuItem(
+          value: 'delete_folder',
+          child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading:
+                  Icon(Icons.folder_delete_outlined, size: 18, color: AppTheme.errorColor),
+              title: const Text('删除本地文件夹',
+                  style: TextStyle(color: AppTheme.errorColor))));
+    }
+    
+    // 根据配置过滤和排序菜单项
+    final filteredItems = <PopupMenuEntry<String>>[];
+    bool hasDangerItem = false;
+    
+    for (final id in menuOrder) {
+      if (allItems.containsKey(id)) {
+        // 在危险项之前添加分隔线
+        if ((id == 'blacklist' || id == 'delete_folder') && !hasDangerItem) {
+          filteredItems.add(const PopupMenuDivider());
+          hasDangerItem = true;
+        }
+        filteredItems.add(allItems[id]!);
+      }
+    }
+    
     AppTheme.showGlassMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(
           position.dx, position.dy, position.dx + 1, position.dy + 1),
-      items: [
-        PopupMenuItem(
-            value: 'open_folder',
-            child: ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.folder_open, size: 18),
-                title: const Text('打开文件夹'))),
-        if (!isMultiSelect)
-          PopupMenuItem(
-              value: 'move_folder',
-              child: ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.drive_file_move, size: 18, color: AppTheme.primaryColor),
-                  title: const Text('移动文件夹'))),
-        if (widget.contextMenuMode == ContextMenuMode.played && game.savePath != null && game.savePath!.isNotEmpty && !isMultiSelect)
-          PopupMenuItem(
-              value: 'open_save',
-              child: ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.folder_special, size: 18, color: AppTheme.primaryColor),
-                  title: const Text('打开存档位置'))),
-        PopupMenuItem(
-            value: 'favorite',
-            child: ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                    game.isFavorite ? Icons.favorite : Icons.favorite_border,
-                    size: 18,
-                    color: game.isFavorite ? Color(0xFFFF6B9D) : null),
-                title: Text(game.isFavorite ? '取消收藏' : '添加收藏'))),
-        PopupMenuItem(
-            value: 'played',
-            child: ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                    widget.contextMenuMode == ContextMenuMode.played
-                        ? Icons.remove_circle_outline
-                        : Icons.add_circle_outline,
-                    size: 18),
-                title: Text(widget.contextMenuMode == ContextMenuMode.played
-                    ? '减少游玩次数'
-                    : '增加游玩次数'))),
-        // 移入自定义系列（仅在有自定义系列时显示）
-        if (_hasCustomSeries())
-          PopupMenuItem(
-              value: 'move_to_series',
-              child: ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.playlist_add, size: 18, color: AppTheme.primaryColor),
-                  title: const Text('移入自定义系列'))),
-        if (game.images.length > 1 && !isMultiSelect)
-          PopupMenuItem(
-              value: 'cover',
-              child: ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.image, size: 18),
-                  title: Text(
-                      '选择封面 (${game.coverIndex + 1}/${game.images.length})'))),
-        if (!isMultiSelect)
-          PopupMenuItem(
-              value: 'review',
-              child: ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.rate_review_outlined, size: 18, color: AppTheme.primaryColor),
-                  title: const Text('评论', style: TextStyle(color: AppTheme.textPrimary)))),
-        // 标记已通关（仅在非已通关页面显示）
-        if (!widget.isClearedPage)
-          PopupMenuItem(
-              value: 'cleared',
-              child: ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.emoji_events, size: 18, color: Color(0xFFFFD700)),
-                  title: const Text('标记已通关', style: TextStyle(color: Color(0xFFFFD700))))),
-        // 取消标记已通关（仅在已通关页面显示）
-        if (widget.isClearedPage)
-          PopupMenuItem(
-              value: 'uncleared',
-              child: ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.emoji_events_outlined, size: 18, color: Colors.grey),
-                  title: const Text('取消标记已通关', style: TextStyle(color: Colors.grey)))),
-        const PopupMenuDivider(),
-        PopupMenuItem(
-            value: 'blacklist',
-            child: ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading:
-                    Icon(Icons.block, size: 18, color: const Color(0xFFFFA000)),
-                title: const Text('删除记录',
-                    style: TextStyle(color: Color(0xFFFFA000))))),
-        if (!isBackupOnly)
-          PopupMenuItem(
-              value: 'delete_folder',
-              child: ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading:
-                      Icon(Icons.folder_delete_outlined, size: 18, color: AppTheme.errorColor),
-                  title: const Text('删除本地文件夹',
-                      style: TextStyle(color: AppTheme.errorColor)))),
-      ],
+      items: filteredItems,
     ).then((value) async {
       if (value == null) return;
       final repo = ref.read(gameRepositoryProvider);
