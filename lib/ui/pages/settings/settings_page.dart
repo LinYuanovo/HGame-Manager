@@ -297,7 +297,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         children: [
           const Row(
             children: [
-              Icon(Icons.flash_on, color: AppTheme.accentColor, size: 22),
+              Icon(Icons.flash_on, color: AppTheme.secondaryColor, size: 22),
               SizedBox(width: 12),
               Text(
                 '快捷操作',
@@ -334,7 +334,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 child: _ActionButton(
                   icon: Icons.menu,
                   label: '右键菜单管理',
-                  color: AppTheme.accentColor,
+                  color: AppTheme.secondaryColor,
                   onPressed: _showContextMenuManager,
                 ),
               ),

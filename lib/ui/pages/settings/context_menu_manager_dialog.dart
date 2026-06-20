@@ -79,9 +79,10 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
   Widget _buildTabBar() {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: AppTheme.backgroundColor,
-        borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
+        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
       ),
       child: TabBar(
         controller: _tabController,
@@ -89,8 +90,16 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
           color: AppTheme.primaryColor,
           borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
         ),
+        indicatorSize: TabBarIndicatorSize.tab,
         labelColor: Colors.white,
         unselectedLabelColor: AppTheme.textSecondary,
+        dividerColor: Colors.transparent,
+        overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
+          if (states.contains(WidgetState.hovered)) {
+            return AppTheme.primaryColor.withValues(alpha: 0.08);
+          }
+          return null;
+        }),
         tabs: [
           Tab(text: '普通游戏列表'),
           Tab(text: '已玩游戏/通关'),
@@ -238,6 +247,7 @@ class _MenuItemTile extends StatelessWidget {
             Text(
               def.label,
               style: TextStyle(
+                fontSize: 15,
                 color: item.enabled
                     ? AppTheme.textPrimary
                     : AppTheme.textSecondary.withValues(alpha: 0.5),
