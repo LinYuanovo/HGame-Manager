@@ -10,6 +10,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/repositories/game_repository.dart';
 import '../../../core/repositories/tag_repository.dart';
 import '../../../core/services/dlsite_service.dart';
+import '../../../core/services/steam_service.dart';
 import '../../../scraper/parse_utils.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/game_list_widget.dart';
@@ -47,8 +48,8 @@ class _GamesPageState extends ConsumerState<GamesPage> {
             IconButton(
               icon: Icon(Icons.cloud_download_outlined,
                   color: AppTheme.primaryColor, size: 20),
-              tooltip: '从DLsite导入游戏信息',
-              onPressed: () => _showDlsiteImportDialog(),
+              tooltip: '从云端导入信息',
+              onPressed: () => _showCloudImportDialog(),
             ),
             _isRefreshing
                 ? GestureDetector(
@@ -189,10 +190,10 @@ class _GamesPageState extends ConsumerState<GamesPage> {
     );
   }
 
-  void _showDlsiteImportDialog() {
+  void _showCloudImportDialog() {
     showGlassDialog(
       context: context,
-      child: _DlsiteImportDialog(
+      child: _CloudImportDialog(
         onImportComplete: () {
           ref.invalidate(allGamesProvider);
         },
@@ -456,23 +457,27 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
   }
 }
 
-class _DlsiteImportDialog extends StatefulWidget {
+enum ImportSource { dlsite, steam }
+
+class _CloudImportDialog extends StatefulWidget {
   final VoidCallback onImportComplete;
 
-  const _DlsiteImportDialog({required this.onImportComplete});
+  const _CloudImportDialog({required this.onImportComplete});
 
   @override
-  State<_DlsiteImportDialog> createState() => _DlsiteImportDialogState();
+  State<_CloudImportDialog> createState() => _CloudImportDialogState();
 }
 
-class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
+class _CloudImportDialogState extends State<_CloudImportDialog> {
+  ImportSource _source = ImportSource.dlsite;
   final _dlsiteService = DlsiteService();
+  final _steamService = SteamService();
   final _idController = TextEditingController();
   String? _folderPath;
   bool _isLoading = false;
   String _statusText = '';
-  List<DlsiteSearchResult> _searchResults = [];
-  DlsiteSearchResult? _selectedResult;
+  List<dynamic> _searchResults = [];
+  dynamic _selectedResult;
   bool _showSearchResults = false;
 
   @override
@@ -512,30 +517,11 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
     });
 
     try {
-      List<DlsiteSearchResult> results;
-
-      final inputId = _idController.text.trim();
-      if (inputId.isNotEmpty) {
-        final normalizedId = _dlsiteService.normalizeId(inputId);
-        if (normalizedId != null) {
-          results = [DlsiteSearchResult(id: normalizedId, name: 'ID: $normalizedId')];
-        } else {
-          setState(() => _statusText = '无效的DLsite ID');
-          return;
-        }
+      if (_source == ImportSource.dlsite) {
+        await _searchDlsite();
       } else {
-        results = await _dlsiteService.searchWithFallback(_folderPath!);
+        await _searchSteam();
       }
-
-      setState(() {
-        _searchResults = results;
-        _showSearchResults = true;
-        if (results.isEmpty) {
-          _statusText = '未找到游戏，请尝试手动输入ID';
-        } else {
-          _statusText = '找到 ${results.length} 个结果，请选择';
-        }
-      });
     } catch (e) {
       setState(() => _statusText = '搜索失败: $e');
     } finally {
@@ -543,6 +529,56 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _searchDlsite() async {
+    List<DlsiteSearchResult> results;
+    final inputId = _idController.text.trim();
+    if (inputId.isNotEmpty) {
+      final normalizedId = _dlsiteService.normalizeId(inputId);
+      if (normalizedId != null) {
+        results = [DlsiteSearchResult(id: normalizedId, name: 'ID: $normalizedId')];
+      } else {
+        setState(() => _statusText = '无效的DLsite ID');
+        return;
+      }
+    } else {
+      results = await _dlsiteService.searchWithFallback(_folderPath!);
+    }
+
+    setState(() {
+      _searchResults = results;
+      _showSearchResults = true;
+      if (results.isEmpty) {
+        _statusText = '未找到游戏，请尝试手动输入ID';
+      } else {
+        _statusText = '找到 ${results.length} 个结果，请选择';
+      }
+    });
+  }
+
+  Future<void> _searchSteam() async {
+    List<SteamSearchResult> results;
+    final inputId = _idController.text.trim();
+    if (inputId.isNotEmpty) {
+      if (!RegExp(r'^\d+$').hasMatch(inputId)) {
+        setState(() => _statusText = '无效的Steam App ID');
+        return;
+      }
+      results = [SteamSearchResult(id: inputId, name: 'ID: $inputId')];
+    } else {
+      results = await _steamService.searchWithFallback(_folderPath!);
+    }
+
+    setState(() {
+      _searchResults = results;
+      _showSearchResults = true;
+      if (results.isEmpty) {
+        _statusText = '未找到游戏，请尝试手动输入Steam App ID';
+      } else {
+        _statusText = '找到 ${results.length} 个结果，请选择';
+      }
+    });
   }
 
   Future<void> _import() async {
@@ -562,97 +598,10 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
     });
 
     try {
-      final repo = GameRepository();
-      final tagRepo = TagRepository();
-
-      final existingGame = await repo.getGameByPath(_folderPath!);
-
-      setState(() => _statusText = '正在通过ID获取: ${_selectedResult!.id}');
-      final gameInfo = await _dlsiteService.fetchById(_selectedResult!.id);
-
-      if (gameInfo == null) {
-        setState(() => _statusText = '获取游戏信息失败');
-        return;
-      }
-
-      // 下载所有图片（封面+截图）到images文件夹
-      setState(() => _statusText = '正在下载图片...');
-      final urlToLocal = await _dlsiteService.downloadAllImages(
-        gameInfo.screenshots,
-        _folderPath!,
-      );
-
-      // 替换描述中的图片URL为本地路径
-      String? description = gameInfo.description;
-      if (description != null && urlToLocal.isNotEmpty) {
-        description = _dlsiteService.replaceImageUrlsInDescription(description, urlToLocal);
-      }
-
-      setState(() => _statusText = '正在保存数据...');
-
-      final game = Game(
-        path: _folderPath!,
-        title: gameInfo.title,
-        intro: description,
-        sourceUrl: gameInfo.sourceUrl,
-      );
-
-      int gameId;
-      if (existingGame != null) {
-        await repo.updateGame(game.copyWith(id: existingGame.id));
-        gameId = existingGame.id!;
+      if (_source == ImportSource.dlsite) {
+        await _importDlsite();
       } else {
-        gameId = await repo.insertGame(game);
-      }
-
-      for (final tagName in gameInfo.tags) {
-        final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
-        await repo.addTagToGame(gameId, tagId);
-      }
-
-      final imageDir = Directory(path.join(_folderPath!, 'images'));
-      if (await imageDir.exists()) {
-        final imagePaths = <String>[];
-        await for (final entity in imageDir.list()) {
-          if (entity is File) {
-            final ext = path.extension(entity.path).toLowerCase();
-            if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext)) {
-              imagePaths.add(entity.path);
-            }
-          }
-        }
-        imagePaths.sort();
-        if (imagePaths.isNotEmpty) {
-          final images = imagePaths.asMap().entries.map((e) => GameImage(
-            gameId: gameId,
-            imagePath: e.value,
-            sortOrder: e.key,
-          )).toList();
-          await repo.setGameImages(gameId, images);
-        }
-      }
-
-      final metadataFile = File(path.join(_folderPath!, 'metadata.json'));
-      await metadataFile.writeAsString(
-        jsonEncode(gameInfo.toJson()),
-        flush: true,
-      );
-
-      final sourceUrlFile = File(path.join(_folderPath!, 'source_url.txt'));
-      await sourceUrlFile.writeAsString(
-        gameInfo.sourceUrl,
-        flush: true,
-      );
-
-      if (mounted) {
-        Navigator.of(context).pop();
-        widget.onImportComplete();
-        AppTheme.showGlassToast(
-          context,
-          message: existingGame != null ? '游戏信息已更新' : '游戏导入成功',
-          icon: Icons.check_circle_outline,
-          iconColor: AppTheme.successColor,
-        );
+        await _importSteam();
       }
     } catch (e) {
       setState(() => _statusText = '导入失败: $e');
@@ -663,19 +612,178 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
     }
   }
 
+  Future<void> _importDlsite() async {
+    final repo = GameRepository();
+    final tagRepo = TagRepository();
+    final existingGame = await repo.getGameByPath(_folderPath!);
+
+    setState(() => _statusText = '正在通过ID获取: ${_selectedResult.id}');
+    final gameInfo = await _dlsiteService.fetchById(_selectedResult.id);
+
+    if (gameInfo == null) {
+      setState(() => _statusText = '获取游戏信息失败');
+      return;
+    }
+
+    setState(() => _statusText = '正在下载图片...');
+    final urlToLocal = await _dlsiteService.downloadAllImages(
+      gameInfo.screenshots,
+      _folderPath!,
+    );
+
+    String? description = gameInfo.description;
+    if (description != null && urlToLocal.isNotEmpty) {
+      description = _dlsiteService.replaceImageUrlsInDescription(description, urlToLocal);
+    }
+
+    setState(() => _statusText = '正在保存数据...');
+
+    final game = Game(
+      path: _folderPath!,
+      title: gameInfo.title,
+      intro: description,
+      sourceUrl: gameInfo.sourceUrl,
+    );
+
+    int gameId;
+    if (existingGame != null) {
+      await repo.updateGame(game.copyWith(id: existingGame.id));
+      gameId = existingGame.id!;
+    } else {
+      gameId = await repo.insertGame(game);
+    }
+
+    for (final tagName in gameInfo.tags) {
+      final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
+      await repo.addTagToGame(gameId, tagId);
+    }
+
+    await _saveImagesAndMetadata(gameId, gameInfo.sourceUrl, gameInfo.toJson());
+
+    if (mounted) {
+      Navigator.of(context).pop();
+      widget.onImportComplete();
+      AppTheme.showGlassToast(
+        context,
+        message: existingGame != null ? '游戏信息已更新' : '游戏导入成功',
+        icon: Icons.check_circle_outline,
+        iconColor: AppTheme.successColor,
+      );
+    }
+  }
+
+  Future<void> _importSteam() async {
+    final repo = GameRepository();
+    final tagRepo = TagRepository();
+    final existingGame = await repo.getGameByPath(_folderPath!);
+
+    setState(() => _statusText = '正在通过ID获取: ${_selectedResult.id}');
+    final gameInfo = await _steamService.fetchById(_selectedResult.id);
+
+    if (gameInfo == null) {
+      setState(() => _statusText = '获取游戏信息失败');
+      return;
+    }
+
+    setState(() => _statusText = '正在下载图片...');
+    final urlToLocal = await _steamService.downloadAllImages(
+      gameInfo.screenshots,
+      _folderPath!,
+    );
+
+    String? description = gameInfo.description;
+    if (description != null && urlToLocal.isNotEmpty) {
+      for (final entry in urlToLocal.entries) {
+        description = description!.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
+      }
+    }
+
+    setState(() => _statusText = '正在保存数据...');
+
+    final game = Game(
+      path: _folderPath!,
+      title: gameInfo.title,
+      intro: description,
+      sourceUrl: gameInfo.sourceUrl,
+    );
+
+    int gameId;
+    if (existingGame != null) {
+      await repo.updateGame(game.copyWith(id: existingGame.id));
+      gameId = existingGame.id!;
+    } else {
+      gameId = await repo.insertGame(game);
+    }
+
+    for (final tagName in gameInfo.tags) {
+      final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
+      await repo.addTagToGame(gameId, tagId);
+    }
+
+    final metadata = <String, dynamic>{
+      if (gameInfo.title != null) 'title': gameInfo.title,
+      if (gameInfo.description != null) 'intro': gameInfo.description,
+      if (gameInfo.tags.isNotEmpty) 'tags': gameInfo.tags,
+      'source_url': gameInfo.sourceUrl,
+      if (gameInfo.screenshots.isNotEmpty) 'image_urls': gameInfo.screenshots,
+    };
+    await _saveImagesAndMetadata(gameId, gameInfo.sourceUrl, metadata);
+
+    if (mounted) {
+      Navigator.of(context).pop();
+      widget.onImportComplete();
+      AppTheme.showGlassToast(
+        context,
+        message: existingGame != null ? '游戏信息已更新' : '游戏导入成功',
+        icon: Icons.check_circle_outline,
+        iconColor: AppTheme.successColor,
+      );
+    }
+  }
+
+  Future<void> _saveImagesAndMetadata(int gameId, String sourceUrl, Map<String, dynamic> metadataJson) async {
+    final imageDir = Directory(path.join(_folderPath!, 'images'));
+    if (await imageDir.exists()) {
+      final imagePaths = <String>[];
+      await for (final entity in imageDir.list()) {
+        if (entity is File) {
+          final ext = path.extension(entity.path).toLowerCase();
+          if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext)) {
+            imagePaths.add(entity.path);
+          }
+        }
+      }
+      imagePaths.sort();
+      if (imagePaths.isNotEmpty) {
+        final images = imagePaths.asMap().entries.map((e) => GameImage(
+          gameId: gameId,
+          imagePath: e.value,
+          sortOrder: e.key,
+        )).toList();
+        await GameRepository().setGameImages(gameId, images);
+      }
+    }
+
+    final metadataFile = File(path.join(_folderPath!, 'metadata.json'));
+    await metadataFile.writeAsString(jsonEncode(metadataJson), flush: true);
+
+    final sourceUrlFile = File(path.join(_folderPath!, 'source_url.txt'));
+    await sourceUrlFile.writeAsString(sourceUrl, flush: true);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(28),
       child: SizedBox(
         width: 550,
-        height: _showSearchResults ? 600 : 400,
+        height: _showSearchResults ? 600 : 450,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '从DLsite导入游戏信息',
+              '从云端导入信息',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -683,6 +791,18 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
               ),
             ),
             const SizedBox(height: 16),
+
+            // Source selector
+            Row(
+              children: [
+                _buildSourceChip(ImportSource.dlsite, 'DLsite'),
+                const SizedBox(width: 8),
+                _buildSourceChip(ImportSource.steam, 'Steam'),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Folder picker
             Row(
               children: [
                 Expanded(
@@ -716,13 +836,17 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
               ],
             ),
             const SizedBox(height: 12),
+
+            // ID input
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _idController,
                     decoration: InputDecoration(
-                      hintText: '输入DLsite ID (如 RJ123456)，留空按名称搜索',
+                      hintText: _source == ImportSource.dlsite
+                          ? '输入DLsite ID (如 RJ123456)，留空按名称搜索'
+                          : '输入Steam App ID (如 2254890)，留空按名称搜索',
                       hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -745,6 +869,8 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
               ],
             ),
             const SizedBox(height: 12),
+
+            // Status text
             if (_statusText.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -758,6 +884,8 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
                   ),
                 ),
               ),
+
+            // Search results
             if (_showSearchResults && _searchResults.isNotEmpty) ...[
               const Text(
                 '选择游戏:',
@@ -775,55 +903,16 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
                     itemCount: _searchResults.length,
                     itemBuilder: (context, index) {
                       final result = _searchResults[index];
-                      final isSelected = _selectedResult?.id == result.id;
-                      return ListTile(
-                        leading: Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            color: AppTheme.surfaceColor,
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: CachedNetworkImage(
-                              imageUrl: 'https://img.dlsite.jp/resize/images2/work/doujin/${result.id.substring(0, result.id.length - 4)}0000/${result.id}_img_main_240x240.jpg',
-                              fit: BoxFit.cover,
-                              placeholder: (context, url) => const Center(
-                                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                              ),
-                              errorWidget: (context, url, error) => const Icon(Icons.gamepad, color: AppTheme.textSecondary),
-                            ),
-                          ),
-                        ),
-                        title: Text(
-                          result.name ?? result.id,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          result.id,
-                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                        ),
-                        selected: isSelected,
-                        selectedTileColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                        onTap: () {
-                          setState(() {
-                            _selectedResult = result;
-                          });
-                        },
-                      );
+                      final isSelected = _selectedResult == result;
+                      return _buildSearchResultTile(result, isSelected);
                     },
                   ),
                 ),
               ),
             ],
             const SizedBox(height: 20),
+
+            // Bottom buttons
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -856,5 +945,124 @@ class _DlsiteImportDialogState extends State<_DlsiteImportDialog> {
         ),
       ),
     );
+  }
+
+  Widget _buildSourceChip(ImportSource source, String label) {
+    final isSelected = _source == source;
+    return GestureDetector(
+      onTap: _isLoading ? null : () {
+        setState(() {
+          _source = source;
+          _searchResults = [];
+          _selectedResult = null;
+          _showSearchResults = false;
+          _statusText = '';
+          _idController.clear();
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchResultTile(dynamic result, bool isSelected) {
+    if (_source == ImportSource.dlsite && result is DlsiteSearchResult) {
+      return ListTile(
+        leading: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            color: AppTheme.surfaceColor,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: CachedNetworkImage(
+              imageUrl: 'https://img.dlsite.jp/resize/images2/work/doujin/${result.id.substring(0, result.id.length - 4)}0000/${result.id}_img_main_240x240.jpg',
+              fit: BoxFit.cover,
+              placeholder: (context, url) => const Center(
+                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
+              errorWidget: (context, url, error) => const Icon(Icons.gamepad, color: AppTheme.textSecondary),
+            ),
+          ),
+        ),
+        title: Text(
+          result.name ?? result.id,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          result.id,
+          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+        ),
+        selected: isSelected,
+        selectedTileColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+        onTap: () => setState(() => _selectedResult = result),
+      );
+    } else if (_source == ImportSource.steam && result is SteamSearchResult) {
+      return ListTile(
+        leading: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            color: AppTheme.surfaceColor,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: result.tinyImage != null
+                ? CachedNetworkImage(
+                    imageUrl: result.tinyImage!,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => const Center(
+                      child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                    ),
+                    errorWidget: (context, url, error) => const Icon(Icons.gamepad, color: AppTheme.textSecondary),
+                  )
+                : const Icon(Icons.gamepad, color: AppTheme.textSecondary),
+          ),
+        ),
+        title: Text(
+          result.name ?? result.id,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          'Steam App ID: ${result.id}',
+          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+        ),
+        selected: isSelected,
+        selectedTileColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+        onTap: () => setState(() => _selectedResult = result),
+      );
+    }
+    return const SizedBox.shrink();
   }
 }
