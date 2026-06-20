@@ -641,12 +641,13 @@ if (_isEditing) ...[
       Expanded(
         child: TextField(
           controller: _pathController,
+          maxLines: 3,
           style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white.withValues(alpha: 0.5),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             isDense: true,
           ),
           onChanged: (_) {
