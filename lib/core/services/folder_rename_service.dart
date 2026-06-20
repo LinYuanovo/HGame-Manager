@@ -51,8 +51,6 @@ class FolderRenameService {
     parts.add(title);
     if (game.version != null && game.version!.isNotEmpty) parts.add(game.version!);
 
-    if (parts.length <= 1) return null;
-
     return parts.join(' ');
   }
 
@@ -101,10 +99,18 @@ class FolderRenameService {
     final games = await _gameRepository.getAllGames();
     int renamed = 0;
 
-    for (final game in games) {
-      if (game.id == null) continue;
-      final result = await renameGameFolder(game);
-      if (result != null) renamed++;
+    // Process in parallel batches of 10
+    const batchSize = 10;
+    for (var i = 0; i < games.length; i += batchSize) {
+      final batch = games.skip(i).take(batchSize).toList();
+      final results = await Future.wait(
+        batch.map((game) async {
+          if (game.id == null) return false;
+          final result = await renameGameFolder(game);
+          return result != null;
+        }),
+      );
+      renamed += results.where((r) => r).length;
     }
 
     debugPrint('[FolderRename] Renamed $renamed/${games.length} games');
