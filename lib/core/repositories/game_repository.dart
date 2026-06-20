@@ -451,6 +451,27 @@ class GameRepository {
     );
   }
 
+  /// Update all image paths that start with [oldPrefix] to start with [newPrefix].
+  /// Used when a game folder is moved or renamed.
+  Future<void> updateImagePaths(int gameId, String oldPrefix, String newPrefix) async {
+    final db = await _db;
+    final images = await db.query(
+      'game_images',
+      where: 'game_id = ? AND image_path LIKE ?',
+      whereArgs: [gameId, '$oldPrefix%'],
+    );
+    for (final img in images) {
+      final oldImgPath = img['image_path'] as String;
+      final newImgPath = '$newPrefix${oldImgPath.substring(oldPrefix.length)}';
+      await db.update(
+        'game_images',
+        {'image_path': newImgPath},
+        where: 'id = ?',
+        whereArgs: [img['id']],
+      );
+    }
+  }
+
   Future<List<Game>> getPlayedAndClearedGames() async {
     final db = await _db;
     final List<Map<String, dynamic>> maps = await db.query(

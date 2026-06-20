@@ -37,6 +37,7 @@ class GameMoveService {
     debugPrint('[GameMove] Folder moved successfully');
 
     await _gameRepository.updateGamePath(gameId, newPath);
+    await _gameRepository.updateImagePaths(gameId, oldPath, newPath);
 
     final game = await _gameRepository.getGameById(gameId);
     if (game != null && game.gameLauncher != null && game.gameLauncher!.startsWith(oldPath)) {
@@ -90,6 +91,7 @@ class GameMoveService {
     }
 
     await _gameRepository.updateGamePath(gameId, newPath);
+    await _gameRepository.updateImagePaths(gameId, oldPath, newPath);
 
     final game = await _gameRepository.getGameById(gameId);
     if (game != null && game.gameLauncher != null && game.gameLauncher!.startsWith(oldPath)) {

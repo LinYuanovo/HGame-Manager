@@ -80,6 +80,7 @@ class FolderRenameService {
     try {
       await Directory(oldPath).rename(newPath);
       await _gameRepository.updateGamePath(game.id!, newPath);
+      await _gameRepository.updateImagePaths(game.id!, oldPath, newPath);
 
       if (game.gameLauncher != null && game.gameLauncher!.startsWith(oldPath)) {
         final relative = game.gameLauncher!.substring(oldPath.length);
