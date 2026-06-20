@@ -218,9 +218,17 @@ class SteamService {
           .map((g) => g['description'] as String)
           .toList();
 
-      final screenshots = (d['screenshots'] as List<dynamic>? ?? [])
-          .map((s) => s['path_full'] as String)
-          .toList();
+      final screenshots = <String>[];
+      final headerImage = d['header_image'] as String?;
+      if (headerImage != null && headerImage.isNotEmpty) {
+        screenshots.add(headerImage);
+      }
+      for (final s in (d['screenshots'] as List<dynamic>? ?? [])) {
+        final url = s['path_full'] as String?;
+        if (url != null && url.isNotEmpty) {
+          screenshots.add(url);
+        }
+      }
 
       final sourceUrl = 'https://store.steampowered.com/app/$id/';
 
