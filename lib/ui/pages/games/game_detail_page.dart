@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/models/models.dart';
@@ -275,7 +277,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 }
 
                 if (mounted) {
-_refreshAllProviders();
+                  _refreshAllProviders();
                 }
               },
               icon: const Icon(Icons.play_arrow, size: 20),
@@ -977,12 +979,11 @@ _refreshAllProviders();
   }
 
   Widget _buildRichIntro(String content, double fontSize) {
-    // 检查是否包含图片标记 [图片:xxx]
     final imageTagStart = '[图片:';
-    final imageTagEnd = ']';
+    final videoTagStart = '[视频:';
+    final tagEnd = ']';
     
-    if (!content.contains(imageTagStart)) {
-      // 没有图片标记，使用原来的纯文本显示
+    if (!content.contains(imageTagStart) && !content.contains(videoTagStart)) {
       final lines = content.split('\n');
       final spans = <InlineSpan>[];
       for (var i = 0; i < lines.length; i++) {
@@ -1001,16 +1002,14 @@ _refreshAllProviders();
       return SelectableText.rich(TextSpan(children: spans));
     }
 
-    // 包含图片标记，使用 Column 组合文本和图片
     final widgets = <Widget>[];
     final lines = content.split('\n');
     
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i];
       
-      // 检查是否是图片标记行
-      if (line.startsWith(imageTagStart) && line.endsWith(imageTagEnd)) {
-        final imagePath = line.substring(imageTagStart.length, line.length - imageTagEnd.length);
+      if (line.startsWith(imageTagStart) && line.endsWith(tagEnd)) {
+        final imagePath = line.substring(imageTagStart.length, line.length - tagEnd.length);
         final file = File(imagePath);
         if (file.existsSync()) {
           widgets.add(
@@ -1030,8 +1029,18 @@ _refreshAllProviders();
             ),
           );
         }
+      } else if (line.startsWith(videoTagStart) && line.endsWith(tagEnd)) {
+        final videoPath = line.substring(videoTagStart.length, line.length - tagEnd.length);
+        final file = File(videoPath);
+        if (file.existsSync()) {
+          widgets.add(
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: _InlineVideoPlayer(videoPath: videoPath),
+            ),
+          );
+        }
       } else {
-        // 普通文本行
         final isHeading = RegExp(r'^.{1,6}[：:]\s*$').hasMatch(line);
         if (isHeading && i > 0 && lines[i - 1].trim().isNotEmpty) {
           widgets.add(const SizedBox(height: 8));
@@ -1382,7 +1391,7 @@ _refreshAllProviders();
       }
 
       if (mounted) {
-_refreshAllProviders();
+        _refreshAllProviders();
       }
 
       // 更新本地状态以实现实时刷新
@@ -1643,7 +1652,7 @@ _refreshAllProviders();
                       setState(() => _currentGame = freshGame);
                     }
                     if (mounted) {
-_refreshAllProviders();
+                      _refreshAllProviders();
                       Navigator.pop(context);
                       AppTheme.showGlassToast(context, message: '存档路径已更新');
                     }
@@ -1761,7 +1770,7 @@ _refreshAllProviders();
 
           if (mounted) {
             Navigator.of(context).pop();
-_refreshAllProviders();
+            _refreshAllProviders();
             AppTheme.showGlassToast(context, message: '重新刮削完成');
           }
         } else {
@@ -2613,6 +2622,69 @@ class _ImageSelectionDialog extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineVideoPlayer extends StatefulWidget {
+  final String videoPath;
+
+  const _InlineVideoPlayer({required this.videoPath});
+
+  @override
+  State<_InlineVideoPlayer> createState() => _InlineVideoPlayerState();
+}
+
+class _InlineVideoPlayerState extends State<_InlineVideoPlayer> {
+  late final Player _player;
+  late final VideoController _controller;
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _player = Player();
+    _controller = VideoController(_player);
+    _init();
+  }
+
+  Future<void> _init() async {
+    await _player.open(Media(widget.videoPath));
+    if (mounted) {
+      setState(() => _initialized = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_initialized) {
+      return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 800, maxHeight: 450),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Video(
+            controller: _controller,
+          ),
         ),
       ),
     );

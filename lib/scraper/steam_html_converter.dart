@@ -63,9 +63,14 @@ class SteamHtmlConverter {
             }
             break;
           case 'video':
-            final poster = node.attributes['poster'] ?? '';
-            if (poster.isNotEmpty) {
-              buffer.write('\n[图片:$poster]\n');
+            final videoUrl = _extractBestVideoUrl(node);
+            if (videoUrl != null) {
+              buffer.write('\n[视频:$videoUrl]\n');
+            } else {
+              final poster = node.attributes['poster'] ?? '';
+              if (poster.isNotEmpty) {
+                buffer.write('\n[图片:$poster]\n');
+              }
             }
             break;
           case 'strong':
@@ -78,9 +83,14 @@ class SteamHtmlConverter {
           case 'span':
             final innerVideo = node.querySelector('video');
             if (innerVideo != null) {
-              final poster = innerVideo.attributes['poster'] ?? '';
-              if (poster.isNotEmpty) {
-                buffer.write('\n[图片:$poster]\n');
+              final videoUrl = _extractBestVideoUrl(innerVideo);
+              if (videoUrl != null) {
+                buffer.write('\n[视频:$videoUrl]\n');
+              } else {
+                final poster = innerVideo.attributes['poster'] ?? '';
+                if (poster.isNotEmpty) {
+                  buffer.write('\n[图片:$poster]\n');
+                }
               }
             } else {
               _processNode(node, buffer);
@@ -91,6 +101,31 @@ class SteamHtmlConverter {
         }
       }
     }
+  }
+
+  /// Extract the best video URL from a <video> element.
+  /// Priority: webm > mp4 > any source > poster fallback
+  static String? _extractBestVideoUrl(Element videoEl) {
+    final sources = videoEl.querySelectorAll('source');
+    String? webmUrl;
+    String? mp4Url;
+    String? fallbackUrl;
+
+    for (final source in sources) {
+      final src = source.attributes['src'] ?? '';
+      if (src.isEmpty) continue;
+
+      final type = source.attributes['type'] ?? '';
+      if (src.contains('.webm') || type.contains('webm')) {
+        webmUrl ??= src;
+      } else if (src.contains('.mp4') || type.contains('mp4')) {
+        mp4Url ??= src;
+      } else {
+        fallbackUrl ??= src;
+      }
+    }
+
+    return webmUrl ?? mp4Url ?? fallbackUrl;
   }
 
   static String _getElementText(Element element) {
@@ -114,17 +149,27 @@ class SteamHtmlConverter {
             }
             break;
           case 'video':
-            final poster = child.attributes['poster'] ?? '';
-            if (poster.isNotEmpty) {
-              buffer.write('\n[图片:$poster]\n');
+            final videoUrl = _extractBestVideoUrl(child);
+            if (videoUrl != null) {
+              buffer.write('\n[视频:$videoUrl]\n');
+            } else {
+              final poster = child.attributes['poster'] ?? '';
+              if (poster.isNotEmpty) {
+                buffer.write('\n[图片:$poster]\n');
+              }
             }
             break;
           case 'span':
             final innerVideo = child.querySelector('video');
             if (innerVideo != null) {
-              final poster = innerVideo.attributes['poster'] ?? '';
-              if (poster.isNotEmpty) {
-                buffer.write('\n[图片:$poster]\n');
+              final videoUrl = _extractBestVideoUrl(innerVideo);
+              if (videoUrl != null) {
+                buffer.write('\n[视频:$videoUrl]\n');
+              } else {
+                final poster = innerVideo.attributes['poster'] ?? '';
+                if (poster.isNotEmpty) {
+                  buffer.write('\n[图片:$poster]\n');
+                }
               }
             } else {
               buffer.write(_getElementText(child));

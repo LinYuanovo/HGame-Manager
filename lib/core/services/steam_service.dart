@@ -104,8 +104,9 @@ class SteamService {
 
     try {
       final client = await createProxyClientFromPrefs();
-      final response = await client.get(Uri.parse(url))
-          .timeout(const Duration(seconds: 15));
+      final response = await client.get(Uri.parse(url), headers: {
+        'Accept-Language': 'zh-CN,zh;q=0.9',
+      }).timeout(const Duration(seconds: 15));
       client.close();
 
       if (response.statusCode != 200) {
@@ -188,8 +189,9 @@ class SteamService {
 
     try {
       final client = await createProxyClientFromPrefs();
-      final response = await client.get(Uri.parse(url))
-          .timeout(const Duration(seconds: 15));
+      final response = await client.get(Uri.parse(url), headers: {
+        'Accept-Language': 'zh-CN,zh;q=0.9',
+      }).timeout(const Duration(seconds: 15));
       client.close();
 
       if (response.statusCode != 200) {
@@ -280,6 +282,65 @@ class SteamService {
     final ext = path.extension(uri.path).split('?').first.toLowerCase();
     if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext)) return ext;
     return '.jpg';
+  }
+
+  /// Extract [视频:url] markers from description text
+  List<String> extractVideoUrls(String description) {
+    final pattern = RegExp(r'\[视频:(https?://[^\]]+)\]');
+    return pattern.allMatches(description).map((m) => m.group(1)!).toList();
+  }
+
+  /// Download videos found in description and return URL→localPath mapping
+  Future<Map<String, String>> downloadVideosFromDescription(
+      String description, String saveDir) async {
+    final videoUrls = extractVideoUrls(description);
+    final urlToLocal = <String, String>{};
+    if (videoUrls.isEmpty) return urlToLocal;
+
+    final imagesDir = Directory(path.join(saveDir, 'images'));
+    if (!await imagesDir.exists()) {
+      await imagesDir.create(recursive: true);
+    }
+
+    _log.info('SteamService',
+        '[downloadVideos] 开始下载 ${videoUrls.length} 个视频');
+
+    final client = await createProxyClientFromPrefs();
+
+    for (int i = 0; i < videoUrls.length; i++) {
+      final videoUrl = videoUrls[i];
+      try {
+        final response = await client
+            .get(Uri.parse(videoUrl))
+            .timeout(const Duration(seconds: 120));
+
+        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+          final ext = _getVideoExtension(videoUrl);
+          final fileName = 'video_${i + 1}$ext';
+          final filePath = path.join(imagesDir.path, fileName);
+          await File(filePath).writeAsBytes(response.bodyBytes, flush: true);
+          urlToLocal[videoUrl] = filePath;
+          _log.info('SteamService',
+              '[downloadVideos] 视频${i + 1} 下载成功: $fileName');
+        }
+      } catch (e) {
+        _log.warning(
+            'SteamService', '[downloadVideos] 视频${i + 1} 下载异常: $e');
+      }
+    }
+
+    client.close();
+    _log.info('SteamService',
+        '[downloadVideos] 下载完成: ${urlToLocal.length}/${videoUrls.length}');
+    return urlToLocal;
+  }
+
+  String _getVideoExtension(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return '.webm';
+    final ext = path.extension(uri.path).split('?').first.toLowerCase();
+    if (['.webm', '.mp4', '.avi', '.mkv'].contains(ext)) return ext;
+    return '.webm';
   }
 }
 

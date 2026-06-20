@@ -697,6 +697,18 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       }
     }
 
+    // Download videos embedded in description
+    if (description != null && description.contains('[视频:')) {
+      setState(() => _statusText = '正在下载视频...');
+      final videoMap = await _steamService.downloadVideosFromDescription(
+        description,
+        _folderPath!,
+      );
+      for (final entry in videoMap.entries) {
+        description = description!.replaceAll('[视频:${entry.key}]', '[视频:${entry.value}]');
+      }
+    }
+
     setState(() => _statusText = '正在保存数据...');
 
     final game = Game(
