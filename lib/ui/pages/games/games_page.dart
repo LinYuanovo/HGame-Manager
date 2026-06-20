@@ -11,7 +11,6 @@ import '../../../core/repositories/game_repository.dart';
 import '../../../core/repositories/tag_repository.dart';
 import '../../../core/services/dlsite_service.dart';
 import '../../../core/services/steam_service.dart';
-import '../../../scraper/parse_utils.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/game_list_widget.dart';
 import '../categories/tag_games_page.dart';
