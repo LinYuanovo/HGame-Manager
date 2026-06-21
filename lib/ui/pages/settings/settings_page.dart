@@ -551,7 +551,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   const Text('自动重命名文件夹', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.textPrimary)),
                   const SizedBox(height: 4),
                   Text(
-                    '开启后点击下方按钮，会将游戏文件夹名修改为: [游戏ID] [游戏类型] 游戏标题 游戏版本',
+                    '开启后后续刮削会将游戏文件夹名修改为: [游戏ID] [游戏类型] 游戏标题 游戏版本',
                     style: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.7)),
                   ),
                   const SizedBox(height: 4),
