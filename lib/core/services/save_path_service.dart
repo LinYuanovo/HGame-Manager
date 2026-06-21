@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:path/path.dart' as path;
 
 class SavePathService {
+  String? _lastMatchedKeyword;
   static const List<String> _commonEngineExes = [
     'UnityCrashHandler64.exe',
     'UnityCrashHandler32.exe',
@@ -23,6 +24,7 @@ class SavePathService {
     'dxwebsetup.exe',
     'oalinst.exe',
     'xnafx40_redist.msi',
+    'config.exe',
   ];
 
   static const List<String> _versionSuffixPatterns = [
@@ -50,7 +52,8 @@ class SavePathService {
       if (exeName.toLowerCase().contains('unity') ||
           exeName.toLowerCase().contains('unreal') ||
           exeName.toLowerCase().contains('godot') ||
-          exeName.toLowerCase().contains('renpy')) {
+          exeName.toLowerCase().contains('renpy') ||
+          exeName.toLowerCase().startsWith('mtool_')) {
         continue;
       }
 
@@ -78,7 +81,10 @@ class SavePathService {
       if (exeName.toLowerCase().contains('unity') ||
           exeName.toLowerCase().contains('unreal') ||
           exeName.toLowerCase().contains('godot') ||
-          exeName.toLowerCase().contains('renpy')) continue;
+          exeName.toLowerCase().contains('renpy') ||
+          exeName.toLowerCase().startsWith('mtool_')) {
+        continue;
+      }
       return exe.path;
     }
 
@@ -95,51 +101,90 @@ class SavePathService {
   }
 
   Future<String?> findSavePath(String gamePath, String? gameTitle) async {
-    final gameName = extractGameNameFromExe(gamePath) ?? gameTitle;
+    final exeGameName = extractGameNameFromExe(gamePath);
+    final gameName = exeGameName ?? gameTitle;
+    
     if (gameName == null || gameName.isEmpty) {
-      debugPrint('[SavePath] 游戏名为空，跳过扫描');
-      return null;
+      debugPrint('[SavePath] 游戏名为空，尝试本地存档检测');
+      return _findLocalSavePath(gamePath);
     }
 
     debugPrint('[SavePath] 开始扫描存档，游戏名: $gameName，游戏路径: $gamePath');
 
+    // 1. 先用游戏名搜索 AppData
+    var result = await _searchInAppData(gameName);
+    if (result != null) return result;
+
+    // 2. 搜索本地存档
+    result = _findLocalSavePath(gamePath);
+    if (result != null) return result;
+
+    // 3. 如果游戏名来自exe且有metadata title，用title分词回退搜索AppData
+    if (exeGameName != null && gameTitle != null && gameTitle.isNotEmpty && gameTitle != gameName) {
+      debugPrint('[SavePath] 使用metadata title分词回退搜索: $gameTitle');
+      result = await _searchWithTokenizedTitle(gameTitle);
+      if (result != null) return result;
+    }
+
+    debugPrint('[SavePath] 未找到存档路径');
+    return null;
+  }
+
+  Future<String?> _searchWithTokenizedTitle(String title) async {
+    // 先用完整title搜索
+    debugPrint('[SavePath] 尝试完整title: $title');
+    var result = await _searchInAppData(title);
+    if (result != null) return result;
+
+    // 按空格、_、-分词，每次去掉最后一个词
+    final separators = [' ', '_', '-'];
+    for (final sep in separators) {
+      final tokens = title.split(RegExp(RegExp.escape(sep)));
+      if (tokens.length <= 1) continue;
+
+      // 逐步去掉最后一个词
+      for (int i = tokens.length - 1; i >= 1; i--) {
+        final partialTitle = tokens.sublist(0, i).join(sep);
+        debugPrint('[SavePath] 尝试分词($sep): $partialTitle');
+        result = await _searchInAppData(partialTitle);
+        if (result != null) return result;
+      }
+    }
+
+    return null;
+  }
+
+  Future<String?> _searchInAppData(String keyword) async {
     final userProfile = Platform.environment['USERPROFILE'] ?? '';
     final localLowPath = path.join(userProfile, 'AppData', 'LocalLow');
     final localPath = path.join(userProfile, 'AppData', 'Local');
     final roamingPath = path.join(userProfile, 'AppData', 'Roaming');
 
     final candidates = <String>[];
-    final gameNameLower = gameName.toLowerCase();
+    final keywordLower = keyword.toLowerCase();
 
     final searchPaths = [localLowPath, localPath, roamingPath];
-    debugPrint('[SavePath] 搜索目录: $searchPaths');
+    debugPrint('[SavePath] 搜索AppData，关键词: $keyword');
 
     for (final basePath in searchPaths) {
-      if (!Directory(basePath).existsSync()) {
-        debugPrint('[SavePath] 目录不存在，跳过: $basePath');
-        continue;
-      }
+      if (!Directory(basePath).existsSync()) continue;
 
-      debugPrint('[SavePath] 搜索目录: $basePath');
       try {
-        // 遍历子目录，查找大小写不敏感匹配
         await for (final entity in Directory(basePath).list()) {
           if (entity is! Directory) continue;
           try {
             final dirName = path.basename(entity.path).toLowerCase();
-            // 检查目录名是否与游戏名匹配（大小写不敏感）
-            if (dirName == gameNameLower) {
+            if (dirName == keywordLower) {
               debugPrint('[SavePath] 大小写不敏感匹配成功: ${entity.path}');
               candidates.add(entity.path);
-            } else if (dirName.contains(gameNameLower)) {
-              debugPrint('[SavePath] 模糊匹配成功（包含游戏名）: ${entity.path}');
+            } else if (dirName.contains(keywordLower)) {
+              debugPrint('[SavePath] 模糊匹配成功（包含关键词）: ${entity.path}');
               candidates.add(entity.path);
             } else {
-              // 检查子目录（如 Diamond Visual/SPITE）
               await for (final subEntity in entity.list()) {
                 if (subEntity is! Directory) continue;
                 final subDirName = path.basename(subEntity.path).toLowerCase();
-                if (subDirName == gameNameLower || subDirName.contains(gameNameLower)) {
+                if (subDirName == keywordLower || subDirName.contains(keywordLower)) {
                   debugPrint('[SavePath] 子目录匹配成功: ${subEntity.path}');
                   candidates.add(subEntity.path);
                 }
@@ -152,17 +197,16 @@ class SavePathService {
       }
     }
 
-    debugPrint('[SavePath] 找到 ${candidates.length} 个候选路径: $candidates');
-
     if (candidates.isEmpty) return null;
 
     candidates.sort((a, b) {
-      final aScore = _calculateConfidence(a, gameName);
-      final bScore = _calculateConfidence(b, gameName);
+      final aScore = _calculateConfidence(a, keyword);
+      final bScore = _calculateConfidence(b, keyword);
       return bScore.compareTo(aScore);
     });
 
     debugPrint('[SavePath] 最佳匹配: ${candidates.first}');
+    _lastMatchedKeyword = keyword;
     return candidates.first;
   }
 
@@ -206,11 +250,73 @@ class SavePathService {
     return score;
   }
 
+  String? _findLocalSavePath(String gamePath) {
+    final saveExtensions = ['.rxdata', '.rvdata2', '.rpgsave', '.rmmzsave'];
+    
+    // 检查游戏根目录下的 save 文件夹（大小写不敏感）
+    final localSavePath = _findFolderIgnoreCase(gamePath, 'save');
+    if (localSavePath != null && _isValidSaveFolder(localSavePath, saveExtensions)) {
+      debugPrint('[SavePath] 本地存档匹配成功: $localSavePath');
+      return localSavePath;
+    }
+    
+    // 检查 www/save 文件夹（大小写不敏感）
+    final wwwDir = _findFolderIgnoreCase(gamePath, 'www');
+    if (wwwDir != null) {
+      final wwwSavePath = _findFolderIgnoreCase(wwwDir, 'save');
+      if (wwwSavePath != null && _isValidSaveFolder(wwwSavePath, saveExtensions)) {
+        debugPrint('[SavePath] 本地存档匹配成功: $wwwSavePath');
+        return wwwSavePath;
+      }
+    }
+    
+    debugPrint('[SavePath] 本地存档检测未找到有效存档');
+    return null;
+  }
+  
+  String? _findFolderIgnoreCase(String parentPath, String targetName) {
+    final targetLower = targetName.toLowerCase();
+    try {
+      final dir = Directory(parentPath);
+      if (!dir.existsSync()) return null;
+      
+      for (final entity in dir.listSync()) {
+        if (entity is Directory) {
+          final dirName = path.basename(entity.path).toLowerCase();
+          if (dirName == targetLower) {
+            return entity.path;
+          }
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+  
+  bool _isValidSaveFolder(String folderPath, List<String> extensions) {
+    final dir = Directory(folderPath);
+    if (!dir.existsSync()) return false;
+    
+    try {
+      final files = dir.listSync().whereType<File>();
+      for (final file in files) {
+        final fileName = file.path.toLowerCase();
+        for (final ext in extensions) {
+          if (fileName.endsWith(ext)) {
+            return true;
+          }
+        }
+      }
+    } catch (_) {}
+    
+    return false;
+  }
+
   Future<String?> scanWithConfidence(String gamePath, String? gameTitle) async {
+    _lastMatchedKeyword = null;
     final result = await findSavePath(gamePath, gameTitle);
     if (result == null) return null;
 
-    final gameName = extractGameNameFromExe(gamePath) ?? gameTitle ?? '';
+    final gameName = _lastMatchedKeyword ?? extractGameNameFromExe(gamePath) ?? gameTitle ?? '';
     final confidence = _calculateConfidence(result, gameName);
 
     if (confidence < 30.0) return null;
