@@ -1479,6 +1479,62 @@ if (_isEditing) ...[
       final newSourceUrl = _sourceUrlController.text.trim().isEmpty ? null : _sourceUrlController.text.trim();
       final launcherText = _gameLauncherController.text.trim();
 
+      // Handle backup folder rename when title changes
+      final titleChanged = newTitle != null && newTitle != _currentGame.title;
+      final isBackupGame = _currentGame.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}Backup${Platform.pathSeparator}') ||
+                          !Directory(_currentGame.path).existsSync();
+      if (titleChanged && isBackupGame && gameId != null) {
+        final prefs = ref.read(sharedPreferencesProvider);
+        final sortedPath = prefs.getString('sorted_path') ?? '';
+        if (sortedPath.isNotEmpty) {
+          final sep = Platform.pathSeparator;
+          final backupDirPath = '$sortedPath${sep}Cleared${sep}Backup';
+          final backupDir = Directory(backupDirPath);
+          
+          if (await backupDir.exists()) {
+            // 找到实际的备份目录（通过遍历 Backup 目录查找匹配的文件夹）
+            String? actualBackupPath;
+            await for (final entity in backupDir.list()) {
+              if (entity is Directory) {
+                // 检查这个备份目录是否与当前游戏匹配（通过 metadata.json 中的标题）
+                final metadataFile = File('${entity.path}${sep}metadata.json');
+                if (await metadataFile.exists()) {
+                  try {
+                    final content = await metadataFile.readAsString();
+                    final metadata = jsonDecode(content) as Map<String, dynamic>;
+                    final backupTitle = metadata['title'] as String?;
+                    if (backupTitle == _currentGame.title) {
+                      actualBackupPath = entity.path;
+                      break;
+                    }
+                  } catch (e) {
+                    // ignore
+                  }
+                }
+              }
+            }
+            
+            if (actualBackupPath != null) {
+              final oldSanitizedTitle = actualBackupPath.split(Platform.pathSeparator).last;
+              final newSanitizedTitle = newTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+              final oldBackupDir = Directory(actualBackupPath);
+              final newBackupDir = Directory('$backupDirPath$sep$newSanitizedTitle');
+              if (oldSanitizedTitle != newSanitizedTitle) {
+                if (!await newBackupDir.exists()) {
+                  await oldBackupDir.rename(newBackupDir.path);
+                  // Update path in database
+                  await repo.updateGamePath(gameId, newBackupDir.path);
+                  // Update image paths in database
+                  await repo.updateImagePaths(gameId, oldBackupDir.path, newBackupDir.path);
+                  // Update current game object for subsequent operations
+                  _currentGame = _currentGame.copyWith(path: newBackupDir.path);
+                }
+              }
+            }
+          }
+        }
+      }
+
       // Handle path change
       final newPath = _pathController.text.trim();
       if (_pathChanged && newPath.isNotEmpty && newPath != _currentGame.path) {
@@ -1862,8 +1918,13 @@ if (_isEditing) ...[
                   onPressed: () async {
                     final newPath = controller.text.trim();
                     final repo = ref.read(gameRepositoryProvider);
-                    await repo.updateSavePath(_currentGame.id!, newPath.isEmpty ? null : newPath);
-                    final freshGame = await repo.getGameById(_currentGame.id!);
+                    var gameId = _currentGame.id;
+                    if (gameId == null) {
+                      gameId = await repo.insertGame(_currentGame);
+                      _currentGame = _currentGame.copyWith(id: gameId);
+                    }
+                    await repo.updateSavePath(gameId, newPath.isEmpty ? null : newPath);
+                    final freshGame = await repo.getGameById(gameId);
                     if (freshGame != null && mounted) {
                       setState(() => _currentGame = freshGame);
                     }
