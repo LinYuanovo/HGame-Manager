@@ -25,13 +25,24 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
   late String? _savePath;
   List<BackupEntry> _backups = [];
   bool _isLoading = false;
+  bool _isBatchDeleteMode = false;
+  final Set<String> _selectedForDelete = {};
+  bool _isEditingPath = false;
+  late TextEditingController _pathEditController;
 
   @override
   void initState() {
     super.initState();
     _savePath = widget.game.savePath;
+    _pathEditController = TextEditingController(text: _savePath ?? '');
     _loadBackups();
     _autoImportSaveFolder();
+  }
+
+  @override
+  void dispose() {
+    _pathEditController.dispose();
+    super.dispose();
   }
 
   /// 自动导入游戏目录下的"存档"文件夹
@@ -120,6 +131,12 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
             ),
           ),
           IconButton(
+            icon: const Icon(Icons.refresh, size: 20),
+            color: AppTheme.textSecondary,
+            onPressed: _loadBackups,
+            tooltip: '刷新',
+          ),
+          IconButton(
             icon: const Icon(Icons.close, size: 20),
             color: AppTheme.textSecondary,
             onPressed: () => Navigator.of(context).pop(),
@@ -137,36 +154,102 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
         children: [
           const Icon(Icons.folder_open, size: 16, color: AppTheme.textSecondary),
           const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              _savePath ?? '未设置存档路径',
-              style: TextStyle(
-                fontSize: 13,
-                color: _savePath != null ? AppTheme.textSecondary : AppTheme.warningColor,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            height: 32,
-            child: OutlinedButton.icon(
-              onPressed: _editSavePath,
-              icon: const Icon(Icons.edit, size: 14),
-              label: const Text('修改路径', style: TextStyle(fontSize: 12)),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
-                foregroundColor: AppTheme.primaryColor,
+          if (_isEditingPath) ...[
+            Expanded(
+              child: TextField(
+                controller: _pathEditController,
+                style: const TextStyle(fontSize: 13),
+                decoration: const InputDecoration(
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  border: OutlineInputBorder(),
+                ),
+                autofocus: true,
+                onSubmitted: (_) => _savePathEdit(),
               ),
             ),
-          ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 32,
+              child: OutlinedButton.icon(
+                onPressed: _selectSaveFolder,
+                icon: const Icon(Icons.folder_open, size: 14),
+                label: const Text('选择', style: TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  side: BorderSide(color: AppTheme.successColor.withValues(alpha: 0.3)),
+                  foregroundColor: AppTheme.successColor,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            SizedBox(
+              height: 32,
+              child: ElevatedButton(
+                onPressed: _savePathEdit,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+                child: const Text('保存', style: TextStyle(fontSize: 12)),
+              ),
+            ),
+            const SizedBox(width: 4),
+            SizedBox(
+              height: 32,
+              child: TextButton(
+                onPressed: () => setState(() => _isEditingPath = false),
+                child: const Text('取消', style: TextStyle(fontSize: 12)),
+              ),
+            ),
+          ] else ...[
+            Expanded(
+              child: Text(
+                _savePath ?? '未设置存档路径',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: _savePath != null ? AppTheme.textSecondary : AppTheme.warningColor,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 32,
+              child: OutlinedButton.icon(
+                onPressed: _selectSaveFolder,
+                icon: const Icon(Icons.folder_open, size: 14),
+                label: const Text('选择路径', style: TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  side: BorderSide(color: AppTheme.successColor.withValues(alpha: 0.3)),
+                  foregroundColor: AppTheme.successColor,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            SizedBox(
+              height: 32,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  _pathEditController.text = _savePath ?? '';
+                  setState(() => _isEditingPath = true);
+                },
+                icon: const Icon(Icons.edit, size: 14),
+                label: const Text('编辑', style: TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                  foregroundColor: AppTheme.primaryColor,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  /// 构建六个操作按钮
+  /// 构建操作按钮
   Widget _buildActionButtons() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -174,12 +257,18 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
         spacing: 10,
         runSpacing: 10,
         children: [
-          _buildActionButton(Icons.folder_open, '打开存档文件夹', AppTheme.primaryColor, _openSaveFolder),
-          _buildActionButton(Icons.backup, '打开备份文件夹', AppTheme.secondaryColor, _openBackupFolder),
-          _buildActionButton(Icons.add_circle_outline, '添加自定义备份', AppTheme.warningColor, _addCustomBackup),
-          _buildActionButton(Icons.save_alt, '备份当前存档', AppTheme.successColor, _backupCurrentSave),
-          _buildActionButton(Icons.cloud_outlined, '查看云端备份', AppTheme.primaryColor, _showCloudBackups),
-          _buildActionButton(Icons.delete_sweep_outlined, '批量删除备份', AppTheme.errorColor, _batchDeleteBackups),
+          if (!_isBatchDeleteMode) ...[
+            _buildActionButton(Icons.folder_open, '打开存档文件夹', AppTheme.primaryColor, _openSaveFolder),
+            _buildActionButton(Icons.backup, '打开备份文件夹', AppTheme.secondaryColor, _openBackupFolder),
+            _buildActionButton(Icons.add_circle_outline, '添加自定义备份', AppTheme.warningColor, _addCustomBackup),
+            _buildActionButton(Icons.save_alt, '备份当前存档', AppTheme.successColor, _backupCurrentSave),
+            _buildActionButton(Icons.cloud_outlined, '查看云端备份', AppTheme.primaryColor, _showCloudBackups),
+            _buildActionButton(Icons.delete_sweep_outlined, '批量删除备份', AppTheme.errorColor, _toggleBatchDeleteMode),
+          ],
+          if (_isBatchDeleteMode) ...[
+            _buildActionButton(Icons.cancel_outlined, '取消', AppTheme.textSecondary, _toggleBatchDeleteMode),
+            _buildActionButton(Icons.delete_forever, '删除 ${_selectedForDelete.length} 项', AppTheme.errorColor, _confirmBatchDelete),
+          ],
         ],
       ),
     );
@@ -237,6 +326,40 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
 
   /// 构建单个备份条目
   Widget _buildBackupItem(BackupEntry backup) {
+    if (_isBatchDeleteMode) {
+      final isSelected = _selectedForDelete.contains(backup.filePath);
+      return Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppTheme.backgroundColor.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+          border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          children: [
+            Checkbox(
+              value: isSelected,
+              onChanged: (v) {
+                setState(() {
+                  if (v == true) {
+                    _selectedForDelete.add(backup.filePath);
+                  } else {
+                    _selectedForDelete.remove(backup.filePath);
+                  }
+                });
+              },
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(backup.name, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary), overflow: TextOverflow.ellipsis),
+            ),
+            Text(backup.sizeFormatted, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          ],
+        ),
+      );
+    }
+
     final isImported = backup.source == BackupSource.imported;
     final isPreRestore = backup.source == BackupSource.preRestore;
 
@@ -318,52 +441,6 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
 
   // --- 操作方法 ---
 
-  /// 修改存档路径
-  Future<void> _editSavePath() async {
-    final controller = TextEditingController(text: _savePath ?? '');
-    await showGlassDialog(
-      context: context,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('编辑存档路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(hintText: '输入存档文件夹路径', labelText: '存档路径'),
-              autofocus: true,
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () async {
-                    final newPath = controller.text.trim();
-                    final repo = ref.read(gameRepositoryProvider);
-                    await repo.updateSavePath(widget.game.id!, newPath.isEmpty ? null : newPath);
-                    if (mounted) {
-                      setState(() => _savePath = newPath.isEmpty ? null : newPath);
-                      Navigator.pop(context);
-                      AppTheme.showGlassToast(context, message: '存档路径已更新');
-                    }
-                  },
-                  child: const Text('保存'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-    controller.dispose();
-  }
-
   /// 打开存档文件夹
   Future<void> _openSaveFolder() async {
     if (_savePath == null || _savePath!.isEmpty) {
@@ -396,22 +473,60 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
 
   /// 添加自定义备份（支持 zip 文件和文件夹）
   Future<void> _addCustomBackup() async {
-    final result = await FilePicker.pickFiles(
-      allowMultiple: false,
-      type: FileType.custom,
-      allowedExtensions: ['zip'],
+    // 先让用户选择导入方式
+    final importType = await showGlassDialog<String>(
+      context: context,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('添加自定义备份', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            const SizedBox(height: 16),
+            const Text('请选择要导入的类型：', style: TextStyle(color: AppTheme.textSecondary)),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, 'cancel'),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.pop(context, 'zip'),
+                  icon: const Icon(Icons.archive, size: 16),
+                  label: const Text('选择 zip 文件'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(context, 'folder'),
+                  icon: const Icon(Icons.folder_open, size: 16),
+                  label: const Text('选择文件夹'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
 
-    String? selectedPath;
+    if (importType == null || importType == 'cancel') return;
 
-    if (result != null && result.files.single.path != null) {
-      selectedPath = result.files.single.path!;
-    } else {
-      // 尝试选择文件夹
-      final dirPath = await FilePicker.getDirectoryPath();
-      if (dirPath != null) {
-        selectedPath = dirPath;
+    String? selectedPath;
+    if (importType == 'zip') {
+      final result = await FilePicker.pickFiles(
+        dialogTitle: '选择存档导入',
+        allowMultiple: false,
+        type: FileType.custom,
+        allowedExtensions: ['zip'],
+      );
+      if (result != null && result.files.single.path != null) {
+        selectedPath = result.files.single.path!;
       }
+    } else {
+      selectedPath = await FilePicker.getDirectoryPath(dialogTitle: '选择存档文件夹');
     }
 
     if (selectedPath == null) return;
@@ -497,76 +612,65 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
     }
   }
 
-  /// 批量删除备份
-  Future<void> _batchDeleteBackups() async {
-    final selected = <String>{};
-
-    final confirmed = await showGlassDialog<bool>(
-      context: context,
-      child: StatefulBuilder(
-        builder: (ctx, setDialogState) => Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('批量删除备份', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: 500,
-                height: 300,
-                child: ListView.builder(
-                  itemCount: _backups.length,
-                  itemBuilder: (ctx, index) {
-                    final backup = _backups[index];
-                    final isSelected = selected.contains(backup.filePath);
-                    return CheckboxListTile(
-                      value: isSelected,
-                      onChanged: (v) {
-                        setDialogState(() {
-                          if (v == true) {
-                            selected.add(backup.filePath);
-                          } else {
-                            selected.remove(backup.filePath);
-                          }
-                        });
-                      },
-                      title: Text(backup.name, style: const TextStyle(fontSize: 13)),
-                      subtitle: Text(backup.sizeFormatted, style: const TextStyle(fontSize: 12)),
-                      dense: true,
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: selected.isEmpty ? null : () => Navigator.pop(context, true),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor, foregroundColor: Colors.white),
-                    child: Text('删除 ${selected.length} 项'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    if (confirmed == true && selected.isNotEmpty) {
-      final service = ref.read(backupServiceProvider);
-      int count = 0;
-      for (final path in selected) {
-        if (await service.deleteBackup(path)) count++;
+  /// 进入/退出批量删除模式
+  void _toggleBatchDeleteMode() {
+    setState(() {
+      if (_isBatchDeleteMode) {
+        _isBatchDeleteMode = false;
+        _selectedForDelete.clear();
+      } else {
+        _isBatchDeleteMode = true;
       }
-      if (mounted) {
-        AppTheme.showGlassToast(context, message: '已删除 $count 个备份', icon: Icons.check_circle, iconColor: AppTheme.successColor);
-        _loadBackups();
-      }
+    });
+  }
+
+  /// 确认批量删除
+  Future<void> _confirmBatchDelete() async {
+    if (_selectedForDelete.isEmpty) return;
+
+    final service = ref.read(backupServiceProvider);
+    int count = 0;
+    for (final path in _selectedForDelete) {
+      if (await service.deleteBackup(path)) count++;
+    }
+    if (mounted) {
+      setState(() {
+        _isBatchDeleteMode = false;
+        _selectedForDelete.clear();
+      });
+      AppTheme.showGlassToast(context, message: '已删除 $count 个备份', icon: Icons.check_circle, iconColor: AppTheme.successColor);
+      _loadBackups();
+    }
+  }
+
+  /// 保存内联编辑的路径
+  Future<void> _savePathEdit() async {
+    final newPath = _pathEditController.text.trim();
+    final repo = ref.read(gameRepositoryProvider);
+    await repo.updateSavePath(widget.game.id!, newPath.isEmpty ? null : newPath);
+    if (mounted) {
+      setState(() {
+        _savePath = newPath.isEmpty ? null : newPath;
+        _isEditingPath = false;
+      });
+      AppTheme.showGlassToast(context, message: '存档路径已更新');
+    }
+  }
+
+  /// 通过文件夹选择器选择存档路径
+  Future<void> _selectSaveFolder() async {
+    final dirPath = await FilePicker.getDirectoryPath(dialogTitle: '选择存档文件夹');
+    if (dirPath == null) return;
+
+    final repo = ref.read(gameRepositoryProvider);
+    await repo.updateSavePath(widget.game.id!, dirPath);
+    if (mounted) {
+      setState(() {
+        _savePath = dirPath;
+        _isEditingPath = false;
+        _pathEditController.text = dirPath;
+      });
+      AppTheme.showGlassToast(context, message: '存档路径已更新');
     }
   }
 
@@ -576,32 +680,35 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
 
     final newName = await showGlassDialog<String>(
       context: context,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('编辑备份名称', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(hintText: '输入新名称'),
-              autofocus: true,
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context, controller.text.trim()),
-                  child: const Text('保存'),
-                ),
-              ],
-            ),
-          ],
+      child: SizedBox(
+        width: 400,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('编辑备份名称', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(hintText: '输入新名称'),
+                autofocus: true,
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, controller.text.trim()),
+                    child: const Text('保存'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -747,29 +854,32 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
   Future<void> _deleteBackup(BackupEntry backup) async {
     final confirmed = await showGlassDialog<bool>(
       context: context,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('删除备份', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            const SizedBox(height: 12),
-            Text('确定要删除备份 "${backup.name}" 吗？\n此操作不可撤销。', style: const TextStyle(color: AppTheme.textSecondary)),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor, foregroundColor: Colors.white),
-                  child: const Text('删除'),
-                ),
-              ],
-            ),
-          ],
+      child: SizedBox(
+        width: 400,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('删除备份', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              const SizedBox(height: 12),
+              Text('确定要删除备份 "${backup.name}" 吗？\n此操作不可撤销。', style: const TextStyle(color: AppTheme.textSecondary)),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor, foregroundColor: Colors.white),
+                    child: const Text('删除'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
