@@ -482,40 +482,43 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
   /// 添加自定义备份（支持 zip 文件和文件夹）
   Future<void> _addCustomBackup() async {
     // 先让用户选择导入方式
-    final importType = await showGlassDialog<String>(
+     final importType = await showGlassDialog<String>(
       context: context,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('添加自定义备份', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            const SizedBox(height: 16),
-            const Text('请选择要导入的类型：', style: TextStyle(color: AppTheme.textSecondary)),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, 'cancel'),
-                  child: const Text('取消'),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: () => Navigator.pop(context, 'zip'),
-                  icon: const Icon(Icons.archive, size: 16),
-                  label: const Text('选择 zip 文件'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: () => Navigator.pop(context, 'folder'),
-                  icon: const Icon(Icons.folder_open, size: 16),
-                  label: const Text('选择文件夹'),
-                ),
-              ],
-            ),
-          ],
+      child: SizedBox(
+        width: 600,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('添加自定义备份', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              const SizedBox(height: 16),
+              const Text('请选择要导入的类型：', style: TextStyle(color: AppTheme.textSecondary)),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, 'cancel'),
+                    child: const Text('取消'),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.pop(context, 'zip'),
+                    icon: const Icon(Icons.archive, size: 16),
+                    label: const Text('选择 zip 文件'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.pop(context, 'folder'),
+                    icon: const Icon(Icons.folder_open, size: 16),
+                    label: const Text('选择文件夹'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -792,34 +795,37 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
       return;
     }
 
-    final confirmed = await showGlassDialog<bool>(
+     final confirmed = await showGlassDialog<bool>(
       context: context,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('确认还原', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            const SizedBox(height: 12),
-            Text(
-              '将还原备份 "${backup.name}" 到存档目录。\n\n当前存档会先自动备份为"还原前备份"。\n\n目标路径: $_savePath',
-              style: const TextStyle(color: AppTheme.textSecondary),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.warningColor, foregroundColor: Colors.white),
-                  child: const Text('确认还原'),
-                ),
-              ],
-            ),
-          ],
+      child: SizedBox(
+        width: 600,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('确认还原', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              const SizedBox(height: 12),
+              Text(
+                '将还原备份 "${backup.name}" 到存档目录。\n\n当前存档会先自动备份为"还原前备份"。\n\n目标路径: $_savePath',
+                style: const TextStyle(color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.warningColor, foregroundColor: Colors.white),
+                    child: const Text('确认还原'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
