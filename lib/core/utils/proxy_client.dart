@@ -6,9 +6,9 @@ import 'package:http/io_client.dart';
 import 'app_settings.dart';
 import '../services/app_logger.dart';
 
-String? readWindowsSystemProxy() {
+Future<String?> readWindowsSystemProxy() async {
   try {
-    final result = Process.runSync(
+    final result = await Process.run(
       'reg',
       [
         'query',
@@ -24,7 +24,7 @@ String? readWindowsSystemProxy() {
       return null;
     }
 
-    final serverResult = Process.runSync(
+    final serverResult = await Process.run(
       'reg',
       [
         'query',
@@ -48,7 +48,7 @@ String? readWindowsSystemProxy() {
   }
 }
 
-http.Client createProxyClient({String? proxyMode, String? proxyUrl}) {
+Future<http.Client> createProxyClient({String? proxyMode, String? proxyUrl}) async {
   final mode = proxyMode ?? 'none';
 
   if (mode == 'none') {
@@ -60,7 +60,7 @@ http.Client createProxyClient({String? proxyMode, String? proxyUrl}) {
   final httpClient = HttpClient()..autoUncompress = true;
 
   if (mode == 'system') {
-    final systemProxy = readWindowsSystemProxy();
+    final systemProxy = await readWindowsSystemProxy();
     if (systemProxy != null) {
       httpClient.findProxy = (uri) => 'PROXY $systemProxy';
       AppLogger.instance.info('Proxy', 'Using system proxy: $systemProxy');
@@ -82,7 +82,7 @@ Future<http.Client> createProxyClientFromPrefs() async {
   final prefs = await AppSettings.load();
   final proxyMode = prefs.getString('proxy_mode') ?? 'none';
   final proxyUrl = prefs.getString('proxy_url') ?? '';
-  return createProxyClient(proxyMode: proxyMode, proxyUrl: proxyUrl);
+  return await createProxyClient(proxyMode: proxyMode, proxyUrl: proxyUrl);
 }
 
 Future<String> getEffectiveDomain(String siteKey) async {

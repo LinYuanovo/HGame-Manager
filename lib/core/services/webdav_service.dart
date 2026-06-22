@@ -79,7 +79,7 @@ class WebdavService {
   }) async {
     try {
       final file = File(localFilePath);
-      if (!file.existsSync()) {
+      if (!await file.exists()) {
         debugPrint('[WebDAV] Local file not found: $localFilePath');
         return false;
       }
@@ -251,7 +251,7 @@ class WebdavService {
   }) async {
     try {
       final file = File(localFilePath);
-      if (!file.existsSync()) {
+      if (!await file.exists()) {
         debugPrint('[WebDAV] 本地文件不存在: $localFilePath');
         return false;
       }
@@ -472,7 +472,7 @@ class WebdavService {
 
       if (success) {
         final tempFile = File(tempPath);
-        if (tempFile.existsSync()) {
+        if (await tempFile.exists()) {
           debugPrint('[WebDAV] Downloaded backup to: $tempPath');
           return tempPath;
         }

@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 import 'package:file_picker/file_picker.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../core/models/models.dart';
 import '../../../core/models/context_menu_config.dart';
 import '../../../core/providers/providers.dart';
@@ -1537,7 +1536,7 @@ _refreshGames(); _refreshPlayed(); return;
     }
 
     final saveService = ref.read(savePathServiceProvider);
-    final exePath = saveService.findGameExe(game.path);
+    final exePath = await saveService.findGameExe(game.path);
     if (exePath != null) {
       if (game.id != null) {
         await repo.updateGameLauncher(game.id!, exePath, false);
@@ -1571,7 +1570,7 @@ _refreshGames(); _refreshPlayed(); return;
       }
     } else {
       try {
-        await launchUrl(Uri.file(game.path));
+        await Process.run('explorer.exe', [game.path]);
       } catch (_) {}
     }
 _refreshAllProviders();
@@ -1781,7 +1780,7 @@ _refreshAllProviders();
       switch (value) {
         case 'open_folder':
           for (final g in targets) {
-            await launchUrl(Uri.file(g.path));
+            await Process.run('explorer.exe', [g.path]);
           }
           break;
         case 'move_folder':

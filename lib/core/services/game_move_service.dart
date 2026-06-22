@@ -17,16 +17,16 @@ class GameMoveService {
     final oldDir = Directory(oldPath);
     final newDir = Directory(newPath);
 
-    if (!oldDir.existsSync()) {
+    if (!await oldDir.exists()) {
       throw Exception('源文件夹不存在: $oldPath');
     }
 
-    if (newDir.existsSync()) {
+    if (await newDir.exists()) {
       throw Exception('目标文件夹已存在: $newPath');
     }
 
     final parentDir = Directory(path.dirname(newPath));
-    if (!parentDir.existsSync()) {
+    if (!await parentDir.exists()) {
       await parentDir.create(recursive: true);
     }
 
@@ -65,16 +65,16 @@ class GameMoveService {
     final oldDir = Directory(oldPath);
     final newDir = Directory(newPath);
 
-    if (!oldDir.existsSync()) {
+    if (!await oldDir.exists()) {
       throw Exception('源文件夹不存在: $oldPath');
     }
 
-    if (newDir.existsSync()) {
+    if (await newDir.exists()) {
       throw Exception('目标文件夹已存在: $newPath');
     }
 
     final parentDir = Directory(path.dirname(newPath));
-    if (!parentDir.existsSync()) {
+    if (!await parentDir.exists()) {
       await parentDir.create(recursive: true);
     }
 

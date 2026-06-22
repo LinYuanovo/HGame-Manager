@@ -1636,7 +1636,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Future<void> _exportLocalBackup() async {
     final dbPath = await DatabaseHelper.getDatabasePath();
     final dbFile = File(dbPath);
-    if (!dbFile.existsSync()) {
+    if (!await dbFile.exists()) {
       if (mounted) {
         AppTheme.showGlassToast(context, message: '数据库文件不存在', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
@@ -1660,7 +1660,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       final archive = Archive();
       final dbBytes = await dbFile.readAsBytes();
       archive.addFile(ArchiveFile('database.db', dbBytes.length, dbBytes));
-      if (settingsFile.existsSync()) {
+      if (await settingsFile.exists()) {
         final settingsBytes = await settingsFile.readAsBytes();
         archive.addFile(ArchiveFile('settings.json', settingsBytes.length, settingsBytes));
       }
@@ -1722,7 +1722,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         for (final file in archive) {
           if (file.name == 'database.db') {
             final dbFile = File(dbPath);
-            if (dbFile.existsSync()) await dbFile.delete();
+            if (await dbFile.exists()) await dbFile.delete();
             await dbFile.writeAsBytes(file.content as List<int>);
           } else if (file.name == 'settings.json') {
             final settingsFile = File(settingsPath);
@@ -1733,7 +1733,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       } else {
         await DatabaseHelper.close();
         final dbFile = File(dbPath);
-        if (dbFile.existsSync()) await dbFile.delete();
+        if (await dbFile.exists()) await dbFile.delete();
         await File(sourcePath).copy(dbPath);
       }
 
@@ -1892,7 +1892,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     try {
       final dbPath = await DatabaseHelper.getDatabasePath();
       final dbFile = File(dbPath);
-      if (!dbFile.existsSync()) {
+      if (!await dbFile.exists()) {
         if (mounted) {
           setState(() => _isBackingUp = false);
           AppTheme.showGlassToast(context, message: '数据库文件不存在', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
@@ -1906,7 +1906,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       final archive = Archive();
       final dbBytes = await dbFile.readAsBytes();
       archive.addFile(ArchiveFile('database.db', dbBytes.length, dbBytes));
-      if (settingsFile.existsSync()) {
+      if (await settingsFile.exists()) {
         final settingsBytes = await settingsFile.readAsBytes();
         archive.addFile(ArchiveFile('settings.json', settingsBytes.length, settingsBytes));
       }
@@ -2016,7 +2016,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     if (tempPath != null) {
       try {
         final tempFile = File(tempPath);
-        if (!tempFile.existsSync()) {
+        if (!await tempFile.exists()) {
           if (mounted) {
             AppTheme.showGlassToast(context, message: '导入失败：临时文件不存在', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
           }
@@ -2032,7 +2032,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           for (final file in archive) {
             if (file.name == 'database.db') {
               final dbFile = File(dbPath);
-              if (dbFile.existsSync()) await dbFile.delete();
+              if (await dbFile.exists()) await dbFile.delete();
               await dbFile.writeAsBytes(file.content as List<int>);
             } else if (file.name == 'settings.json') {
               final settingsPath = await AppPaths.settingsFile;
@@ -2043,18 +2043,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           }
         } else {
           final dbFile = File(dbPath);
-          if (dbFile.existsSync()) await dbFile.delete();
+          if (await dbFile.exists()) await dbFile.delete();
           await tempFile.copy(dbPath);
         }
 
-        if (tempFile.existsSync()) await tempFile.delete();
+        if (await tempFile.exists()) await tempFile.delete();
 
         ok = true;
       } catch (e) {
         debugPrint('Failed to import backup: $e');
         try {
           final tempFile = File(tempPath);
-          if (tempFile.existsSync()) await tempFile.delete();
+          if (await tempFile.exists()) await tempFile.delete();
         } catch (_) {}
       }
     }

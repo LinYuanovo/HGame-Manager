@@ -70,7 +70,7 @@ class FolderRenameService {
       return null;
     }
 
-    if (Directory(newPath).existsSync()) {
+    if (await Directory(newPath).exists()) {
       debugPrint('[FolderRename] Target already exists: $newPath');
       return null;
     }
@@ -110,7 +110,7 @@ class FolderRenameService {
       final newPath = path.join(parentDir, newName);
 
       if (oldPath == newPath) continue;
-      if (Directory(newPath).existsSync()) continue;
+      if (await Directory(newPath).exists()) continue;
 
       count++;
     }

@@ -47,6 +47,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   int _currentImageIndex = 0;
   bool _isCheckingUpdate = false;
   bool _isRescraping = false;
+  bool _isLocal = false;
+  Set<String> _existingMediaFiles = {};
 
   final TextEditingController _quickScrapeController = TextEditingController();
   String _quickScrapeChannel = 'auto';
@@ -101,6 +103,49 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _gameLauncherController = TextEditingController(text: _currentGame.gameLauncher ?? '');
     _pathController = TextEditingController(text: _currentGame.path);
     _editedTags = List.from(_currentGame.tags);
+    _checkIsLocal();
+    _preloadMediaFiles();
+  }
+
+  Future<void> _checkIsLocal() async {
+    final sourceUrlFile = File('${_currentGame.path}${Platform.pathSeparator}source_url.txt');
+    final exists = await sourceUrlFile.exists();
+    if (mounted) {
+      setState(() {
+        _isLocal = !exists;
+      });
+    }
+  }
+
+  Future<void> _preloadMediaFiles() async {
+    final imageTagStart = '[图片:';
+    final videoTagStart = '[视频:';
+    final tagEnd = ']';
+    final paths = <String>{};
+
+    for (final content in [_currentGame.intro, _currentGame.features, _currentGame.changelog]) {
+      if (content == null) continue;
+      for (final line in content.split('\n')) {
+        if (line.startsWith(imageTagStart) && line.endsWith(tagEnd)) {
+          paths.add(line.substring(imageTagStart.length, line.length - tagEnd.length));
+        } else if (line.startsWith(videoTagStart) && line.endsWith(tagEnd)) {
+          paths.add(line.substring(videoTagStart.length, line.length - tagEnd.length));
+        }
+      }
+    }
+
+    final existing = <String>{};
+    for (final path in paths) {
+      if (await File(path).exists()) {
+        existing.add(path);
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _existingMediaFiles = existing;
+      });
+    }
   }
 
   @override
@@ -389,7 +434,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     }
                   } else {
                     try {
-                      await launchUrl(Uri.file(_currentGame.path));
+                      await Process.run('explorer.exe', [_currentGame.path]);
                     } catch (_) {}
                   }
                 }
@@ -535,8 +580,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   bool _isLocalGame() {
-    final sourceUrlFile = File('${_currentGame.path}${Platform.pathSeparator}source_url.txt');
-    return !sourceUrlFile.existsSync();
+    return _isLocal;
   }
 
   void _insertImageToContent(String sectionTitle) async {
@@ -1157,8 +1201,7 @@ if (_isEditing) ...[
       
       if (line.startsWith(imageTagStart) && line.endsWith(tagEnd)) {
         final imagePath = line.substring(imageTagStart.length, line.length - tagEnd.length);
-        final file = File(imagePath);
-        if (file.existsSync()) {
+        if (_existingMediaFiles.contains(imagePath)) {
           widgets.add(
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1167,7 +1210,7 @@ if (_isEditing) ...[
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 800),
                   child: Image.file(
-                    file,
+                    File(imagePath),
                     fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                   ),
@@ -1178,8 +1221,7 @@ if (_isEditing) ...[
         }
       } else if (line.startsWith(videoTagStart) && line.endsWith(tagEnd)) {
         final videoPath = line.substring(videoTagStart.length, line.length - tagEnd.length);
-        final file = File(videoPath);
-        if (file.existsSync()) {
+        if (_existingMediaFiles.contains(videoPath)) {
           widgets.add(
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1483,7 +1525,7 @@ if (_isEditing) ...[
       // Handle backup folder rename when title changes
       final titleChanged = newTitle != null && newTitle != _currentGame.title;
       final isBackupGame = _currentGame.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}Backup${Platform.pathSeparator}') ||
-                          !Directory(_currentGame.path).existsSync();
+                          !await Directory(_currentGame.path).exists();
       if (titleChanged && isBackupGame && gameId != null) {
         final prefs = ref.read(sharedPreferencesProvider);
         final sortedPath = prefs.getString('sorted_path') ?? '';
@@ -1810,7 +1852,7 @@ if (_isEditing) ...[
     }
 
     final saveService = ref.read(savePathServiceProvider);
-    final exePath = saveService.findGameExe(game.path);
+    final exePath = await saveService.findGameExe(game.path);
     if (exePath != null) {
       await repo.updateGame(game.copyWith(gameLauncher: exePath));
       try {

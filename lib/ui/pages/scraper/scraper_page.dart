@@ -801,7 +801,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         final filePath = path.join(imagesDir.path, fileName);
 
         // Download if not exists - use image-appropriate headers, not page headers
-        if (!File(filePath).existsSync()) {
+        if (!await File(filePath).exists()) {
           final imgHeaders = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
             'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',

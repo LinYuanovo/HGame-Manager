@@ -75,9 +75,9 @@ class DlsiteService {
   /// 从文件夹提取DLsite ID或游戏名
   /// 优先从文件夹名中提取ID（RJ/RE/VJ+数字）
   /// 如果没有ID，返回清理后的游戏名用于搜索
-  String? extractIdOrGameName(String folderPath) {
+  Future<String?> extractIdOrGameName(String folderPath) async {
     final dir = Directory(folderPath);
-    if (!dir.existsSync()) {
+    if (!await dir.exists()) {
       _log.info('DlsiteService', '[extractIdOrGameName] 目录不存在: $folderPath');
       return null;
     }
@@ -95,7 +95,7 @@ class DlsiteService {
     // 2. 尝试从exe名提取游戏名
     String? gameName;
     String? source;
-    final exeFiles = dir.listSync()
+    final exeFiles = (await dir.list().toList())
         .whereType<File>()
         .where((f) => f.path.toLowerCase().endsWith('.exe'))
         .toList();
@@ -149,8 +149,8 @@ class DlsiteService {
   }
 
   /// 从文件夹提取游戏名（仅用于搜索，不提取ID）
-  String? extractGameName(String folderPath) {
-    final result = extractIdOrGameName(folderPath);
+  Future<String?> extractGameName(String folderPath) async {
+    final result = await extractIdOrGameName(folderPath);
     // 如果返回的是ID格式，说明应该用ID直接获取，不需要搜索
     if (result != null && normalizeId(result) != null) {
       return null; // 返回null表示应该用ID
@@ -276,7 +276,7 @@ class DlsiteService {
     _log.info('DlsiteService', '[searchWithFallback] ========== 开始搜索 ==========');
     _log.info('DlsiteService', '[searchWithFallback] 文件夹: $folderPath');
 
-    final idOrName = extractIdOrGameName(folderPath);
+    final idOrName = await extractIdOrGameName(folderPath);
     if (idOrName == null || idOrName.isEmpty) {
       _log.warning('DlsiteService', '[searchWithFallback] 无法提取游戏名或ID，终止搜索');
       return [];

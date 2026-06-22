@@ -40,12 +40,12 @@ class SteamService {
 
   final _log = AppLogger.instance;
 
-  String? extractGameName(String folderPath) {
+  Future<String?> extractGameName(String folderPath) async {
     final dir = Directory(folderPath);
-    if (!dir.existsSync()) return null;
+    if (!await dir.exists()) return null;
 
     String? gameName;
-    final exeFiles = dir.listSync()
+    final exeFiles = (await dir.list().toList())
         .whereType<File>()
         .where((f) => f.path.toLowerCase().endsWith('.exe'))
         .toList();
@@ -134,7 +134,7 @@ class SteamService {
   Future<List<SteamSearchResult>> searchWithFallback(String folderPath) async {
     _log.info('SteamService', '[searchWithFallback] ========== 开始搜索 ==========');
 
-    final gameName = extractGameName(folderPath);
+    final gameName = await extractGameName(folderPath);
     if (gameName == null || gameName.isEmpty) {
       _log.warning('SteamService', '[searchWithFallback] 无法提取游戏名');
       return [];

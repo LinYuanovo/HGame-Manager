@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../core/models/models.dart';
 import '../../../core/models/backup_entry.dart';
 import '../../../core/providers/providers.dart';
@@ -456,7 +455,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
       return;
     }
     try {
-      await launchUrl(Uri.file(_savePath!));
+      await Process.run('explorer.exe', [_savePath!]);
     } catch (e) {
       if (mounted) {
         AppTheme.showGlassToast(context, message: '无法打开路径: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
@@ -471,7 +470,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
       await backupDir.create(recursive: true);
     }
     try {
-      await launchUrl(Uri.file(backupDir.path));
+      await Process.run('explorer.exe', [backupDir.path]);
     } catch (e) {
       if (mounted) {
         AppTheme.showGlassToast(context, message: '无法打开路径: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
