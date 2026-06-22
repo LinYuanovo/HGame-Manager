@@ -133,8 +133,9 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                       ),
                     )
                   : SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
                       child: DataTable(
-                        columnSpacing: 16,
+                        columnSpacing: 24,
                         headingTextStyle: const TextStyle(
                           color: AppTheme.textPrimary,
                           fontWeight: FontWeight.w600,

@@ -205,11 +205,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       // 收藏优先
       final fav = (b.isFavorite ? 1 : 0).compareTo(a.isFavorite ? 1 : 0);
       if (fav != 0) return fav;
-      // 评分高的优先（仅在已玩/已通关页面生效）
-      if (widget.contextMenuMode == ContextMenuMode.played || widget.isClearedPage) {
-        final ratingDiff = b.rating.compareTo(a.rating);
-        if (ratingDiff != 0) return ratingDiff;
-      }
       switch (_sortMode) {
         case SortMode.titleAsc:
           return (a.title ?? '').compareTo(b.title ?? '');
