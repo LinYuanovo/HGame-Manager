@@ -167,6 +167,18 @@ class GameImage {
 }
 ```
 
+### BackupEntry 模型
+```dart
+class BackupEntry {
+  final String name;          // 显示名称
+  final String fileName;      // 文件名（含 .zip）
+  final int sizeBytes;        // 文件大小
+  final DateTime? date;       // 备份日期
+  final BackupSource source;  // 来源：manual/preRestore/imported
+  final String filePath;      // 完整路径
+}
+```
+
 ## 数据库表结构
 
 ### games 表
@@ -287,6 +299,18 @@ enum NavRoute {
 - 基于 AppData\LocalLow 和 AppData\Local 目录
 - 智能识别游戏名（排除引擎 EXE）
 - 置信度评分排序
+
+### BackupService
+- 本地存档备份/还原（zip 压缩）
+- 路径占位符编码（%USERPROFILE%、%GameDir%）实现跨设备迁移
+- 自定义备份导入（zip/文件夹，智能文件匹配还原）
+- 自动检测并导入"存档"文件夹
+- 备份重命名和批量删除
+
+### WebdavService (扩展)
+- 游戏级 WebDAV 备份文件夹管理
+- 模糊匹配云端游戏文件夹（双向近似匹配+置信度）
+- 单独游戏存档的上传/下载/删除
 
 ### WebdavService
 - WebDAV 同步支持

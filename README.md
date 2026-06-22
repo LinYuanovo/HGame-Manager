@@ -141,7 +141,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 - **分页 / 瀑布流**：两种浏览模式
 - **收藏功能**：收藏游戏优先排列
 - **游玩追踪**：记录游玩次数和时间
-- **存档查找**：智能查找已玩游戏的存档位置
+- **存档管理**：备份/还原/导入存档，支持 WebDAV 云端同步，跨设备路径迁移
 
 ![游戏页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/games_page.png)
 
