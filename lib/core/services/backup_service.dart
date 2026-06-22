@@ -418,6 +418,20 @@ class BackupService {
     required String savePath,
   }) async {
     try {
+      final saveDir = Directory(savePath);
+
+      // 如果存档目录存在且有内容，先创建还原前备份
+      if (await saveDir.exists()) {
+        final hasContent = await saveDir.list().any((_) => true);
+        if (hasContent) {
+          await createBackup(
+            gamePath: gamePath,
+            savePath: savePath,
+            customName: _preRestorePrefix,
+          );
+        }
+      }
+
       final bytes = await File(backupFilePath).readAsBytes();
       final archive = ZipDecoder().decodeBytes(bytes);
 
