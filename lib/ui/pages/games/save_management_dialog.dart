@@ -82,7 +82,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
           return KeyEventResult.ignored;
         },
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900, maxHeight: 700),
+          constraints: const BoxConstraints(maxWidth: 950, maxHeight: 700),
           child: Container(
             decoration: BoxDecoration(
               color: AppTheme.surfaceColor,
@@ -263,13 +263,13 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
               const SizedBox(width: 10),
               _buildActionButton(Icons.backup, '打开备份文件夹', AppTheme.secondaryColor, _openBackupFolder),
               const SizedBox(width: 10),
-              _buildActionButton(Icons.add_circle_outline, '添加自定义备份', AppTheme.warningColor, _addCustomBackup),
+              _buildActionButton(Icons.add_circle_outline, '导入存档', AppTheme.warningColor, _addCustomBackup),
               const SizedBox(width: 10),
               _buildActionButton(Icons.save_alt, '备份当前存档', AppTheme.successColor, _backupCurrentSave),
               const SizedBox(width: 10),
               _buildActionButton(Icons.cloud_outlined, '查看云端备份', AppTheme.primaryColor, _showCloudBackups),
               const SizedBox(width: 10),
-              _buildActionButton(Icons.delete_sweep_outlined, '批量删除备份', AppTheme.errorColor, _toggleBatchDeleteMode),
+              _buildActionButton(Icons.delete_sweep_outlined, '批量删除', AppTheme.errorColor, _toggleBatchDeleteMode),
             ],
             if (_isBatchDeleteMode) ...[
               _buildActionButton(Icons.cancel_outlined, '取消', AppTheme.textSecondary, _toggleBatchDeleteMode),

@@ -458,7 +458,6 @@ class BackupService {
       }
 
       // 策略 2：递归搜索 savePath 子目录查找匹配文件
-      final saveDir = Directory(savePath);
       if (await saveDir.exists()) {
         for (final archiveFile in archiveFiles) {
           final archiveFileName = p.basename(archiveFile.name);
