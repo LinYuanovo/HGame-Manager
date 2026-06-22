@@ -128,7 +128,7 @@ class PresetMenuItems {
   static const List<ContextMenuItemDef> played = [
     ContextMenuItemDef(id: 'open_folder', label: '打开文件夹', icon: 'folder_open'),
     ContextMenuItemDef(id: 'move_folder', label: '移动文件夹', icon: 'drive_file_move'),
-    ContextMenuItemDef(id: 'open_save', label: '打开存档位置', icon: 'folder_special'),
+    ContextMenuItemDef(id: 'open_save', label: '存档管理', icon: 'folder_special'),
     ContextMenuItemDef(id: 'favorite', label: '收藏', icon: 'favorite'),
     ContextMenuItemDef(id: 'played', label: '减少游玩次数', icon: 'remove_circle_outline'),
     ContextMenuItemDef(id: 'move_to_series', label: '移入自定义系列', icon: 'playlist_add'),

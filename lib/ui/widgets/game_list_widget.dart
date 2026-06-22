@@ -12,6 +12,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/services/image_service.dart';
 import '../theme/app_theme.dart';
 import '../pages/games/game_detail_page.dart';
+import '../pages/games/save_management_dialog.dart';
 import 'multi_select_controller.dart';
 
 enum PaginationMode { paginated, infiniteScroll }
@@ -1647,7 +1648,7 @@ _refreshAllProviders();
               dense: true,
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.folder_special, size: 18, color: AppTheme.primaryColor),
-              title: const Text('打开存档位置')));
+              title: const Text('存档管理')));
     }
     
     allItems['favorite'] = PopupMenuItem(
@@ -1834,48 +1835,10 @@ _refreshAllProviders();
           break;
         case 'open_save':
           if (game.savePath != null && game.savePath!.isNotEmpty) {
-            final confirmed = await showGlassDialog<bool>(
+            showDialog(
               context: context,
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('打开存档位置', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                    const SizedBox(height: 12),
-                    Text(
-                      '该存档位置为自动扫描结果，可能存在错误。\n\n${game.savePath}',
-                      style: const TextStyle(color: AppTheme.textSecondary),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text('取消'),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          child: const Text('打开'),
-                        ),
-                      ],
-                      ),
-                    ],
-                  ),
-                ),
-              );
-              if (confirmed == true) {
-              try {
-                await launchUrl(Uri.file(game.savePath!));
-              } catch (e) {
-                if (mounted) {
-                  AppTheme.showGlassToast(context, message: '无法打开路径: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-                }
-              }
-            }
+              builder: (ctx) => SaveManagementDialog(game: game),
+            );
           }
           break;
         case 'blacklist':

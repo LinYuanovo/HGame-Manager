@@ -377,8 +377,11 @@ class WebdavService {
       final responses = _findResponseElements(document);
 
       for (final response in responses) {
-        final href = _findChildText(response, ['D:href', 'd:href', 'lp1:href']);
+        var href = _findChildText(response, ['D:href', 'd:href', 'lp1:href']);
         if (href == null) continue;
+
+        // URL 解码
+        href = Uri.decodeComponent(href);
 
         // 仅目录以 / 结尾
         if (!href.endsWith('/')) continue;
@@ -501,8 +504,14 @@ class WebdavService {
       final responses = _findResponseElements(document);
 
       for (final response in responses) {
-        final href = _findChildText(response, ['D:href', 'd:href', 'lp1:href']);
-        if (href == null || href.endsWith('/')) continue;
+        var href = _findChildText(response, ['D:href', 'd:href', 'lp1:href']);
+        if (href == null) continue;
+
+        // URL 解码（处理 %20 等编码字符）
+        href = Uri.decodeComponent(href);
+
+        // 跳过目录（以 / 结尾）
+        if (href.endsWith('/')) continue;
 
         final name = href.split('/').last;
         if (name.isEmpty) continue;
