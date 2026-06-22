@@ -116,7 +116,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
           ],
         ),
         content: SizedBox(
-          width: 700,
+          width: 520,
           child: _isLoading
               ? const Padding(
                   padding: EdgeInsets.symmetric(vertical: 32),
@@ -133,9 +133,9 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                       ),
                     )
                   : SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
                       child: DataTable(
-                        columnSpacing: 24,
+                        columnSpacing: 32,
+                        horizontalMargin: 12,
                         headingTextStyle: const TextStyle(
                           color: AppTheme.textPrimary,
                           fontWeight: FontWeight.w600,
