@@ -253,23 +253,31 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
   Widget _buildActionButtons() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: [
-          if (!_isBatchDeleteMode) ...[
-            _buildActionButton(Icons.folder_open, '打开存档文件夹', AppTheme.primaryColor, _openSaveFolder),
-            _buildActionButton(Icons.backup, '打开备份文件夹', AppTheme.secondaryColor, _openBackupFolder),
-            _buildActionButton(Icons.add_circle_outline, '添加自定义备份', AppTheme.warningColor, _addCustomBackup),
-            _buildActionButton(Icons.save_alt, '备份当前存档', AppTheme.successColor, _backupCurrentSave),
-            _buildActionButton(Icons.cloud_outlined, '查看云端备份', AppTheme.primaryColor, _showCloudBackups),
-            _buildActionButton(Icons.delete_sweep_outlined, '批量删除备份', AppTheme.errorColor, _toggleBatchDeleteMode),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!_isBatchDeleteMode) ...[
+              _buildActionButton(Icons.folder_open, '打开存档文件夹', AppTheme.primaryColor, _openSaveFolder),
+              const SizedBox(width: 10),
+              _buildActionButton(Icons.backup, '打开备份文件夹', AppTheme.secondaryColor, _openBackupFolder),
+              const SizedBox(width: 10),
+              _buildActionButton(Icons.add_circle_outline, '添加自定义备份', AppTheme.warningColor, _addCustomBackup),
+              const SizedBox(width: 10),
+              _buildActionButton(Icons.save_alt, '备份当前存档', AppTheme.successColor, _backupCurrentSave),
+              const SizedBox(width: 10),
+              _buildActionButton(Icons.cloud_outlined, '查看云端备份', AppTheme.primaryColor, _showCloudBackups),
+              const SizedBox(width: 10),
+              _buildActionButton(Icons.delete_sweep_outlined, '批量删除备份', AppTheme.errorColor, _toggleBatchDeleteMode),
+            ],
+            if (_isBatchDeleteMode) ...[
+              _buildActionButton(Icons.cancel_outlined, '取消', AppTheme.textSecondary, _toggleBatchDeleteMode),
+              const SizedBox(width: 10),
+              _buildActionButton(Icons.delete_forever, '删除 ${_selectedForDelete.length} 项', AppTheme.errorColor, _confirmBatchDelete),
+            ],
           ],
-          if (_isBatchDeleteMode) ...[
-            _buildActionButton(Icons.cancel_outlined, '取消', AppTheme.textSecondary, _toggleBatchDeleteMode),
-            _buildActionButton(Icons.delete_forever, '删除 ${_selectedForDelete.length} 项', AppTheme.errorColor, _confirmBatchDelete),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -283,7 +291,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
         onTap: onPressed,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -292,9 +300,9 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: color, size: 18),
-              const SizedBox(width: 6),
-              Text(label, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w500)),
+              Icon(icon, color: color, size: 16),
+              const SizedBox(width: 4),
+              Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w500)),
             ],
           ),
         ),
@@ -681,7 +689,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
     final newName = await showGlassDialog<String>(
       context: context,
       child: SizedBox(
-        width: 400,
+        width: 600,
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -855,7 +863,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
     final confirmed = await showGlassDialog<bool>(
       context: context,
       child: SizedBox(
-        width: 400,
+        width: 600,
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(

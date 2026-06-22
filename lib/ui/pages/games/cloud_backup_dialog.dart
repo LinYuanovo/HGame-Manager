@@ -143,10 +143,10 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                         dataTextStyle: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
                         columns: const [
                           DataColumn(label: Text('名称')),
-                          DataColumn(label: Text('大小')),
-                          DataColumn(label: Text('操作')),
+                          DataColumn(label: Text('大小'), numeric: true),
+                          DataColumn(label: Text('操作'), numeric: true),
                         ],
-                        rows: _files.map((f) {
+                        rows: _files.where((f) => f.sizeBytes > 0).map((f) {
                           return DataRow(cells: [
                             DataCell(Text(f.name, overflow: TextOverflow.ellipsis)),
                             DataCell(Text(f.sizeFormatted)),
