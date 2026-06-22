@@ -94,10 +94,19 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     }
   }
 
+  String get _sortModeKey {
+    switch (widget.routeIndex) {
+      case 1: return 'game_list_sort_mode_games';
+      case 4: return 'game_list_sort_mode_played';
+      case 5: return 'game_list_sort_mode_cleared';
+      default: return 'game_list_sort_mode';
+    }
+  }
+
   Future<void> _loadSettings() async {
     final prefs = ref.read(sharedPreferencesProvider);
     final viewModeStr = prefs.getString('game_list_view_mode');
-    final sortModeStr = prefs.getString('game_list_sort_mode');
+    final sortModeStr = prefs.getString(_sortModeKey);
     final paginationModeStr = prefs.getString('game_list_pagination_mode');
 
     if (viewModeStr != null) {
@@ -622,7 +631,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 _savedPage = -1;
               });
               _updateCurrentPage(0);
-              _saveSetting('game_list_sort_mode', _sortMode.name);
+              _saveSetting(_sortModeKey, _sortMode.name);
             },
           ),
         );
@@ -654,7 +663,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           _savedPage = -1;
         });
         _updateCurrentPage(0);
-        _saveSetting('game_list_sort_mode', _sortMode.name);
+        _saveSetting(_sortModeKey, _sortMode.name);
       },
       child: Container(
         padding: const EdgeInsets.all(6),
