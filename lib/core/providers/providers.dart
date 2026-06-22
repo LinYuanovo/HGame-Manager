@@ -506,3 +506,8 @@ class ContextMenuConfigNotifier extends StateNotifier<ContextMenuConfig> {
     state = ContextMenuConfig.defaults(PresetMenuItems.getDefs(_mode));
   }
 }
+
+final noImageModeProvider = StateProvider<bool>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return prefs.getBool(AppSettings.noImageModeKey) ?? false;
+});
