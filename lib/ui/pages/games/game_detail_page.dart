@@ -16,6 +16,7 @@ import '../../../core/services/version_check_service.dart';
 import '../../../core/services/folder_rename_service.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../widgets/image_manager_dialog.dart';
+import 'save_management_dialog.dart';
 
 class GameDetailDialog extends ConsumerStatefulWidget {
   final Game game;
@@ -415,7 +416,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               child: OutlinedButton.icon(
                 onPressed: () => _openSaveLocation(),
                 icon: const Icon(Icons.folder_special, size: 18),
-                label: const Text('存档'),
+                label: const Text('存档管理'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.primaryColor,
                   side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
@@ -1827,62 +1828,17 @@ if (_isEditing) ...[
   }
 
   void _openSaveLocation() async {
+    // 如果未设置存档路径，先提示用户设置
     if (_currentGame.savePath == null || _currentGame.savePath!.isEmpty) {
       _showEditSavePathDialog();
       return;
     }
 
-    final confirmed = await showGlassDialog<bool>(
+    // 打开存档管理对话框
+    showDialog(
       context: context,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('打开存档位置', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            const SizedBox(height: 12),
-            Text(
-              '该存档位置为自动扫描结果，可能存在错误。\n\n${_currentGame.savePath}',
-              style: const TextStyle(color: AppTheme.textSecondary),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('取消'),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context, false);
-                    _showEditSavePathDialog();
-                  },
-                  child: const Text('修改路径'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('打开'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+      builder: (ctx) => SaveManagementDialog(game: _currentGame),
     );
-
-    if (confirmed == true) {
-      try {
-        await launchUrl(Uri.file(_currentGame.savePath!));
-      } catch (e) {
-        if (mounted) {
-          AppTheme.showGlassToast(context, message: '无法打开路径: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-        }
-      }
-    }
   }
 
   void _showEditSavePathDialog() {

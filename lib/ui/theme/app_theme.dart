@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:ui';
 import '../../core/models/models.dart';
 
@@ -1357,35 +1358,45 @@ Future<T?> showGlassDialog<T>({
     builder: (context) => Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: GlassConstants.blurLarge,
-            sigmaY: GlassConstants.blurLarge,
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.88),
-              borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.5),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 30,
-                  spreadRadius: 2,
-                  offset: const Offset(0, 8),
-                ),
-                BoxShadow(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.05),
-                  blurRadius: 50,
-                  offset: const Offset(0, 16),
-                ),
-              ],
+      child: Focus(
+        autofocus: true,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+            Navigator.of(context).pop();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(
+              sigmaX: GlassConstants.blurLarge,
+              sigmaY: GlassConstants.blurLarge,
             ),
-            child: child,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.88),
+                borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 30,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 8),
+                  ),
+                  BoxShadow(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.05),
+                    blurRadius: 50,
+                    offset: const Offset(0, 16),
+                  ),
+                ],
+              ),
+              child: child,
+            ),
           ),
         ),
       ),
