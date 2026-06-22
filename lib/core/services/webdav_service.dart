@@ -167,6 +167,289 @@ class WebdavService {
     }
   }
 
+  /// 将游戏标题转换为安全的文件夹名（替换特殊字符为下划线）
+  static String sanitizeGameTitle(String title) {
+    return title.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+  }
+
+  /// 列出 hgame_manager_backups/ 下的游戏文件夹
+  Future<List<String>> listGameFolders({
+    required String serverUrl,
+    required String username,
+    required String password,
+  }) async {
+    try {
+      final uri = _buildUri(serverUrl, _backupFolder);
+      final headers = {
+        ..._authHeaders(username, password),
+        'Depth': '1',
+      };
+
+      final request = http.Request('PROPFIND', uri);
+      request.headers.addAll(headers);
+      final response = await request.send();
+
+      if (response.statusCode == 207) {
+        final body = await response.stream.bytesToString();
+        return _parseFolderNames(body);
+      } else if (response.statusCode == 404) {
+        await response.stream.drain<void>();
+        await _createFolder(serverUrl, username, password);
+        return [];
+      } else {
+        await response.stream.drain<void>();
+        return [];
+      }
+    } catch (e) {
+      debugPrint('[WebDAV] listGameFolders 错误: $e');
+      return [];
+    }
+  }
+
+  /// 列出 WebDAV 上指定游戏文件夹中的备份文件
+  Future<List<WebDavFile>> listGameBackups({
+    required String serverUrl,
+    required String username,
+    required String password,
+    required String gameFolder,
+  }) async {
+    try {
+      final sanitizedFolder = sanitizeGameTitle(gameFolder);
+      final uri = _buildUri(serverUrl, '$_backupFolder/$sanitizedFolder');
+      final headers = {
+        ..._authHeaders(username, password),
+        'Depth': '1',
+      };
+
+      final request = http.Request('PROPFIND', uri);
+      request.headers.addAll(headers);
+      final response = await request.send();
+
+      if (response.statusCode == 207) {
+        final body = await response.stream.bytesToString();
+        return _parsePropfindResponse(body);
+      } else if (response.statusCode == 404) {
+        await response.stream.drain<void>();
+        return [];
+      } else {
+        await response.stream.drain<void>();
+        return [];
+      }
+    } catch (e) {
+      debugPrint('[WebDAV] listGameBackups 错误: $e');
+      return [];
+    }
+  }
+
+  /// 上传备份文件到 WebDAV 上的游戏文件夹
+  Future<bool> uploadGameBackup({
+    required String serverUrl,
+    required String username,
+    required String password,
+    required String gameFolder,
+    required String localFilePath,
+  }) async {
+    try {
+      final file = File(localFilePath);
+      if (!file.existsSync()) {
+        debugPrint('[WebDAV] 本地文件不存在: $localFilePath');
+        return false;
+      }
+
+      final sanitizedFolder = sanitizeGameTitle(gameFolder);
+      final fileName = localFilePath.split(Platform.pathSeparator).last;
+      final remotePath = '$_backupFolder/$sanitizedFolder/$fileName';
+
+      // 先创建游戏文件夹
+      await _createSubFolder(serverUrl, username, password, sanitizedFolder);
+
+      final uri = _buildUri(serverUrl, remotePath);
+      final bytes = await file.readAsBytes();
+
+      final response = await http.put(
+        uri,
+        headers: {
+          ..._authHeaders(username, password),
+          'Content-Type': 'application/octet-stream',
+        },
+        body: bytes,
+      );
+
+      if (response.statusCode == 201 || response.statusCode == 200 || response.statusCode == 204) {
+        debugPrint('[WebDAV] 游戏备份已上传: $fileName -> $sanitizedFolder');
+        return true;
+      } else {
+        debugPrint('[WebDAV] 上传失败: ${response.statusCode} ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('[WebDAV] uploadGameBackup 错误: $e');
+      return false;
+    }
+  }
+
+  /// 从 WebDAV 下载游戏备份
+  Future<bool> downloadGameBackup({
+    required String serverUrl,
+    required String username,
+    required String password,
+    required String gameFolder,
+    required String remoteFileName,
+    required String localPath,
+  }) async {
+    try {
+      final sanitizedFolder = sanitizeGameTitle(gameFolder);
+      final uri = _buildUri(serverUrl, '$_backupFolder/$sanitizedFolder/$remoteFileName');
+      final response = await http.get(
+        uri,
+        headers: _authHeaders(username, password),
+      );
+
+      if (response.statusCode == 200) {
+        final file = File(localPath);
+        final dir = file.parent;
+        if (!await dir.exists()) {
+          await dir.create(recursive: true);
+        }
+        await file.writeAsBytes(response.bodyBytes);
+        debugPrint('[WebDAV] 游戏备份已下载: $remoteFileName -> $localPath');
+        return true;
+      } else {
+        debugPrint('[WebDAV] 下载失败: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('[WebDAV] downloadGameBackup 错误: $e');
+      return false;
+    }
+  }
+
+  /// 从 WebDAV 删除游戏备份
+  Future<bool> deleteGameBackup({
+    required String serverUrl,
+    required String username,
+    required String password,
+    required String gameFolder,
+    required String remoteFileName,
+  }) async {
+    try {
+      final sanitizedFolder = sanitizeGameTitle(gameFolder);
+      final uri = _buildUri(serverUrl, '$_backupFolder/$sanitizedFolder/$remoteFileName');
+      final response = await http.delete(
+        uri,
+        headers: _authHeaders(username, password),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        debugPrint('[WebDAV] 游戏备份已删除: $remoteFileName');
+        return true;
+      } else {
+        debugPrint('[WebDAV] 删除失败: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('[WebDAV] deleteGameBackup 错误: $e');
+      return false;
+    }
+  }
+
+  /// 在 hgame_manager_backups/ 下创建子文件夹
+  Future<void> _createSubFolder(String serverUrl, String username, String password, String folderName) async {
+    try {
+      // 确保父目录存在
+      await _createFolder(serverUrl, username, password);
+
+      final uri = _buildUri(serverUrl, '$_backupFolder/$folderName');
+      final request = http.Request('MKCOL', uri);
+      request.headers.addAll(_authHeaders(username, password));
+      final response = await request.send();
+      await response.stream.drain<void>();
+    } catch (e) {
+      debugPrint('[WebDAV] _createSubFolder 错误: $e');
+    }
+  }
+
+  /// 从 PROPFIND 响应中解析文件夹名（仅目录）
+  List<String> _parseFolderNames(String xmlBody) {
+    final folders = <String>[];
+    try {
+      final document = XmlDocument.parse(xmlBody);
+      final responses = _findResponseElements(document);
+
+      for (final response in responses) {
+        final href = _findChildText(response, ['D:href', 'd:href', 'lp1:href']);
+        if (href == null) continue;
+
+        // 仅目录以 / 结尾
+        if (!href.endsWith('/')) continue;
+
+        // 提取文件夹名（倒数第二段）
+        final segments = href.split('/').where((s) => s.isNotEmpty).toList();
+        if (segments.length < 2) continue;
+
+        // 跳过根文件夹本身
+        if (segments.last == _backupFolder || segments.last.isEmpty) continue;
+
+        folders.add(segments[segments.length - 2]);
+      }
+    } catch (e) {
+      debugPrint('[WebDAV] _parseFolderNames 错误: $e');
+    }
+    return folders;
+  }
+
+  /// 模糊匹配游戏标题与云端文件夹名
+  /// 返回最佳匹配的文件夹名，无匹配返回 null
+  static String? fuzzyMatchGameFolder(String gameTitle, List<String> cloudFolders) {
+    if (cloudFolders.isEmpty || gameTitle.isEmpty) return null;
+
+    final normalizedTitle = gameTitle.toLowerCase().trim();
+    String? bestMatch;
+    double bestScore = 0;
+
+    for (final folder in cloudFolders) {
+      final normalizedFolder = folder.toLowerCase().trim();
+      double score = 0;
+
+      // 完全匹配
+      if (normalizedTitle == normalizedFolder) {
+        return folder;
+      }
+
+      // 标题包含文件夹名 或 文件夹名包含标题
+      if (normalizedTitle.contains(normalizedFolder)) {
+        score = 0.8 + (normalizedFolder.length / normalizedTitle.length) * 0.2;
+      } else if (normalizedFolder.contains(normalizedTitle)) {
+        score = 0.7 + (normalizedTitle.length / normalizedFolder.length) * 0.3;
+      } else {
+        // 基于词元的匹配
+        final titleTokens = normalizedTitle.split(RegExp(r'[\s_\-]+'));
+        final folderTokens = normalizedFolder.split(RegExp(r'[\s_\-]+'));
+        int matchCount = 0;
+        for (final token in titleTokens) {
+          if (token.length < 2) continue;
+          for (final fToken in folderTokens) {
+            if (fToken.contains(token) || token.contains(fToken)) {
+              matchCount++;
+              break;
+            }
+          }
+        }
+        final totalTokens = titleTokens.where((t) => t.length >= 2).length;
+        if (totalTokens > 0) {
+          score = (matchCount / totalTokens) * 0.6;
+        }
+      }
+
+      if (score > bestScore && score >= 0.5) {
+        bestScore = score;
+        bestMatch = folder;
+      }
+    }
+
+    return bestMatch;
+  }
+
   Future<String?> importBackup({
     required String serverUrl,
     required String username,
