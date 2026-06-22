@@ -92,6 +92,12 @@ class AppSettings {
       }
       
       final tempFile = File('$_filePath.tmp');
+      // 清理可能残留的旧临时文件
+      if (await tempFile.exists()) {
+        try {
+          await tempFile.delete();
+        } catch (_) {}
+      }
       await tempFile.writeAsString(jsonEncode(_data), flush: true);
       
       try {
