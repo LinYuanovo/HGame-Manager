@@ -32,7 +32,7 @@ class AppLogger {
       _initialized = true;
 
       info('AppLogger', '日志系统初始化完成: ${_logFile?.path}');
-      info('AppLogger', '应用版本: 1.3.7, 平台: ${Platform.operatingSystem}');
+      info('AppLogger', '应用版本: 1.3.8, 平台: ${Platform.operatingSystem}');
 
       // 清理过期日志
       _cleanOldLogs();

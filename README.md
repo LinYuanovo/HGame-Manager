@@ -172,20 +172,23 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 ![已玩游戏评论弹窗](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/played_comment_window.png)
 
+### 存档管理
+
+- **打开存档文件夹**：快捷打开游戏的存档文件夹
+- **打开备份文件夹**：快捷打开游戏的存档备份文件夹
+- **导入自定义存档**：导入自定义备份，如：全CG存档等
+- **备份当前存档**：将当前的存档文件夹进行备份
+- **上传至云端**：通过webdav将存档上传，并能够进行下载、恢复等操作
+
+![存档管理页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/game_save_manager_page.png)
+
+![查看云端备份](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/game_save_cloud.png)
+
 ### 设置
 
 - **忽略文件夹**：扫描和刮削分别设置
 - **系列类型管理**：自定义添加系列类型
 - **字体大小**：全局字体大小调整
-
-### v1.3.7 新功能
-
-- **存档路径模糊匹配**: 自动识别如 `AppData\Roaming\RenPy\游戏名-数字` 格式的存档路径
-- **游戏文件夹移动**: 右键菜单"移动文件夹"，支持跨盘移动，自动更新数据库路径
-- **详情页路径编辑**: 编辑模式下可修改游戏文件夹路径，自动移动文件夹
-- **自定义解析器增强**: XPath 下标自动回退，F12 复制的路径不精确时自动尝试相邻下标
-- **游戏文件夹重命名**: 设置中开启后可一键将文件夹名改为 `[ID] [类型] 标题 版本` 格式
-- **快速刮削**: 游戏详情页输入链接/ID/关键词回车即可快速刮削，支持自动识别 Steam/DLsite
 
 ## 技术栈
 
