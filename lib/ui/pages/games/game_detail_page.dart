@@ -785,14 +785,16 @@ if (_isEditing) ...[
                       await launchUrl(Uri.parse(_currentGame.sourceUrl!));
                     } catch (_) {}
                   },
-                  icon: const Icon(Icons.open_in_new, size: 14),
-                  label: const Text('来源'),
+                  icon: const Icon(Icons.open_in_new, size: 12),
+                  label: const Text('来源', style: TextStyle(fontSize: 11)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
                     foregroundColor: AppTheme.primaryColor,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                       side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
                     ),
                   ),

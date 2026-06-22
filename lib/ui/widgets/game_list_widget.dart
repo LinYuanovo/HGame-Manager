@@ -1404,14 +1404,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     // 检查无图模式
     final noImageMode = ref.watch(noImageModeProvider);
     if (noImageMode) {
-      return Container(
-        width: width,
-        height: height,
-        color: AppTheme.backgroundColor.withValues(alpha: 0.3),
-        child: Center(
-            child: Icon(Icons.videogame_asset,
-                size: (width ?? 70) * 0.5,
-                color: AppTheme.textSecondary.withValues(alpha: 0.25))),
+      return SizedBox.expand(
+        child: Container(
+          color: AppTheme.backgroundColor.withValues(alpha: 0.3),
+          child: Center(
+              child: Icon(Icons.videogame_asset,
+                  size: 48,
+                  color: AppTheme.textSecondary.withValues(alpha: 0.25))),
+        ),
       );
     }
 
