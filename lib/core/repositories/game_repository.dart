@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../database/database_helper.dart';
 import '../models/models.dart';
@@ -41,12 +42,140 @@ class GameRepository {
       imagesByGameId[gameId]!.add(GameImage.fromMap(map));
     }
 
-    return games.map((game) {
+    return Future.wait(games.map((game) async {
+      var images = imagesByGameId[game.id!] ?? [];
+      final gameDir = Directory(game.path);
+      final gamePathExists = await gameDir.exists();
+      
+      // 如果游戏路径不存在且在 Cleared 目录下，尝试从 Backup 目录加载
+      if (!gamePathExists && game.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}')) {
+        // 尝试在 Backup 目录中模糊匹配
+        final backupPath = await _findBackupPath(game.path, game.title);
+        if (backupPath != null) {
+          images = await _loadImagesFromBackupDir(backupPath);
+        }
+      }
+      // 对于路径中直接包含 Backup 的游戏
+      else if (game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}') || game.path.contains('/Backup/')) {
+        // 检查数据库中的图片是否存在
+        bool hasValidImages = false;
+        if (images.isNotEmpty) {
+          for (final img in images) {
+            if (await File(img.imagePath).exists()) {
+              hasValidImages = true;
+              break;
+            }
+          }
+        }
+        // 如果没有有效图片，从备份目录加载
+        if (!hasValidImages) {
+          images = await _loadImagesFromBackupDir(game.path);
+        }
+      }
+      
       return game.copyWith(
         tags: tagsByGameId[game.id!] ?? [],
-        images: imagesByGameId[game.id!] ?? [],
+        images: images,
       );
-    }).toList();
+    }));
+  }
+
+  Future<String?> _findBackupPath(String gamePath, String? gameTitle) async {
+    if (gameTitle == null || gameTitle.isEmpty) return null;
+    
+    final sep = Platform.pathSeparator;
+    
+    // 查找 Cleared 目录的位置
+    final clearedIndex = gamePath.indexOf('${sep}Cleared$sep');
+    if (clearedIndex == -1) return null;
+    
+    // 构建 Backup 目录路径
+    final basePath = gamePath.substring(0, clearedIndex);
+    final backupDir = Directory('$basePath${sep}Cleared${sep}Backup');
+    
+    if (!await backupDir.exists()) return null;
+    
+    // 清理游戏title中的特殊字符
+    final sanitizedTitle = gameTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+    final titleLower = sanitizedTitle.toLowerCase();
+    
+    // 遍历 Backup 目录中的所有文件夹
+    String? bestMatch;
+    int bestScore = 0;
+    
+    await for (final entity in backupDir.list()) {
+      if (entity is Directory) {
+        final folderName = path.basename(entity.path);
+        final folderLower = folderName.toLowerCase();
+        
+        // 精确匹配
+        if (folderLower == titleLower) {
+          return entity.path;
+        }
+        
+        // 计算匹配分数
+        int score = 0;
+        // 检查文件夹名是否包含title
+        if (folderLower.contains(titleLower)) {
+          score = 100;
+        }
+        // 检查title是否包含文件夹名
+        else if (titleLower.contains(folderLower)) {
+          score = 80;
+        }
+        // 检查是否有共同的子串
+        else {
+          final commonLength = _commonSubstringLength(folderLower, titleLower);
+          if (commonLength > 3) {
+            score = commonLength;
+          }
+        }
+        
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = entity.path;
+        }
+      }
+    }
+    
+    return bestMatch;
+  }
+  
+  int _commonSubstringLength(String s1, String s2) {
+    int maxLen = 0;
+    for (int i = 0; i < s1.length; i++) {
+      for (int j = 0; j < s2.length; j++) {
+        int len = 0;
+        while (i + len < s1.length && j + len < s2.length && s1[i + len] == s2[j + len]) {
+          len++;
+        }
+        if (len > maxLen) {
+          maxLen = len;
+        }
+      }
+    }
+    return maxLen;
+  }
+
+  Future<List<GameImage>> _loadImagesFromBackupDir(String gamePath) async {
+    final imageDir = Directory('$gamePath${Platform.pathSeparator}images');
+    final List<GameImage> images = [];
+    if (await imageDir.exists()) {
+      final List<String> imagePaths = [];
+      await for (final entity in imageDir.list()) {
+        if (entity is File) {
+          final ext = path.extension(entity.path).toLowerCase();
+          if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext)) {
+            imagePaths.add(entity.path);
+          }
+        }
+      }
+      imagePaths.sort();
+      for (int i = 0; i < imagePaths.length; i++) {
+        images.add(GameImage(gameId: 0, imagePath: imagePaths[i], sortOrder: i));
+      }
+    }
+    return images;
   }
 
   Future<List<Game>> getAllGames() async {

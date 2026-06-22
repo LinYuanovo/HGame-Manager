@@ -28,6 +28,7 @@ class GameListWidget extends ConsumerStatefulWidget {
   final bool showRefreshButton;
   final ContextMenuMode contextMenuMode;
   final bool isClearedPage;
+  final bool showPlayTimeSort;
   final void Function(List<Game> selectedGames)? onSelectionChanged;
   final VoidCallback? onScanSavePaths;
   final String scanProgress;
@@ -45,6 +46,7 @@ class GameListWidget extends ConsumerStatefulWidget {
     this.showRefreshButton = false,
     this.contextMenuMode = ContextMenuMode.games,
     this.isClearedPage = false,
+    this.showPlayTimeSort = false,
     this.onSelectionChanged,
     this.onScanSavePaths,
     this.scanProgress = '',
@@ -600,8 +602,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       SortMode.titleAsc,
       SortMode.addedTimeDesc,
     ];
-    // 在已玩/通关页面添加游玩时间排序
-    if (widget.contextMenuMode == ContextMenuMode.played || widget.isClearedPage) {
+    // 在已玩/通关页面或指定显示游玩时间排序时添加
+    if (widget.contextMenuMode == ContextMenuMode.played || widget.isClearedPage || widget.showPlayTimeSort) {
       sortOptions.add(SortMode.lastPlayedTimeDesc);
     }
     final sortLabels = {
