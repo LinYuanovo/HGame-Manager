@@ -16,6 +16,7 @@ class AppSettings {
   static const String autoRenameFoldersKey = 'auto_rename_folders';
   static const String contextMenuGamesKey = 'context_menu_games';
   static const String contextMenuPlayedKey = 'context_menu_played';
+  static const String noImageModeKey = 'no_image_mode';
 
   Map<String, dynamic> _data = {};
   final String _filePath;
