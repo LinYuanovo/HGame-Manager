@@ -227,6 +227,18 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           if (a.addedTime == null) return 1;
           if (b.addedTime == null) return -1;
           return a.addedTime!.compareTo(b.addedTime!);
+        case SortMode.lastPlayedTimeDesc:
+          // 最近游玩的排在前面，null值排到最后
+          if (a.lastPlayedTime == null && b.lastPlayedTime == null) return 0;
+          if (a.lastPlayedTime == null) return 1;
+          if (b.lastPlayedTime == null) return -1;
+          return b.lastPlayedTime!.compareTo(a.lastPlayedTime!);
+        case SortMode.lastPlayedTimeAsc:
+          // 最早游玩的排在前面，null值排到最后
+          if (a.lastPlayedTime == null && b.lastPlayedTime == null) return 0;
+          if (a.lastPlayedTime == null) return 1;
+          if (b.lastPlayedTime == null) return -1;
+          return a.lastPlayedTime!.compareTo(b.lastPlayedTime!);
       }
     });
     return sorted;
@@ -584,9 +596,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       SortMode.titleAsc,
       SortMode.addedTimeDesc,
     ];
+    // 在已玩/通关页面添加游玩时间排序
+    if (widget.contextMenuMode == ContextMenuMode.played || widget.isClearedPage) {
+      sortOptions.add(SortMode.lastPlayedTimeDesc);
+    }
     final sortLabels = {
       'titleAsc': '标题',
       'addedTimeDesc': '添加时间',
+      'lastPlayedTime': '游玩时间',
     };
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -668,6 +685,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       case SortMode.addedTimeDesc:
       case SortMode.addedTimeAsc:
         return '添加时间';
+      case SortMode.lastPlayedTimeDesc:
+      case SortMode.lastPlayedTimeAsc:
+        return '游玩时间';
     }
   }
 
