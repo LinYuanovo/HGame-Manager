@@ -319,9 +319,9 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
   // --- 操作方法 ---
 
   /// 修改存档路径
-  void _editSavePath() {
+  Future<void> _editSavePath() async {
     final controller = TextEditingController(text: _savePath ?? '');
-    showGlassDialog(
+    await showGlassDialog(
       context: context,
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -361,6 +361,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
         ),
       ),
     );
+    controller.dispose();
   }
 
   /// 打开存档文件夹
@@ -604,6 +605,8 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
         ),
       ),
     );
+
+    controller.dispose();
 
     if (newName != null && newName.isNotEmpty && newName != backup.name) {
       final service = ref.read(backupServiceProvider);
