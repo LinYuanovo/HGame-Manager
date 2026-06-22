@@ -48,6 +48,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   List<Map<String, String>> _xpathConfigs = [];
   bool _autoRenameFolders = false;
   bool _isRenamingFolders = false;
+  bool _noImageMode = false;
 
   @override
   void initState() {
@@ -88,6 +89,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _detailFontSize = detailFontSize;
 
     _autoRenameFolders = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
+    _noImageMode = prefs.getBool(AppSettings.noImageModeKey) ?? false;
 
     _loadXpathConfigs();
   }
@@ -159,6 +161,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           _buildCookieSection(),
           const SizedBox(height: 24),
           _buildXpathSection(),
+          const SizedBox(height: 24),
+          _buildNoImageModeSection(),
           const SizedBox(height: 24),
           _buildFontSection(),
           const SizedBox(height: 24),
@@ -1062,6 +1066,42 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _saveXpathConfigs();
   }
 
+  Widget _buildNoImageModeSection() {
+    return _buildSection(
+      title: '无图模式',
+      icon: Icons.image_not_supported_outlined,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('开启无图模式', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.textPrimary)),
+                  const SizedBox(height: 4),
+                  Text(
+                    '开启后，游戏列表中的海报图片将不再显示，但详情页仍可正常查看图片',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.7)),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: _noImageMode,
+              onChanged: (value) async {
+                setState(() => _noImageMode = value);
+                final prefs = ref.read(sharedPreferencesProvider);
+                await prefs.setBool(AppSettings.noImageModeKey, value);
+                ref.read(noImageModeProvider.notifier).state = value;
+              },
+              activeColor: AppTheme.primaryColor,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildFontSection() {
     return _buildSection(
       title: '字体设置',
@@ -1396,6 +1436,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     await prefs.setString('font_family', _selectedFont);
     await prefs.setDouble('font_size', _fontSize);
     await prefs.setDouble('detail_font_size', _detailFontSize);
+    await prefs.setBool(AppSettings.noImageModeKey, _noImageMode);
 
     if (!mounted) return;
 
