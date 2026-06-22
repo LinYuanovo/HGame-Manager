@@ -144,11 +144,21 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                         columns: const [
                           DataColumn(label: Text('名称')),
                           DataColumn(label: Text('大小'), numeric: true),
-                          DataColumn(label: Text('操作'), numeric: true),
+                          DataColumn(label: Text('操作'), numeric: false),
                         ],
                         rows: _files.where((f) => f.sizeBytes > 0).map((f) {
                           return DataRow(cells: [
-                            DataCell(Text(f.name, overflow: TextOverflow.ellipsis)),
+                            DataCell(
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 350),
+                                child: Text(
+                                  f.name,
+                                  softWrap: true,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
                             DataCell(Text(f.sizeFormatted)),
                             DataCell(
                               Row(

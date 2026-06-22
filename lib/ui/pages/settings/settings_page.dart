@@ -1830,11 +1830,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       DataColumn(label: Text('文件名')),
                       DataColumn(label: Text('大小')),
                       DataColumn(label: Text('备份日期')),
-                      DataColumn(label: Text('操作')),
+                      DataColumn(label: Text('操作'), numeric: false),
                     ],
-                    rows: files.map((f) {
+                    rows: files.where((f) => f.sizeBytes > 0).map((f) {
                       return DataRow(cells: [
-                        DataCell(Text(f.name, overflow: TextOverflow.ellipsis)),
+                        DataCell(
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 280),
+                            child: Text(
+                              f.name,
+                              softWrap: true,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
                         DataCell(Text(f.sizeFormatted)),
                         DataCell(Text(f.modifiedDate != null
                             ? '${f.modifiedDate!.year}-${f.modifiedDate!.month.toString().padLeft(2, '0')}-${f.modifiedDate!.day.toString().padLeft(2, '0')} ${f.modifiedDate!.hour.toString().padLeft(2, '0')}:${f.modifiedDate!.minute.toString().padLeft(2, '0')}'
