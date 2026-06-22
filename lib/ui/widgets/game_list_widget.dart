@@ -1098,9 +1098,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.emoji_events, size: 14, color: Colors.white),
+                              Icon(Icons.emoji_events, size: 16, color: Colors.white),
                               SizedBox(width: 2),
-                              Text('通关', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
+                              Text('通关', style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ),
@@ -1307,7 +1307,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                             children: [
                               Icon(Icons.emoji_events, size: 16, color: Colors.white),
                               SizedBox(width: 4),
-                              Text('通关', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
+                              Text('通关', style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ),
