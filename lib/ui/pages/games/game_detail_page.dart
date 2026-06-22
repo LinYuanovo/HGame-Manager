@@ -773,7 +773,32 @@ if (_isEditing) ...[
             ),
           ] else if (_currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty) ...[
             const SizedBox(height: 10),
-            _InfoRow(icon: Icons.link, label: '来源', value: _currentGame.sourceUrl!, isLink: true),
+            Row(
+              children: [
+                const Icon(Icons.link, size: 15, color: AppTheme.textPrimary),
+                const SizedBox(width: 8),
+                const Text('来源:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+                const SizedBox(width: 6),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    try {
+                      await launchUrl(Uri.parse(_currentGame.sourceUrl!));
+                    } catch (_) {}
+                  },
+                  icon: const Icon(Icons.open_in_new, size: 14),
+                  label: const Text('来源'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    foregroundColor: AppTheme.primaryColor,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
           if (_isEditing) ...[
             const SizedBox(height: 12),
