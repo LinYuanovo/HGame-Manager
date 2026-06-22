@@ -116,7 +116,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
           ],
         ),
         content: SizedBox(
-          width: 520,
+          width: 700,
           child: _isLoading
               ? const Padding(
                   padding: EdgeInsets.symmetric(vertical: 32),
@@ -145,7 +145,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                         columns: const [
                           DataColumn(label: Text('名称')),
                           DataColumn(label: Text('大小'), numeric: true),
-                          DataColumn(label: Text('操作'), numeric: false),
+                          DataColumn(label: Text('操作'), numeric: true),
                         ],
                         rows: _files.where((f) => f.sizeBytes > 0).map((f) {
                           return DataRow(cells: [
