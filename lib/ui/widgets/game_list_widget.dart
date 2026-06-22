@@ -1401,6 +1401,20 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   Widget _buildGameCover(Game game,
       {double? width, double? height, BoxFit fit = BoxFit.cover}) {
+    // 检查无图模式
+    final noImageMode = ref.watch(noImageModeProvider);
+    if (noImageMode) {
+      return Container(
+        width: width,
+        height: height,
+        color: AppTheme.backgroundColor.withValues(alpha: 0.3),
+        child: Center(
+            child: Icon(Icons.videogame_asset,
+                size: (width ?? 70) * 0.5,
+                color: AppTheme.textSecondary.withValues(alpha: 0.25))),
+      );
+    }
+
     final coverIndex = game.coverIndex
         .clamp(0, game.images.length > 0 ? game.images.length - 1 : 0);
     final coverPath =
