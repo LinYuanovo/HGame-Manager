@@ -11,6 +11,7 @@ import '../services/game_scanner_service.dart';
 import '../services/game_count_service.dart';
 import '../services/save_path_service.dart';
 import '../services/webdav_service.dart';
+import '../services/backup_service.dart';
 import '../services/game_move_service.dart';
 import '../services/folder_rename_service.dart';
 import '../services/dlsite_service.dart';
@@ -61,6 +62,11 @@ final gameCountServiceProvider = Provider<GameCountService>((ref) {
 
 final webdavServiceProvider = Provider<WebdavService>((ref) {
   return WebdavService();
+});
+
+/// 存档备份服务 Provider
+final backupServiceProvider = Provider<BackupService>((ref) {
+  return BackupService();
 });
 
 final gameMoveServiceProvider = Provider<GameMoveService>((ref) {
