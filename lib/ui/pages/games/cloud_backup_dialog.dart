@@ -79,119 +79,127 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      autofocus: true,
-      onKey: (node, event) {
-        if (event is RawKeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
-          Navigator.of(context).pop();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
+    return Shortcuts(
+      shortcuts: {
+        LogicalKeySet(LogicalKeyboardKey.escape): const _DismissDialogIntent(),
       },
-      child: AlertDialog(
-        backgroundColor: AppTheme.surfaceColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusLarge)),
-        title: Row(
-          children: [
-            const Icon(Icons.cloud_queue, color: AppTheme.primaryColor, size: 22),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '云端备份 - ${widget.game.title ?? "未知游戏"}',
-                style: const TextStyle(color: AppTheme.textPrimary, fontSize: 16),
-                overflow: TextOverflow.ellipsis,
-              ),
+      child: Actions(
+        actions: {
+          _DismissDialogIntent: CallbackAction<_DismissDialogIntent>(
+            onInvoke: (_) {
+              Navigator.of(context).pop();
+              return null;
+            },
+          ),
+        },
+        child: Focus(
+          autofocus: true,
+          child: AlertDialog(
+            backgroundColor: AppTheme.surfaceColor,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusLarge)),
+            title: Row(
+              children: [
+                const Icon(Icons.cloud_queue, color: AppTheme.primaryColor, size: 22),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '云端备份 - ${widget.game.title ?? "未知游戏"}',
+                    style: const TextStyle(color: AppTheme.textPrimary, fontSize: 16),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 20),
+                  color: AppTheme.textSecondary,
+                  onPressed: _loadCloudBackups,
+                  tooltip: '刷新',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  color: AppTheme.textSecondary,
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
             ),
-            IconButton(
-              icon: const Icon(Icons.refresh, size: 20),
-              color: AppTheme.textSecondary,
-              onPressed: _loadCloudBackups,
-              tooltip: '刷新',
-            ),
-            IconButton(
-              icon: const Icon(Icons.close, size: 20),
-              color: AppTheme.textSecondary,
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: 700,
-          child: _isLoading
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 32),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              : _files.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 32),
-                      child: Center(
-                        child: Text(
-                          _matchedFolder == null ? '未找到匹配的云端备份文件夹' : '暂无云端备份',
-                          style: const TextStyle(color: AppTheme.textSecondary),
-                        ),
-                      ),
+            content: SizedBox(
+              width: 700,
+              child: _isLoading
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(child: CircularProgressIndicator()),
                     )
-                  : SingleChildScrollView(
-                      child: DataTable(
-                        columnSpacing: 32,
-                        horizontalMargin: 12,
-                        headingTextStyle: const TextStyle(
-                          color: AppTheme.textPrimary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                        dataTextStyle: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
-                        columns: const [
-                          DataColumn(label: Text('名称')),
-                          DataColumn(label: Text('大小'), numeric: true),
-                          DataColumn(label: Text('操作'), numeric: true),
-                        ],
-                        rows: _files.where((f) => f.sizeBytes > 0).map((f) {
-                          return DataRow(cells: [
-                            DataCell(
-                              ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 350),
-                                child: Text(
-                                  f.name,
-                                  softWrap: true,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
+                  : _files.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 32),
+                          child: Center(
+                            child: Text(
+                              _matchedFolder == null ? '未找到匹配的云端备份文件夹' : '暂无云端备份',
+                              style: const TextStyle(color: AppTheme.textSecondary),
+                            ),
+                          ),
+                        )
+                      : SingleChildScrollView(
+                          child: DataTable(
+                            columnSpacing: 32,
+                            horizontalMargin: 12,
+                            headingTextStyle: const TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                            dataTextStyle: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                            columns: const [
+                              DataColumn(label: Text('名称')),
+                              DataColumn(label: Text('大小'), numeric: true),
+                              DataColumn(label: Text('操作'), numeric: true),
+                            ],
+                            rows: _files.where((f) => f.sizeBytes > 0).map((f) {
+                              return DataRow(cells: [
+                                DataCell(
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(maxWidth: 350),
+                                    child: Text(
+                                      f.name,
+                                      softWrap: true,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                            DataCell(Text(f.sizeFormatted)),
-                            DataCell(
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _MiniIconButton(
-                                    icon: Icons.download,
-                                    tooltip: '下载此备份',
-                                    color: AppTheme.primaryColor,
-                                    onTap: () => _downloadBackup(f),
+                                DataCell(Text(f.sizeFormatted)),
+                                DataCell(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _MiniIconButton(
+                                        icon: Icons.download,
+                                        tooltip: '下载此备份',
+                                        color: AppTheme.primaryColor,
+                                        onTap: () => _downloadBackup(f),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      _MiniIconButton(
+                                        icon: Icons.restore,
+                                        tooltip: '恢复到此备份',
+                                        color: AppTheme.successColor,
+                                        onTap: () => _restoreFromCloud(f),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      _MiniIconButton(
+                                        icon: Icons.delete_outline,
+                                        tooltip: '删除',
+                                        color: AppTheme.errorColor,
+                                        onTap: () => _deleteCloudBackup(f),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 4),
-                                  _MiniIconButton(
-                                    icon: Icons.restore,
-                                    tooltip: '恢复到此备份',
-                                    color: AppTheme.successColor,
-                                    onTap: () => _restoreFromCloud(f),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  _MiniIconButton(
-                                    icon: Icons.delete_outline,
-                                    tooltip: '删除',
-                                    color: AppTheme.errorColor,
-                                    onTap: () => _deleteCloudBackup(f),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ]);
-                        }).toList(),
-                      ),
-                    ),
+                                ),
+                              ]);
+                            }).toList(),
+                          ),
+                        ),
+            ),
+          ),
         ),
       ),
     );
@@ -368,4 +376,8 @@ class _MiniIconButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DismissDialogIntent extends Intent {
+  const _DismissDialogIntent();
 }

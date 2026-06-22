@@ -1358,50 +1358,62 @@ Future<T?> showGlassDialog<T>({
     builder: (context) => Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      child: Focus(
-        autofocus: true,
-        onKeyEvent: (node, event) {
-          if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
-            Navigator.of(context).pop();
-            return KeyEventResult.handled;
-          }
-          return KeyEventResult.ignored;
+      child: Shortcuts(
+        shortcuts: {
+          LogicalKeySet(LogicalKeyboardKey.escape): const _DismissDialogIntent(),
         },
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(
-              sigmaX: GlassConstants.blurLarge,
-              sigmaY: GlassConstants.blurLarge,
+        child: Actions(
+          actions: {
+            _DismissDialogIntent: CallbackAction<_DismissDialogIntent>(
+              onInvoke: (_) {
+                Navigator.of(context).pop();
+                return null;
+              },
             ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.88),
-                borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.5),
+          },
+          child: Focus(
+            autofocus: true,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: GlassConstants.blurLarge,
+                  sigmaY: GlassConstants.blurLarge,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 30,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 8),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.88),
+                    borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.5),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 30,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 8),
+                      ),
+                      BoxShadow(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.05),
+                        blurRadius: 50,
+                        offset: const Offset(0, 16),
+                      ),
+                    ],
                   ),
-                  BoxShadow(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.05),
-                    blurRadius: 50,
-                    offset: const Offset(0, 16),
-                  ),
-                ],
+                  child: child,
+                ),
               ),
-              child: child,
             ),
           ),
         ),
       ),
     ),
   );
+}
+
+class _DismissDialogIntent extends Intent {
+  const _DismissDialogIntent();
 }
 
 // ===== 空状态占位组件 =====

@@ -71,38 +71,46 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-      child: Focus(
-        autofocus: true,
-        onKey: (node, event) {
-          if (event is RawKeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
-            Navigator.of(context).pop();
-            return KeyEventResult.handled;
-          }
-          return KeyEventResult.ignored;
+      child: Shortcuts(
+        shortcuts: {
+          LogicalKeySet(LogicalKeyboardKey.escape): const _DismissDialogIntent(),
         },
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 950, maxHeight: 700),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(GlassConstants.radiusXLarge),
-              border: Border.all(color: AppTheme.borderColor),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  blurRadius: 30,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+        child: Actions(
+          actions: {
+            _DismissDialogIntent: CallbackAction<_DismissDialogIntent>(
+              onInvoke: (_) {
+                Navigator.of(context).pop();
+                return null;
+              },
             ),
-            child: Column(
-              children: [
-                _buildHeader(),
-                _buildSavePathSection(),
-                _buildActionButtons(),
-                const Divider(height: 1),
-                Expanded(child: _buildBackupList()),
-              ],
+          },
+          child: Focus(
+            autofocus: true,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 950, maxHeight: 700),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceColor,
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusXLarge),
+                  border: Border.all(color: AppTheme.borderColor),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 30,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    _buildHeader(),
+                    _buildSavePathSection(),
+                    _buildActionButtons(),
+                    const Divider(height: 1),
+                    Expanded(child: _buildBackupList()),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -906,4 +914,8 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
       }
     }
   }
+}
+
+class _DismissDialogIntent extends Intent {
+  const _DismissDialogIntent();
 }
