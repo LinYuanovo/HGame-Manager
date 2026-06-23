@@ -40,7 +40,8 @@ lib/
 │   │   ├── game_count_service.dart # 游戏计数服务
 │   │   ├── game_scanner_service.dart # 游戏扫描服务
 │   │   ├── webdav_service.dart  # WebDAV 同步服务
-│   │   └── steam_service.dart    # Steam API 服务
+│   │   ├── steam_service.dart    # Steam API 服务
+│   │   └── fan2d_service.dart   # 2DFan 搜索和下载服务
 │   └── utils/                   # 工具类
 │       ├── app_paths.dart       # 应用路径管理
 │       ├── app_settings.dart    # 配置文件管理
@@ -307,6 +308,12 @@ enum NavRoute {
 - 自动检测并导入"存档"文件夹
 - 备份重命名和批量删除
 
+### Fan2dService
+- 2DFan 论坛存档搜索和下载
+- 域名自动检测（访问 /domain 页面获取可用域名列表）
+- RAR 解压（调用系统 WinRAR）并重打包为 ZIP
+- 临时文件自动清理
+
 ### WebdavService (扩展)
 - 游戏级 WebDAV 备份文件夹管理
 - 模糊匹配云端游戏文件夹（双向近似匹配+置信度）
@@ -398,7 +405,9 @@ class GlassConstants {
 - `sort_mode` - 排序模式
 - `page_size` - 分页大小
 - `sorted_path` - 整理目录路径
-- `library_path` - 游戏库路径
+- `library_path` - 游戏库路径（JSON 数组格式，支持多目录）
+- `sorted_paths` - 各游戏库对应的整理目录（JSON 对象格式，键为库路径，值为整理路径）
+- `domain_2dfan` - 2DFan 自定义域名
 - `fixed_column_count` - 海报视图是否固定列数 (bool)
 - `column_count` - 海报视图每行列数 (int, 2-8, 默认3)
 - `game_list_view_mode` - 游戏列表视图模式 ('poster' | 'list')
