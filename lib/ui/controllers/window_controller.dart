@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 import '../../core/utils/app_settings.dart';
 import '../../core/database/database_helper.dart';
@@ -74,7 +73,10 @@ class WindowController extends ChangeNotifier with WindowListener {
       final size = _lastNormalSize ?? Size(defaultWindowWidth, defaultWindowHeight);
       final position = _lastNormalPosition ?? Offset.zero;
 
-      // 同步保存设置（使用 flush 确保立即写入）
+      // 先禁用 preventClose，允许窗口关闭
+      await windowManager.setPreventClose(false);
+
+      // 同步保存设置
       _prefs.setValues({
         'window_maximized': isMax,
         'window_width': size.width,
@@ -86,8 +88,8 @@ class WindowController extends ChangeNotifier with WindowListener {
       // 关闭数据库
       await DatabaseHelper.close();
 
-      // 使用原生方式退出应用，兼容 Windows 7
-      await SystemNavigator.pop();
+      // 销毁窗口
+      await windowManager.destroy();
     } catch (e) {
       debugPrint('Error during close: $e');
       // 强制退出
