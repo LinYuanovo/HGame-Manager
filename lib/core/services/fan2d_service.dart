@@ -42,14 +42,11 @@ class Fan2dService {
         final domains = <String>[];
         for (final item in items) {
           final text = item.text;
-          if (text.contains('即将废弃')) continue;
-          final links = item.querySelectorAll('a');
-          for (final link in links) {
-            final href = link.attributes['href'] ?? '';
-            final match = RegExp(r'https?://([^/]+)/').firstMatch(href);
-            if (match != null) {
-              domains.add(match.group(1)!);
-            }
+          // 只匹配包含"新增"或"中转"的域名，跳过"即将废弃"
+          if (!text.contains('新增') && !text.contains('中转')) continue;
+          final match = RegExp(r'https?://([^/\s]+)').firstMatch(text);
+          if (match != null) {
+            domains.add(match.group(1)!);
           }
         }
 
@@ -67,23 +64,23 @@ class Fan2dService {
           } catch (_) {}
         }
       }
+
+      // 回退尝试 2dfan.com
+      try {
+        final fallbackHeaders = await buildScrapeHeaders('https://$_fallbackDomain/');
+        final testResponse = await client.get(
+          Uri.parse('https://$_fallbackDomain/'),
+          headers: fallbackHeaders,
+        ).timeout(const Duration(seconds: 15));
+        if (testResponse.statusCode == 200) {
+          if (kDebugMode) debugPrint('[Fan2d] 使用回退域名: $_fallbackDomain');
+          await prefs.setString('domain_2dfan', _fallbackDomain);
+          return _fallbackDomain;
+        }
+      } catch (_) {}
     } finally {
       client.close();
     }
-
-    // 回退尝试 2dfan.com
-    try {
-      final headers = await buildScrapeHeaders('https://$_fallbackDomain/');
-      final testResponse = await client.get(
-        Uri.parse('https://$_fallbackDomain/'),
-        headers: headers,
-      ).timeout(const Duration(seconds: 15));
-      if (testResponse.statusCode == 200) {
-        if (kDebugMode) debugPrint('[Fan2d] 使用回退域名: $_fallbackDomain');
-        await prefs.setString('domain_2dfan', _fallbackDomain);
-        return _fallbackDomain;
-      }
-    } catch (_) {}
 
     throw Exception('无法连接到 2DFan');
   }
