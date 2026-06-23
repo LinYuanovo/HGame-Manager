@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 import '../../core/utils/app_settings.dart';
 import '../../core/database/database_helper.dart';
@@ -8,6 +10,7 @@ class WindowController extends ChangeNotifier with WindowListener {
   bool _isMaximized = false;
   Size? _lastNormalSize;
   Offset? _lastNormalPosition;
+  bool _isClosing = false;
 
   static const double defaultWindowWidth = 1400;
   static const double defaultWindowHeight = 900;
@@ -63,33 +66,32 @@ class WindowController extends ChangeNotifier with WindowListener {
   }
 
   Future<void> close() async {
+    if (_isClosing) return;
+    _isClosing = true;
+
     try {
       final isMax = _isMaximized;
       final size = _lastNormalSize ?? Size(defaultWindowWidth, defaultWindowHeight);
       final position = _lastNormalPosition ?? Offset.zero;
 
-      // 立即销毁窗口，避免阻塞窗口系统
-      await windowManager.destroy();
-
-      // 窗口销毁后异步保存设置（不阻塞关闭流程）
+      // 同步保存设置（使用 flush 确保立即写入）
       _prefs.setValues({
         'window_maximized': isMax,
         'window_width': size.width,
         'window_height': size.height,
         'window_x': position.dx,
         'window_y': position.dy,
-      }).timeout(
-        const Duration(seconds: 3),
-        onTimeout: () => debugPrint('Settings save timed out'),
-      ).catchError((e) => debugPrint('Settings save error: $e'));
+      });
 
-      // 异步关闭数据库（不阻塞关闭流程）
-      DatabaseHelper.close().timeout(
-        const Duration(seconds: 3),
-        onTimeout: () => debugPrint('Database close timed out'),
-      ).catchError((e) => debugPrint('Database close error: $e'));
+      // 关闭数据库
+      await DatabaseHelper.close();
+
+      // 使用原生方式退出应用，兼容 Windows 7
+      await SystemNavigator.pop();
     } catch (e) {
       debugPrint('Error during close: $e');
+      // 强制退出
+      exit(0);
     }
   }
 
