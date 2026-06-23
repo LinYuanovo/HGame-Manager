@@ -37,13 +37,24 @@ class Fan2dService {
       ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        // 正则匹配：从 <li> 行中提取包含"新增"或"中转"的域名
+        final body = response.body;
+        // 纯正则匹配：从 <li> 行中提取包含"新增"或"中转"的域名
         final pattern = RegExp(r'<li>\s*(https?://[^\s<&]+)/?\s*(?:&nbsp;)?\s*(?:<span[^>]*>)?\s*(新增|中转)', caseSensitive: false);
         final domains = <String>[];
-        for (final m in pattern.allMatches(response.body)) {
-          final url = m.group(1)!;
+        final allMatches = pattern.allMatches(body).toList();
+        if (kDebugMode) debugPrint('[Fan2d] 正则匹配到 ${allMatches.length} 个结果');
+        for (final m in allMatches) {
+          final fullMatch = m.group(0) ?? '';
+          final url = m.group(1) ?? '';
+          final tag = m.group(2) ?? '';
           final domain = url.replaceFirst(RegExp(r'^https?://'), '').replaceFirst(RegExp(r'/$'), '');
-          if (kDebugMode) debugPrint('[Fan2d] 候选域名: $domain');
+          if (kDebugMode) {
+            debugPrint('[Fan2d] fullMatch: "${fullMatch.length > 100 ? fullMatch.substring(0, 100) : fullMatch}"');
+            debugPrint('[Fan2d] url="$url" tag="$tag" -> domain="$domain"');
+            final start = (m.start - 80).clamp(0, body.length);
+            final end = (m.end + 80).clamp(0, body.length);
+            debugPrint('[Fan2d] context: "${body.substring(start, end)}"');
+          }
           domains.add(domain);
         }
 
