@@ -1,15 +1,12 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import '../../core/utils/app_settings.dart';
-import '../../core/database/database_helper.dart';
 
 class WindowController extends ChangeNotifier with WindowListener {
   final AppSettings _prefs;
   bool _isMaximized = false;
   Size? _lastNormalSize;
   Offset? _lastNormalPosition;
-  bool _isClosing = false;
 
   static const double defaultWindowWidth = 1400;
   static const double defaultWindowHeight = 900;
@@ -20,7 +17,7 @@ class WindowController extends ChangeNotifier with WindowListener {
 
   Future<void> initialize() async {
     await windowManager.ensureInitialized();
-    await windowManager.setPreventClose(true);
+    // 不阻止关闭，让原生层处理
     windowManager.addListener(this);
 
     var width = _prefs.getDouble('window_width') ?? defaultWindowWidth;
@@ -29,13 +26,11 @@ class WindowController extends ChangeNotifier with WindowListener {
     var y = _prefs.getDouble('window_y');
     _isMaximized = _prefs.getBool('window_maximized') ?? false;
 
-    // 验证窗口大小有效性
     if (width < 100 || width > 10000 || height < 100 || height > 10000) {
       width = defaultWindowWidth;
       height = defaultWindowHeight;
     }
 
-    // 验证窗口位置有效性（防止超出屏幕范围）
     if (x != null && (x < -10000 || x > 10000)) {
       x = null;
     }
@@ -64,37 +59,27 @@ class WindowController extends ChangeNotifier with WindowListener {
     await windowManager.focus();
   }
 
-  Future<void> close() async {
-    if (_isClosing) return;
-    _isClosing = true;
-
+  void _saveWindowSettings() {
     try {
       final isMax = _isMaximized;
       final size = _lastNormalSize ?? Size(defaultWindowWidth, defaultWindowHeight);
       final position = _lastNormalPosition ?? Offset.zero;
 
-      // 先禁用 preventClose，允许窗口关闭
-      await windowManager.setPreventClose(false);
-
-      // 同步保存设置
-      _prefs.setValues({
+      // 同步写入，确保在窗口关闭前完成
+      _prefs.setValuesSync({
         'window_maximized': isMax,
         'window_width': size.width,
         'window_height': size.height,
         'window_x': position.dx,
         'window_y': position.dy,
       });
-
-      // 关闭数据库
-      await DatabaseHelper.close();
-
-      // 销毁窗口
-      await windowManager.destroy();
     } catch (e) {
-      debugPrint('Error during close: $e');
-      // 强制退出
-      exit(0);
+      debugPrint('Error saving settings: $e');
     }
+  }
+
+  Future<void> close() async {
+    _saveWindowSettings();
   }
 
   Future<void> toggleMaximize() async {
@@ -114,8 +99,9 @@ class WindowController extends ChangeNotifier with WindowListener {
   }
 
   @override
-  void onWindowClose() async {
-    await close();
+  void onWindowClose() {
+    _saveWindowSettings();
+    // 不调用 destroy，让原生层处理关闭
   }
 
   @override

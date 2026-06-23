@@ -208,6 +208,26 @@ class AppSettings {
     await _saveToFile();
   }
 
+  /// Synchronous version for use in window close handlers.
+  /// Uses synchronous file I/O to ensure data is written before window closes.
+  void setValuesSync(Map<String, dynamic> values) {
+    for (final entry in values.entries) {
+      _data[entry.key] = entry.value;
+    }
+    _dirty = true;
+    try {
+      final file = File(_filePath);
+      final dir = file.parent;
+      if (!dir.existsSync()) {
+        dir.createSync(recursive: true);
+      }
+      file.writeAsStringSync(jsonEncode(_data), flush: true);
+      _dirty = false;
+    } catch (e) {
+      // 忽略错误，窗口正在关闭
+    }
+  }
+
   /// Returns all keys currently stored.
   Set<String> get keys => _data.keys.toSet();
 
