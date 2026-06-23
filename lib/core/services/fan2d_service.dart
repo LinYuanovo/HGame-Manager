@@ -25,9 +25,6 @@ class Fan2dService {
   /// 检测可用的 2DFan 域名并保存
   Future<String> detectAndSaveDomain() async {
     final prefs = await AppSettings.load();
-    final customDomain = prefs.getString('domain_2dfan') ?? '';
-    if (customDomain.isNotEmpty) return customDomain;
-
     final client = await createProxyClientFromPrefs();
     try {
       final headers = await buildScrapeHeaders('https://$_defaultDomain/domain');
