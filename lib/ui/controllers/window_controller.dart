@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import '../../core/utils/app_settings.dart';
@@ -17,7 +18,7 @@ class WindowController extends ChangeNotifier with WindowListener {
 
   Future<void> initialize() async {
     await windowManager.ensureInitialized();
-    // 不阻止关闭，让原生层处理
+    await windowManager.setPreventClose(true);
     windowManager.addListener(this);
 
     var width = _prefs.getDouble('window_width') ?? defaultWindowWidth;
@@ -65,7 +66,6 @@ class WindowController extends ChangeNotifier with WindowListener {
       final size = _lastNormalSize ?? Size(defaultWindowWidth, defaultWindowHeight);
       final position = _lastNormalPosition ?? Offset.zero;
 
-      // 同步写入，确保在窗口关闭前完成
       _prefs.setValuesSync({
         'window_maximized': isMax,
         'window_width': size.width,
@@ -80,6 +80,7 @@ class WindowController extends ChangeNotifier with WindowListener {
 
   Future<void> close() async {
     _saveWindowSettings();
+    exit(0);
   }
 
   Future<void> toggleMaximize() async {
@@ -101,7 +102,7 @@ class WindowController extends ChangeNotifier with WindowListener {
   @override
   void onWindowClose() {
     _saveWindowSettings();
-    // 不调用 destroy，让原生层处理关闭
+    exit(0);
   }
 
   @override
