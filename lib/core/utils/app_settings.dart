@@ -219,6 +219,33 @@ class AppSettings {
 
   /// Reload from disk (useful after external import/restore).
   Future<void> reload() async => _loadFromFile();
+
+  /// 根据游戏路径查找对应的整理目录
+  /// 返回空字符串表示该游戏库未配置整理目录（不移动）
+  static Future<String> getSortedPathForGame(String gamePath) async {
+    final prefs = await AppSettings.load();
+    final raw = prefs.getString('sorted_paths') ?? '';
+    if (raw.isEmpty) return '';
+
+    Map<String, String> mapping;
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      mapping = decoded.map((k, v) => MapEntry(k, v?.toString() ?? ''));
+    } catch (_) {
+      return '';
+    }
+
+    final normalizedGamePath = gamePath.replaceAll('/', '\\').toLowerCase();
+    for (final entry in mapping.entries) {
+      final libPath = entry.key.replaceAll('/', '\\').toLowerCase();
+      final sortedPath = entry.value;
+      if (sortedPath.isEmpty) continue;
+      if (normalizedGamePath.startsWith(libPath)) {
+        return entry.value;
+      }
+    }
+    return '';
+  }
 }
 
 class Debouncer {
