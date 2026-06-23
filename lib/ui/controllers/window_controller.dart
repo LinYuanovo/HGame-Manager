@@ -64,20 +64,15 @@ class WindowController extends ChangeNotifier with WindowListener {
 
   Future<void> close() async {
     try {
-      final isMax = await windowManager.isMaximized();
-      Size size;
-      Offset position;
+      final isMax = _isMaximized;
+      final size = _lastNormalSize ?? Size(defaultWindowWidth, defaultWindowHeight);
+      final position = _lastNormalPosition ?? Offset.zero;
 
-      if (isMax && _lastNormalSize != null) {
-        size = _lastNormalSize!;
-        position = _lastNormalPosition ?? await windowManager.getPosition();
-      } else {
-        size = await windowManager.getSize();
-        position = await windowManager.getPosition();
-      }
+      // 立即销毁窗口，避免阻塞窗口系统
+      await windowManager.destroy();
 
-      // 批量保存设置（单次文件写入），带超时保护
-      await _prefs.setValues({
+      // 窗口销毁后异步保存设置（不阻塞关闭流程）
+      _prefs.setValues({
         'window_maximized': isMax,
         'window_width': size.width,
         'window_height': size.height,
@@ -86,18 +81,15 @@ class WindowController extends ChangeNotifier with WindowListener {
       }).timeout(
         const Duration(seconds: 3),
         onTimeout: () => debugPrint('Settings save timed out'),
-      );
+      ).catchError((e) => debugPrint('Settings save error: $e'));
 
-      // 关闭数据库，带超时保护
-      await DatabaseHelper.close().timeout(
+      // 异步关闭数据库（不阻塞关闭流程）
+      DatabaseHelper.close().timeout(
         const Duration(seconds: 3),
         onTimeout: () => debugPrint('Database close timed out'),
-      );
-
-      await windowManager.destroy();
+      ).catchError((e) => debugPrint('Database close error: $e'));
     } catch (e) {
       debugPrint('Error during close: $e');
-      await windowManager.destroy();
     }
   }
 
