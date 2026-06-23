@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../../core/models/models.dart';
 import '../../../core/models/backup_entry.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/services/fan2d_service.dart';
 import '../../theme/app_theme.dart';
 import 'cloud_backup_dialog.dart';
 
@@ -27,6 +28,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
   bool _isBatchDeleteMode = false;
   final Set<String> _selectedForDelete = {};
   bool _isEditingPath = false;
+  bool _isDownloading = false;
   late TextEditingController _pathEditController;
 
   @override
@@ -271,6 +273,8 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
               _buildActionButton(Icons.backup, '打开备份文件夹', AppTheme.secondaryColor, _openBackupFolder),
               const SizedBox(width: 10),
               _buildActionButton(Icons.add_circle_outline, '导入存档', AppTheme.warningColor, _addCustomBackup),
+              const SizedBox(width: 10),
+              _buildActionButton(Icons.cloud_download_outlined, '下载存档', AppTheme.primaryColor, _downloadFrom2dfan),
               const SizedBox(width: 10),
               _buildActionButton(Icons.save_alt, '备份当前存档', AppTheme.successColor, _backupCurrentSave),
               const SizedBox(width: 10),
@@ -628,6 +632,119 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
         ),
       );
     }
+  }
+
+  Future<void> _downloadFrom2dfan() async {
+    if (_isDownloading) return;
+    final gameTitle = widget.game.title ?? '';
+    if (gameTitle.isEmpty) {
+      AppTheme.showGlassToast(context, message: '游戏标题为空，无法搜索', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
+      return;
+    }
+
+    setState(() => _isDownloading = true);
+    try {
+      final fan2dService = ref.read(fan2dServiceProvider);
+      AppTheme.showGlassToast(context, message: '正在搜索 2DFan...', icon: Icons.search, iconColor: AppTheme.primaryColor);
+      final results = await fan2dService.search(gameTitle);
+
+      if (results.isEmpty) {
+        if (mounted) AppTheme.showGlassToast(context, message: '未找到相关存档', icon: Icons.search_off, iconColor: AppTheme.warningColor);
+        return;
+      }
+      if (!mounted) return;
+
+      final selected = await _showSearchResultsDialog(results);
+      if (selected == null) return;
+      if (!mounted) return;
+
+      AppTheme.showGlassToast(context, message: '正在下载存档...', icon: Icons.downloading, iconColor: AppTheme.primaryColor);
+      final entry = await fan2dService.downloadAndImport(
+        downloadPageUrl: selected.downloadUrl,
+        gamePath: widget.game.path,
+      );
+
+      if (mounted) {
+        if (entry != null) {
+          AppTheme.showGlassToast(context, message: '下载成功', icon: Icons.check_circle, iconColor: AppTheme.successColor);
+          _loadBackups();
+        } else {
+          AppTheme.showGlassToast(context, message: '下载失败，请检查网络或域名设置', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        }
+      }
+    } catch (e) {
+      if (mounted) AppTheme.showGlassToast(context, message: '下载异常: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+    } finally {
+      if (mounted) setState(() => _isDownloading = false);
+    }
+  }
+
+  Future<Fan2dSearchResult?> _showSearchResultsDialog(List<Fan2dSearchResult> results) async {
+    return showGlassDialog<Fan2dSearchResult>(
+      context: context,
+      child: SizedBox(
+        width: 600,
+        height: 500,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.cloud_download_outlined, color: AppTheme.primaryColor, size: 22),
+                  const SizedBox(width: 10),
+                  const Text('选择要下载的存档', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text('找到 ${results.length} 个结果，请选择：', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: results.length,
+                  itemBuilder: (context, index) {
+                    final result = results[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                          onTap: () => Navigator.pop(context, result),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.backgroundColor.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                              border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.archive_outlined, size: 18, color: AppTheme.primaryColor),
+                                const SizedBox(width: 12),
+                                Expanded(child: Text(result.title, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary), overflow: TextOverflow.ellipsis)),
+                                Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textSecondary),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消'))],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   /// 进入/退出批量删除模式
