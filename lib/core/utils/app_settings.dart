@@ -198,6 +198,16 @@ class AppSettings {
   /// Force a save to disk (called on app exit / critical moments).
   Future<void> flush() async => _saveToFile();
 
+  /// Batch update multiple key-value pairs and save once.
+  /// This avoids multiple file writes when setting several values at once.
+  Future<void> setValues(Map<String, dynamic> values) async {
+    for (final entry in values.entries) {
+      _data[entry.key] = entry.value;
+    }
+    _dirty = true;
+    await _saveToFile();
+  }
+
   /// Returns all keys currently stored.
   Set<String> get keys => _data.keys.toSet();
 

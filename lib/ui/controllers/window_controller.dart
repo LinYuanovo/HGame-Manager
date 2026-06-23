@@ -64,7 +64,6 @@ class WindowController extends ChangeNotifier with WindowListener {
 
   Future<void> close() async {
     try {
-      // 并行获取窗口状态
       final isMax = await windowManager.isMaximized();
       Size size;
       Offset position;
@@ -77,19 +76,26 @@ class WindowController extends ChangeNotifier with WindowListener {
         position = await windowManager.getPosition();
       }
 
-      // 并行保存设置和关闭数据库
-      await Future.wait([
-        _prefs.setBool('window_maximized', isMax),
-        _prefs.setDouble('window_width', size.width),
-        _prefs.setDouble('window_height', size.height),
-        _prefs.setDouble('window_x', position.dx),
-        _prefs.setDouble('window_y', position.dy),
-        DatabaseHelper.close(),
-      ]);
+      // 批量保存设置（单次文件写入），带超时保护
+      await _prefs.setValues({
+        'window_maximized': isMax,
+        'window_width': size.width,
+        'window_height': size.height,
+        'window_x': position.dx,
+        'window_y': position.dy,
+      }).timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => debugPrint('Settings save timed out'),
+      );
+
+      // 关闭数据库，带超时保护
+      await DatabaseHelper.close().timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => debugPrint('Database close timed out'),
+      );
 
       await windowManager.destroy();
     } catch (e) {
-      // 如果保存失败，仍然尝试关闭窗口
       debugPrint('Error during close: $e');
       await windowManager.destroy();
     }
