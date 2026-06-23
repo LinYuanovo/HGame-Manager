@@ -500,9 +500,20 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
     try {
       final prefs = ref.read(sharedPreferencesProvider);
-      var libraryPath = prefs.getString('library_path') ?? '';
+      final rawLib = prefs.getString('library_path') ?? '';
 
-      if (libraryPath.isEmpty) {
+      List<String> libraryPaths;
+      if (rawLib.startsWith('[')) {
+        try {
+          libraryPaths = (jsonDecode(rawLib) as List).whereType<String>().where((s) => s.isNotEmpty).toList();
+        } catch (_) {
+          libraryPaths = rawLib.isNotEmpty ? [rawLib] : [];
+        }
+      } else {
+        libraryPaths = rawLib.isNotEmpty ? [rawLib] : [];
+      }
+
+      if (libraryPaths.isEmpty) {
         _addLog('错误: 未设置游戏库路径，请先在设置中配置');
         setState(() {
           _isProcessing = false;
@@ -518,9 +529,13 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         _addLog('刮削忽略文件夹: ${scrapeIgnoreFolders.join(", ")}');
       }
 
-      _addLog('开始扫描游戏库: $libraryPath');
+      _addLog('开始扫描游戏库: ${libraryPaths.join(", ")}');
 
-      final gamesToScrape = await _scanForSourceUrlFiles(libraryPath, scrapeIgnoreFolders);
+      final gamesToScrape = <Game>[];
+      for (final libraryPath in libraryPaths) {
+        final found = await _scanForSourceUrlFiles(libraryPath, scrapeIgnoreFolders);
+        gamesToScrape.addAll(found);
+      }
 
       _addLog('========== 扫描完成 ==========');
       _addLog('共发现 ${gamesToScrape.length} 个有源URL的游戏可刮削');
