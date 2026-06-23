@@ -34,25 +34,11 @@ class Fan2dService {
       ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        final body = response.body;
-        // 纯正则匹配：从 <li> 行中提取包含"新增"或"中转"的域名
         final pattern = RegExp(r'<li>\s*(https?://[^\s<&]+)/?\s*(?:&nbsp;)?\s*(?:<span[^>]*>)?\s*(新增|中转)', caseSensitive: false);
         final domains = <String>[];
-        final allMatches = pattern.allMatches(body).toList();
-        if (kDebugMode) debugPrint('[Fan2d] 正则匹配到 ${allMatches.length} 个结果');
-        for (final m in allMatches) {
-          final fullMatch = m.group(0) ?? '';
+        for (final m in pattern.allMatches(response.body)) {
           final url = m.group(1) ?? '';
-          final tag = m.group(2) ?? '';
-          final domain = url.replaceFirst(RegExp(r'^https?://'), '').replaceFirst(RegExp(r'/$'), '');
-          if (kDebugMode) {
-            debugPrint('[Fan2d] fullMatch: "${fullMatch.length > 100 ? fullMatch.substring(0, 100) : fullMatch}"');
-            debugPrint('[Fan2d] url="$url" tag="$tag" -> domain="$domain"');
-            final start = (m.start - 80).clamp(0, body.length);
-            final end = (m.end + 80).clamp(0, body.length);
-            debugPrint('[Fan2d] context: "${body.substring(start, end)}"');
-          }
-          domains.add(domain);
+          domains.add(url.replaceFirst(RegExp(r'^https?://'), '').replaceFirst(RegExp(r'/$'), ''));
         }
 
         for (final domain in domains) {
@@ -98,6 +84,71 @@ class Fan2dService {
       return _doSearch(detected, keyword);
     }
     return _doSearch(domain, keyword);
+  }
+
+  /// 带回退的搜索：优先用启动器名搜索，无结果再用 title 分词逐个尝试，命中即停
+  Future<List<Fan2dSearchResult>> searchWithFallback({
+    required String gamePath,
+    String? gameLauncher,
+    required String gameTitle,
+  }) async {
+    // 1. 优先用启动器名（不含扩展名）搜索
+    if (gameLauncher != null && gameLauncher.isNotEmpty) {
+      final launcherName = gameLauncher.replaceAll('\\', '/').split('/').last;
+      final nameWithoutExt = launcherName.contains('.')
+          ? launcherName.substring(0, launcherName.lastIndexOf('.'))
+          : launcherName;
+      if (nameWithoutExt.isNotEmpty) {
+        if (kDebugMode) debugPrint('[Fan2d] 尝试启动器名搜索: $nameWithoutExt');
+        final results = await search(nameWithoutExt);
+        if (results.isNotEmpty) return results;
+      }
+    }
+
+    // 2. 用 metadata title 分词逐个尝试，命中即停
+    final keywords = _extractKeywords(gameTitle);
+    for (final keyword in keywords) {
+      if (kDebugMode) debugPrint('[Fan2d] 尝试关键词搜索: $keyword');
+      final results = await search(keyword);
+      if (results.isNotEmpty) return results;
+    }
+
+    return [];
+  }
+
+  /// 从标题中提取关键词（复用 VersionCheckService 的分词逻辑）
+  List<String> _extractKeywords(String title) {
+    final tokens = title.split(RegExp(r'\s+'));
+    const filterWords = ['官中', '+', '存档', '汉化', 'steam', '官方'];
+    final filtered = tokens.where((t) {
+      return !filterWords.any((w) => t.toLowerCase().contains(w.toLowerCase()));
+    }).toList();
+
+    final subTokens = <String>[];
+    for (final token in filtered) {
+      subTokens.addAll(token.split(RegExp(r'[/\-]')));
+    }
+
+    final merged = <String>[];
+    final buffer = StringBuffer();
+    for (final token in subTokens) {
+      if (token.isEmpty) continue;
+      final isEnglish = RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(token);
+      if (isEnglish) {
+        if (buffer.isNotEmpty) buffer.write(' ');
+        buffer.write(token);
+      } else {
+        if (buffer.isNotEmpty) {
+          merged.add(buffer.toString().trim());
+          buffer.clear();
+        }
+        merged.add(token);
+      }
+    }
+    if (buffer.isNotEmpty) {
+      merged.add(buffer.toString().trim());
+    }
+    return merged.where((k) => k.isNotEmpty).toList();
   }
 
   Future<List<Fan2dSearchResult>> _doSearch(String domain, String keyword) async {

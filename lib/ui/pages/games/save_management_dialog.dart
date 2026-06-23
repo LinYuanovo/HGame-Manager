@@ -637,8 +637,9 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
   Future<void> _downloadFrom2dfan() async {
     if (_isDownloading) return;
     final gameTitle = widget.game.title ?? '';
-    if (gameTitle.isEmpty) {
-      AppTheme.showGlassToast(context, message: '游戏标题为空，无法搜索', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
+    final launcher = widget.game.gameLauncher ?? '';
+    if (gameTitle.isEmpty && launcher.isEmpty) {
+      AppTheme.showGlassToast(context, message: '游戏标题和启动器均为空，无法搜索', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
       return;
     }
 
@@ -646,7 +647,11 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
     try {
       final fan2dService = ref.read(fan2dServiceProvider);
       AppTheme.showGlassToast(context, message: '正在尝试搜索存档', icon: Icons.search, iconColor: AppTheme.primaryColor);
-      final results = await fan2dService.search(gameTitle);
+      final results = await fan2dService.searchWithFallback(
+        gamePath: widget.game.path,
+        gameLauncher: widget.game.gameLauncher,
+        gameTitle: gameTitle,
+      );
 
       if (results.isEmpty) {
         if (mounted) AppTheme.showGlassToast(context, message: '未找到相关存档', icon: Icons.search_off, iconColor: AppTheme.warningColor);
