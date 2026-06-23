@@ -90,13 +90,36 @@ class _GamesPageState extends ConsumerState<GamesPage> {
                       setState(() => _isRefreshing = true);
                       try {
                         final prefs = ref.read(sharedPreferencesProvider);
-                        var libraryPath = prefs.getString('library_path') ?? '';
-                        final sortedPath = prefs.getString('sorted_path') ?? '';
-                        final scanPath = sortedPath.isNotEmpty ? sortedPath : libraryPath;
+                        final rawLib = prefs.getString('library_path') ?? '';
 
-                        if (scanPath.isEmpty) {
+                        List<String> libraryPaths;
+                        if (rawLib.startsWith('[')) {
+                          try {
+                            final List<dynamic> list = jsonDecode(rawLib);
+                            libraryPaths = list.whereType<String>().where((s) => s.isNotEmpty).toList();
+                          } catch (_) {
+                            libraryPaths = rawLib.isNotEmpty ? [rawLib] : [];
+                          }
+                        } else {
+                          libraryPaths = rawLib.isNotEmpty ? [rawLib] : [];
+                        }
+
+                        final rawSorted = prefs.getString('sorted_paths') ?? '';
+                        if (rawSorted.startsWith('{')) {
+                          try {
+                            final decoded = jsonDecode(rawSorted) as Map<String, dynamic>;
+                            for (final v in decoded.values) {
+                              final sp = v?.toString() ?? '';
+                              if (sp.isNotEmpty && !libraryPaths.contains(sp)) {
+                                libraryPaths.add(sp);
+                              }
+                            }
+                          } catch (_) {}
+                        }
+
+                        if (libraryPaths.isEmpty) {
                           if (mounted) {
-                            AppTheme.showGlassToast(context, message: '请先在设置中配置游戏库路径或整理目录', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
+                            AppTheme.showGlassToast(context, message: '请先在设置中配置游戏库路径', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
                           }
                           return;
                         }
@@ -113,7 +136,7 @@ class _GamesPageState extends ConsumerState<GamesPage> {
                           }
                         };
 
-                        await scanner.scanGameLibrary(scanPath, ignoreFolders: ignoreFolders, blacklistPaths: blacklistPaths);
+                        await scanner.scanMultipleLibraries(libraryPaths, ignoreFolders: ignoreFolders, blacklistPaths: blacklistPaths);
 
                         ref.invalidate(allGamesProvider);
                         ref.invalidate(favoriteGamesProvider);
