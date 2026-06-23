@@ -22,8 +22,8 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
-  late TextEditingController _libraryPathController;
-  late TextEditingController _sortedPathController;
+  List<String> _libraryPaths = [];
+  Map<String, String> _sortedPaths = {};
   late TextEditingController _proxyUrlController;
   late TextEditingController _proxyTestUrlController;
   late TextEditingController _cookieAcgyingController;
@@ -32,6 +32,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   late TextEditingController _domainAcgyingController;
   late TextEditingController _domainFeixueController;
   late TextEditingController _domainVikacgController;
+  late TextEditingController _domain2dfanController;
+  bool _isDetecting2dfanDomain = false;
   late TextEditingController _webdavUrlController;
   late TextEditingController _webdavUsernameController;
   late TextEditingController _webdavPasswordController;
@@ -58,8 +60,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   void _loadSettings() {
     final prefs = ref.read(sharedPreferencesProvider);
-    final libraryPath = prefs.getString('library_path') ?? '';
-    final sortedPath = prefs.getString('sorted_path') ?? '';
     final proxyMode = prefs.getString('proxy_mode') ?? 'none';
     final proxyUrl = prefs.getString('proxy_url') ?? '';
     final font = prefs.getString('font_family') ?? '';
@@ -70,8 +70,35 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final cookieFeixue = prefs.getString('cookie_feixue') ?? '';
     final cookieVikacg = prefs.getString('cookie_vikacg') ?? '';
 
-    _libraryPathController = TextEditingController(text: libraryPath);
-    _sortedPathController = TextEditingController(text: sortedPath);
+    // Library path migration
+    final rawLib = prefs.getString('library_path') ?? '';
+    if (rawLib.startsWith('[')) {
+      try {
+        final List<dynamic> list = jsonDecode(rawLib);
+        _libraryPaths = list.whereType<String>().where((s) => s.isNotEmpty).toList();
+      } catch (_) {
+        _libraryPaths = rawLib.isNotEmpty ? [rawLib] : [];
+      }
+    } else {
+      _libraryPaths = rawLib.isNotEmpty ? [rawLib] : [];
+    }
+
+    // Sorted paths migration
+    final rawSorted = prefs.getString('sorted_paths') ?? '';
+    if (rawSorted.startsWith('{')) {
+      try {
+        final decoded = jsonDecode(rawSorted) as Map<String, dynamic>;
+        _sortedPaths = decoded.map((k, v) => MapEntry(k, v?.toString() ?? ''));
+      } catch (_) {
+        _sortedPaths = {};
+      }
+    } else {
+      final oldSorted = prefs.getString('sorted_path') ?? '';
+      if (oldSorted.isNotEmpty && _libraryPaths.isNotEmpty) {
+        _sortedPaths = {_libraryPaths.first: oldSorted};
+      }
+    }
+
     _proxyUrlController = TextEditingController(text: proxyUrl);
     _proxyTestUrlController = TextEditingController(text: prefs.getString('proxy_test_url') ?? '');
     _cookieAcgyingController = TextEditingController(text: cookieAcgying);
@@ -80,6 +107,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _domainAcgyingController = TextEditingController(text: prefs.getString('domain_acgying') ?? '');
     _domainFeixueController = TextEditingController(text: prefs.getString('domain_feixue') ?? '');
     _domainVikacgController = TextEditingController(text: prefs.getString('domain_vikacg') ?? '');
+    _domain2dfanController = TextEditingController(text: prefs.getString('domain_2dfan') ?? '');
     _webdavUrlController = TextEditingController(text: prefs.getString('webdav_url') ?? '');
     _webdavUsernameController = TextEditingController(text: prefs.getString('webdav_username') ?? '');
     _webdavPasswordController = TextEditingController(text: prefs.getString('webdav_password') ?? '');
@@ -119,8 +147,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   @override
   void dispose() {
-    _libraryPathController.dispose();
-    _sortedPathController.dispose();
     _proxyUrlController.dispose();
     _proxyTestUrlController.dispose();
     _cookieAcgyingController.dispose();
@@ -129,6 +155,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _domainAcgyingController.dispose();
     _domainFeixueController.dispose();
     _domainVikacgController.dispose();
+    _domain2dfanController.dispose();
     _webdavUrlController.dispose();
     _webdavUsernameController.dispose();
     _webdavPasswordController.dispose();
@@ -363,39 +390,167 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       title: '游戏库设置',
       icon: Icons.folder_outlined,
       children: [
-        _buildPathSetting(
-          label: '游戏库目录',
-          hint: '选择包含 source_url.txt 的游戏文件夹',
-          controller: _libraryPathController,
-          onBrowse: () => _selectDirectory(_libraryPathController),
+        Text(
+          '游戏库目录',
+          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
         ),
-        const SizedBox(height: 20),
-        _buildPathSetting(
-          label: '整理目录 (Sorted)',
-          hint: '刮削成功后，游戏文件夹会自动移动到此目录',
-          controller: _sortedPathController,
-          onBrowse: () => _selectDirectory(_sortedPathController),
-          trailing: _sortedPathController.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear, size: 18, color: AppTheme.errorColor),
-                  onPressed: () {
-                    setState(() {
-                      _sortedPathController.text = '';
-                    });
-                  },
-                  tooltip: '清除',
-                )
-              : null,
-        ),
-        if (_sortedPathController.text.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(
-            '刮削完成后自动将游戏移动到: ${_sortedPathController.text}\\{分类}\\{游戏名}',
-            style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.6), fontSize: 11),
+        const SizedBox(height: 8),
+        if (_libraryPaths.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+              border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.2)),
+            ),
+            child: Text(
+              '未配置游戏库目录',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5), fontSize: 13),
+            ),
           ),
-        ],
+        ..._libraryPaths.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final libPath = entry.value;
+          final sortedPath = _sortedPaths[libPath] ?? '';
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                          border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.2)),
+                        ),
+                        child: Text(
+                          libPath,
+                          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.errorColor),
+                      onPressed: () => _removeLibraryPath(idx),
+                      tooltip: '移除',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: Row(
+                    children: [
+                      Icon(Icons.subdirectory_arrow_right, size: 16, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: sortedPath.isNotEmpty
+                            ? Row(
+                                children: [
+                                  Icon(Icons.check_circle, size: 14, color: AppTheme.successColor),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      sortedPath,
+                                      style: TextStyle(color: AppTheme.successColor.withValues(alpha: 0.8), fontSize: 12),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Text(
+                                '未设置整理目录（刮削后不移动）',
+                                style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.4), fontSize: 12),
+                              ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        height: 28,
+                        child: OutlinedButton(
+                          onPressed: () => _selectSortedPath(idx),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primaryColor,
+                            side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text('选择', style: TextStyle(fontSize: 11)),
+                        ),
+                      ),
+                      if (sortedPath.isNotEmpty) ...[
+                        const SizedBox(width: 4),
+                        SizedBox(
+                          height: 28,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              setState(() => _sortedPaths.remove(libPath));
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.errorColor,
+                              side: BorderSide(color: AppTheme.errorColor.withValues(alpha: 0.3)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text('清除', style: TextStyle(fontSize: 11)),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _addLibraryPath,
+            icon: const Icon(Icons.add, size: 16),
+            label: const Text('添加目录', style: TextStyle(fontSize: 12)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.primaryColor,
+              side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+            ),
+          ),
+        ),
       ],
     );
+  }
+
+  Future<void> _addLibraryPath() async {
+    final result = await FilePicker.getDirectoryPath(dialogTitle: '选择游戏库目录');
+    if (result != null && !_libraryPaths.contains(result)) {
+      setState(() => _libraryPaths.add(result));
+    }
+  }
+
+  void _removeLibraryPath(int idx) {
+    final removed = _libraryPaths.removeAt(idx);
+    _sortedPaths.remove(removed);
+    setState(() {});
+  }
+
+  Future<void> _selectSortedPath(int libIdx) async {
+    final result = await FilePicker.getDirectoryPath(dialogTitle: '选择整理目录');
+    if (result != null) {
+      setState(() => _sortedPaths[_libraryPaths[libIdx]] = result);
+    }
   }
 
   Widget _buildIgnoreFoldersSection() {
@@ -793,8 +948,72 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           controller: _domainVikacgController,
           hint: '默认: vikacg.com',
         ),
+        const SizedBox(height: 12),
+        _build2dfanDomainInput(),
       ],
     );
+  }
+
+  Widget _build2dfanDomainInput() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('2DFan', style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _domain2dfanController,
+                style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+                decoration: InputDecoration(
+                  hintText: '默认: 留空自动检测',
+                  hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.4), fontSize: 11),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.5),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium), borderSide: BorderSide(color: AppTheme.textSecondary.withValues(alpha: 0.2))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium), borderSide: BorderSide(color: AppTheme.textSecondary.withValues(alpha: 0.2))),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 40,
+              child: ElevatedButton.icon(
+                onPressed: _isDetecting2dfanDomain ? null : _detect2dfanDomain,
+                icon: _isDetecting2dfanDomain
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.search, size: 16),
+                label: Text(_isDetecting2dfanDomain ? '检测中...' : '检测可用域名', style: const TextStyle(fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                  foregroundColor: AppTheme.primaryColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _detect2dfanDomain() async {
+    setState(() => _isDetecting2dfanDomain = true);
+    try {
+      final service = ref.read(fan2dServiceProvider);
+      final domain = await service.detectAndSaveDomain();
+      if (mounted) {
+        _domain2dfanController.text = domain;
+        AppTheme.showGlassToast(context, message: '检测成功: $domain', icon: Icons.check_circle, iconColor: AppTheme.successColor);
+      }
+    } catch (e) {
+      if (mounted) AppTheme.showGlassToast(context, message: '检测失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+    } finally {
+      if (mounted) setState(() => _isDetecting2dfanDomain = false);
+    }
   }
 
   Widget _buildDomainInput({
@@ -1368,18 +1587,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Future<void> _selectDirectory(TextEditingController controller) async {
-    final result = await FilePicker.getDirectoryPath(
-      dialogTitle: '选择文件夹',
-      initialDirectory: controller.text.isNotEmpty ? controller.text : null,
-    );
-    if (result != null) {
-      setState(() {
-        controller.text = result;
-      });
-    }
-  }
-
   Future<void> _testProxy() async {
     final prefs = ref.read(sharedPreferencesProvider);
     await prefs.setString('proxy_mode', _proxyMode);
@@ -1419,8 +1626,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Future<void> _saveSettings() async {
     final prefs = ref.read(sharedPreferencesProvider);
 
-    await prefs.setString('library_path', _libraryPathController.text);
-    await prefs.setString('sorted_path', _sortedPathController.text);
+    await prefs.setString('library_path', jsonEncode(_libraryPaths));
+    await prefs.setString('sorted_paths', jsonEncode(_sortedPaths));
     await prefs.setString('proxy_mode', _proxyMode);
     await prefs.setString('proxy_url', _proxyUrlController.text);
     await prefs.setString('proxy_test_url', _proxyTestUrlController.text.trim());
@@ -1430,6 +1637,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     await prefs.setString('domain_acgying', _domainAcgyingController.text.trim());
     await prefs.setString('domain_feixue', _domainFeixueController.text.trim());
     await prefs.setString('domain_vikacg', _domainVikacgController.text.trim());
+    await prefs.setString('domain_2dfan', _domain2dfanController.text.trim());
     await prefs.setString('webdav_url', _webdavUrlController.text.trim());
     await prefs.setString('webdav_username', _webdavUsernameController.text.trim());
     await prefs.setString('webdav_password', _webdavPasswordController.text);
@@ -1466,7 +1674,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Future<void> _scanNow() async {
-    if (_libraryPathController.text.isEmpty) {
+    if (_libraryPaths.isEmpty) {
       AppTheme.showGlassToast(context, message: '请先配置游戏库目录', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
       return;
     }
@@ -1478,7 +1686,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       final ignoreFolders = _getIgnoreFolders('scan_ignore_folders');
       final blacklistStr = ref.read(sharedPreferencesProvider).getString('game_blacklist') ?? '';
       final blacklistPaths = blacklistStr.split('\n').where((s) => s.trim().isNotEmpty).toList();
-      await scanner.scanGameLibrary(_libraryPathController.text, ignoreFolders: ignoreFolders, blacklistPaths: blacklistPaths);
+      await scanner.scanMultipleLibraries(_libraryPaths, ignoreFolders: ignoreFolders, blacklistPaths: blacklistPaths);
 
       ref.invalidate(allGamesProvider);
 
