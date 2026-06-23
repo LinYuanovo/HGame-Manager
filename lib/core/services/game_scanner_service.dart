@@ -87,7 +87,12 @@ class GameScannerService {
       // ── Phase 1: Scan folders, filter by blacklist and metadata change ──
       _log.info('Scan', 'Phase 1: Scanning folders...');
       final allFolders = await _scanGameFolders(libraryPath, ignoreFolders);
-      final filteredFolders = allFolders.where((f) => !blacklistPaths.contains(f)).toList();
+      // 规范化黑名单路径进行比较（统一反斜杠、转小写）
+      final normalizedBlacklist = blacklistPaths.map((p) => p.replaceAll('/', '\\').toLowerCase()).toSet();
+      final filteredFolders = allFolders.where((f) {
+        final normalized = f.replaceAll('/', '\\').toLowerCase();
+        return !normalizedBlacklist.contains(normalized);
+      }).toList();
 
       final existingGames = await _gameRepository.getAllGames();
       final gamePathMap = <String, Game>{};

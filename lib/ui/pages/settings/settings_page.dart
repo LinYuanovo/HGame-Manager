@@ -2443,12 +2443,12 @@ class _BlacklistDialogState extends ConsumerState<_BlacklistDialog> {
     _paths = str.split('\n').where((s) => s.trim().isNotEmpty).toList();
   }
 
-  void _removePath(int index) {
+  Future<void> _removePath(int index) async {
     setState(() {
       _paths.removeAt(index);
     });
     final prefs = ref.read(sharedPreferencesProvider);
-    prefs.setString('game_blacklist', _paths.join('\n'));
+    await prefs.setString('game_blacklist', _paths.join('\n'));
   }
 
   @override
