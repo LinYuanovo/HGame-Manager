@@ -174,6 +174,17 @@ class GameScannerService {
     }
   }
 
+  /// 扫描多个游戏库目录
+  Future<void> scanMultipleLibraries(
+    List<String> libraryPaths, {
+    List<String> ignoreFolders = const [],
+    List<String> blacklistPaths = const [],
+  }) async {
+    for (final libraryPath in libraryPaths) {
+      await scanGameLibrary(libraryPath, ignoreFolders: ignoreFolders, blacklistPaths: blacklistPaths);
+    }
+  }
+
   Future<List<String>> _scanGameFolders(String rootPath, List<String> ignoreFolders) async {
     final folders = <String>[];
     final dir = Directory(rootPath);
