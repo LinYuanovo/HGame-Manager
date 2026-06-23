@@ -102,8 +102,25 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
   try {
     final repository = ref.watch(gameRepositoryProvider);
     final prefs = ref.read(sharedPreferencesProvider);
-    final sortedPath = prefs.getString('sorted_path') ?? '';
     final allGames = await repository.getAllGames();
+
+    // Read all sorted paths
+    final rawSorted = prefs.getString('sorted_paths') ?? '';
+    final sortedPathList = <String>[];
+    if (rawSorted.startsWith('{')) {
+      try {
+        final decoded = jsonDecode(rawSorted) as Map<String, dynamic>;
+        for (final v in decoded.values) {
+          final sp = v?.toString() ?? '';
+          if (sp.isNotEmpty) sortedPathList.add(sp);
+        }
+      } catch (_) {}
+    }
+    // Backward compatibility
+    if (sortedPathList.isEmpty) {
+      final oldSorted = prefs.getString('sorted_path') ?? '';
+      if (oldSorted.isNotEmpty) sortedPathList.add(oldSorted);
+    }
 
     final sep = Platform.pathSeparator;
     final dbClearedGames = allGames.where((g) =>
@@ -112,9 +129,6 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
     ).toList();
 
     final result = <String, Game>{};
-    final backupDir = sortedPath.isNotEmpty
-        ? Directory('$sortedPath${sep}Cleared${sep}Backup')
-        : null;
 
     // 先处理本地游戏，用 metadata title 作为 key（去除版本号后比较）
     for (final game in dbClearedGames) {
@@ -140,50 +154,52 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
     }
 
     // 再处理 Backup 目录，跳过本地已存在的游戏（去除版本号后比较）
-    if (backupDir != null && await backupDir.exists()) {
-      // 先处理有 DB 记录但本地文件夹不存在的游戏
-      for (final game in dbClearedGames) {
-        final dir = Directory(game.path);
-        if (!await dir.exists()) {
-          final backupGame = await _loadGameFromBackup(
-            backupDir.path, game.title, game,
-          );
-          if (backupGame != null) {
-            final normalizedTitle = removeVersionFromTitle(backupGame.title ?? '');
-            final key = normalizedTitle.toLowerCase();
-            if (!result.containsKey(key)) {
-              result[key] = backupGame.copyWith(title: normalizedTitle);
+    for (final sortedPath in sortedPathList) {
+      final backupDir = Directory('$sortedPath${sep}Cleared${sep}Backup');
+      if (await backupDir.exists()) {
+        // 先处理有 DB 记录但本地文件夹不存在的游戏
+        for (final game in dbClearedGames) {
+          final dir = Directory(game.path);
+          if (!await dir.exists()) {
+            final backupGame = await _loadGameFromBackup(
+              backupDir.path, game.title, game,
+            );
+            if (backupGame != null) {
+              final normalizedTitle = removeVersionFromTitle(backupGame.title ?? '');
+              final key = normalizedTitle.toLowerCase();
+              if (!result.containsKey(key)) {
+                result[key] = backupGame.copyWith(title: normalizedTitle);
+              }
             }
           }
         }
-      }
 
-      // 扫描 Backup 目录中的游戏
-      // debugPrint('[BACKUP-SCAN] Scanning backup dir...');
-      await for (final entity in backupDir.list()) {
-        if (entity is Directory) {
-          final folderName = path.basename(entity.path);
-          final backupPath = entity.path;
-          
-          // 先检查是否有 DB 记录（通过 path 匹配，规范化路径格式）
-          Game? existingDbGame;
-          final normalizedBackupPath = backupPath.replaceAll('\\', '/');
-          for (final game in allGames) {
-            final normalizedGamePath = game.path.replaceAll('\\', '/');
-            if (normalizedGamePath == normalizedBackupPath) {
-              existingDbGame = game;
-              break;
+        // 扫描 Backup 目录中的游戏
+        await for (final entity in backupDir.list()) {
+          if (entity is Directory) {
+            final folderName = path.basename(entity.path);
+            final backupPath = entity.path;
+
+            // 先检查是否有 DB 记录（通过 path 匹配，规范化路径格式）
+            Game? existingDbGame;
+            final normalizedBackupPath = backupPath.replaceAll('\\', '/');
+            for (final game in allGames) {
+              final normalizedGamePath = game.path.replaceAll('\\', '/');
+              if (normalizedGamePath == normalizedBackupPath) {
+                existingDbGame = game;
+                break;
+              }
             }
-          }
-          
-          final backupGame = await _loadGameFromBackup(
-            backupDir.path, folderName, existingDbGame,
-          );
-          if (backupGame != null) {
-            final normalizedTitle = removeVersionFromTitle(backupGame.title ?? '');
-            final key = normalizedTitle.toLowerCase();
-            if (!result.containsKey(key)) {
-              result[key] = backupGame.copyWith(title: normalizedTitle);
+
+            final backupGame = await _loadGameFromBackup(
+              backupDir.path, folderName, existingDbGame,
+            );
+            if (backupGame != null) {
+              final normalizedTitle = removeVersionFromTitle(backupGame.title ?? '');
+              final key = normalizedTitle.toLowerCase();
+              if (!result.containsKey(key)) {
+                result[key] = backupGame.copyWith(title: normalizedTitle);
+              }
             }
           }
         }
