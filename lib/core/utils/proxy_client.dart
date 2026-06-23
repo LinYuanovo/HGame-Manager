@@ -93,6 +93,7 @@ Future<String> getEffectiveDomain(String siteKey) async {
     case 'acgying': return 'acgyyg.ru';
     case 'feixue': return 'feixueacg.org';
     case 'vikacg': return 'vikacg.com';
+    case '2dfan': return 'fan2d.top';
     default: return '';
   }
 }
