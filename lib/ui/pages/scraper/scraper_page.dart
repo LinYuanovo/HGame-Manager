@@ -840,8 +840,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   }
 
   Future<void> _moveToSorted(Game game) async {
-    final prefs = ref.read(sharedPreferencesProvider);
-    final sortedPath = prefs.getString('sorted_path') ?? '';
+    final sortedPath = await AppSettings.getSortedPathForGame(game.path);
     if (sortedPath.isEmpty) return;
 
     final sourceDir = Directory(game.path);
