@@ -1555,8 +1555,24 @@ if (_isEditing) ...[
                           !await Directory(_currentGame.path).exists();
       if (titleChanged && isBackupGame && gameId != null) {
         final prefs = ref.read(sharedPreferencesProvider);
-        final sortedPath = prefs.getString('sorted_path') ?? '';
-        if (sortedPath.isNotEmpty) {
+        // 读取所有整理目录
+        final sortedPathList = <String>[];
+        final rawSorted = prefs.getString('sorted_paths') ?? '';
+        if (rawSorted.startsWith('{')) {
+          try {
+            final decoded = jsonDecode(rawSorted) as Map<String, dynamic>;
+            for (final v in decoded.values) {
+              final sp = v?.toString() ?? '';
+              if (sp.isNotEmpty) sortedPathList.add(sp);
+            }
+          } catch (_) {}
+        }
+        if (sortedPathList.isEmpty) {
+          final oldSorted = prefs.getString('sorted_path') ?? '';
+          if (oldSorted.isNotEmpty) sortedPathList.add(oldSorted);
+        }
+
+        for (final sortedPath in sortedPathList) {
           final sep = Platform.pathSeparator;
           final backupDirPath = '$sortedPath${sep}Cleared${sep}Backup';
           final backupDir = Directory(backupDirPath);
