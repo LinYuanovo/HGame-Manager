@@ -16,6 +16,7 @@ import '../services/game_move_service.dart';
 import '../services/folder_rename_service.dart';
 import '../services/dlsite_service.dart';
 import '../services/steam_service.dart';
+import '../services/fan2d_service.dart';
 import '../models/models.dart';
 import '../../scraper/parse_utils.dart';
 import '../models/context_menu_config.dart';
@@ -83,6 +84,7 @@ final folderRenameServiceProvider = Provider<FolderRenameService>((ref) {
 
 final dlsiteServiceProvider = Provider<DlsiteService>((ref) => DlsiteService());
 final steamServiceProvider = Provider<SteamService>((ref) => SteamService());
+final fan2dServiceProvider = Provider<Fan2dService>((ref) => Fan2dService());
 
 final allGamesProvider = FutureProvider<List<Game>>((ref) async {
   try {
