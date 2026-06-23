@@ -12,6 +12,7 @@ import '../../../core/services/image_service.dart';
 import '../theme/app_theme.dart';
 import '../pages/games/game_detail_page.dart';
 import '../pages/games/save_management_dialog.dart';
+import '../../../core/utils/app_settings.dart';
 import 'multi_select_controller.dart';
 
 enum PaginationMode { paginated, infiniteScroll }
@@ -2071,12 +2072,11 @@ _refreshAllProviders();
     if (confirm != true) return;
 
     try {
-      final prefs = ref.read(sharedPreferencesProvider);
-      final sortedPath = prefs.getString('sorted_path') ?? '';
+      final sortedPath = await AppSettings.getSortedPathForGame(game.path);
 
       if (sortedPath.isEmpty) {
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '请先在设置中配置整理目录', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          AppTheme.showGlassToast(context, message: '该游戏库未配置整理目录', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
         return;
       }
@@ -2369,12 +2369,11 @@ _refreshAllProviders();
     if (confirm != true) return;
 
     try {
-      final prefs = ref.read(sharedPreferencesProvider);
-      final sortedPath = prefs.getString('sorted_path') ?? '';
+      final sortedPath = await AppSettings.getSortedPathForGame(game.path);
 
       if (sortedPath.isEmpty) {
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '请先在设置中配置整理目录', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          AppTheme.showGlassToast(context, message: '该游戏库未配置整理目录', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
         return;
       }
