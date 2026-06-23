@@ -268,17 +268,17 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (!_isBatchDeleteMode) ...[
-              _buildActionButton(Icons.folder_open, '打开存档文件夹', AppTheme.primaryColor, _openSaveFolder),
+              _buildActionButton(Icons.folder_open, '打开存档', AppTheme.primaryColor, _openSaveFolder),
               const SizedBox(width: 10),
-              _buildActionButton(Icons.backup, '打开备份文件夹', AppTheme.secondaryColor, _openBackupFolder),
+              _buildActionButton(Icons.backup, '打开备份', AppTheme.secondaryColor, _openBackupFolder),
               const SizedBox(width: 10),
               _buildActionButton(Icons.add_circle_outline, '导入存档', AppTheme.warningColor, _addCustomBackup),
               const SizedBox(width: 10),
               _buildActionButton(Icons.cloud_download_outlined, '下载存档', AppTheme.primaryColor, _downloadFrom2dfan),
               const SizedBox(width: 10),
-              _buildActionButton(Icons.save_alt, '备份当前存档', AppTheme.successColor, _backupCurrentSave),
+              _buildActionButton(Icons.save_alt, '备份存档', AppTheme.successColor, _backupCurrentSave),
               const SizedBox(width: 10),
-              _buildActionButton(Icons.cloud_outlined, '查看云端备份', AppTheme.primaryColor, _showCloudBackups),
+              _buildActionButton(Icons.cloud_outlined, '云端备份', AppTheme.primaryColor, _showCloudBackups),
               const SizedBox(width: 10),
               _buildActionButton(Icons.delete_sweep_outlined, '批量删除', AppTheme.errorColor, _toggleBatchDeleteMode),
             ],
@@ -645,7 +645,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
     setState(() => _isDownloading = true);
     try {
       final fan2dService = ref.read(fan2dServiceProvider);
-      AppTheme.showGlassToast(context, message: '正在搜索 2DFan...', icon: Icons.search, iconColor: AppTheme.primaryColor);
+      AppTheme.showGlassToast(context, message: '正在尝试搜索存档', icon: Icons.search, iconColor: AppTheme.primaryColor);
       final results = await fan2dService.search(gameTitle);
 
       if (results.isEmpty) {
