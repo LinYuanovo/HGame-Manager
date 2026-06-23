@@ -37,18 +37,14 @@ class Fan2dService {
       ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        final document = html_parser.parse(response.body);
-        final container = document.querySelector('.wiki-container') ?? document.querySelector('.block-content');
-        final items = container?.querySelectorAll('li') ?? [];
+        // 正则匹配：从 <li> 行中提取包含"新增"或"中转"的域名
+        final pattern = RegExp(r'<li>\s*(https?://[^\s<&]+)/?\s*(?:&nbsp;)?\s*(?:<span[^>]*>)?\s*(新增|中转)', caseSensitive: false);
         final domains = <String>[];
-        for (final item in items) {
-          final text = item.text;
-          // 只匹配包含"新增"或"中转"的域名，跳过"即将废弃"
-          if (!text.contains('新增') && !text.contains('中转')) continue;
-          final match = RegExp(r'https?://([^/\s&;]+)').firstMatch(text);
-          if (match != null) {
-            domains.add(match.group(1)!);
-          }
+        for (final m in pattern.allMatches(response.body)) {
+          final url = m.group(1)!;
+          final domain = url.replaceFirst(RegExp(r'^https?://'), '').replaceFirst(RegExp(r'/$'), '');
+          if (kDebugMode) debugPrint('[Fan2d] 候选域名: $domain');
+          domains.add(domain);
         }
 
         for (final domain in domains) {
