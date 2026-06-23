@@ -38,13 +38,14 @@ class Fan2dService {
 
       if (response.statusCode == 200) {
         final document = html_parser.parse(response.body);
-        final items = document.querySelectorAll('li');
+        final container = document.querySelector('.wiki-container') ?? document.querySelector('.block-content');
+        final items = container?.querySelectorAll('li') ?? [];
         final domains = <String>[];
         for (final item in items) {
           final text = item.text;
           // 只匹配包含"新增"或"中转"的域名，跳过"即将废弃"
           if (!text.contains('新增') && !text.contains('中转')) continue;
-          final match = RegExp(r'https?://([^/\s]+)').firstMatch(text);
+          final match = RegExp(r'https?://([^/\s&;]+)').firstMatch(text);
           if (match != null) {
             domains.add(match.group(1)!);
           }
