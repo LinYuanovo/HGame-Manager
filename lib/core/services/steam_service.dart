@@ -232,6 +232,10 @@ class SteamService {
 
       final sourceUrl = 'https://store.steampowered.com/app/$id/';
 
+      final developers = (d['developers'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList();
+
       _log.info('SteamService', '[fetchById] 解析成功: $title, 标签${genres.length}个, 截图${screenshots.length}张');
 
       return SteamGameInfo(
@@ -240,6 +244,7 @@ class SteamService {
         tags: genres,
         screenshots: screenshots,
         sourceUrl: sourceUrl,
+        developers: developers,
       );
     } catch (e) {
       _log.error('SteamService', '[fetchById] 获取异常', e);
@@ -366,6 +371,7 @@ class SteamGameInfo {
   final List<String> tags;
   final List<String> screenshots;
   final String sourceUrl;
+  final List<String> developers;
 
   SteamGameInfo({
     this.title,
@@ -373,5 +379,6 @@ class SteamGameInfo {
     this.tags = const [],
     this.screenshots = const [],
     required this.sourceUrl,
+    this.developers = const [],
   });
 }
