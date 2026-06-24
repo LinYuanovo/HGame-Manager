@@ -1086,7 +1086,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                           ),
                         ),
                       ),
-                    if (game.isPlayed && !isBackupOnly)
+                    if (game.isPlayed && !isBackupOnly && widget.contextMenuMode == ContextMenuMode.games)
                       Positioned(
                         top: 4,
                         left: 4,
@@ -1116,7 +1116,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     if (game.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}'))
                       Positioned(
                         top: 4,
-                        left: (isBackupOnly ? 70 : 4) + (game.isPlayed && !isBackupOnly ? 66 : 0),
+                        left: (isBackupOnly ? 70 : 4) + (game.isPlayed && !isBackupOnly && widget.contextMenuMode == ContextMenuMode.games ? 66 : 0),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
@@ -1319,7 +1319,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                           ),
                         ),
                       ),
-                    if (game.isPlayed && !isBackupOnly)
+                    if (game.isPlayed && !isBackupOnly && widget.contextMenuMode == ContextMenuMode.games)
                       Positioned(
                         top: 8,
                         left: 8,
