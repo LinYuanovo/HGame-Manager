@@ -50,8 +50,8 @@ class FolderRenameService {
 
     final parts = <String>[];
     if (id != null && id.isNotEmpty) parts.add('[$id]');
-    if (series != null && series.isNotEmpty) parts.add('[$series]');
     if (maker != null && maker.isNotEmpty) parts.add('[$maker]');
+    if (series != null && series.isNotEmpty) parts.add('[$series]');
     parts.add(title);
     if (game.version != null && game.version!.isNotEmpty) parts.add(game.version!);
 
