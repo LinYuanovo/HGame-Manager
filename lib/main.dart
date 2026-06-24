@@ -101,6 +101,11 @@ void _setupErrorHandling() {
   final log = AppLogger.instance;
 
   FlutterError.onError = (FlutterErrorDetails details) {
+    final message = details.toString();
+    if (message.contains('accessibility_bridge.cc') ||
+        message.contains('Failed to update ui::AXTree')) {
+      return;
+    }
     log.error('FlutterError', details.exceptionAsString(), null, details.stack);
     FlutterError.presentError(details);
   };
