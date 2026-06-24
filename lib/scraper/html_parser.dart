@@ -350,13 +350,24 @@ class XpathParser extends SiteParser {
     String? description;
     final descXpath = _xpaths['description'];
     if (descXpath != null) {
-      final rawDesc = XPathEvaluator.queryTextWithFallback(document, descXpath);
-      AppLogger.instance.info('Scraper', '[XpathParser] description xpath=$descXpath -> ${rawDesc != null ? "${rawDesc.length}chars" : "null"}');
-      if (rawDesc != null && rawDesc.isNotEmpty) {
-        description = _extractSection(rawDesc, '概要') ??
-            _extractSection(rawDesc, '游戏介绍') ??
-            _extractSection(rawDesc, '简介') ??
-            rawDesc;
+      // Try to get element for inline image processing
+      final descElement = XPathEvaluator.query(document, descXpath);
+      if (descElement != null) {
+        description = _extractTextWithImages(descElement);
+        AppLogger.instance.info('Scraper', '[XpathParser] description (with images) xpath=$descXpath -> ${description.length}chars');
+      } else {
+        // Fallback to plain text
+        final rawDesc = XPathEvaluator.queryTextWithFallback(document, descXpath);
+        AppLogger.instance.info('Scraper', '[XpathParser] description xpath=$descXpath -> ${rawDesc != null ? "${rawDesc.length}chars" : "null"}');
+        if (rawDesc != null && rawDesc.isNotEmpty) {
+          description = rawDesc;
+        }
+      }
+      if (description != null && description.isNotEmpty) {
+        description = _extractSection(description, '概要') ??
+            _extractSection(description, '游戏介绍') ??
+            _extractSection(description, '简介') ??
+            description;
         description = filterDescription(description);
         if (description.isEmpty) description = null;
       }
@@ -515,6 +526,48 @@ class XpathParser extends SiteParser {
         ? contentStart + nextSectionMatch.start
         : fullText.length;
     return fullText.substring(contentStart, contentEnd).trim();
+  }
+
+  String _extractTextWithImages(Element container) {
+    final buffer = StringBuffer();
+    _processNode(container, buffer);
+    return buffer.toString().trim();
+  }
+
+  void _processNode(Element element, StringBuffer buffer) {
+    for (final node in element.nodes) {
+      if (node is Text) {
+        final text = node.text.trim();
+        if (text.isNotEmpty) {
+          buffer.write(text);
+        }
+      } else if (node is Element) {
+        final tag = node.localName;
+        if (tag == 'img') {
+          final src = node.attributes['data-original'] ??
+              node.attributes['data-src'] ??
+              node.attributes['zoomfile'] ??
+              node.attributes['file'] ??
+              node.attributes['src'] ??
+              '';
+          if (src.isNotEmpty && !src.contains('static/image') && !src.endsWith('.svg') && !src.endsWith('.ico')) {
+            final imgUrl = src.startsWith('//') ? 'https:$src' : src;
+            buffer.writeln('[图片:$imgUrl]');
+          }
+        } else if (tag == 'br') {
+          buffer.writeln();
+        } else if (tag == 'p' || tag == 'div') {
+          _processNode(node, buffer);
+          buffer.writeln();
+        } else if (tag == 'h3' || tag == 'h4') {
+          buffer.writeln();
+          buffer.writeln(node.text.trim());
+          buffer.writeln();
+        } else {
+          _processNode(node, buffer);
+        }
+      }
+    }
   }
 }
 
