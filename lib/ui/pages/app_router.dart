@@ -5,7 +5,6 @@ import 'categories/categories_page.dart';
 import 'favorites/favorites_page.dart';
 import 'played/played_page.dart';
 import 'played/cleared_page.dart';
-import 'settings/settings_page.dart';
 import 'scraper/scraper_page.dart';
 import 'tools/tools_page.dart';
 
@@ -50,7 +49,7 @@ enum NavRoute {
       case NavRoute.tools:
         return const ToolsPage();
       case NavRoute.settings:
-        return const SettingsPage();
+        return const SizedBox.shrink();
     }
   }
 

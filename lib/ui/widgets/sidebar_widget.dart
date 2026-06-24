@@ -5,6 +5,7 @@ import '../controllers/sidebar_controller.dart';
 import '../../core/providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../pages/app_router.dart';
+import '../pages/settings/settings_page.dart';
 
 /// 侧边栏独立组件，负责侧边栏的UI渲染和用户交互
 class SidebarWidget extends ConsumerWidget {
@@ -64,6 +65,7 @@ class SidebarWidget extends ConsumerWidget {
                           count = clearedAsync.valueOrNull?.length;
                         }
                         return _buildNavItem(
+                          context: context,
                           route: route,
                           selectedIndex: selectedIndex,
                           count: count,
@@ -74,6 +76,7 @@ class SidebarWidget extends ConsumerWidget {
                       const Spacer(),
                       _buildToggleButton(fontSize: fontSize),
                       _buildNavItem(
+                        context: context,
                         route: NavRoute.settings,
                         selectedIndex: selectedIndex,
                         count: null,
@@ -145,6 +148,7 @@ class SidebarWidget extends ConsumerWidget {
   }
 
   Widget _buildNavItem({
+    required BuildContext context,
     required NavRoute route,
     required int selectedIndex,
     int? count,
@@ -161,7 +165,11 @@ class SidebarWidget extends ConsumerWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
           onTap: () {
-            ref.read(selectedNavIndexProvider.notifier).state = route.navIndex;
+            if (route == NavRoute.settings) {
+              showSettingsDialog(context, ref);
+            } else {
+              ref.read(selectedNavIndexProvider.notifier).state = route.navIndex;
+            }
           },
           child: AnimatedContainer(
             duration: GlassConstants.animFast,

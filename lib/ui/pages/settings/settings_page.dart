@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:archive/archive.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/database/database_helper.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/utils/app_paths.dart';
@@ -14,14 +15,21 @@ import '../../theme/app_theme.dart';
 import '../../../core/utils/app_settings.dart';
 import 'context_menu_manager_dialog.dart';
 
-class SettingsPage extends ConsumerStatefulWidget {
-  const SettingsPage({super.key});
-
-  @override
-  ConsumerState<SettingsPage> createState() => _SettingsPageState();
+Future<void> showSettingsDialog(BuildContext context, WidgetRef ref) async {
+  await showGlassDialog(
+    context: context,
+    child: const SettingsDialogContent(),
+  );
 }
 
-class _SettingsPageState extends ConsumerState<SettingsPage> {
+class SettingsDialogContent extends ConsumerStatefulWidget {
+  const SettingsDialogContent({super.key});
+
+  @override
+  ConsumerState<SettingsDialogContent> createState() => _SettingsDialogContentState();
+}
+
+class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   List<String> _libraryPaths = [];
   Map<String, String> _sortedPaths = {};
   late TextEditingController _proxyUrlController;
@@ -51,6 +59,42 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _autoRenameFolders = false;
   bool _isRenamingFolders = false;
   bool _noImageMode = false;
+  bool _keepPlayedInGames = false;
+
+  int _selectedSidebarIndex = 0;
+
+  static const List<_SidebarCategory> _categories = [
+    _SidebarCategory(
+      label: '通用',
+      icon: Icons.tune,
+      items: ['游戏库设置', '忽略文件夹', '双击启动游戏', '已玩游戏保留库中', '无图模式', '字体设置'],
+    ),
+    _SidebarCategory(
+      label: '管理',
+      icon: Icons.admin_panel_settings_outlined,
+      items: ['右键菜单管理', '黑名单管理'],
+    ),
+    _SidebarCategory(
+      label: '刮削',
+      icon: Icons.description_outlined,
+      items: ['刮削后游戏文件夹重命名', '论坛自定义域名', 'Cookie设置', '自定义解析器'],
+    ),
+    _SidebarCategory(
+      label: '网络',
+      icon: Icons.language,
+      items: ['网络代理设置'],
+    ),
+    _SidebarCategory(
+      label: '备份',
+      icon: Icons.backup_outlined,
+      items: ['本地备份', 'WebDav云备份'],
+    ),
+    _SidebarCategory(
+      label: '关于',
+      icon: Icons.info_outline,
+      items: ['关于'],
+    ),
+  ];
 
   @override
   void initState() {
@@ -118,6 +162,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     _autoRenameFolders = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
     _noImageMode = prefs.getBool(AppSettings.noImageModeKey) ?? false;
+    _keepPlayedInGames = prefs.getBool(AppSettings.keepPlayedInGamesKey) ?? false;
 
     _loadXpathConfigs();
   }
@@ -164,66 +209,217 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+    final screenSize = MediaQuery.of(context).size;
+    final dialogWidth = screenSize.width * 0.6;
+    final dialogHeight = screenSize.height * 0.6;
+
+    return SizedBox(
+      width: dialogWidth,
+      height: dialogHeight,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeader(),
-          const SizedBox(height: 32),
-          _buildActionsSection(),
-          const SizedBox(height: 32),
-          _buildLibrarySection(),
-          const SizedBox(height: 24),
-          _buildIgnoreFoldersSection(),
-          const SizedBox(height: 24),
-          _buildDoubleClickSection(),
-          const SizedBox(height: 24),
-          _buildFolderRenameSection(),
-          const SizedBox(height: 24),
-          _buildProxySection(),
-          const SizedBox(height: 24),
-          _buildForumDomainSection(),
-          const SizedBox(height: 24),
-          _buildCookieSection(),
-          const SizedBox(height: 24),
-          _buildXpathSection(),
-          const SizedBox(height: 24),
-          _buildNoImageModeSection(),
-          const SizedBox(height: 24),
-          _buildFontSection(),
-          const SizedBox(height: 24),
-          _buildLocalBackupSection(),
-          const SizedBox(height: 24),
-          _buildWebdavSection(),
-          const SizedBox(height: 24),
-          _buildAboutSection(),
+          Expanded(
+            child: Row(
+              children: [
+                _buildSidebar(),
+                Expanded(child: _buildContent()),
+              ],
+            ),
+          ),
+          _buildFooter(),
         ],
       ),
     );
   }
 
   Widget _buildHeader() {
-    return Row(
-      children: [
-        const Icon(
-          Icons.settings,
-          color: AppTheme.primaryColor,
-          size: 28,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.2)),
         ),
-        const SizedBox(width: 12),
-        ShaderMask(
-          shaderCallback: (bounds) => AppTheme.primaryGradient.createShader(bounds),
-          child: const Text(
-            '设置',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.settings, color: AppTheme.primaryColor, size: 22),
+          const SizedBox(width: 10),
+          ShaderMask(
+            shaderCallback: (bounds) => AppTheme.primaryGradient.createShader(bounds),
+            child: const Text(
+              '设置',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSidebar() {
+    return Container(
+      width: 160,
+      decoration: BoxDecoration(
+        border: Border(
+          right: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.2)),
         ),
-      ],
+      ),
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: _categories.length,
+        itemBuilder: (context, index) {
+          final cat = _categories[index];
+          final isSelected = _selectedSidebarIndex == index;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                onTap: () => setState(() => _selectedSidebarIndex = index),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                    gradient: isSelected
+                        ? LinearGradient(
+                            colors: [
+                              AppTheme.primaryColor.withValues(alpha: 0.15),
+                              AppTheme.secondaryColor.withValues(alpha: 0.15),
+                            ],
+                          )
+                        : null,
+                    border: Border.all(
+                      color: isSelected
+                          ? AppTheme.primaryColor.withValues(alpha: 0.3)
+                          : Colors.transparent,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        cat.icon,
+                        color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        cat.label,
+                        style: TextStyle(
+                          color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
+                          fontSize: 13,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    final cat = _categories[_selectedSidebarIndex];
+    final widgets = <Widget>[];
+    for (final item in cat.items) {
+      widgets.add(_buildSectionForItem(item));
+      widgets.add(const SizedBox(height: 16));
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: widgets,
+      ),
+    );
+  }
+
+  Widget _buildSectionForItem(String item) {
+    switch (item) {
+      case '游戏库设置':
+        return _buildLibrarySection();
+      case '忽略文件夹':
+        return _buildIgnoreFoldersSection();
+      case '双击启动游戏':
+        return _buildDoubleClickSection();
+      case '已玩游戏保留库中':
+        return _buildKeepPlayedSection();
+      case '无图模式':
+        return _buildNoImageModeSection();
+      case '字体设置':
+        return _buildFontSection();
+      case '右键菜单管理':
+        return _buildContextMenuSection();
+      case '黑名单管理':
+        return _buildBlacklistSection();
+      case '刮削后游戏文件夹重命名':
+        return _buildFolderRenameSection();
+      case '论坛自定义域名':
+        return _buildForumDomainSection();
+      case 'Cookie设置':
+        return _buildCookieSection();
+      case '自定义解析器':
+        return _buildXpathSection();
+      case '网络代理设置':
+        return _buildProxySection();
+      case '本地备份':
+        return _buildLocalBackupSection();
+      case 'WebDav云备份':
+        return _buildWebdavSection();
+      case '关于':
+        return _buildAboutSection();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildFooter() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.2)),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          OutlinedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.textSecondary,
+              side: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+            child: const Text('取消'),
+          ),
+          const SizedBox(width: 12),
+          ElevatedButton(
+            onPressed: () async {
+              await _saveSettings();
+              if (mounted) Navigator.of(context).pop();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -233,153 +429,26 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     required List<Widget> children,
   }) {
     return GlassContainer(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: AppTheme.primaryColor, size: 22),
-              const SizedBox(width: 12),
+              Icon(icon, color: AppTheme.primaryColor, size: 20),
+              const SizedBox(width: 10),
               Text(
                 title,
                 style: const TextStyle(
                   color: AppTheme.textPrimary,
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           ...children,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPathSetting({
-    required String label,
-    required String hint,
-    required TextEditingController controller,
-    required VoidCallback onBrowse,
-    Widget? trailing,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppTheme.textSecondary,
-            fontSize: 13,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha:0.5),
-                  borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                  border: Border.all(
-                    color: AppTheme.textSecondary.withValues(alpha:0.2),
-                  ),
-                ),
-                child: Text(
-                  controller.text.isEmpty ? hint : controller.text,
-                  style: TextStyle(
-                    color: controller.text.isEmpty
-                        ? AppTheme.textSecondary.withValues(alpha:0.5)
-                        : AppTheme.textPrimary,
-                    fontSize: 14,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            ElevatedButton(
-              onPressed: onBrowse,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor.withValues(alpha:0.15),
-                foregroundColor: AppTheme.primaryColor,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                ),
-              ),
-              child: const Text('浏览'),
-            ),
-            if (trailing != null) trailing,
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionsSection() {
-    return GlassContainer(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.flash_on, color: AppTheme.secondaryColor, size: 22),
-              SizedBox(width: 12),
-              Text(
-                '快捷操作',
-                style: TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: _ActionButton(
-                  icon: Icons.save,
-                  label: '保存设置',
-                  color: AppTheme.primaryColor,
-                  onPressed: _saveSettings,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _ActionButton(
-                  icon: Icons.folder_open,
-                  label: '扫描游戏库',
-                  color: AppTheme.successColor,
-                  onPressed: _scanNow,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _ActionButton(
-                  icon: Icons.menu,
-                  label: '右键菜单管理',
-                  color: AppTheme.secondaryColor,
-                  onPressed: _showContextMenuManager,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _ActionButton(
-                  icon: Icons.block,
-                  label: '黑名单管理',
-                  color: const Color(0xFFFFA000),
-                  onPressed: _showBlacklistDialog,
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -558,7 +627,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       title: '忽略文件夹',
       icon: Icons.folder_off_outlined,
       children: [
-        // Scan ignore folders
         Text('扫描忽略', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
         const SizedBox(height: 4),
         Text('扫描游戏库时将跳过这些文件夹', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary.withValues(alpha: 0.6))),
@@ -593,7 +661,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
         ),
         const SizedBox(height: 16),
-        // Scrape ignore folders
         Text('刮削忽略', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
         const SizedBox(height: 4),
         Text('刮削时将跳过这些文件夹', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary.withValues(alpha: 0.6))),
@@ -687,6 +754,42 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ref.read(doubleClickLaunchProvider.notifier).state = value;
                 final prefs = ref.read(sharedPreferencesProvider);
                 await prefs.setBool('double_click_launch', value);
+              },
+              activeColor: AppTheme.primaryColor,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildKeepPlayedSection() {
+    return _buildSection(
+      title: '已玩游戏保留库中',
+      icon: Icons.library_books_outlined,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('已玩游戏保留在游戏库中', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.textPrimary)),
+                  const SizedBox(height: 4),
+                  Text(
+                    '开启后，玩过的游戏同时在"游戏"页面和"已玩"页面显示，并在游戏左上角标记"玩过"',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.7)),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: _keepPlayedInGames,
+              onChanged: (value) async {
+                setState(() => _keepPlayedInGames = value);
+                final prefs = ref.read(sharedPreferencesProvider);
+                await prefs.setBool(AppSettings.keepPlayedInGamesKey, value);
+                ref.invalidate(allGamesProvider);
               },
               activeColor: AppTheme.primaryColor,
             ),
@@ -906,11 +1009,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: '例如: 127.0.0.1:7890',
-                  hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha:0.5)),
+                  hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5)),
                   filled: true,
-                  fillColor: Colors.white.withValues(alpha:0.5),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium), borderSide: BorderSide(color: AppTheme.textSecondary.withValues(alpha:0.2))),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium), borderSide: BorderSide(color: AppTheme.textSecondary.withValues(alpha:0.2))),
+                  fillColor: Colors.white.withValues(alpha: 0.5),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium), borderSide: BorderSide(color: AppTheme.textSecondary.withValues(alpha: 0.2))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium), borderSide: BorderSide(color: AppTheme.textSecondary.withValues(alpha: 0.2))),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
               ),
@@ -1337,9 +1440,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha:0.5),
+                  color: Colors.white.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                  border: Border.all(color: AppTheme.textSecondary.withValues(alpha:0.2)),
+                  border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.2)),
                 ),
                 child: DropdownButton<String>(
                   value: _selectedFont.isEmpty ? null : _selectedFont,
@@ -1347,15 +1450,31 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   isExpanded: true,
                   underline: const SizedBox.shrink(),
                   dropdownColor: AppTheme.surfaceColor,
-                  items: const [
-                    DropdownMenuItem(value: '', child: Text('默认 (Microsoft YaHei)', style: TextStyle(fontSize: 14))),
-                    DropdownMenuItem(value: 'MapleMonoNL-NF-CN', child: Text('MapleMonoNL-NF-CN', style: TextStyle(fontSize: 14, fontFamily: 'MapleMonoNL-NF-CN'))),
+                  items: [
+                    const DropdownMenuItem(value: '', child: Text('默认 (Microsoft YaHei)', style: TextStyle(fontSize: 14))),
+                    const DropdownMenuItem(value: 'MapleMonoNL-NF-CN', child: Text('MapleMonoNL-NF-CN', style: TextStyle(fontSize: 14, fontFamily: 'MapleMonoNL-NF-CN'))),
+                    ..._getCustomFontItems(),
                   ],
                   onChanged: (v) => setState(() => _selectedFont = v ?? ''),
                 ),
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _importFont,
+            icon: const Icon(Icons.upload_file, size: 16),
+            label: const Text('导入 TTF 字体', style: TextStyle(fontSize: 12)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.primaryColor,
+              side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+            ),
+          ),
         ),
         const SizedBox(height: 16),
         Row(
@@ -1368,7 +1487,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha:0.15),
+                color: AppTheme.primaryColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -1405,7 +1524,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         setState(() => _fontSize = value);
                       },
                       activeColor: AppTheme.primaryColor,
-                      inactiveColor: AppTheme.textSecondary.withValues(alpha:0.2),
+                      inactiveColor: AppTheme.textSecondary.withValues(alpha: 0.2),
                     ),
                   ),
                   IconButton(
@@ -1425,7 +1544,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: AppTheme.backgroundColor.withValues(alpha:0.3),
+                color: AppTheme.backgroundColor.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -1450,7 +1569,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha:0.15),
+                color: AppTheme.primaryColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -1487,7 +1606,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         setState(() => _detailFontSize = value);
                       },
                       activeColor: AppTheme.primaryColor,
-                      inactiveColor: AppTheme.textSecondary.withValues(alpha:0.2),
+                      inactiveColor: AppTheme.textSecondary.withValues(alpha: 0.2),
                     ),
                   ),
                   IconButton(
@@ -1507,7 +1626,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: AppTheme.backgroundColor.withValues(alpha:0.3),
+                color: AppTheme.backgroundColor.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -1523,8 +1642,111 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          '选择后需点击"保存设置"并重启应用生效',
-          style: TextStyle(color: AppTheme.textSecondary.withValues(alpha:0.6), fontSize: 11),
+          '选择后需点击"保存"并重启应用生效',
+          style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.6), fontSize: 11),
+        ),
+      ],
+    );
+  }
+
+  List<DropdownMenuItem<String>> _getCustomFontItems() {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final existingFonts = prefs.getString('custom_fonts') ?? '';
+    if (existingFonts.isEmpty) return [];
+
+    return existingFonts.split(',').where((f) => f.isNotEmpty).map((fontPath) {
+      final fontName = fontPath.split(RegExp(r'[/\\]')).last.replaceAll(RegExp(r'\.ttf$', caseSensitive: false), '');
+      return DropdownMenuItem(
+        value: fontName,
+        child: Text(fontName, style: const TextStyle(fontSize: 14)),
+      );
+    }).toList();
+  }
+
+  Future<void> _importFont() async {
+    final result = await FilePicker.pickFiles(
+      dialogTitle: '选择 TTF 字体文件',
+      type: FileType.custom,
+      allowedExtensions: ['ttf'],
+    );
+
+    if (result == null || result.files.isEmpty) return;
+
+    final file = File(result.files.first.path!);
+    final fileName = result.files.first.name;
+
+    final fontsDir = Directory('${await AppPaths.rootDir}${Platform.pathSeparator}fonts');
+    if (!await fontsDir.exists()) {
+      await fontsDir.create(recursive: true);
+    }
+
+    final targetPath = '${fontsDir.path}${Platform.pathSeparator}$fileName';
+    await file.copy(targetPath);
+
+    final fontName = fileName.replaceAll(RegExp(r'\.ttf$', caseSensitive: false), '');
+
+    final prefs = ref.read(sharedPreferencesProvider);
+    final existingFonts = prefs.getString('custom_fonts') ?? '';
+    final fonts = existingFonts.isEmpty ? <String>[] : existingFonts.split(',');
+    if (!fonts.contains(targetPath)) {
+      fonts.add(targetPath);
+      await prefs.setString('custom_fonts', fonts.join(','));
+    }
+
+    setState(() {
+      _selectedFont = fontName;
+    });
+
+    if (mounted) {
+      AppTheme.showGlassToast(context, message: '字体 "$fontName" 已导入，保存设置后重启应用生效');
+    }
+  }
+
+  Widget _buildContextMenuSection() {
+    return _buildSection(
+      title: '右键菜单管理',
+      icon: Icons.menu,
+      children: [
+        const Text('管理游戏列表右键菜单中显示的选项', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _showContextMenuManager,
+            icon: const Icon(Icons.settings, size: 18),
+            label: const Text('打开菜单管理'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+              foregroundColor: AppTheme.primaryColor,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBlacklistSection() {
+    return _buildSection(
+      title: '黑名单管理',
+      icon: Icons.block,
+      children: [
+        const Text('管理扫描时忽略的游戏路径', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _showBlacklistDialog,
+            icon: const Icon(Icons.edit, size: 18),
+            label: const Text('编辑黑名单'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFFA000).withValues(alpha: 0.15),
+              foregroundColor: const Color(0xFFFFA000),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+            ),
+          ),
         ),
       ],
     );
@@ -1578,7 +1800,26 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               children: [
                 const Text('作者', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                 const SizedBox(height: 4),
-                const Text('临渊', style: TextStyle(color: AppTheme.textPrimary, fontSize: 14)),
+                GestureDetector(
+                  onTap: () async {
+                    final uri = Uri.parse('https://space.bilibili.com/345721873');
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: Text(
+                      '临渊',
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontSize: 14,
+                        decoration: TextDecoration.underline,
+                        decorationColor: AppTheme.primaryColor.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ],
@@ -1645,6 +1886,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     await prefs.setDouble('font_size', _fontSize);
     await prefs.setDouble('detail_font_size', _detailFontSize);
     await prefs.setBool(AppSettings.noImageModeKey, _noImageMode);
+    await prefs.setBool(AppSettings.keepPlayedInGamesKey, _keepPlayedInGames);
 
     if (!mounted) return;
 
@@ -2370,55 +2612,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
+class _SidebarCategory {
   final String label;
-  final Color color;
-  final VoidCallback onPressed;
+  final IconData icon;
+  final List<String> items;
 
-  const _ActionButton({
-    required this.icon,
+  const _SidebarCategory({
     required this.label,
-    required this.color,
-    required this.onPressed,
+    required this.icon,
+    required this.items,
   });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-        onTap: onPressed,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha:0.15),
-            borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-            border: Border.all(
-              color: color.withValues(alpha:0.3),
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: color, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _BlacklistDialog extends ConsumerStatefulWidget {

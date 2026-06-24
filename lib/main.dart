@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -32,6 +33,27 @@ void main() async {
     final windowController = WindowController(prefs);
     await windowController.initialize();
 
+    // Load custom fonts
+    final customFonts = prefs.getString('custom_fonts') ?? '';
+    if (customFonts.isNotEmpty) {
+      for (final fontPath in customFonts.split(',')) {
+        if (fontPath.isNotEmpty) {
+          try {
+            final fontFile = File(fontPath);
+            if (await fontFile.exists()) {
+              final fontName = fontPath.split(RegExp(r'[/\\]')).last.replaceAll(RegExp(r'\.ttf$', caseSensitive: false), '');
+              final fontData = await fontFile.readAsBytes();
+              final fontLoader = FontLoader(fontName);
+              fontLoader.addFont(Future.value(ByteData.view(fontData.buffer)));
+              await fontLoader.load();
+            }
+          } catch (e) {
+            debugPrint('Failed to load custom font: $e');
+          }
+        }
+      }
+    }
+
     runApp(
       ProviderScope(
         overrides: [
@@ -42,6 +64,28 @@ void main() async {
     );
   } else {
     final prefs = await AppSettings.load();
+
+    // Load custom fonts
+    final customFonts = prefs.getString('custom_fonts') ?? '';
+    if (customFonts.isNotEmpty) {
+      for (final fontPath in customFonts.split(',')) {
+        if (fontPath.isNotEmpty) {
+          try {
+            final fontFile = File(fontPath);
+            if (await fontFile.exists()) {
+              final fontName = fontPath.split(RegExp(r'[/\\]')).last.replaceAll(RegExp(r'\.ttf$', caseSensitive: false), '');
+              final fontData = await fontFile.readAsBytes();
+              final fontLoader = FontLoader(fontName);
+              fontLoader.addFont(Future.value(ByteData.view(fontData.buffer)));
+              await fontLoader.load();
+            }
+          } catch (e) {
+            debugPrint('Failed to load custom font: $e');
+          }
+        }
+      }
+    }
+
     runApp(
       ProviderScope(
         overrides: [
