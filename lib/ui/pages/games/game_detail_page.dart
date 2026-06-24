@@ -921,9 +921,78 @@ if (_isEditing) ...[
                 ),
               ],
             ),
-          ] else if (_currentGame.version != null) ...[
             const SizedBox(height: 10),
-            _InfoRow(icon: Icons.tag, label: '版本', value: _currentGame.version!),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.business, size: 15, color: AppTheme.textPrimary),
+                const SizedBox(width: 8),
+                const Text('厂商:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: TextField(
+                    controller: TextEditingController(text: _currentGame.maker ?? ''),
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.5),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      isDense: true,
+                      hintText: '输入厂商名',
+                    ),
+                    onChanged: (value) {
+                      _currentGame = _currentGame.copyWith(maker: value.isEmpty ? null : value);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            if (_currentGame.maker != null && _currentGame.maker!.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(Icons.business, size: 15, color: AppTheme.textPrimary),
+                  const SizedBox(width: 8),
+                  const Text('厂商:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: _currentGame.maker!.split(', ').map((name) {
+                        final trimmedName = name.trim();
+                        return InkWell(
+                          onTap: () {
+                            if (_currentGame.makerUrl != null && _currentGame.makerUrl!.isNotEmpty) {
+                              launchUrl(Uri.parse(_currentGame.makerUrl!));
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                            ),
+                            child: Text(
+                              trimmedName,
+                              style: TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (_currentGame.version != null) ...[
+              const SizedBox(height: 10),
+              _InfoRow(icon: Icons.tag, label: '版本', value: _currentGame.version!),
+            ],
           ],
           const SizedBox(height: 10),
           _InfoRow(
