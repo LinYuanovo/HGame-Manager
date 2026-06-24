@@ -79,7 +79,7 @@ class AcgYingParser extends SiteParser {
     String? unzipCode;
 
     if (postContent != null) {
-      final fullText = postContent.text;
+      final fullText = _extractTextWithImages(postContent);
       final sections = _splitSections(fullText);
 
       description = sections['游戏介绍'];
@@ -188,7 +188,7 @@ class AcgYingParser extends SiteParser {
     // Parse post content using text-based section splitting
     final postContent = document.querySelector('div.post-content');
     if (postContent != null) {
-      final fullText = postContent.text;
+      final fullText = _extractTextWithImages(postContent);
       final sections = _splitSections(fullText);
 
       metadata.intro = sections['游戏介绍'];
@@ -273,6 +273,50 @@ class AcgYingParser extends SiteParser {
         url.contains('pan.xunlei.com') ||
         url.contains('share.weiyun.com') ||
         url.contains('drive.uc.cn');
+  }
+
+  /// Extract text from container with inline image markers.
+  String _extractTextWithImages(Element container) {
+    final buffer = StringBuffer();
+    for (final child in container.children) {
+      _processElement(child, buffer);
+    }
+    return buffer.toString().trim();
+  }
+
+  void _processElement(Element element, StringBuffer buffer) {
+    final tag = element.localName;
+
+    if (tag == 'img') {
+      final src = element.attributes['src'] ?? '';
+      if (src.isNotEmpty && src.contains('wp-content/uploads') && !src.endsWith('.svg')) {
+        buffer.writeln('[图片:$src]');
+      }
+    } else if (tag == 'br') {
+      buffer.writeln();
+    } else if (tag == 'p' || tag == 'div') {
+      final img = element.querySelector('img');
+      if (img != null) {
+        final src = img.attributes['src'] ?? '';
+        if (src.isNotEmpty && src.contains('wp-content/uploads') && !src.endsWith('.svg')) {
+          final text = element.text.trim();
+          if (text.isNotEmpty && text != src) {
+            buffer.writeln(text);
+          }
+          buffer.writeln('[图片:$src]');
+        } else {
+          buffer.writeln(element.text.trim());
+        }
+      } else {
+        buffer.writeln(element.text.trim());
+      }
+    } else if (tag == 'h3' || tag == 'h4') {
+      buffer.writeln(element.text.trim());
+    } else {
+      for (final child in element.children) {
+        _processElement(child, buffer);
+      }
+    }
   }
 
   /// Split full text into sections based on section markers.
@@ -434,7 +478,7 @@ class FeiXueAcgParser extends SiteParser {
         showhide.remove();
       }
 
-      var fullText = postContent.text;
+      var fullText = _extractTextWithImages(postContent);
       fullText = fullText.replaceAll(RegExp(r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件[^\n]*(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳'), '');
       fullText = fullText.replaceAll(RegExp(r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件'), '');
 
@@ -659,7 +703,7 @@ class FeiXueAcgParser extends SiteParser {
         showhide.remove();
       }
 
-      var fullText = postContent.text;
+      var fullText = _extractTextWithImages(postContent);
 
       // Filter out image attachment patterns
       fullText = fullText.replaceAll(RegExp(r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件[^\n]*(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳'), '');
@@ -797,6 +841,49 @@ class FeiXueAcgParser extends SiteParser {
         url.contains('feimaocloud');
   }
 
+  /// Extract text from container with inline image markers.
+  String _extractTextWithImages(Element container) {
+    final buffer = StringBuffer();
+    for (final node in container.nodes) {
+      if (node is Element) {
+        final tag = node.localName;
+        if (tag == 'img') {
+          final src = node.attributes['zoomfile'] ?? node.attributes['file'] ?? node.attributes['src'] ?? '';
+          if (src.isNotEmpty && !src.contains('static/image') && !src.endsWith('.svg') && !src.endsWith('.ico')) {
+            buffer.writeln('[图片:$src]');
+          }
+        } else if (tag == 'br') {
+          buffer.writeln();
+        } else if (tag == 'div' || tag == 'p') {
+          final imgs = node.querySelectorAll('img');
+          if (imgs.isNotEmpty) {
+            for (final img in imgs) {
+              final src = img.attributes['zoomfile'] ?? img.attributes['file'] ?? img.attributes['src'] ?? '';
+              if (src.isNotEmpty && !src.contains('static/image') && !src.endsWith('.svg') && !src.endsWith('.ico')) {
+                buffer.writeln('[图片:$src]');
+              }
+            }
+          }
+          final text = node.text.trim();
+          if (text.isNotEmpty) {
+            buffer.writeln(text);
+          }
+        } else {
+          final text = node.text.trim();
+          if (text.isNotEmpty) {
+            buffer.writeln(text);
+          }
+        }
+      } else if (node is Text) {
+        final text = node.text.trim();
+        if (text.isNotEmpty) {
+          buffer.writeln(text);
+        }
+      }
+    }
+    return buffer.toString().trim();
+  }
+
   /// Extract text after a section label until the next recognizable section.
   String? _extractSection(String fullText, String sectionName) {
     // Try with Chinese colon first, then English colon
@@ -826,7 +913,7 @@ class FeiXueAcgParser extends SiteParser {
   }
 }
 
-/// Parser for 微咔ACG / VikACG (vikacg.com / weika)
+/// Parser for 维咔ACG / VikACG (vikacg.com / weika)
 /// Nuxt.js/Vue.js SPA with SSR-rendered content.
 class VikAcgParser extends SiteParser {
   @override
