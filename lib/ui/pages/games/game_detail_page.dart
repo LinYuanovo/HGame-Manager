@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:media_kit/media_kit.dart';
@@ -3484,6 +3485,11 @@ class _ImageViewerDialog extends StatefulWidget {
 class _ImageViewerDialogState extends State<_ImageViewerDialog> {
   late int _currentIndex;
   late FocusNode _focusNode;
+  double _scale = 1.0;
+  Offset _offset = Offset.zero;
+  static const double _minScale = 0.2;
+  static const double _maxScale = 5.0;
+  static const double _scaleStep = 0.2;
 
   @override
   void initState() {
@@ -3502,11 +3508,23 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
   }
 
   void _previous() {
-    if (_currentIndex > 0) setState(() => _currentIndex--);
+    if (_currentIndex > 0) {
+      setState(() {
+        _currentIndex--;
+        _scale = 1.0;
+        _offset = Offset.zero;
+      });
+    }
   }
 
   void _next() {
-    if (_currentIndex < widget.images.length - 1) setState(() => _currentIndex++);
+    if (_currentIndex < widget.images.length - 1) {
+      setState(() {
+        _currentIndex++;
+        _scale = 1.0;
+        _offset = Offset.zero;
+      });
+    }
   }
 
   void _close() {
@@ -3514,11 +3532,29 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
     Navigator.of(context).pop();
   }
 
+  void _handleScale(double delta) {
+    setState(() {
+      final oldScale = _scale;
+      if (delta > 0) {
+        _scale = (_scale + _scaleStep).clamp(_minScale, _maxScale);
+      } else {
+        _scale = (_scale - _scaleStep).clamp(_minScale, _maxScale);
+      }
+      if (_scale <= 1.0) {
+        _offset = Offset.zero;
+      } else {
+        final ratio = _scale / oldScale;
+        _offset = Offset(_offset.dx * ratio, _offset.dy * ratio);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final viewerW = screenSize.width * 0.8;
     final viewerH = screenSize.height * 0.8;
+    final isDraggable = _scale > 1.0;
 
     return KeyboardListener(
       focusNode: _focusNode,
@@ -3544,7 +3580,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
             color: Colors.transparent,
             alignment: Alignment.center,
             child: GestureDetector(
-              onTap: () {}, // Prevent closing when clicking on image area
+              onTap: () {},
               child: Container(
                 width: viewerW,
                 height: viewerH,
@@ -3563,11 +3599,9 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                 clipBehavior: Clip.antiAlias,
                 child: Stack(
                   children: [
-                    // Image area - use most of the space
                     Positioned.fill(
                       child: Row(
                         children: [
-                          // Left navigation area
                           SizedBox(
                             width: 60,
                             child: GestureDetector(
@@ -3581,22 +3615,52 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                               ),
                             ),
                           ),
-                          // Center image - takes most of the width
                           Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 40),
-                              child: Center(
-                                child: widget.images.isNotEmpty && _currentIndex < widget.images.length
-                                    ? Image.file(
-                                        File(widget.images[_currentIndex].imagePath!),
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (_, __, ___) => Icon(Icons.broken_image, size: 64, color: AppTheme.textPrimary.withValues(alpha: 0.3)),
-                                      )
-                                    : const SizedBox.shrink(),
+                            child: Listener(
+                              onPointerSignal: (pointerSignal) {
+                                if (pointerSignal is PointerScrollEvent) {
+                                  _handleScale(pointerSignal.scrollDelta.dy > 0 ? -1 : 1);
+                                }
+                              },
+                              child: GestureDetector(
+                                onScaleUpdate: (details) {
+                                  if (isDraggable && details.pointerCount == 1) {
+                                    setState(() {
+                                      _offset += details.focalPointDelta;
+                                      final scaledW = (viewerW - 120) * _scale;
+                                      final scaledH = (viewerH - 80) * _scale;
+                                      double maxDx = 0, maxDy = 0;
+                                      if (scaledW > viewerW - 120) maxDx = (scaledW - (viewerW - 120)) / 2;
+                                      if (scaledH > viewerH - 80) maxDy = (scaledH - (viewerH - 80)) / 2;
+                                      _offset = Offset(
+                                        _offset.dx.clamp(-maxDx, maxDx),
+                                        _offset.dy.clamp(-maxDy, maxDy),
+                                      );
+                                    });
+                                  }
+                                },
+                                child: Container(
+                                  color: Colors.transparent,
+                                  padding: const EdgeInsets.symmetric(vertical: 40),
+                                  child: Center(
+                                    child: widget.images.isNotEmpty && _currentIndex < widget.images.length
+                                        ? Transform(
+                                            transform: Matrix4.identity()
+                                              ..translate(_offset.dx, _offset.dy)
+                                              ..scale(_scale),
+                                            alignment: Alignment.center,
+                                            child: Image.file(
+                                              File(widget.images[_currentIndex].imagePath!),
+                                              fit: BoxFit.contain,
+                                              errorBuilder: (_, __, ___) => Icon(Icons.broken_image, size: 64, color: AppTheme.textPrimary.withValues(alpha: 0.3)),
+                                            ),
+                                          )
+                                        : const SizedBox.shrink(),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                          // Right navigation area
                           SizedBox(
                             width: 60,
                             child: GestureDetector(
@@ -3613,7 +3677,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                         ],
                       ),
                     ),
-                    // Close button - top right
+                    // Close button
                     Positioned(
                       top: 8,
                       right: 8,
@@ -3633,7 +3697,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                         ),
                       ),
                     ),
-                    // Counter - top left
+                    // Counter
                     Positioned(
                       top: 12,
                       left: 16,
@@ -3646,6 +3710,39 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                         child: Text('${_currentIndex + 1} / ${widget.images.length}', style: TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
                       ),
                     ),
+                    // Zoom percentage
+                    Positioned(
+                      top: 12,
+                      left: 100,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.backgroundColor.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text('${(_scale * 100).round()}%', style: TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
+                      ),
+                    ),
+                    // Reset button
+                    if (_scale != 1.0)
+                      Positioned(
+                        top: 12,
+                        left: 160,
+                        child: GestureDetector(
+                          onTap: () => setState(() {
+                            _scale = 1.0;
+                            _offset = Offset.zero;
+                          }),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.backgroundColor.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text('重置', style: TextStyle(color: AppTheme.primaryColor, fontSize: 13)),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
