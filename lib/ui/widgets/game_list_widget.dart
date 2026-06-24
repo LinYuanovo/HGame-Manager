@@ -1495,6 +1495,16 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     );
   }
 
+  Future<void> _launchExe(String exePath, String gamePath) async {
+    // 工作目录应该是 exe 文件所在的文件夹
+    final exeDir = File(exePath).parent.path;
+    try {
+      await Process.run(exePath, [], workingDirectory: exeDir);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<void> _launchGameFromList(Game game) async {
     final repo = ref.read(gameRepositoryProvider);
     if (game.id != null) {
@@ -1509,7 +1519,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final file = File(game.gameLauncher!);
       if (await file.exists()) {
         try {
-          await Process.run(game.gameLauncher!, [], workingDirectory: game.path);
+          await _launchExe(game.gameLauncher!, game.path);
         } catch (e) {
           if (mounted) {
             AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
@@ -1530,7 +1540,7 @@ _refreshGames(); _refreshPlayed(); return;
         await repo.updateGameLauncher(game.id!, toolBat.path, false);
       }
       try {
-        await Process.run(toolBat.path, [], workingDirectory: game.path);
+        await _launchExe(toolBat.path, game.path);
       } catch (e) {
         if (mounted) {
           AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
@@ -1547,7 +1557,7 @@ _refreshGames(); _refreshPlayed(); return;
             await repo.updateGameLauncher(game.id!, entity.path, false);
           }
           try {
-            await Process.run(entity.path, [], workingDirectory: game.path);
+            await _launchExe(entity.path, game.path);
           } catch (e) {
             if (mounted) {
               AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
@@ -1566,7 +1576,7 @@ _refreshGames(); _refreshPlayed(); return;
           await repo.updateGameLauncher(game.id!, exeFile.path, false);
         }
         try {
-          await Process.run(exeFile.path, [], workingDirectory: game.path);
+          await _launchExe(exeFile.path, game.path);
         } catch (e) {
           if (mounted) {
             AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
@@ -1583,7 +1593,7 @@ _refreshGames(); _refreshPlayed(); return;
         await repo.updateGameLauncher(game.id!, exePath, false);
       }
       try {
-        await Process.run(exePath, [], workingDirectory: game.path);
+        await _launchExe(exePath, game.path);
       } catch (e) {
         if (mounted) {
           AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
@@ -1603,7 +1613,7 @@ _refreshGames(); _refreshPlayed(); return;
         await repo.updateGameLauncher(game.id!, launcherPath, true);
       }
       try {
-        await Process.run(launcherPath, [], workingDirectory: game.path);
+        await _launchExe(launcherPath, game.path);
       } catch (e) {
         if (mounted) {
           AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);

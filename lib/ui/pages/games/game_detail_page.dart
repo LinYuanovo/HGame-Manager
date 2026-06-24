@@ -1824,6 +1824,16 @@ if (_isEditing) ...[
     }
   }
 
+  Future<void> _launchExe(String exePath, String gamePath) async {
+    // 工作目录应该是 exe 文件所在的文件夹
+    final exeDir = File(exePath).parent.path;
+    try {
+      await Process.run(exePath, [], workingDirectory: exeDir);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<bool> _launchGame(Game game) async {
     final repo = ref.read(gameRepositoryProvider);
 
@@ -1831,7 +1841,7 @@ if (_isEditing) ...[
       final file = File(game.gameLauncher!);
       if (await file.exists()) {
         try {
-          await Process.run(game.gameLauncher!, [], workingDirectory: game.path);
+          await _launchExe(game.gameLauncher!, game.path);
           return true;
         } catch (e) {
           if (mounted) {
@@ -1849,7 +1859,7 @@ if (_isEditing) ...[
     if (await toolBat.exists()) {
       await repo.updateGame(game.copyWith(gameLauncher: toolBat.path));
       try {
-        await Process.run(toolBat.path, [], workingDirectory: game.path);
+        await _launchExe(toolBat.path, game.path);
         return true;
       } catch (e) {
         if (mounted) {
@@ -1865,7 +1875,7 @@ if (_isEditing) ...[
         if (fileName.endsWith('.bat') && (fileName.contains('启动') || fileName.contains('开始'))) {
           await repo.updateGame(game.copyWith(gameLauncher: entity.path));
           try {
-            await Process.run(entity.path, [], workingDirectory: game.path);
+            await _launchExe(entity.path, game.path);
             return true;
           } catch (e) {
             if (mounted) {
@@ -1883,7 +1893,7 @@ if (_isEditing) ...[
       if (await exeFile.exists()) {
         await repo.updateGame(game.copyWith(gameLauncher: exeFile.path));
         try {
-          await Process.run(exeFile.path, [], workingDirectory: game.path);
+          await _launchExe(exeFile.path, game.path);
           return true;
         } catch (e) {
           if (mounted) {
@@ -1899,7 +1909,7 @@ if (_isEditing) ...[
     if (exePath != null) {
       await repo.updateGame(game.copyWith(gameLauncher: exePath));
       try {
-        await Process.run(exePath, [], workingDirectory: game.path);
+        await _launchExe(exePath, game.path);
         return true;
       } catch (e) {
         if (mounted) {
