@@ -828,13 +828,13 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                   const Text('自动重命名文件夹', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.textPrimary)),
                   const SizedBox(height: 4),
                   Text(
-                    '开启后后续刮削会将游戏文件夹名修改为: [游戏ID] [游戏类型] 游戏标题 游戏版本',
+                    '开启后后续刮削会将游戏文件夹名修改为: [游戏ID] [游戏厂商/社团] [游戏类型] 游戏标题 游戏版本',
                     style: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.7)),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '提示：由于可能存在中文路径问题，请谨慎开启',
-                    style: TextStyle(fontSize: 11, color: Colors.orange.withValues(alpha: 0.8)),
+                    style: TextStyle(fontSize: 12, color: Colors.orange.withValues(alpha: 0.8)),
                   ),
                 ],
               ),
@@ -1186,7 +1186,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         ),
         const SizedBox(height: 12),
         _buildCookieInput(
-          label: '微咔ACG (vikacg.com) - Authorization',
+          label: '维咔ACG (vikacg.com) - Authorization',
           controller: _cookieVikacgController,
           hint: '输入 Authorization Token（如 Bearer xxx）',
         ),
@@ -1197,7 +1197,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         ),
         const SizedBox(height: 4),
         Text(
-          '微咔ACG 获取方法：浏览器按F12 → Network → 点击任意请求 → 复制Request Headers中的Authorization值',
+          '维咔ACG 获取方法：浏览器按F12 → Network → 点击任意请求 → 复制Request Headers中的Authorization值',
           style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5), fontSize: 11),
         ),
       ],
