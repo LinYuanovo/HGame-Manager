@@ -14,6 +14,13 @@ import 'ui/pages/home_page.dart';
 import 'ui/theme/app_theme.dart';
 
 void main() async {
+  // Suppress noisy Flutter accessibility logs
+  final originalDebugPrint = debugPrint;
+  debugPrint = (String? message, {int? wrapWidth}) {
+    if (message != null && message.contains('accessibility_bridge')) return;
+    originalDebugPrint(message, wrapWidth: wrapWidth);
+  };
+
   WidgetsFlutterBinding.ensureInitialized();
   try {
     MediaKit.ensureInitialized();
