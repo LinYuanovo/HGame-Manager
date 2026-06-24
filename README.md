@@ -10,7 +10,7 @@
     <img src="https://img.shields.io/badge/Dart-3.11+-0175C2?style=flat-square&logo=dart" alt="Dart">
     <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows">
     <img src="https://img.shields.io/badge/License-AGPL--3.0-green?style=flat-square" alt="License">
-    <img src="https://img.shields.io/badge/Version-1.3.8-blue?style=flat-square" alt="Version">
+    <img src="https://img.shields.io/badge/Version-1.4.0-blue?style=flat-square" alt="Version">
   </nobr>
 </p>
 
@@ -129,6 +129,11 @@ build/windows/x64/runner/Release/hgame_manager.exe
 - **云端导入**: 支持从 DLsite（RJ号/名称搜索）或 Steam（App ID/名称搜索）导入游戏信息和封面图
 - **自动整理**：刮削后按系列分类移动到整理目录
 - **智能标签**：自动关联重叠标签（如"互动SLG" → "SLG"）
+- **刮削统一**：详情页与云端导入使用相同的专用刮削器
+- **HTTP 429 限流自动重试**
+- **厂商名显示**：DLsite 社团名 / Steam 开发者
+- **简介排版优化**：保留原始 HTML 布局
+- **图片查看器增强**：支持鼠标滚轮缩放（20%-500%）和拖拽
 
 ![刮削页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/scraper_page.png)
 
