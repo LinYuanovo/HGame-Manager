@@ -1546,9 +1546,17 @@ if (_isEditing) ...[
       }
       // Pattern 3: type_text — plain text
       else if (tag == 'p') {
-        final text = child.text.trim();
-        if (text.isNotEmpty) {
-          blocks.add(_ContentBlock.text(text));
+        final imgEl = child.querySelector('img');
+        if (imgEl != null) {
+          final imgSrc = _resolveImgSrc(imgEl);
+          if (imgSrc.isNotEmpty) {
+            blocks.add(_ContentBlock.imageWithText(imgSrc, ''));
+          }
+        } else {
+          final text = child.text.trim();
+          if (text.isNotEmpty) {
+            blocks.add(_ContentBlock.text(text));
+          }
         }
       }
       else if (tag == 'h3' || tag == 'h4') {
