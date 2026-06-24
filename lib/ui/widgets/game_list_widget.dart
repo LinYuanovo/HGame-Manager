@@ -2814,73 +2814,73 @@ class _CoverPickerDialog extends StatelessWidget {
                 maxHeight: MediaQuery.of(context).size.height * 0.5,
               ),
               child: SingleChildScrollView(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (int i = 0; i < game.images.length; i++)
-                      GestureDetector(
-                        onTap: () => Navigator.of(context).pop(i),
-                        child: Container(
-                          width: 120,
-                          height: 120 * 9 / 16,  // 16:9 aspect ratio
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: i == game.coverIndex
-                                  ? AppTheme.primaryColor
-                                  : AppTheme.borderColor.withValues(alpha: 0.3),
-                              width: i == game.coverIndex ? 3 : 1,
-                            ),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(7),
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                Image.file(
-                                  File(game.images[i].imagePath!),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    color: AppTheme.backgroundColor
-                                        .withValues(alpha: 0.3),
-                                    child: const Icon(Icons.broken_image,
-                                        size: 24, color: AppTheme.textSecondary),
-                                  ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    const spacing = 8.0;
+                    final itemWidth = (constraints.maxWidth - spacing * 3) / 4;
+                    return Wrap(
+                      spacing: spacing,
+                      runSpacing: spacing,
+                      children: [
+                        for (int i = 0; i < game.images.length; i++)
+                          GestureDetector(
+                            onTap: () => Navigator.of(context).pop(i),
+                            child: Container(
+                              width: itemWidth,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: i == game.coverIndex
+                                      ? AppTheme.primaryColor
+                                      : AppTheme.borderColor.withValues(alpha: 0.3),
+                                  width: i == game.coverIndex ? 3 : 1,
                                 ),
-                                Positioned(
-                                  bottom: 4,
-                                  right: 4,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                        color: Colors.black54,
-                                        borderRadius: BorderRadius.circular(8)),
-                                    child: Text('${i + 1}',
-                                        style: const TextStyle(
-                                            fontSize: 10, color: Colors.white)),
-                                  ),
-                                ),
-                                if (i == game.coverIndex)
-                                  Positioned(
-                                    top: 4,
-                                    right: 4,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(2),
-                                      decoration: const BoxDecoration(
-                                          color: AppTheme.primaryColor,
-                                          shape: BoxShape.circle),
-                                      child: const Icon(Icons.check,
-                                          size: 14, color: Colors.white),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(7),
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    Image.file(
+                                      File(game.images[i].imagePath!),
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, __, ___) => Container(
+                                        color: AppTheme.backgroundColor.withValues(alpha: 0.3),
+                                        child: const Icon(Icons.broken_image, size: 24, color: AppTheme.textSecondary),
+                                      ),
                                     ),
-                                  ),
-                              ],
+                                    Positioned(
+                                      bottom: 4,
+                                      right: 4,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                            color: Colors.black54,
+                                            borderRadius: BorderRadius.circular(8)),
+                                        child: Text('${i + 1}',
+                                            style: const TextStyle(fontSize: 10, color: Colors.white)),
+                                      ),
+                                    ),
+                                    if (i == game.coverIndex)
+                                      Positioned(
+                                        top: 4,
+                                        right: 4,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(2),
+                                          decoration: const BoxDecoration(
+                                              color: AppTheme.primaryColor,
+                                              shape: BoxShape.circle),
+                                          child: const Icon(Icons.check, size: 14, color: Colors.white),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
