@@ -2793,7 +2793,7 @@ class _CoverPickerDialog extends StatelessWidget {
     return Dialog(
       backgroundColor: Colors.transparent,
       child: GlassContainer(
-        width: 500,
+        width: MediaQuery.of(context).size.width * 0.5,
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2822,8 +2822,8 @@ class _CoverPickerDialog extends StatelessWidget {
                       GestureDetector(
                         onTap: () => Navigator.of(context).pop(i),
                         child: Container(
-                          width: 100,
-                          height: 130,
+                          width: 120,
+                          height: 120 * 9 / 16,  // 16:9 aspect ratio
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
