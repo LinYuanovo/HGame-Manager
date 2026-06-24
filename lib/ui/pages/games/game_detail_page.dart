@@ -2614,10 +2614,14 @@ if (_isEditing) ...[
         }
 
         if (gameInfo.screenshots.isNotEmpty) {
-          AppTheme.showGlassToast(context, message: '正在下载截图 (0/${gameInfo.screenshots.length})...');
+          final totalImages = gameInfo.screenshots.length;
+          AppTheme.showGlassToast(context, message: '正在下载截图... 0/$totalImages', duration: const Duration(seconds: 60));
           final urlToLocal = await _downloadImagesWithMapping(updated, gameInfo.screenshots, onProgress: (current, total) {
+            if (current % 5 == 0 || current == total) {
+              AppTheme.showGlassToast(context, message: '正在下载截图... $current/$total', duration: const Duration(seconds: 60));
+            }
             if (current == total) {
-              AppTheme.showGlassToast(context, message: '截图下载完成 ($total张)');
+              AppTheme.showGlassToast(context, message: '截图下载完成 ($total张)', duration: const Duration(seconds: 3));
             }
           });
           if (urlToLocal.isNotEmpty) {
@@ -2812,13 +2816,17 @@ if (_isEditing) ...[
         }
 
         if (gameInfo.screenshots.isNotEmpty) {
-          AppTheme.showGlassToast(context, message: '正在下载截图 (0/${gameInfo.screenshots.length})...');
+          final totalImages = gameInfo.screenshots.length;
+          AppTheme.showGlassToast(context, message: '正在下载截图... 0/$totalImages', duration: const Duration(seconds: 60));
           final urlToLocal = await _downloadImagesWithMapping(
             _currentGame.copyWith(id: _currentGame.id!),
             gameInfo.screenshots,
             onProgress: (current, total) {
+              if (current % 5 == 0 || current == total) {
+                AppTheme.showGlassToast(context, message: '正在下载截图... $current/$total', duration: const Duration(seconds: 60));
+              }
               if (current == total) {
-                AppTheme.showGlassToast(context, message: '截图下载完成 ($total张)');
+                AppTheme.showGlassToast(context, message: '截图下载完成 ($total张)', duration: const Duration(seconds: 3));
               }
             },
           );
