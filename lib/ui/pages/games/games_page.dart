@@ -679,6 +679,8 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       title: gameInfo.title,
       intro: description,
       sourceUrl: gameInfo.sourceUrl,
+      maker: gameInfo.maker,
+      makerUrl: gameInfo.makerUrl,
     );
 
     int gameId;
@@ -748,11 +750,13 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
 
     setState(() => _statusText = '正在保存数据...');
 
+    final developers = gameInfo.developers;
     final game = Game(
       path: _folderPath!,
       title: gameInfo.title,
       intro: description,
       sourceUrl: gameInfo.sourceUrl,
+      maker: developers.isNotEmpty ? developers.join(', ') : null,
     );
 
     int gameId;
