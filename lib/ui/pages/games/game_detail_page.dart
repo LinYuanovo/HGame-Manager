@@ -107,7 +107,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     if (leProcPath == null) return false;
 
     try {
-      await Process.run(leProcPath, ['"${game.path}"']);
+      await Process.run(leProcPath, [game.path]);
       return true;
     } catch (e) {
       if (mounted) {
