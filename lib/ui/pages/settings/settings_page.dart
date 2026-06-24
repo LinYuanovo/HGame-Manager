@@ -944,82 +944,73 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       title: '网络代理设置',
       icon: Icons.language,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        Row(
           children: [
-            Row(
-              children: [
-                GlassChip(
-                  label: '不使用代理',
-                  isSelected: _proxyMode == 'none',
-                  onTap: () => setState(() => _proxyMode = 'none'),
-                ),
-                const SizedBox(width: 8),
-                GlassChip(
-                  label: '使用系统代理',
-                  isSelected: _proxyMode == 'system',
-                  onTap: () => setState(() => _proxyMode = 'system'),
-                ),
-                const SizedBox(width: 8),
-                GlassChip(
-                  label: '自定义代理',
-                  isSelected: _proxyMode == 'custom',
-                  onTap: () => setState(() => _proxyMode = 'custom'),
-                ),
-              ],
+            GlassChip(
+              label: '不使用代理',
+              isSelected: _proxyMode == 'none',
+              onTap: () => setState(() => _proxyMode = 'none'),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _proxyTestUrlController,
-                    decoration: InputDecoration(
-                      hintText: '默认: feixueacg.org',
-                      hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
-                      ),
-                      isDense: true,
-                    ),
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: _isTestingProxy ? null : _testProxy,
-                  icon: _isTestingProxy
-                      ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : Icon(Icons.network_check, size: 18),
-                  label: const Text('测试连接'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ],
+            const SizedBox(width: 8),
+            GlassChip(
+              label: '使用系统代理',
+              isSelected: _proxyMode == 'system',
+              onTap: () => setState(() => _proxyMode = 'system'),
             ),
-            if (_proxyTestResult != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  _proxyTestResult!,
-                  style: TextStyle(
-                    color: _proxyTestResult!.contains('成功') ? AppTheme.successColor : AppTheme.errorColor,
-                    fontSize: 13,
+            const SizedBox(width: 8),
+            GlassChip(
+              label: '自定义代理',
+              isSelected: _proxyMode == 'custom',
+              onTap: () => setState(() => _proxyMode = 'custom'),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _proxyTestUrlController,
+                decoration: InputDecoration(
+                  hintText: '默认: feixueacg.org',
+                  hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                  ),
+                  isDense: true,
                 ),
+                style: const TextStyle(fontSize: 13),
               ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
+              onPressed: _isTestingProxy ? null : _testProxy,
+              icon: _isTestingProxy
+                  ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Icon(Icons.network_check, size: 18),
+              label: const Text('测试连接'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
           ],
         ),
+        if (_proxyTestResult != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              _proxyTestResult!,
+              style: TextStyle(
+                color: _proxyTestResult!.contains('成功') ? AppTheme.successColor : AppTheme.errorColor,
+                fontSize: 13,
+              ),
+            ),
+          ),
         if (_proxyMode == 'custom') ...[
           const SizedBox(height: 16),
           Column(
