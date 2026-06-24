@@ -1724,30 +1724,32 @@ if (_isEditing) ...[
   List<GameImage> _getUnusedImages(List<GameImage> allImages) {
     final usedFileNames = <String>{};
     
-    // Check intro_html for image URLs
-    if (_introHtml != null && _introHtml!.isNotEmpty) {
-      final blocks = _parseHtmlToBlocks(_introHtml!, '');
-      for (final block in blocks) {
-        if (block.imageUrl != null && block.imageUrl!.isNotEmpty) {
-          if (block.imageUrl!.startsWith('http')) {
-            usedFileNames.add(block.imageUrl!.split('/').last.split('.').first);
-          } else {
-            usedFileNames.add(block.imageUrl!.split(Platform.pathSeparator).last);
-          }
-        }
-      }
-    }
-    
-    // Check intro text for [图片:path] markers
+    // 从 intro 文本中提取 [图片:path] 标记的文件名
     final intro = _currentGame.intro ?? '';
     final imagePattern = RegExp(r'\[图片:(.+?)\]');
     for (final match in imagePattern.allMatches(intro)) {
       final path = match.group(1) ?? '';
       if (path.isNotEmpty) {
-        usedFileNames.add(path.split(Platform.pathSeparator).last);
+        final fileName = path.split(Platform.pathSeparator).last;
+        final baseName = fileName.split('.').first;
+        usedFileNames.add(baseName);
       }
     }
     
+    // 从 intro_html 中提取 img src 属性
+    if (_introHtml != null && _introHtml!.isNotEmpty) {
+      final srcPattern = RegExp(r'src="([^"]+)"');
+      for (final match in srcPattern.allMatches(_introHtml!)) {
+        final src = match.group(1) ?? '';
+        if (src.isNotEmpty && !src.startsWith('http')) {
+          final fileName = src.split(Platform.pathSeparator).last;
+          final baseName = fileName.split('.').first;
+          usedFileNames.add(baseName);
+        }
+      }
+    }
+    
+    // 过滤掉已在 intro 中使用的图片
     return allImages.where((img) {
       final fileName = img.imagePath.split(Platform.pathSeparator).last;
       final baseName = fileName.split('.').first;
