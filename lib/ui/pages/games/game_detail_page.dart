@@ -1576,6 +1576,25 @@ if (_isEditing) ...[
     return src.startsWith('//') ? 'https:$src' : src;
   }
 
+  String _introToHtml(String intro) {
+    final imageTagStart = '[图片:';
+    final videoTagStart = '[视频:';
+    final tagEnd = ']';
+    final buffer = StringBuffer();
+    for (final line in intro.split('\n')) {
+      if (line.startsWith(imageTagStart) && line.endsWith(tagEnd)) {
+        final path = line.substring(imageTagStart.length, line.length - tagEnd.length);
+        buffer.writeln('<p><img src="$path"></p>');
+      } else if (line.startsWith(videoTagStart) && line.endsWith(tagEnd)) {
+        final path = line.substring(videoTagStart.length, line.length - tagEnd.length);
+        buffer.writeln('<p><video src="$path"></video></p>');
+      } else {
+        buffer.writeln('<p>$line</p>');
+      }
+    }
+    return buffer.toString();
+  }
+
   Widget _buildHtmlContent(String html, double fontSize) {
     final blocks = _parseHtmlToBlocks(html, '');
     if (blocks.isEmpty) {
@@ -1644,16 +1663,38 @@ if (_isEditing) ...[
   Widget _buildBlockImage(String imageUrl) {
     if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
       if (_existingMediaFiles.contains(imageUrl)) {
-        return Image.file(
-          File(imageUrl),
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+        return GestureDetector(
+          onTap: () => _openImageViewer(imageUrl),
+          child: Image.file(
+            File(imageUrl),
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+          ),
         );
       }
       return const SizedBox.shrink();
     }
     // Remote URL — try to find matching local image
     return const SizedBox.shrink();
+  }
+
+  void _openImageViewer(String imagePath) {
+    final image = GameImage(gameId: _currentGame.id ?? 0, imagePath: imagePath);
+    setState(() => _isImageViewerOpen = true);
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      builder: (dialogContext) => _ImageViewerDialog(
+        images: [image],
+        initialIndex: 0,
+        onClose: () {
+          setState(() => _isImageViewerOpen = false);
+        },
+      ),
+    ).then((_) {
+      if (mounted) setState(() => _isImageViewerOpen = false);
+    });
   }
 
   List<GameImage> _getUnusedImages(List<GameImage> allImages) {
@@ -1714,14 +1755,17 @@ if (_isEditing) ...[
           widgets.add(
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 800),
-                  child: Image.file(
-                    File(imagePath),
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              child: GestureDetector(
+                onTap: () => _openImageViewer(imagePath),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 800),
+                    child: Image.file(
+                      File(imagePath),
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
                   ),
                 ),
               ),
@@ -2210,7 +2254,10 @@ if (_isEditing) ...[
           final metadata = jsonDecode(content) as Map<String, dynamic>;
           if (newTitle != null) metadata['title'] = newTitle;
           if (newVersion != null) metadata['version'] = newVersion;
-          if (newIntro != null) metadata['intro'] = newIntro;
+          if (newIntro != null) {
+            metadata['intro'] = newIntro;
+            metadata['intro_html'] = _introToHtml(newIntro);
+          }
           if (newFeatures != null) metadata['features'] = newFeatures;
           if (newChangelog != null) metadata['changelog'] = newChangelog;
           if (newDownloadUrl != null) metadata['download_url'] = newDownloadUrl;
@@ -2253,6 +2300,8 @@ if (_isEditing) ...[
           _pathController.text = freshGame.path;
           _editedTags = List.from(freshGame.tags);
         });
+
+        await _loadMetadataHtml();
 
         if (newSourceUrl != null && newSourceUrl != _currentGame.sourceUrl) {
           final shouldRescrape = await showGlassDialog<bool>(
