@@ -39,6 +39,7 @@ class Game {
   final String? savePath;  // 新增：存档路径
   final String? gameLauncher;
   final bool launcherLocked;
+  final bool useLocaleEmulator;
 
   Game({
     this.id,
@@ -63,6 +64,7 @@ class Game {
     this.savePath,  // 新增
     this.gameLauncher,
     this.launcherLocked = false,
+    this.useLocaleEmulator = false,
   });
 
   factory Game.fromMap(Map<String, dynamic> map) {
@@ -91,6 +93,7 @@ class Game {
       savePath: map['save_path'] as String?,  // 新增
       gameLauncher: map['game_launcher'] as String?,
       launcherLocked: (map['launcher_locked'] as int?) == 1,
+      useLocaleEmulator: (map['use_locale_emulator'] as int?) == 1,
     );
   }
 
@@ -116,6 +119,7 @@ class Game {
       if (savePath != null) 'save_path': savePath,  // 新增
       'game_launcher': gameLauncher,
       'launcher_locked': launcherLocked ? 1 : 0,
+      'use_locale_emulator': useLocaleEmulator ? 1 : 0,
     };
   }
 
@@ -142,6 +146,7 @@ class Game {
     Object? savePath = _undefined,  // 新增
     Object? gameLauncher = _undefined,
     Object? launcherLocked = _undefined,
+    Object? useLocaleEmulator = _undefined,
   }) {
     return Game(
       id: id ?? this.id,
@@ -166,6 +171,7 @@ class Game {
       savePath: identical(savePath, _undefined) ? this.savePath : savePath as String?,  // 新增
       gameLauncher: identical(gameLauncher, _undefined) ? this.gameLauncher : gameLauncher as String?,
       launcherLocked: identical(launcherLocked, _undefined) ? this.launcherLocked : launcherLocked as bool,
+      useLocaleEmulator: identical(useLocaleEmulator, _undefined) ? this.useLocaleEmulator : useLocaleEmulator as bool,
     );
   }
 }
