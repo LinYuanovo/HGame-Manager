@@ -115,9 +115,56 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       return false;
     }
 
+    // Find the actual game exe path (not the directory)
+    String? exePath;
+
+    // First check if we have a stored launcher path
+    if (game.launcherLocked && game.gameLauncher != null && game.gameLauncher!.isNotEmpty) {
+      final file = File(game.gameLauncher!);
+      if (await file.exists()) {
+        exePath = game.gameLauncher!;
+        debugPrint('[LE] Using stored launcher: $exePath');
+      }
+    }
+
+    // If no stored launcher, look for common exe files in game directory
+    if (exePath == null) {
+      final gameDir = Directory(game.path);
+      if (await gameDir.exists()) {
+        final fallbackExes = ['game.exe', 'Game.exe', 'launcher.exe', 'launch.exe', 'player.exe', 'play.exe'];
+        for (final exeName in fallbackExes) {
+          final exeFile = File('${game.path}${Platform.pathSeparator}$exeName');
+          if (await exeFile.exists()) {
+            exePath = exeFile.path;
+            debugPrint('[LE] Found fallback exe: $exePath');
+            break;
+          }
+        }
+
+        // If still not found, scan for any .exe in the game directory (top level only)
+        if (exePath == null) {
+          await for (final entity in gameDir.list()) {
+            if (entity is File && entity.path.toLowerCase().endsWith('.exe')) {
+              exePath = entity.path;
+              debugPrint('[LE] Found exe by scanning: $exePath');
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (exePath == null) {
+      debugPrint('[LE] Could not find game exe in ${game.path}');
+      if (mounted) {
+        AppTheme.showGlassToast(context, message: '未找到游戏启动器，请先手动启动一次游戏', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
+      }
+      return false;
+    }
+
     try {
-      debugPrint('[LE] Running: $leProcPath with args: [${game.path}]');
-      final result = await Process.run(leProcPath, [game.path]);
+      debugPrint('[LE] Running: $leProcPath with args: [$exePath]');
+      final result = await Process.run(leProcPath, [exePath]);
       debugPrint('[LE] Process exit code: ${result.exitCode}');
       debugPrint('[LE] stdout: ${result.stdout}');
       debugPrint('[LE] stderr: ${result.stderr}');
