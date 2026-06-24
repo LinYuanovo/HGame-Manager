@@ -664,8 +664,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     } else {
                       try {
                         await Process.run('explorer.exe', [_currentGame.path]);
-                      } catch (_) {}
-                    }
+    } catch (_) {}
+  }
                   }
 
                   if (mounted) {
@@ -3009,6 +3009,20 @@ if (_isEditing) ...[
         }
       }
     } catch (_) {}
+
+    final updatedGame = await repo.getGameById(game.id!);
+    if (updatedGame != null) {
+      if (updatedGame.gameLauncher != null && updatedGame.gameLauncher!.startsWith(game.path)) {
+        final relative = updatedGame.gameLauncher!.substring(game.path.length);
+        final newLauncher = '${targetDir.path}$relative';
+        await repo.updateGameLauncher(game.id!, newLauncher, updatedGame.launcherLocked);
+      }
+      if (updatedGame.savePath != null && updatedGame.savePath!.startsWith(game.path)) {
+        final relative = updatedGame.savePath!.substring(game.path.length);
+        final newSavePath = '${targetDir.path}$relative';
+        await repo.updateGame(updatedGame.copyWith(savePath: newSavePath));
+      }
+    }
   }
 
   static final _versionPattern = RegExp(r'\s+(?:build|v(?:er(?:sion)?)?)\s*\.?\d+(?:[\d.]*\d+)?\s*', caseSensitive: false);

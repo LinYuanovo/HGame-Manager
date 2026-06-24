@@ -88,6 +88,32 @@ class FolderRenameService {
         await _gameRepository.updateGameLauncher(game.id!, newLauncher, game.launcherLocked);
       }
 
+      if (game.savePath != null && game.savePath!.startsWith(oldPath)) {
+        final relative = game.savePath!.substring(oldPath.length);
+        final newSavePath = '$newPath$relative';
+        await _gameRepository.updateGame(game.copyWith(savePath: newSavePath));
+      }
+
+      final currentGame = await _gameRepository.getGameById(game.id!);
+      if (currentGame != null && currentGame.intro != null) {
+        var updatedIntro = currentGame.intro!;
+        if (updatedIntro.contains(oldPath)) {
+          updatedIntro = updatedIntro.replaceAll(oldPath, newPath);
+          await _gameRepository.updateGame(currentGame.copyWith(intro: updatedIntro));
+        }
+      }
+
+      try {
+        final metadataFile = File('$newPath${path.separator}metadata.json');
+        if (await metadataFile.exists()) {
+          final content = await metadataFile.readAsString();
+          if (content.contains(oldPath)) {
+            final updatedContent = content.replaceAll(oldPath, newPath);
+            await metadataFile.writeAsString(updatedContent, flush: true);
+          }
+        }
+      } catch (_) {}
+
       debugPrint('[FolderRename] Success: $newPath');
       return newPath;
     } catch (e) {
