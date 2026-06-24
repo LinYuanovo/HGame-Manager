@@ -111,6 +111,12 @@ void _setupErrorHandling() {
   };
 
   PlatformDispatcher.instance.onError = (error, stackTrace) {
+    final errorStr = error.toString();
+    if (errorStr.contains('accessibility_bridge.cc') ||
+        errorStr.contains('Failed to update ui::AXTree') ||
+        errorStr.contains('AXTree')) {
+      return true;
+    }
     log.error('PlatformError', error.toString(), error, stackTrace);
     return true;
   };
