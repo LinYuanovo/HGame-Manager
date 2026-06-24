@@ -43,7 +43,23 @@ class DlsiteParser extends SiteParser {
       description = _extractDescriptionWithImages(descEl);
     }
 
+    // 提取厂商名和链接
+    String? maker;
+    String? makerUrl;
+    final makerEl = document.querySelector('.maker_name a');
+    if (makerEl != null) {
+      maker = makerEl.text.trim();
+      final href = makerEl.attributes['href'];
+      if (href != null && href.isNotEmpty) {
+        makerUrl = href.startsWith('//') ? 'https:$href' : href;
+      }
+    }
+
     final tagList = <String>[];
+    // 厂商名作为第一个标签
+    if (maker != null && maker.isNotEmpty) {
+      tagList.add(maker);
+    }
     final mainGenreLinks = document.querySelectorAll('.main_genre a');
     for (final a in mainGenreLinks) {
       final tag = a.text.trim();
@@ -99,6 +115,8 @@ class DlsiteParser extends SiteParser {
       tags: [...tags, ...tagList],
       description: description,
       screenshots: screenshots,
+      maker: maker,
+      makerUrl: makerUrl,
       sourceUrl: url,
     );
   }
