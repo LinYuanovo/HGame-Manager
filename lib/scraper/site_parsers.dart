@@ -919,6 +919,16 @@ class VikAcgParser extends SiteParser {
     bool collecting = false;
     bool foundStartMarker = false;
     for (final p in paragraphs) {
+      final imgEl = p.querySelector('img');
+      if (imgEl != null) {
+        final src = imgEl.attributes['src'] ?? '';
+        if (src.isNotEmpty) {
+          introBuffer.writeln('[图片:$src]');
+          foundStartMarker = true;
+          collecting = true;
+        }
+        continue;
+      }
       final text = _elementText(p).trim();
       if (_isCopyrightText(text)) continue;
       if (RegExp(r'^游戏(?:介绍|内容|概述)[：:]\s*').hasMatch(text)) {
@@ -945,6 +955,12 @@ class VikAcgParser extends SiteParser {
     // Fallback: if no start marker found, collect all text before first stop marker
     if (!foundStartMarker) {
       for (final p in paragraphs) {
+        final imgEl = p.querySelector('img');
+        if (imgEl != null) {
+          final src = imgEl.attributes['src'] ?? '';
+          if (src.isNotEmpty) introBuffer.writeln('[图片:$src]');
+          continue;
+        }
         final text = _elementText(p).trim();
         if (_isCopyrightText(text)) continue;
         if (text.contains('游戏特点') ||
@@ -1092,6 +1108,16 @@ class VikAcgParser extends SiteParser {
     bool collecting = false;
     bool foundStartMarker = false;
     for (final p in paragraphs) {
+      final imgEl = p.querySelector('img');
+      if (imgEl != null) {
+        final src = imgEl.attributes['src'] ?? '';
+        if (src.isNotEmpty) {
+          introBuffer.writeln('[图片:$src]');
+          foundStartMarker = true;
+          collecting = true;
+        }
+        continue;
+      }
       final text = _elementText(p).trim();
       if (_isCopyrightText(text)) continue;
       if (RegExp(r'^游戏(?:介绍|内容|概述)[：:]\s*').hasMatch(text)) {
@@ -1122,6 +1148,12 @@ class VikAcgParser extends SiteParser {
     // Fallback: if no start marker found, collect all text before first stop marker
     if (!foundStartMarker) {
       for (final p in paragraphs) {
+        final imgEl = p.querySelector('img');
+        if (imgEl != null) {
+          final src = imgEl.attributes['src'] ?? '';
+          if (src.isNotEmpty) introBuffer.writeln('[图片:$src]');
+          continue;
+        }
         final text = _elementText(p).trim();
         if (_isCopyrightText(text)) continue;
         if (text.contains('游戏特点') ||
