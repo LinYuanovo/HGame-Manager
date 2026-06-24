@@ -10,7 +10,7 @@ import 'scraper/scraper_page.dart';
 import 'tools/tools_page.dart';
 
 enum NavRoute {
-  scraper(0, '刮削', Icons.cloud_download_outlined, Icons.cloud_download),
+  scraper(0, '刮削', Icons.description_outlined, Icons.description),
   games(1, '游戏', Icons.sports_esports_outlined, Icons.sports_esports),
   categories(2, '分类', Icons.category_outlined, Icons.category),
   favorites(3, '收藏', Icons.favorite_outline, Icons.favorite),
