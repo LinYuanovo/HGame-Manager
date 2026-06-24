@@ -12,9 +12,12 @@ import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../../scraper/html_parser.dart';
+import '../../../scraper/parse_utils.dart';
 import '../../theme/app_theme.dart';
 import '../../../core/services/version_check_service.dart';
 import '../../../core/services/folder_rename_service.dart';
+import '../../../core/services/dlsite_service.dart';
+import '../../../core/services/steam_service.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../widgets/image_manager_dialog.dart';
 import 'save_management_dialog.dart';
@@ -2427,132 +2430,170 @@ if (_isEditing) ...[
 
   Future<void> _rescrapeGame() async {
     if (_currentGame.sourceUrl == null || _currentGame.sourceUrl!.isEmpty) return;
-
     setState(() => _isRescraping = true);
-
     try {
-      final client = await createProxyClientFromPrefs();
-      final scraper = HtmlScraper();
-      await scraper.ensureLoaded();
+      final sourceUrl = _currentGame.sourceUrl!;
+      final isDlsite = sourceUrl.contains('dlsite');
+      final isSteam = sourceUrl.contains('steam');
+      GameInfo? gameInfo;
 
-      final headers = await buildScrapeHeaders(_currentGame.sourceUrl!);
-      final response = await client.get(Uri.parse(_currentGame.sourceUrl!), headers: headers);
-
-      if (response.statusCode == 200) {
-        final gameInfo = scraper.scrapeGameInfo(response.body, _currentGame.sourceUrl!);
-        if (gameInfo != null) {
-          final repo = ref.read(gameRepositoryProvider);
-          final tagRepo = ref.read(tagRepositoryProvider);
-
-          final displayTitle = gameInfo.title != null
-              ? _stripVersionFromTitle(gameInfo.title!, gameInfo.version)
-              : null;
-          final updated = _currentGame.copyWith(
-            title: displayTitle ?? _currentGame.title,
-            version: gameInfo.version ?? _currentGame.version,
-            intro: gameInfo.description ?? _currentGame.intro,
-            features: gameInfo.features.isNotEmpty ? gameInfo.features.join('\n') : _currentGame.features,
-            changelog: gameInfo.changelog ?? _currentGame.changelog,
-            downloadUrl: gameInfo.downloadUrl.isNotEmpty ? gameInfo.downloadUrl : _currentGame.downloadUrl,
-          );
-
-          final metadataFile = File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
-          await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()), flush: true);
-
-          await repo.updateGame(updated);
-
-          for (final tagName in gameInfo.tags) {
-            final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
-            await repo.addTagToGame(_currentGame.id!, tagId);
-          }
-          if (gameInfo.category != null) {
-            final tagId = await tagRepo.insertOrGetTag(gameInfo.category!, Tag.typeSeries);
-            await repo.addTagToGame(_currentGame.id!, tagId);
-          }
-
-          final allTags = await tagRepo.getAllTags();
-          final gameTagNames = [...gameInfo.tags, if (gameInfo.category != null) gameInfo.category!];
-          for (final existingTag in allTags) {
-            if (existingTag.type == Tag.typeSeries) {
-              final shouldAssociate = gameTagNames.any((name) =>
-                  name.toUpperCase().contains(existingTag.name.toUpperCase()) &&
-                  name.toUpperCase() != existingTag.name.toUpperCase());
-              if (shouldAssociate) {
-                await repo.addTagToGame(_currentGame.id!, existingTag.id!);
-              }
-            }
-          }
-
-          if (gameInfo.screenshots.isNotEmpty) {
-            await _downloadImages(updated, gameInfo.screenshots);
-          }
-
-          // Auto-rename folder if setting enabled
-          try {
-            final prefs = await AppSettings.load();
-            final autoRename = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
-            if (autoRename) {
-              final gameForRename = await repo.getGameById(_currentGame.id!);
-              if (gameForRename != null) {
-                final renameService = FolderRenameService(gameRepository: repo);
-                final newPath = await renameService.renameGameFolder(gameForRename);
-                if (newPath != null) {
-                  debugPrint('[Rescrape] Folder renamed: $newPath');
-                }
-              }
-            }
-          } catch (e) {
-            debugPrint('[Rescrape] Auto-rename failed: $e');
-          }
-
-          await _moveToSorted(updated);
-
-          setState(() {
-            _currentGame = updated;
-          });
-
-          if (mounted) {
-            Navigator.of(context).pop();
-            _refreshAllProviders();
-            AppTheme.showGlassToast(context, message: '重新刮削完成');
-          }
-        } else {
-          if (mounted) {
-            AppTheme.showGlassToast(context, message: '刮削失败：无法解析页面', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+      if (isDlsite) {
+        final dlsiteService = ref.read(dlsiteServiceProvider);
+        final id = dlsiteService.normalizeId(sourceUrl);
+        if (id != null) {
+          gameInfo = await dlsiteService.fetchById(id);
+        }
+      } else if (isSteam) {
+        final steamService = ref.read(steamServiceProvider);
+        final appidMatch = RegExp(r'/app/(\d+)').firstMatch(sourceUrl);
+        if (appidMatch != null) {
+          final id = appidMatch.group(1)!;
+          final steamInfo = await steamService.fetchById(id);
+          if (steamInfo != null) {
+            gameInfo = GameInfo(
+              title: steamInfo.title,
+              description: steamInfo.description,
+              tags: steamInfo.tags,
+              screenshots: steamInfo.screenshots,
+              sourceUrl: steamInfo.sourceUrl,
+              maker: steamInfo.developers.isNotEmpty ? steamInfo.developers.join(', ') : null,
+            );
           }
         }
       } else {
-        if (mounted) {
-          AppTheme.showGlassToast(context, message: '请求失败: HTTP ${response.statusCode}', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        final scraper = HtmlScraper();
+        await scraper.ensureLoaded();
+        final headers = await buildScrapeHeaders(sourceUrl);
+        final client = await createProxyClientFromPrefs();
+        final response = await httpGetWithRetry(Uri.parse(sourceUrl), headers: headers, client: client);
+        client.close();
+        if (response.statusCode == 200) {
+          gameInfo = scraper.scrapeGameInfo(response.body, sourceUrl);
+        } else {
+          if (mounted) {
+            AppTheme.showGlassToast(context, message: '请求失败: HTTP ${response.statusCode}', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          }
         }
       }
-      client.close();
+
+      if (gameInfo != null) {
+        final repo = ref.read(gameRepositoryProvider);
+        final tagRepo = ref.read(tagRepositoryProvider);
+        final displayTitle = gameInfo.title != null ? _stripVersionFromTitle(gameInfo.title!, gameInfo.version) : null;
+        final updated = _currentGame.copyWith(
+          title: displayTitle ?? _currentGame.title,
+          version: gameInfo.version ?? _currentGame.version,
+          intro: gameInfo.description ?? _currentGame.intro,
+          features: gameInfo.features.isNotEmpty ? gameInfo.features.join('\n') : _currentGame.features,
+          changelog: gameInfo.changelog ?? _currentGame.changelog,
+          downloadUrl: gameInfo.downloadUrl.isNotEmpty ? gameInfo.downloadUrl : _currentGame.downloadUrl,
+          maker: gameInfo.maker ?? _currentGame.maker,
+          makerUrl: gameInfo.makerUrl ?? _currentGame.makerUrl,
+        );
+
+        final metadataFile = File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
+        await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()), flush: true);
+        await repo.updateGame(updated);
+
+        for (final tagName in gameInfo.tags) {
+          final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
+          await repo.addTagToGame(_currentGame.id!, tagId);
+        }
+        if (gameInfo.category != null) {
+          final tagId = await tagRepo.insertOrGetTag(gameInfo.category!, Tag.typeSeries);
+          await repo.addTagToGame(_currentGame.id!, tagId);
+        }
+
+        final allTags = await tagRepo.getAllTags();
+        final gameTagNames = [...gameInfo.tags, if (gameInfo.category != null) gameInfo.category!];
+        for (final existingTag in allTags) {
+          if (existingTag.type == Tag.typeSeries) {
+            final shouldAssociate = gameTagNames.any((name) =>
+                name.toUpperCase().contains(existingTag.name.toUpperCase()) &&
+                name.toUpperCase() != existingTag.name.toUpperCase());
+            if (shouldAssociate) {
+              await repo.addTagToGame(_currentGame.id!, existingTag.id!);
+            }
+          }
+        }
+
+        if (gameInfo.screenshots.isNotEmpty) {
+          final urlToLocal = await _downloadImagesWithMapping(updated, gameInfo.screenshots);
+          if (urlToLocal.isNotEmpty) {
+            if (gameInfo.description != null) {
+              var desc = gameInfo.description!;
+              for (final entry in urlToLocal.entries) {
+                desc = desc.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
+              }
+              final finalUpdated = updated.copyWith(intro: desc);
+              await repo.updateGame(finalUpdated);
+            }
+            final metaJson = gameInfo.toJson();
+            if (gameInfo.description != null) {
+              var desc = gameInfo.description!;
+              for (final entry in urlToLocal.entries) {
+                desc = desc.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
+              }
+              metaJson['intro'] = desc;
+            }
+            if (gameInfo.descriptionHtml != null) {
+              var html = gameInfo.descriptionHtml!;
+              for (final entry in urlToLocal.entries) {
+                html = html.replaceAll(entry.key, entry.value);
+              }
+              metaJson['intro_html'] = html;
+            }
+            await metadataFile.writeAsString(jsonEncode(metaJson), flush: true);
+          }
+        }
+
+        try {
+          final prefs = await AppSettings.load();
+          final autoRename = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
+          if (autoRename) {
+            final gameForRename = await repo.getGameById(_currentGame.id!);
+            if (gameForRename != null) {
+              final renameService = FolderRenameService(gameRepository: repo);
+              final newPath = await renameService.renameGameFolder(gameForRename);
+              if (newPath != null) debugPrint('[Rescrape] Folder renamed: $newPath');
+            }
+          }
+        } catch (e) {
+          debugPrint('[Rescrape] Auto-rename failed: $e');
+        }
+
+        await _moveToSorted(updated);
+        setState(() { _currentGame = updated; });
+        if (mounted) {
+          Navigator.of(context).pop();
+          _refreshAllProviders();
+          AppTheme.showGlassToast(context, message: '重新刮削完成');
+        }
+      } else {
+        if (mounted) {
+          AppTheme.showGlassToast(context, message: '刮削失败：无法解析页面', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        }
+      }
     } catch (e) {
       if (mounted) {
         AppTheme.showGlassToast(context, message: '刮削失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
     } finally {
-      if (mounted) {
-        setState(() => _isRescraping = false);
-      }
+      if (mounted) setState(() => _isRescraping = false);
     }
   }
 
   Future<void> _quickScrape() async {
     final input = _quickScrapeController.text.trim();
     if (input.isEmpty) return;
-
     setState(() => _isRescraping = true);
-
     try {
-      final scraper = HtmlScraper();
-      await scraper.ensureLoaded();
-
+      GameInfo? gameInfo;
       String url = input;
       String channel = _quickScrapeChannel;
 
       if (channel == 'auto') {
-        if (input.contains('steampowered.com') || input.contains('steam.com')) {
+        if (input.contains('steampowered.com') || input.contains('steam')) {
           channel = 'steam';
         } else if (input.contains('dlsite.com') || RegExp(r'^(RJ|RE|VJ)\d+$', caseSensitive: false).hasMatch(input)) {
           channel = 'dlsite';
@@ -2563,37 +2604,56 @@ if (_isEditing) ...[
         final dlsiteService = ref.read(dlsiteServiceProvider);
         final normalizedId = dlsiteService.normalizeId(input);
         if (normalizedId != null) {
+          gameInfo = await dlsiteService.fetchById(normalizedId);
           url = dlsiteService.buildUrl(normalizedId);
         }
       } else if (channel == 'steam') {
+        final steamService = ref.read(steamServiceProvider);
+        String? appId;
         if (RegExp(r'^\d+$').hasMatch(input)) {
-          url = 'https://store.steampowered.com/app/$input/';
+          appId = input;
+        } else {
+          final appidMatch = RegExp(r'/app/(\d+)').firstMatch(input);
+          appId = appidMatch?.group(1);
+        }
+        if (appId != null) {
+          final steamInfo = await steamService.fetchById(appId);
+          if (steamInfo != null) {
+            gameInfo = GameInfo(
+              title: steamInfo.title,
+              description: steamInfo.description,
+              tags: steamInfo.tags,
+              screenshots: steamInfo.screenshots,
+              sourceUrl: steamInfo.sourceUrl,
+              maker: steamInfo.developers.isNotEmpty ? steamInfo.developers.join(', ') : null,
+            );
+          }
+          url = 'https://store.steampowered.com/app/$appId/';
+        }
+      } else {
+        final isUrl = url.startsWith('http://') || url.startsWith('https://');
+        if (!isUrl) {
+          if (mounted) {
+            AppTheme.showGlassToast(context, message: '请输入有效的链接、Steam AppID 或 DLsite ID', icon: Icons.info_outline, iconColor: AppTheme.primaryColor);
+          }
+          return;
+        }
+        final scraper = HtmlScraper();
+        await scraper.ensureLoaded();
+        final headers = await buildScrapeHeaders(url);
+        final client = await createProxyClientFromPrefs();
+        final response = await httpGetWithRetry(Uri.parse(url), headers: headers, client: client);
+        client.close();
+        if (response.statusCode == 200) {
+          gameInfo = scraper.scrapeGameInfo(response.body, url);
+        } else {
+          if (mounted) {
+            AppTheme.showGlassToast(context, message: '请求失败: HTTP ${response.statusCode}', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          }
+          return;
         }
       }
 
-      final isUrl = url.startsWith('http://') || url.startsWith('https://');
-      if (!isUrl && channel != 'steam' && channel != 'dlsite') {
-        if (mounted) {
-          AppTheme.showGlassToast(context, message: '请输入有效的链接、Steam AppID 或 DLsite ID', icon: Icons.info_outline, iconColor: AppTheme.primaryColor);
-        }
-        return;
-      }
-
-      final headers = await buildScrapeHeaders(url);
-
-      final client = await createProxyClientFromPrefs();
-      final response = await client.get(Uri.parse(url), headers: headers)
-          .timeout(const Duration(seconds: 30));
-      client.close();
-
-      if (response.statusCode != 200) {
-        if (mounted) {
-          AppTheme.showGlassToast(context, message: '请求失败: HTTP ${response.statusCode}', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-        }
-        return;
-      }
-
-      final gameInfo = scraper.scrapeGameInfo(response.body, url);
       if (gameInfo == null) {
         if (mounted) {
           AppTheme.showGlassToast(context, message: '刮削失败，无法解析页面内容。请确认链接正确且站点已配置解析器。', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
@@ -2603,7 +2663,6 @@ if (_isEditing) ...[
 
       final repo = ref.read(gameRepositoryProvider);
       final tagRepo = ref.read(tagRepositoryProvider);
-
       final updatedGame = _currentGame.copyWith(
         title: gameInfo.title ?? _currentGame.title,
         version: gameInfo.version ?? _currentGame.version,
@@ -2612,17 +2671,16 @@ if (_isEditing) ...[
         changelog: gameInfo.changelog ?? _currentGame.changelog,
         downloadUrl: gameInfo.downloadUrl.isNotEmpty ? gameInfo.downloadUrl : _currentGame.downloadUrl,
         sourceUrl: url,
+        maker: gameInfo.maker ?? _currentGame.maker,
+        makerUrl: gameInfo.makerUrl ?? _currentGame.makerUrl,
       );
 
-      // Write metadata.json
       try {
         final metadataFile = File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
         await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()), flush: true);
       } catch (e) {
         debugPrint('[QuickScrape] Failed to write metadata.json: $e');
       }
-
-      // Write source_url.txt
       try {
         final sourceUrlFile = File('${_currentGame.path}${Platform.pathSeparator}source_url.txt');
         await sourceUrlFile.writeAsString(url, flush: true);
@@ -2633,23 +2691,44 @@ if (_isEditing) ...[
       await repo.updateGame(updatedGame);
 
       if (_currentGame.id != null) {
-        // Add custom tags
         for (final tagName in gameInfo.tags) {
           final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
           await repo.addTagToGame(_currentGame.id!, tagId);
         }
-        // Add series tag
         if (gameInfo.category != null) {
           final tagId = await tagRepo.insertOrGetTag(gameInfo.category!, Tag.typeSeries);
           await repo.addTagToGame(_currentGame.id!, tagId);
         }
 
-        // Download images
         if (gameInfo.screenshots.isNotEmpty) {
-          await _downloadImages(_currentGame.copyWith(id: _currentGame.id!), gameInfo.screenshots);
+          final urlToLocal = await _downloadImagesWithMapping(
+            _currentGame.copyWith(id: _currentGame.id!),
+            gameInfo.screenshots,
+          );
+          if (urlToLocal.isNotEmpty) {
+            var desc = gameInfo.description;
+            if (desc != null) {
+              for (final entry in urlToLocal.entries) {
+                desc = desc!.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
+              }
+              await repo.updateGame(updatedGame.copyWith(intro: desc));
+            }
+            final metaJson = gameInfo.toJson();
+            if (desc != null) metaJson['intro'] = desc;
+            if (gameInfo.descriptionHtml != null) {
+              var html = gameInfo.descriptionHtml!;
+              for (final entry in urlToLocal.entries) {
+                html = html.replaceAll(entry.key, entry.value);
+              }
+              metaJson['intro_html'] = html;
+            }
+            try {
+              final metadataFile = File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
+              await metadataFile.writeAsString(jsonEncode(metaJson), flush: true);
+            } catch (_) {}
+          }
         }
 
-        // Auto-rename folder if setting enabled
         try {
           final prefs = await AppSettings.load();
           final autoRename = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
@@ -2658,9 +2737,7 @@ if (_isEditing) ...[
             if (gameForRename != null) {
               final renameService = FolderRenameService(gameRepository: repo);
               final newPath = await renameService.renameGameFolder(gameForRename);
-              if (newPath != null) {
-                debugPrint('[QuickScrape] Folder renamed: $newPath');
-              }
+              if (newPath != null) debugPrint('[QuickScrape] Folder renamed: $newPath');
             }
           }
         } catch (e) {
@@ -2739,6 +2816,51 @@ if (_isEditing) ...[
       } catch (_) {}
     }
     client.close();
+  }
+
+  Future<Map<String, String>> _downloadImagesWithMapping(Game game, List<String> imageUrls) async {
+    final urlToLocal = <String, String>{};
+    final client = await createProxyClientFromPrefs();
+    final imageDir = Directory('${game.path}${Platform.pathSeparator}images');
+    if (!await imageDir.exists()) {
+      await imageDir.create(recursive: true);
+    }
+    await ref.read(gameRepositoryProvider).deleteGameImagesByGameId(game.id!);
+    if (await imageDir.exists()) {
+      await for (final entity in imageDir.list()) {
+        if (entity is File) await entity.delete();
+      }
+    }
+    final repo = ref.read(gameRepositoryProvider);
+    final sourceUrl = game.sourceUrl ?? '';
+    final cookie = sourceUrl.isNotEmpty ? await getCookieForSite(sourceUrl) : '';
+    for (int i = 0; i < imageUrls.length; i++) {
+      try {
+        final imageUrl = imageUrls[i];
+        final uri = Uri.parse(imageUrl);
+        final ext = imageUrl.contains('.') ? '.${imageUrl.split('.').last.split('?').first.split('#').first}' : '.jpg';
+        final validExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext.toLowerCase()) ? ext : '.jpg';
+        final fileName = '${i + 1}$validExt';
+        final filePath = '${imageDir.path}${Platform.pathSeparator}$fileName';
+        final file = File(filePath);
+        if (!await file.exists()) {
+          final imgHeaders = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            'Referer': sourceUrl,
+            if (cookie.isNotEmpty) 'Cookie': cookie,
+          };
+          final response = await httpGetWithRetry(uri, headers: imgHeaders, client: client);
+          if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+            await file.writeAsBytes(response.bodyBytes, flush: true);
+          }
+        }
+        await repo.addGameImage(game.id!, filePath, i);
+        urlToLocal[imageUrl] = filePath;
+      } catch (_) {}
+    }
+    client.close();
+    return urlToLocal;
   }
 
   Future<void> _moveToSorted(Game game) async {
