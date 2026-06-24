@@ -2633,6 +2633,9 @@ if (_isEditing) ...[
               var html = gameInfo.descriptionHtml!;
               for (final entry in urlToLocal.entries) {
                 html = html.replaceAll(entry.key, entry.value);
+                if (entry.key.startsWith('https:')) {
+                  html = html.replaceAll(entry.key.replaceFirst('https:', ''), entry.value);
+                }
               }
               metaJson['intro_html'] = html;
             }
@@ -2657,6 +2660,8 @@ if (_isEditing) ...[
 
         await _moveToSorted(updated);
         setState(() { _currentGame = updated; });
+        await _loadMetadataHtml();
+        await _preloadMediaFiles();
         if (mounted) {
           Navigator.of(context).pop();
           _refreshAllProviders();
@@ -2817,6 +2822,9 @@ if (_isEditing) ...[
               var html = gameInfo.descriptionHtml!;
               for (final entry in urlToLocal.entries) {
                 html = html.replaceAll(entry.key, entry.value);
+                if (entry.key.startsWith('https:')) {
+                  html = html.replaceAll(entry.key.replaceFirst('https:', ''), entry.value);
+                }
               }
               metaJson['intro_html'] = html;
             }
@@ -2845,6 +2853,8 @@ if (_isEditing) ...[
 
       final freshGame = await repo.getGameById(_currentGame.id!);
       if (freshGame != null && mounted) {
+        await _loadMetadataHtml();
+        await _preloadMediaFiles();
         setState(() {
           _currentGame = freshGame;
           _titleController.text = freshGame.title ?? '';
