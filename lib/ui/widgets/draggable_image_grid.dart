@@ -48,10 +48,10 @@ class DraggableImageGrid extends StatelessWidget {
 
     return GridView.builder(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
+        crossAxisCount: 4,
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
-        childAspectRatio: 1,
+        childAspectRatio: 16 / 9,
       ),
       itemCount: images.length,
       itemBuilder: (context, index) {
@@ -76,7 +76,7 @@ class DraggableImageGrid extends StatelessWidget {
                   borderRadius: BorderRadius.circular(GlassConstants.radiusSmall - 1),
                   child: Image.file(
                     File(image.imagePath),
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) => Container(
                       color: AppTheme.backgroundColor.withValues(alpha: 0.3),
                       child: const Center(child: Icon(Icons.broken_image, size: 32)),

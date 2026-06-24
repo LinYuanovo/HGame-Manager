@@ -166,8 +166,8 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
         borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
       ),
       child: Container(
-        width: 600,
-        height: 500,
+        width: MediaQuery.of(context).size.width * 0.5,
+        height: MediaQuery.of(context).size.height * 0.7,
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
