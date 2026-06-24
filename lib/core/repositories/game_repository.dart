@@ -213,6 +213,20 @@ class GameRepository {
     return _fillGameRelations(games);
   }
 
+  Future<List<Game>> getNonClearedGames() async {
+    final db = await _db;
+    final sep = Platform.pathSeparator;
+    final clearedPattern = '%${sep}Cleared$sep%';
+    final List<Map<String, dynamic>> maps = await db.query(
+      'games',
+      where: 'path NOT LIKE ?',
+      whereArgs: [clearedPattern],
+      orderBy: 'title ASC',
+    );
+    final games = maps.map((map) => Game.fromMap(map)).toList();
+    return _fillGameRelations(games);
+  }
+
   Future<List<Game>> getPlayedGames() async {
     final db = await _db;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -317,6 +331,16 @@ class GameRepository {
         'game_launcher': launcher,
         'launcher_locked': locked ? 1 : 0,
       },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> updateLocaleEmulator(int id, bool useLocaleEmulator) async {
+    final db = await _db;
+    await db.update(
+      'games',
+      {'use_locale_emulator': useLocaleEmulator ? 1 : 0},
       where: 'id = ?',
       whereArgs: [id],
     );
