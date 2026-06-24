@@ -2503,6 +2503,7 @@ if (_isEditing) ...[
   Future<void> _rescrapeGame() async {
     if (_currentGame.sourceUrl == null || _currentGame.sourceUrl!.isEmpty) return;
     setState(() => _isRescraping = true);
+    AppTheme.showGlassToast(context, message: '刮削等待时间可能较长，请勿关闭当前窗口', duration: const Duration(seconds: 5));
     try {
       final sourceUrl = _currentGame.sourceUrl!;
       final isDlsite = sourceUrl.contains('dlsite');
@@ -2663,6 +2664,7 @@ if (_isEditing) ...[
     final input = _quickScrapeController.text.trim();
     if (input.isEmpty) return;
     setState(() => _isRescraping = true);
+    AppTheme.showGlassToast(context, message: '刮削等待时间可能较长，请勿关闭当前窗口', duration: const Duration(seconds: 5));
     try {
       GameInfo? gameInfo;
       String url = input;
