@@ -25,6 +25,7 @@ class FolderRenameService {
 
     String? id;
     String? series;
+    String? maker;
 
     if (game.sourceUrl != null && game.sourceUrl!.isNotEmpty) {
       final dlsiteId = _dlsiteService.normalizeId(game.sourceUrl!);
@@ -45,9 +46,12 @@ class FolderRenameService {
       }
     }
 
+    maker = game.maker;
+
     final parts = <String>[];
     if (id != null && id.isNotEmpty) parts.add('[$id]');
     if (series != null && series.isNotEmpty) parts.add('[$series]');
+    if (maker != null && maker.isNotEmpty) parts.add('[$maker]');
     parts.add(title);
     if (game.version != null && game.version!.isNotEmpty) parts.add(game.version!);
 
