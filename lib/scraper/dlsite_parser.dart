@@ -38,9 +38,11 @@ class DlsiteParser extends SiteParser {
         ?.attributes['content'];
 
     String? description;
+    String? descriptionHtml;
     final descEl = document.querySelector('[itemprop="description"]');
     if (descEl != null) {
       description = _extractDescriptionWithImages(descEl);
+      descriptionHtml = descEl.innerHtml;
     }
 
     // 提取厂商名和链接
@@ -114,6 +116,7 @@ class DlsiteParser extends SiteParser {
       title: cleanTitle,
       tags: [...tags, ...tagList],
       description: description,
+      descriptionHtml: descriptionHtml,
       screenshots: screenshots,
       maker: maker,
       makerUrl: makerUrl,

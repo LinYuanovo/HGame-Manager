@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:html/parser.dart' as html_parser;
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -49,6 +50,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   bool _isRescraping = false;
   bool _isLocal = false;
   Set<String> _existingMediaFiles = {};
+
+  String? _introHtml;
 
   final TextEditingController _quickScrapeController = TextEditingController();
   String _quickScrapeChannel = 'auto';
@@ -194,6 +197,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _editedTags = List.from(_currentGame.tags);
     _checkIsLocal();
     _preloadMediaFiles();
+    _loadMetadataHtml();
   }
 
   Future<void> _checkIsLocal() async {
@@ -235,6 +239,16 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         _existingMediaFiles = existing;
       });
     }
+  }
+
+  Future<void> _loadMetadataHtml() async {
+    try {
+      final metadataFile = File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
+      if (await metadataFile.exists()) {
+        final json = jsonDecode(await metadataFile.readAsString());
+        _introHtml = json['intro_html'] as String?;
+      }
+    } catch (_) {}
   }
 
   @override
@@ -1293,10 +1307,10 @@ if (_isEditing) ...[
               _buildAllImagesGallery(images),
             ],
           ] else ...[
-            if (images.length > 3) ...[
-              const SizedBox(height: 32),
-              _buildImageGallery(images.skip(3).toList()),
-            ],
+          if (images.length > 3) ...[
+            const SizedBox(height: 32),
+            _buildImageGallery(_getUnusedImages(images)),
+          ],
           ],
         ],
       ),
@@ -1362,6 +1376,8 @@ if (_isEditing) ...[
               ],
             ],
           ),
+        ] else if (title == '简介' && _introHtml != null && _introHtml!.isNotEmpty) ...[
+          _buildHtmlContent(_introHtml!, ref.watch(detailFontSizeProvider)),
         ] else
           _buildRichIntro(content ?? '暂无信息', ref.watch(detailFontSizeProvider)),
         if (sectionImage != null && !_isEditing) ...[
@@ -1370,6 +1386,202 @@ if (_isEditing) ...[
         ],
       ],
     );
+  }
+
+  List<_ContentBlock> _parseHtmlToBlocks(String html, String fallbackText) {
+    try {
+      final document = html_parser.parse(html);
+      final blocks = <_ContentBlock>[];
+      _parseElement(document.body ?? document.documentElement!, blocks);
+      return blocks;
+    } catch (_) {
+      return [_ContentBlock.text(fallbackText)];
+    }
+  }
+
+  void _parseElement(dynamic element, List<_ContentBlock> blocks) {
+    for (final child in element.children) {
+      final tag = child.localName;
+      final cls = child.className;
+
+      // Pattern 1: type_multiimages — <li class="work_parts_multiimage_item">
+      if (tag == 'li' && cls.contains('work_parts_multiimage_item')) {
+        final imgEl = child.querySelector('.image img');
+        final textEl = child.querySelector('.text');
+        final imgSrc = _resolveImgSrc(imgEl);
+        final text = textEl?.text.trim() ?? '';
+        if (imgSrc.isNotEmpty) {
+          blocks.add(_ContentBlock.imageWithText(imgSrc, text));
+        } else if (text.isNotEmpty) {
+          blocks.add(_ContentBlock.text(text));
+        }
+      }
+      // Pattern 2: type_image — work_parts_multitype_item
+      else if (tag == 'div' && cls.contains('work_parts_multitype_item')) {
+        if (cls.contains('type_contents')) {
+          final imgEl = child.querySelector('img');
+          final imgSrc = _resolveImgSrc(imgEl);
+          String text = '';
+          final parent = child.parent;
+          if (parent != null) {
+            final textSibling = parent.querySelector('.type_text');
+            if (textSibling != null) {
+              text = textSibling.text.trim();
+            }
+          }
+          if (imgSrc.isNotEmpty) {
+            blocks.add(_ContentBlock.imageWithText(imgSrc, text));
+          }
+        } else if (cls.contains('type_text')) {
+          final parent = child.parent;
+          final hasContentsSibling = parent?.querySelector('.type_contents') != null;
+          if (!hasContentsSibling) {
+            final text = child.text.trim();
+            if (text.isNotEmpty) blocks.add(_ContentBlock.text(text));
+          }
+        }
+      }
+      // Container elements: recurse
+      else if (tag == 'div' && cls.contains('work_parts_multitype')) {
+        _parseElement(child, blocks);
+      }
+      else if (tag == 'ul' && cls.contains('work_parts_multiimage')) {
+        _parseElement(child, blocks);
+      }
+      else if (tag == 'div' && cls.contains('work_parts')) {
+        final heading = child.querySelector('.work_parts_heading');
+        if (heading != null) {
+          blocks.add(_ContentBlock.heading(heading.text.trim()));
+        }
+        final area = child.querySelector('.work_parts_area');
+        if (area != null) {
+          _parseElement(area, blocks);
+        }
+      }
+      // Pattern 3: type_text — plain text
+      else if (tag == 'p') {
+        final text = child.text.trim();
+        if (text.isNotEmpty) {
+          blocks.add(_ContentBlock.text(text));
+        }
+      }
+      else if (tag == 'h3' || tag == 'h4') {
+        blocks.add(_ContentBlock.heading(child.text.trim()));
+      }
+      else if (tag == 'div') {
+        _parseElement(child, blocks);
+      }
+    }
+  }
+
+  String _resolveImgSrc(dynamic imgEl) {
+    if (imgEl == null) return '';
+    final src = imgEl.attributes['data-original'] ??
+        imgEl.attributes['data-src'] ??
+        imgEl.attributes['src'] ?? '';
+    return src.startsWith('//') ? 'https:$src' : src;
+  }
+
+  Widget _buildHtmlContent(String html, double fontSize) {
+    final blocks = _parseHtmlToBlocks(html, '');
+    if (blocks.isEmpty) {
+      return SelectableText('暂无信息', style: TextStyle(fontSize: fontSize, color: AppTheme.textPrimary));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: blocks.map((block) {
+        switch (block.type) {
+          case _ContentBlockType.heading:
+            return Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 4),
+              child: SelectableText(
+                block.text,
+                style: TextStyle(fontSize: fontSize + 2, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+              ),
+            );
+          case _ContentBlockType.text:
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: SelectableText(
+                block.text,
+                style: TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.textPrimary),
+              ),
+            );
+          case _ContentBlockType.imageWithText:
+            final hasText = block.text.isNotEmpty;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: hasText
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 350, maxHeight: 280),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: _buildBlockImage(block.imageUrl!),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SelectableText(
+                            block.text,
+                            style: TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.textPrimary),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 800),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: _buildBlockImage(block.imageUrl!),
+                        ),
+                      ),
+                    ),
+            );
+        }
+      }).toList(),
+    );
+  }
+
+  Widget _buildBlockImage(String imageUrl) {
+    if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+      if (_existingMediaFiles.contains(imageUrl)) {
+        return Image.file(
+          File(imageUrl),
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+        );
+      }
+      return const SizedBox.shrink();
+    }
+    // Remote URL — try to find matching local image
+    return const SizedBox.shrink();
+  }
+
+  List<GameImage> _getUnusedImages(List<GameImage> allImages) {
+    if (_introHtml == null || _introHtml!.isEmpty) {
+      return allImages.skip(3).toList();
+    }
+    final usedFileNames = <String>{};
+    final blocks = _parseHtmlToBlocks(_introHtml!, '');
+    for (final block in blocks) {
+      if (block.imageUrl != null && block.imageUrl!.isNotEmpty) {
+        if (block.imageUrl!.startsWith('http')) {
+          usedFileNames.add(block.imageUrl!.split('/').last.split('.').first);
+        } else {
+          usedFileNames.add(block.imageUrl!.split(Platform.pathSeparator).last);
+        }
+      }
+    }
+    return allImages.where((img) {
+      final fileName = img.imagePath.split(Platform.pathSeparator).last;
+      final baseName = fileName.split('.').first;
+      return !usedFileNames.contains(baseName);
+    }).toList();
   }
 
   Widget _buildRichIntro(String content, double fontSize) {
@@ -3334,6 +3546,21 @@ class _ImageSelectionDialog extends StatelessWidget {
       ),
     );
   }
+}
+
+enum _ContentBlockType { text, heading, imageWithText }
+
+class _ContentBlock {
+  final _ContentBlockType type;
+  final String text;
+  final String? imageUrl;
+
+  _ContentBlock._(this.type, this.text, this.imageUrl);
+
+  factory _ContentBlock.text(String text) => _ContentBlock._(_ContentBlockType.text, text, null);
+  factory _ContentBlock.heading(String text) => _ContentBlock._(_ContentBlockType.heading, text, null);
+  factory _ContentBlock.imageWithText(String imageUrl, String text) =>
+      _ContentBlock._(_ContentBlockType.imageWithText, text, imageUrl);
 }
 
 class _InlineVideoPlayer extends StatefulWidget {
