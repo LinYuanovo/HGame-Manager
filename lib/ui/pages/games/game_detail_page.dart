@@ -1472,137 +1472,46 @@ if (_isEditing) ...[
         ),
         const SizedBox(height: 14),
         if (_isEditing) ...[
-          if (title == '简介' && _introHtml != null && _introHtml!.isNotEmpty) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.2)),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: title == '简介' ? _introController : title == '特性' ? _featuresController : _changelogController,
+                  maxLines: null,
+                  style: const TextStyle(fontSize: 14, height: 1.7, color: AppTheme.textPrimary),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.5),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.all(16),
+                  ),
+                ),
               ),
-              child: _buildHtmlContent(_introHtml!, ref.watch(detailFontSizeProvider)),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => _showIntroEditSheet(title),
-                  icon: const Icon(Icons.edit, size: 16),
-                  label: const Text('编辑文本'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                    foregroundColor: AppTheme.primaryColor,
-                  ),
-                ),
-                if (isLocal && images.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () => _insertImageToContent(title),
-                    icon: const Icon(Icons.add_photo_alternate, size: 16),
-                    label: const Text('插入图片'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                      foregroundColor: AppTheme.primaryColor,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ] else ...[
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: title == '简介' ? _introController : title == '特性' ? _featuresController : _changelogController,
-                    maxLines: null,
-                    style: const TextStyle(fontSize: 14, height: 1.7, color: AppTheme.textPrimary),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.5),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                      contentPadding: const EdgeInsets.all(16),
-                    ),
-                  ),
-                ),
-                if (isLocal && images.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  Column(
-                    children: [
-                      IconButton(
-                        onPressed: () => _insertImageToContent(title),
-                        icon: const Icon(Icons.add_photo_alternate, size: 20),
-                        tooltip: '插入图片',
-                        style: IconButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                          foregroundColor: AppTheme.primaryColor,
-                        ),
+              if (isLocal && images.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Column(
+                  children: [
+                    IconButton(
+                      onPressed: () => _insertImageToContent(title),
+                      icon: const Icon(Icons.add_photo_alternate, size: 20),
+                      tooltip: '插入图片',
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        foregroundColor: AppTheme.primaryColor,
                       ),
-                      const SizedBox(height: 4),
-                      const Text('插入图片', style: TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text('插入图片', style: TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+                  ],
+                ),
               ],
-            ),
-          ],
+            ],
+          ),
         ] else if (title == '简介' && _introHtml != null && _introHtml!.isNotEmpty) ...[
           _buildHtmlContent(_introHtml!, ref.watch(detailFontSizeProvider)),
         ] else
           _buildRichIntro(content ?? '暂无信息', ref.watch(detailFontSizeProvider)),
       ],
-    );
-  }
-
-  void _showIntroEditSheet(String title) {
-    final controller = title == '简介' ? _introController : title == '特性' ? _featuresController : _changelogController;
-    
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.2))),
-              ),
-              child: Row(
-                children: [
-                  Text('编辑$title', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('完成'),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: TextField(
-                  controller: controller,
-                  maxLines: null,
-                  expands: true,
-                  style: const TextStyle(fontSize: 14, height: 1.7),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: '输入内容...',
-                  ),
-                  textAlignVertical: TextAlignVertical.top,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1813,20 +1722,32 @@ if (_isEditing) ...[
   }
 
   List<GameImage> _getUnusedImages(List<GameImage> allImages) {
-    if (_introHtml == null || _introHtml!.isEmpty) {
-      return allImages.skip(3).toList();
-    }
     final usedFileNames = <String>{};
-    final blocks = _parseHtmlToBlocks(_introHtml!, '');
-    for (final block in blocks) {
-      if (block.imageUrl != null && block.imageUrl!.isNotEmpty) {
-        if (block.imageUrl!.startsWith('http')) {
-          usedFileNames.add(block.imageUrl!.split('/').last.split('.').first);
-        } else {
-          usedFileNames.add(block.imageUrl!.split(Platform.pathSeparator).last);
+    
+    // Check intro_html for image URLs
+    if (_introHtml != null && _introHtml!.isNotEmpty) {
+      final blocks = _parseHtmlToBlocks(_introHtml!, '');
+      for (final block in blocks) {
+        if (block.imageUrl != null && block.imageUrl!.isNotEmpty) {
+          if (block.imageUrl!.startsWith('http')) {
+            usedFileNames.add(block.imageUrl!.split('/').last.split('.').first);
+          } else {
+            usedFileNames.add(block.imageUrl!.split(Platform.pathSeparator).last);
+          }
         }
       }
     }
+    
+    // Check intro text for [图片:path] markers
+    final intro = _currentGame.intro ?? '';
+    final imagePattern = RegExp(r'\[图片:(.+?)\]');
+    for (final match in imagePattern.allMatches(intro)) {
+      final path = match.group(1) ?? '';
+      if (path.isNotEmpty) {
+        usedFileNames.add(path.split(Platform.pathSeparator).last);
+      }
+    }
+    
     return allImages.where((img) {
       final fileName = img.imagePath.split(Platform.pathSeparator).last;
       final baseName = fileName.split('.').first;
