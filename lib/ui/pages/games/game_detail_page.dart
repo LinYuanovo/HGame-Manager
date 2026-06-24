@@ -329,55 +329,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           Icon(Icons.videogame_asset, color: AppTheme.primaryColor, size: 22),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _isEditing ? (_titleController.text.isEmpty ? '游戏详情' : _titleController.text) : (_currentGame.title ?? '游戏详情'),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (_currentGame.maker != null && _currentGame.maker!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Row(
-                      children: [
-                        Icon(Icons.business, size: 13, color: AppTheme.textSecondary),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Wrap(
-                            spacing: 4,
-                            children: _currentGame.maker!.split(', ').map((name) {
-                              final trimmedName = name.trim();
-                              return InkWell(
-                                onTap: () {
-                                  if (_currentGame.makerUrl != null && _currentGame.makerUrl!.isNotEmpty) {
-                                    launchUrl(Uri.parse(_currentGame.makerUrl!));
-                                  }
-                                },
-                                borderRadius: BorderRadius.circular(4),
-                                child: Text(
-                                  trimmedName,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: (_currentGame.makerUrl != null && _currentGame.makerUrl!.isNotEmpty)
-                                        ? AppTheme.primaryColor
-                                        : AppTheme.textSecondary,
-                                    decoration: (_currentGame.makerUrl != null && _currentGame.makerUrl!.isNotEmpty)
-                                        ? TextDecoration.underline
-                                        : null,
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
+            child: Text(
+              _isEditing ? (_titleController.text.isEmpty ? '游戏详情' : _titleController.text) : (_currentGame.title ?? '游戏详情'),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           if (!_isEditing) ...[
@@ -890,10 +846,30 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           if (_isEditing) ...[
             _buildEditableTags(),
           ] else if (_currentGame.tags.isNotEmpty) ...[
-            Wrap(
+            Builder(
+              builder: (context) {
+                final seen = <String>{};
+                final orderedTags = <Tag>[];
+                final makerName = _currentGame.maker?.trim();
+                if (makerName != null && makerName.isNotEmpty) {
+                  for (final t in _currentGame.tags) {
+                    if (t.name.toLowerCase() == makerName.toLowerCase() && !seen.contains(t.name.toLowerCase())) {
+                      orderedTags.add(t);
+                      seen.add(t.name.toLowerCase());
+                      break;
+                    }
+                  }
+                }
+                for (final t in _currentGame.tags) {
+                  if (!seen.contains(t.name.toLowerCase())) {
+                    orderedTags.add(t);
+                    seen.add(t.name.toLowerCase());
+                  }
+                }
+                return Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: {for (final t in _currentGame.tags) t.name.toLowerCase(): t}.values.map((tag) => GestureDetector(
+              children: orderedTags.map((tag) => GestureDetector(
                 onTap: () {
                   if (widget.onTagTap != null) {
                     Navigator.of(context).pop(tag);
@@ -909,6 +885,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   child: Text(tag.name, style: const TextStyle(fontSize: 11, color: Colors.blue)),
                 ),
               )).toList(),
+                );
+              },
             ),
             const SizedBox(height: 10),
           ],
@@ -1294,6 +1272,44 @@ if (_isEditing) ...[
               _currentGame.title ?? '未命名游戏', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.textPrimary, height: 1.4),
             ),
 
+          if (!_isEditing && _currentGame.maker != null && _currentGame.maker!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(Icons.business, size: 15, color: AppTheme.textSecondary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: _currentGame.maker!.split(', ').map((name) {
+                      final trimmedName = name.trim();
+                      return InkWell(
+                        onTap: () {
+                          if (_currentGame.makerUrl != null && _currentGame.makerUrl!.isNotEmpty) {
+                            launchUrl(Uri.parse(_currentGame.makerUrl!));
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            trimmedName,
+                            style: TextStyle(fontSize: 13, color: AppTheme.primaryColor, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (_currentGame.version != null || _currentGame.rating > 0) ...[
             const SizedBox(height: 8),
             Wrap(
