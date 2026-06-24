@@ -93,7 +93,7 @@ final allGamesProvider = FutureProvider<List<Game>>((ref) async {
     final keepPlayed = prefs.getBool(AppSettings.keepPlayedInGamesKey) ?? false;
 
     if (keepPlayed) {
-      return await repository.getNonClearedGames();
+      return await repository.getAllGames();
     } else {
       return await repository.getUnplayedUnclearedGames();
     }
