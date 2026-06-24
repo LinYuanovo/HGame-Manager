@@ -1086,7 +1086,27 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                           ),
                         ),
                       ),
-                    if (game.isPlayed && !isBackupOnly && widget.contextMenuMode == ContextMenuMode.games)
+                    if (game.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}'))
+                      Positioned(
+                        top: 4,
+                        left: isBackupOnly ? 70 : 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFD700).withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.emoji_events, size: 16, color: Colors.white),
+                              SizedBox(width: 2),
+                              Text('通关', style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                      )
+                    else if (game.isPlayed && !isBackupOnly && widget.contextMenuMode == ContextMenuMode.games)
                       Positioned(
                         top: 4,
                         left: 4,
@@ -1109,26 +1129,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    if (game.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}'))
-                      Positioned(
-                        top: 4,
-                        left: (isBackupOnly ? 70 : 4) + (game.isPlayed && !isBackupOnly && widget.contextMenuMode == ContextMenuMode.games ? 66 : 0),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFD700).withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.emoji_events, size: 16, color: Colors.white),
-                              SizedBox(width: 2),
-                              Text('通关', style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ),
@@ -1319,7 +1319,28 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                           ),
                         ),
                       ),
-                    if (game.isPlayed && !isBackupOnly && widget.contextMenuMode == ContextMenuMode.games)
+                    if (game.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}'))
+                      Positioned(
+                        top: 8,
+                        left: isBackupOnly ? 110 : 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFD700).withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.emoji_events, size: 16, color: Colors.white),
+                              SizedBox(width: 4),
+                              Text('通关', style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                      )
+                    else if (game.isPlayed && !isBackupOnly && widget.contextMenuMode == ContextMenuMode.games)
                       Positioned(
                         top: 8,
                         left: 8,
@@ -1343,27 +1364,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    if (game.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}'))
-                      Positioned(
-                        top: 8,
-                        left: (isBackupOnly ? 110 : 8) + (game.isPlayed && !isBackupOnly ? 96 : 0),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFD700).withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.emoji_events, size: 16, color: Colors.white),
-                              SizedBox(width: 4),
-                              Text('通关', style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ),
@@ -1562,33 +1562,144 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   Future<void> _launchGameFromList(Game game) async {
     final repo = ref.read(gameRepositoryProvider);
+
+    // 标记为已玩
     if (game.id != null) {
       try {
         await repo.markAsPlayed(game.id!);
       } catch (e) {
-        debugPrint('[_launchGameFromList] markAsPlayed error: $e');
+        debugPrint('markAsPlayed error: $e');
       }
     }
 
-    if (game.launcherLocked && game.gameLauncher != null && game.gameLauncher!.isNotEmpty) {
-      final file = File(game.gameLauncher!);
-      if (await file.exists()) {
+    bool launched = false;
+
+    // 优先检查转区启动
+    if (game.useLocaleEmulator) {
+      launched = await _launchWithLocaleEmulator(game);
+      if (!launched) {
+        final leProcPath = await _findLeProcPath();
+        if (leProcPath == null && game.id != null) {
+          await repo.updateLocaleEmulator(game.id!, false);
+          if (mounted) {
+            AppTheme.showGlassToast(context, message: 'LEProc.exe 不存在，已回退为普通启动', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
+          }
+        }
+      }
+    }
+
+    // 普通启动
+    if (!launched) {
+      launched = await _launchGameNormal(game);
+    }
+
+    // 文件选择器兜底
+    if (!launched) {
+      final result = await FilePicker.pickFiles(
+        dialogTitle: '选择游戏启动器',
+        type: FileType.any,
+        initialDirectory: game.path,
+      );
+      if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
+        final launcherPath = result.files.first.path!;
+        if (game.id != null) {
+          await repo.updateGameLauncher(game.id!, launcherPath, true);
+        }
         try {
-          await _launchExe(game.gameLauncher!, game.path);
+          await Process.run(launcherPath, [], workingDirectory: game.path);
         } catch (e) {
           if (mounted) {
             AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
           }
         }
-_refreshGames(); _refreshPlayed(); return;
+      } else {
+        try {
+          await Process.run('explorer.exe', [game.path]);
+        } catch (_) {}
+      }
+    }
+
+    // 刷新 provider
+    ref.invalidate(allGamesProvider);
+    ref.invalidate(playedGamesProvider);
+    ref.invalidate(favoriteGamesProvider);
+  }
+
+  Future<String?> _findLeProcPath() async {
+    final repo = ref.read(toolRepositoryProvider);
+    final tools = await repo.getAllTools();
+    for (final tool in tools) {
+      final fileName = tool.path.split(RegExp(r'[/\\]')).last.toLowerCase();
+      if (fileName == 'leproc.exe') {
+        final file = File(tool.path);
+        if (await file.exists()) return tool.path;
+      }
+    }
+    return null;
+  }
+
+  Future<bool> _launchWithLocaleEmulator(Game game) async {
+    final leProcPath = await _findLeProcPath();
+    if (leProcPath == null) return false;
+
+    String? exePath;
+    if (game.launcherLocked && game.gameLauncher != null && game.gameLauncher!.isNotEmpty) {
+      final file = File(game.gameLauncher!);
+      if (await file.exists()) exePath = game.gameLauncher!;
+    }
+
+    if (exePath == null) {
+      final gameDir = Directory(game.path);
+      if (await gameDir.exists()) {
+        final fallbackExes = ['game.exe', 'Game.exe', 'launcher.exe', 'launch.exe', 'player.exe', 'play.exe'];
+        for (final exeName in fallbackExes) {
+          final exeFile = File('${game.path}${Platform.pathSeparator}$exeName');
+          if (await exeFile.exists()) { exePath = exeFile.path; break; }
+        }
+        if (exePath == null) {
+          await for (final entity in gameDir.list()) {
+            if (entity is File && entity.path.toLowerCase().endsWith('.exe')) {
+              exePath = entity.path; break;
+            }
+          }
+        }
+      }
+    }
+
+    if (exePath == null) return false;
+
+    try {
+      await Process.run(leProcPath, [exePath]);
+      return true;
+    } catch (e) {
+      debugPrint('[LE] Launch failed: $e');
+      return false;
+    }
+  }
+
+  Future<bool> _launchGameNormal(Game game) async {
+    final repo = ref.read(gameRepositoryProvider);
+
+    // 存储的启动器
+    if (game.launcherLocked && game.gameLauncher != null && game.gameLauncher!.isNotEmpty) {
+      final file = File(game.gameLauncher!);
+      if (await file.exists()) {
+        try {
+          await _launchExe(game.gameLauncher!, game.path);
+          return true;
+        } catch (e) {
+          if (mounted) {
+            AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          }
+          return true;
+        }
       }
     }
 
     final gameDir = Directory(game.path);
-    if (!await gameDir.exists()) {
-_refreshGames(); _refreshPlayed(); return;
-    }
+    if (!await gameDir.exists()) return false;
 
+    // 与工具一同启动.bat
     final toolBat = File('${game.path}${Platform.pathSeparator}与工具一同启动.bat');
     if (await toolBat.exists()) {
       if (game.id != null) {
@@ -1596,14 +1707,16 @@ _refreshGames(); _refreshPlayed(); return;
       }
       try {
         await _launchExe(toolBat.path, game.path);
+        return true;
       } catch (e) {
         if (mounted) {
           AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
+        return true;
       }
-_refreshGames(); _refreshPlayed(); return;
     }
 
+    // 其他启动 bat 文件
     await for (final entity in gameDir.list()) {
       if (entity is File) {
         final fileName = entity.path.split(RegExp(r'[/\\]')).last.toLowerCase();
@@ -1613,16 +1726,18 @@ _refreshGames(); _refreshPlayed(); return;
           }
           try {
             await _launchExe(entity.path, game.path);
+            return true;
           } catch (e) {
             if (mounted) {
               AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
             }
+            return true;
           }
-_refreshGames(); _refreshPlayed(); return;
         }
       }
     }
 
+    // 常见 exe 兜底
     final fallbackExes = ['game.exe', 'Game.exe', 'launcher.exe', 'launch.exe', 'player.exe', 'play.exe'];
     for (final exeName in fallbackExes) {
       final exeFile = File('${game.path}${Platform.pathSeparator}$exeName');
@@ -1632,15 +1747,17 @@ _refreshGames(); _refreshPlayed(); return;
         }
         try {
           await _launchExe(exeFile.path, game.path);
+          return true;
         } catch (e) {
           if (mounted) {
             AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
           }
+          return true;
         }
-_refreshGames(); _refreshPlayed(); return;
       }
     }
 
+    // findGameExe 兜底
     final saveService = ref.read(savePathServiceProvider);
     final exePath = await saveService.findGameExe(game.path);
     if (exePath != null) {
@@ -1649,37 +1766,16 @@ _refreshGames(); _refreshPlayed(); return;
       }
       try {
         await _launchExe(exePath, game.path);
+        return true;
       } catch (e) {
         if (mounted) {
           AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
+        return true;
       }
-_refreshGames(); _refreshPlayed(); return;
     }
 
-    final result = await FilePicker.pickFiles(
-      dialogTitle: '选择游戏启动器',
-      type: FileType.any,
-      initialDirectory: game.path,
-    );
-    if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
-      final launcherPath = result.files.first.path!;
-      if (game.id != null) {
-        await repo.updateGameLauncher(game.id!, launcherPath, true);
-      }
-      try {
-        await _launchExe(launcherPath, game.path);
-      } catch (e) {
-        if (mounted) {
-          AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-        }
-      }
-    } else {
-      try {
-        await Process.run('explorer.exe', [game.path]);
-      } catch (_) {}
-    }
-_refreshAllProviders();
+    return false;
   }
 
   void _showGameDetail(Game game) {
