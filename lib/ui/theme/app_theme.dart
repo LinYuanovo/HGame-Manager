@@ -56,6 +56,9 @@ class GlassConstants {
   // 缩放
   static const double hoverScale = 1.02;
   static const double pressScale = 0.97;
+
+  // 对话框
+  static const double dialogWidth = 600.0;
 }
 
 class AppTheme {

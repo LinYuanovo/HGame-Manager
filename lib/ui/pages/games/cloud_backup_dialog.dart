@@ -299,29 +299,32 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
   Future<void> _deleteCloudBackup(WebDavFile file) async {
     final confirmed = await showGlassDialog<bool>(
       context: context,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('删除云端备份', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            const SizedBox(height: 12),
-            Text('确定要删除云端备份 "${file.name}" 吗？', style: const TextStyle(color: AppTheme.textSecondary)),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor, foregroundColor: Colors.white),
-                  child: const Text('删除'),
-                ),
-              ],
-            ),
-          ],
+      child: SizedBox(
+        width: GlassConstants.dialogWidth,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('删除云端备份', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              const SizedBox(height: 12),
+              Text('确定要删除云端备份 "${file.name}" 吗？', style: const TextStyle(color: AppTheme.textSecondary)),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor, foregroundColor: Colors.white),
+                    child: const Text('删除'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

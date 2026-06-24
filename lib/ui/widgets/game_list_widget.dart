@@ -2045,35 +2045,38 @@ _refreshAllProviders();
         case 'blacklist':
           final confirm = await showGlassDialog<bool>(
             context: context,
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('删除记录', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                  const SizedBox(height: 12),
-                  Text(targets.length > 1
-                      ? '确定要删除选中的 ${targets.length} 个游戏的记录吗？\n路径将加入黑名单，后续扫描不再入库。\n不会删除实际文件。'
-                      : '确定要删除"${game.title}"的记录吗？\n路径将加入黑名单，后续扫描不再入库。\n不会删除实际文件。',
-                      style: const TextStyle(color: AppTheme.textSecondary)),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text('取消')),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFFA000)),
-                        child: const Text('确认'),
-                      ),
-                    ],
-                  ),
-                ],
+            child: SizedBox(
+              width: GlassConstants.dialogWidth,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('删除记录', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                    const SizedBox(height: 12),
+                    Text(targets.length > 1
+                        ? '确定要删除选中的 ${targets.length} 个游戏的记录吗？\n路径将加入黑名单，后续扫描不再入库。\n不会删除实际文件。'
+                        : '确定要删除"${game.title}"的记录吗？\n路径将加入黑名单，后续扫描不再入库。\n不会删除实际文件。',
+                        style: const TextStyle(color: AppTheme.textSecondary)),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('取消')),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFFA000)),
+                          child: const Text('确认'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -2091,35 +2094,38 @@ _refreshAllProviders();
         case 'delete_folder':
           final confirm = await showGlassDialog<bool>(
             context: context,
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('删除本地文件夹', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                  const SizedBox(height: 12),
-                  Text(targets.length > 1
-                      ? '确定要删除选中的 ${targets.length} 个游戏的本地文件夹吗？\n此操作不可恢复！'
-                      : '确定要删除"${game.title}"的本地文件夹吗？\n此操作不可恢复！\n\n${game.path}',
-                      style: const TextStyle(color: AppTheme.textSecondary)),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text('取消')),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.errorColor),
-                        child: const Text('删除文件夹'),
-                      ),
-                    ],
-                  ),
-                ],
+            child: SizedBox(
+              width: GlassConstants.dialogWidth,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('删除本地文件夹', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                    const SizedBox(height: 12),
+                    Text(targets.length > 1
+                        ? '确定要删除选中的 ${targets.length} 个游戏的本地文件夹吗？\n此操作不可恢复！'
+                        : '确定要删除"${game.title}"的本地文件夹吗？\n此操作不可恢复！\n\n${game.path}',
+                        style: const TextStyle(color: AppTheme.textSecondary)),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('取消')),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.errorColor),
+                          child: const Text('删除文件夹'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -2200,32 +2206,35 @@ _refreshAllProviders();
     // 确认对话框
     final confirm = await showGlassDialog<bool>(
       context: context,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('标记已通关', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            const SizedBox(height: 12),
-            Text('确定要将"$gameName"标记为已通关吗？\n\n游戏将移动到 Sorted/Cleared 目录，\n并自动创建备份。', style: const TextStyle(color: AppTheme.textSecondary)),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('取消')),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFD700)),
-                  child: const Text('确认'),
-                ),
-              ],
-            ),
-          ],
+      child: SizedBox(
+        width: GlassConstants.dialogWidth,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('标记已通关', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              const SizedBox(height: 12),
+              Text('确定要将"$gameName"标记为已通关吗？\n\n游戏将移动到 Sorted/Cleared 目录，\n并自动创建备份。', style: const TextStyle(color: AppTheme.textSecondary)),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('取消')),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFD700)),
+                    child: const Text('确认'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2426,37 +2435,40 @@ _refreshAllProviders();
 
     final confirmed = await showGlassDialog<bool>(
       context: context,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('确认移动文件夹', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            const SizedBox(height: 16),
-            Text('原路径: ${game.path}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-            const SizedBox(height: 8),
-            Text('新路径: $newPath', style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('取消'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
+      child: SizedBox(
+        width: GlassConstants.dialogWidth,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('确认移动文件夹', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              const SizedBox(height: 16),
+              Text('原路径: ${game.path}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+              const SizedBox(height: 8),
+              Text('新路径: $newPath', style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('取消'),
                   ),
-                  child: const Text('确认移动'),
-                ),
-              ],
-            ),
-          ],
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('确认移动'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

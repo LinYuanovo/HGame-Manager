@@ -496,7 +496,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
      final importType = await showGlassDialog<String>(
       context: context,
       child: SizedBox(
-        width: 600,
+        width: GlassConstants.dialogWidth,
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -688,7 +688,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
     return showGlassDialog<Fan2dSearchResult>(
       context: context,
       child: SizedBox(
-        width: 600,
+        width: GlassConstants.dialogWidth,
         height: 500,
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -821,7 +821,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
     final newName = await showGlassDialog<String>(
       context: context,
       child: SizedBox(
-        width: 600,
+        width: GlassConstants.dialogWidth,
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -927,7 +927,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
      final confirmed = await showGlassDialog<bool>(
       context: context,
       child: SizedBox(
-        width: 600,
+        width: GlassConstants.dialogWidth,
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -998,7 +998,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
     final confirmed = await showGlassDialog<bool>(
       context: context,
       child: SizedBox(
-        width: 600,
+        width: GlassConstants.dialogWidth,
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(

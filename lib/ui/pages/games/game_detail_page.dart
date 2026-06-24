@@ -1135,43 +1135,46 @@ if (_isEditing) ...[
     final controller = TextEditingController();
     showGlassDialog(
       context: context,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('添加标签', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: const InputDecoration(hintText: '输入标签名称'),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('取消'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () {
-                    final name = controller.text.trim();
-                    if (name.isNotEmpty) {
-                      setState(() {
-                        _editedTags.add(Tag(name: name, type: Tag.typeCustom));
-                      });
-                    }
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text('添加'),
-                ),
-              ],
-            ),
-          ],
+      child: SizedBox(
+        width: GlassConstants.dialogWidth,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('添加标签', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: const InputDecoration(hintText: '输入标签名称'),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('取消'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      final name = controller.text.trim();
+                      if (name.isNotEmpty) {
+                        setState(() {
+                          _editedTags.add(Tag(name: name, type: Tag.typeCustom));
+                        });
+                      }
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text('添加'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1799,39 +1802,42 @@ if (_isEditing) ...[
       if (_pathChanged && newPath.isNotEmpty && newPath != _currentGame.path) {
         final pathConfirm = await showGlassDialog<bool>(
           context: context,
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('确认修改路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                const SizedBox(height: 16),
-                Text('原路径: ${_currentGame.path}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-                const SizedBox(height: 8),
-                Text('新路径: $newPath', style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
-                const SizedBox(height: 12),
-                const Text('将移动文件夹到新路径并更新数据库记录。', style: TextStyle(color: AppTheme.textSecondary)),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('取消'),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
+          child: SizedBox(
+            width: GlassConstants.dialogWidth,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('确认修改路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                  const SizedBox(height: 16),
+                  Text('原路径: ${_currentGame.path}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  Text('新路径: $newPath', style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 12),
+                  const Text('将移动文件夹到新路径并更新数据库记录。', style: TextStyle(color: AppTheme.textSecondary)),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('取消'),
                       ),
-                      child: const Text('确认修改'),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('确认修改'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -1945,35 +1951,38 @@ if (_isEditing) ...[
         if (newSourceUrl != null && newSourceUrl != _currentGame.sourceUrl) {
           final shouldRescrape = await showGlassDialog<bool>(
             context: context,
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('重新刮削', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                  const SizedBox(height: 12),
-                  const Text('来源链接已修改，是否立即重新刮削该游戏？', style: TextStyle(color: AppTheme.textSecondary)),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('稍后手动刮削'),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          foregroundColor: Colors.white,
+            child: SizedBox(
+              width: GlassConstants.dialogWidth,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('重新刮削', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                    const SizedBox(height: 12),
+                    const Text('来源链接已修改，是否立即重新刮削该游戏？', style: TextStyle(color: AppTheme.textSecondary)),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('稍后手动刮削'),
                         ),
-                        child: const Text('立即刮削'),
-                      ),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('立即刮削'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -2113,56 +2122,59 @@ if (_isEditing) ...[
     final controller = TextEditingController(text: _currentGame.savePath ?? '');
     showGlassDialog(
       context: context,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('编辑存档路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                hintText: '输入存档文件夹路径',
-                labelText: '存档路径',
+      child: SizedBox(
+        width: GlassConstants.dialogWidth,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('编辑存档路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  hintText: '输入存档文件夹路径',
+                  labelText: '存档路径',
+                ),
+                autofocus: true,
               ),
-              autofocus: true,
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('取消'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () async {
-                    final newPath = controller.text.trim();
-                    final repo = ref.read(gameRepositoryProvider);
-                    var gameId = _currentGame.id;
-                    if (gameId == null) {
-                      gameId = await repo.insertGame(_currentGame);
-                      _currentGame = _currentGame.copyWith(id: gameId);
-                    }
-                    await repo.updateSavePath(gameId, newPath.isEmpty ? null : newPath);
-                    final freshGame = await repo.getGameById(gameId);
-                    if (freshGame != null && mounted) {
-                      setState(() => _currentGame = freshGame);
-                    }
-                    if (mounted) {
-                      _refreshAllProviders();
-                      Navigator.pop(context);
-                      AppTheme.showGlassToast(context, message: '存档路径已更新');
-                    }
-                  },
-                  child: const Text('保存'),
-                ),
-              ],
-            ),
-          ],
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('取消'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final newPath = controller.text.trim();
+                      final repo = ref.read(gameRepositoryProvider);
+                      var gameId = _currentGame.id;
+                      if (gameId == null) {
+                        gameId = await repo.insertGame(_currentGame);
+                        _currentGame = _currentGame.copyWith(id: gameId);
+                      }
+                      await repo.updateSavePath(gameId, newPath.isEmpty ? null : newPath);
+                      final freshGame = await repo.getGameById(gameId);
+                      if (freshGame != null && mounted) {
+                        setState(() => _currentGame = freshGame);
+                      }
+                      if (mounted) {
+                        _refreshAllProviders();
+                        Navigator.pop(context);
+                        AppTheme.showGlassToast(context, message: '存档路径已更新');
+                      }
+                    },
+                    child: const Text('保存'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2579,56 +2591,59 @@ if (_isEditing) ...[
   void _showUpdateDialog(VersionCheckResult result) {
     showGlassDialog(
       context: context,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.system_update, color: AppTheme.successColor, size: 22),
-                const SizedBox(width: 8),
-                const Text('发现新版本', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text('来源: ${result.siteName}', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-            const SizedBox(height: 4),
-            Text('当前版本: ${_currentGame.version ?? "未知"}', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-            const SizedBox(height: 4),
-            Text('最新版本: ${result.maxVersion}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
-            const SizedBox(height: 8),
-            Text('帖子标题: ${result.postTitle}', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary), maxLines: 2, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('关闭'),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: result.downloadUrl == null
-                      ? null
-                      : () async {
-                          Navigator.of(context).pop();
-                          try {
-                            await launchUrl(Uri.parse(result.downloadUrl!));
-                          } catch (_) {}
-                        },
-                  icon: const Icon(Icons.open_in_new, size: 16),
-                  label: const Text('前往下载'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: SizedBox(
+        width: GlassConstants.dialogWidth,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.system_update, color: AppTheme.successColor, size: 22),
+                  const SizedBox(width: 8),
+                  const Text('发现新版本', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text('来源: ${result.siteName}', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              const SizedBox(height: 4),
+              Text('当前版本: ${_currentGame.version ?? "未知"}', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              const SizedBox(height: 4),
+              Text('最新版本: ${result.maxVersion}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
+              const SizedBox(height: 8),
+              Text('帖子标题: ${result.postTitle}', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary), maxLines: 2, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('关闭'),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: result.downloadUrl == null
+                        ? null
+                        : () async {
+                            Navigator.of(context).pop();
+                            try {
+                              await launchUrl(Uri.parse(result.downloadUrl!));
+                            } catch (_) {}
+                          },
+                    icon: const Icon(Icons.open_in_new, size: 16),
+                    label: const Text('前往下载'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -391,43 +391,46 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
     final controller = TextEditingController(text: tag.displayName ?? tag.name);
     showGlassDialog(
       context: context,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(tag.type == Tag.typeCustom ? '修改标签' : '修改系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(hintText: '输入名称'),
-              autofocus: true,
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () async {
-                    final name = controller.text.trim();
-                    if (name.isNotEmpty) {
-                      await ref.read(tagRepositoryProvider).updateTag(tag.copyWith(
-                        name: name,
-                        displayName: name,
-                      ));
-                      ref.invalidate(allTagsProvider);
-                      ref.invalidate(allSeriesProvider);
-                    }
-                    Navigator.pop(context);
-                  },
-                  child: const Text('保存'),
-                ),
-              ],
-            ),
-          ],
+      child: SizedBox(
+        width: GlassConstants.dialogWidth,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(tag.type == Tag.typeCustom ? '修改标签' : '修改系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(hintText: '输入名称'),
+                autofocus: true,
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final name = controller.text.trim();
+                      if (name.isNotEmpty) {
+                        await ref.read(tagRepositoryProvider).updateTag(tag.copyWith(
+                          name: name,
+                          displayName: name,
+                        ));
+                        ref.invalidate(allTagsProvider);
+                        ref.invalidate(allSeriesProvider);
+                      }
+                      Navigator.pop(context);
+                    },
+                    child: const Text('保存'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -436,35 +439,38 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
   void _showDeleteTagConfirmDialog(Tag tag) {
     showGlassDialog(
       context: context,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(tag.type == Tag.typeCustom ? '删除标签' : '删除系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            const SizedBox(height: 12),
-            Text('确定要删除"${tag.displayName ?? tag.name}"吗？', style: TextStyle(color: AppTheme.textSecondary)),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () async {
-                    await ref.read(tagRepositoryProvider).deleteTag(tag.id!);
-                    ref.invalidate(allTagsProvider);
-                    ref.invalidate(allSeriesProvider);
-                    ref.invalidate(favoriteTagsProvider);
-                    Navigator.pop(context);
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
-                  child: const Text('删除'),
-                ),
-              ],
-            ),
-          ],
+      child: SizedBox(
+        width: GlassConstants.dialogWidth,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(tag.type == Tag.typeCustom ? '删除标签' : '删除系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              const SizedBox(height: 12),
+              Text('确定要删除"${tag.displayName ?? tag.name}"吗？', style: TextStyle(color: AppTheme.textSecondary)),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await ref.read(tagRepositoryProvider).deleteTag(tag.id!);
+                      ref.invalidate(allTagsProvider);
+                      ref.invalidate(allSeriesProvider);
+                      ref.invalidate(favoriteTagsProvider);
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
+                    child: const Text('删除'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -474,40 +480,43 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
     final controller = TextEditingController();
     showGlassDialog(
       context: context,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(type == Tag.typeCustom ? '添加标签' : '添加系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              decoration: InputDecoration(hintText: type == Tag.typeCustom ? '输入标签名称' : '输入系列名称'),
-              autofocus: true,
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () async {
-                    final name = controller.text.trim();
-                    if (name.isNotEmpty) {
-                      await ref.read(tagRepositoryProvider).insertOrGetTag(name, type);
-                      ref.invalidate(allTagsProvider);
-                      ref.invalidate(allSeriesProvider);
-                    }
-                    Navigator.pop(context);
-                  },
-                  child: const Text('添加'),
-                ),
-              ],
-            ),
-          ],
+      child: SizedBox(
+        width: GlassConstants.dialogWidth,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(type == Tag.typeCustom ? '添加标签' : '添加系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                decoration: InputDecoration(hintText: type == Tag.typeCustom ? '输入标签名称' : '输入系列名称'),
+                autofocus: true,
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final name = controller.text.trim();
+                      if (name.isNotEmpty) {
+                        await ref.read(tagRepositoryProvider).insertOrGetTag(name, type);
+                        ref.invalidate(allTagsProvider);
+                        ref.invalidate(allSeriesProvider);
+                      }
+                      Navigator.pop(context);
+                    },
+                    child: const Text('添加'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
