@@ -101,9 +101,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
           );
         }
         return GridView.builder(
-          padding: const EdgeInsets.all(16),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 200,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 6,
             mainAxisSpacing: 8,
             crossAxisSpacing: 8,
             childAspectRatio: 2.5,
@@ -140,7 +140,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
                     child: Text(
                       tag.displayName ?? tag.name,
                       style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w500),
+                          fontSize: 16, fontWeight: FontWeight.w500),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
