@@ -3988,7 +3988,7 @@ class _ImageSelectionDialog extends StatelessWidget {
         borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
       ),
       child: Container(
-        width: 500,
+        width: MediaQuery.of(context).size.width * 0.5,
         height: 400,
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -4022,7 +4022,7 @@ class _ImageSelectionDialog extends StatelessWidget {
                   crossAxisCount: 3,
                   crossAxisSpacing: 8,
                   mainAxisSpacing: 8,
-                  childAspectRatio: 1,
+                  childAspectRatio: 16 / 9,
                 ),
                 itemCount: images.length,
                 itemBuilder: (context, index) {
