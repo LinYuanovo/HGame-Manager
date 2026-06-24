@@ -1418,7 +1418,6 @@ if (_isEditing) ...[
     // 刮削游戏：每个section显示1张图片
     // 本地游戏：不自动显示图片，由用户通过插入功能选择
     final isLocal = _isLocalGame();
-    final sectionImage = isLocal ? null : (sectionIndex < images.length ? images[sectionIndex] : null);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1471,10 +1470,6 @@ if (_isEditing) ...[
           _buildHtmlContent(_introHtml!, ref.watch(detailFontSizeProvider)),
         ] else
           _buildRichIntro(content ?? '暂无信息', ref.watch(detailFontSizeProvider)),
-        if (sectionImage != null && !_isEditing) ...[
-          const SizedBox(height: 16),
-          _buildArticleImage(sectionImage),
-        ],
       ],
     );
   }
