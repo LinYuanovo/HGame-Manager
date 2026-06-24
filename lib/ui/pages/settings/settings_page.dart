@@ -598,6 +598,21 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             ),
           ),
         ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _scanNow,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('扫描游戏库'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.successColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+            ),
+          ),
+        ),
       ],
     );
   }
