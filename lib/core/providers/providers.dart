@@ -89,7 +89,14 @@ final fan2dServiceProvider = Provider<Fan2dService>((ref) => Fan2dService());
 final allGamesProvider = FutureProvider<List<Game>>((ref) async {
   try {
     final repository = ref.watch(gameRepositoryProvider);
-    return await repository.getUnplayedUnclearedGames();
+    final prefs = ref.read(sharedPreferencesProvider);
+    final keepPlayed = prefs.getBool(AppSettings.keepPlayedInGamesKey) ?? false;
+
+    if (keepPlayed) {
+      return await repository.getNonClearedGames();
+    } else {
+      return await repository.getUnplayedUnclearedGames();
+    }
   } catch (e, stackTrace) {
     if (kDebugMode) {
       debugPrint('ERROR Loading Games: $e\n$stackTrace');
