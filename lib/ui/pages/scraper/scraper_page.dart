@@ -10,6 +10,9 @@ import '../../../core/services/folder_rename_service.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../../scraper/html_parser.dart';
+import '../../../scraper/parse_utils.dart';
+import '../../../core/services/dlsite_service.dart';
+import '../../../core/services/steam_service.dart';
 import '../../theme/app_theme.dart';
 
 class ScraperPage extends ConsumerStatefulWidget {
@@ -644,7 +647,37 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           final response = await client.get(Uri.parse(game.sourceUrl!), headers: headers);
 
           if (response.statusCode == 200) {
-            final gameInfo = _scraper.scrapeGameInfo(response.body, game.sourceUrl!);
+            GameInfo? gameInfo;
+            final sourceUrl = game.sourceUrl!;
+            final isDlsite = sourceUrl.contains('dlsite');
+            final isSteam = sourceUrl.contains('steam');
+
+            if (isDlsite) {
+              final dlsiteService = ref.read(dlsiteServiceProvider);
+              final id = dlsiteService.normalizeId(sourceUrl);
+              if (id != null) {
+                gameInfo = await dlsiteService.fetchById(id);
+              }
+            } else if (isSteam) {
+              final steamService = ref.read(steamServiceProvider);
+              final appidMatch = RegExp(r'/app/(\d+)').firstMatch(sourceUrl);
+              if (appidMatch != null) {
+                final id = appidMatch.group(1)!;
+                final steamInfo = await steamService.fetchById(id);
+                if (steamInfo != null) {
+                  gameInfo = GameInfo(
+                    title: steamInfo.title,
+                    description: steamInfo.description,
+                    tags: steamInfo.tags,
+                    screenshots: steamInfo.screenshots,
+                    sourceUrl: steamInfo.sourceUrl,
+                    maker: steamInfo.developers.isNotEmpty ? steamInfo.developers.join(', ') : null,
+                  );
+                }
+              }
+            } else {
+              gameInfo = _scraper.scrapeGameInfo(response.body, sourceUrl);
+            }
             if (gameInfo != null) {
               final displayTitle = gameInfo.title != null
                   ? _stripVersionFromTitle(gameInfo.title!, gameInfo.version)

@@ -1207,5 +1207,8 @@ class _AliasParser extends SiteParser {
   String get domain => _domain;
 
   @override
+  GameInfo? parseGameInfo(Document document, String url) => _delegate.parseGameInfo(document, url);
+
+  @override
   GameMetadata parse(Document document, String url) => _delegate.parse(document, url);
 }
