@@ -1767,7 +1767,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   Widget _buildAboutSection() {
-    const currentVersion = '1.4.0';
+    const currentVersion = '1.3.9';
 
     return _buildSection(
       title: '关于',
