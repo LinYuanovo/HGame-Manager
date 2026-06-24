@@ -2611,7 +2611,12 @@ if (_isEditing) ...[
         }
 
         if (gameInfo.screenshots.isNotEmpty) {
-          final urlToLocal = await _downloadImagesWithMapping(updated, gameInfo.screenshots);
+          AppTheme.showGlassToast(context, message: '正在下载截图 (0/${gameInfo.screenshots.length})...');
+          final urlToLocal = await _downloadImagesWithMapping(updated, gameInfo.screenshots, onProgress: (current, total) {
+            if (current == total) {
+              AppTheme.showGlassToast(context, message: '截图下载完成 ($total张)');
+            }
+          });
           if (urlToLocal.isNotEmpty) {
             if (gameInfo.description != null) {
               var desc = gameInfo.description!;
@@ -2804,9 +2809,15 @@ if (_isEditing) ...[
         }
 
         if (gameInfo.screenshots.isNotEmpty) {
+          AppTheme.showGlassToast(context, message: '正在下载截图 (0/${gameInfo.screenshots.length})...');
           final urlToLocal = await _downloadImagesWithMapping(
             _currentGame.copyWith(id: _currentGame.id!),
             gameInfo.screenshots,
+            onProgress: (current, total) {
+              if (current == total) {
+                AppTheme.showGlassToast(context, message: '截图下载完成 ($total张)');
+              }
+            },
           );
           if (urlToLocal.isNotEmpty) {
             var desc = gameInfo.description;
@@ -2926,7 +2937,11 @@ if (_isEditing) ...[
     client.close();
   }
 
-  Future<Map<String, String>> _downloadImagesWithMapping(Game game, List<String> imageUrls) async {
+  Future<Map<String, String>> _downloadImagesWithMapping(
+    Game game,
+    List<String> imageUrls, {
+    void Function(int current, int total)? onProgress,
+  }) async {
     final urlToLocal = <String, String>{};
     final client = await createProxyClientFromPrefs();
     final imageDir = Directory('${game.path}${Platform.pathSeparator}images');
@@ -2965,6 +2980,7 @@ if (_isEditing) ...[
         }
         await repo.addGameImage(game.id!, filePath, i);
         urlToLocal[imageUrl] = filePath;
+        onProgress?.call(i + 1, imageUrls.length);
       } catch (_) {}
     }
     client.close();
