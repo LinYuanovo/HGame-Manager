@@ -1214,7 +1214,9 @@ if (_isEditing) ...[
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(tag.name, style: const TextStyle(fontSize: 11, color: Colors.blue)),
+              Flexible(
+                child: Text(tag.name, style: const TextStyle(fontSize: 11, color: Colors.blue), overflow: TextOverflow.ellipsis, maxLines: 1),
+              ),
               const SizedBox(width: 4),
               GestureDetector(
                 onTap: () => setState(() => _editedTags.remove(tag)),

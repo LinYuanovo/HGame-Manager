@@ -1001,7 +1001,7 @@ class VikAcgParser extends SiteParser {
     }
 
     final contentContainer = _findContentContainer(document);
-    final paragraphs = contentContainer.querySelectorAll('p');
+    final paragraphs = contentContainer.querySelectorAll('p, div.arco-image');
     final introBuffer = StringBuffer();
     bool collecting = false;
     bool foundStartMarker = false;
@@ -1192,7 +1192,7 @@ class VikAcgParser extends SiteParser {
 
     // Extract game intro from rendered content paragraphs
     final contentContainer = _findContentContainer(document);
-    final paragraphs = contentContainer.querySelectorAll('p');
+    final paragraphs = contentContainer.querySelectorAll('p, div.arco-image');
     final introBuffer = StringBuffer();
     bool collecting = false;
     bool foundStartMarker = false;
