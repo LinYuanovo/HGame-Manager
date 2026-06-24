@@ -72,7 +72,6 @@ class AcgYingParser extends SiteParser {
 
     final postContent = document.querySelector('div.post-content');
     String? description;
-    String? descriptionHtml;
     List<String> features = [];
     String? changelog;
     final screenshots = <String>[];
@@ -80,7 +79,6 @@ class AcgYingParser extends SiteParser {
     String? unzipCode;
 
     if (postContent != null) {
-      descriptionHtml = postContent.innerHtml;
       final fullText = postContent.text;
       final sections = _splitSections(fullText);
 
@@ -140,7 +138,6 @@ class AcgYingParser extends SiteParser {
       tags: tags,
       category: category,
       description: description,
-      descriptionHtml: descriptionHtml,
       features: features,
       changelog: changelog,
       screenshots: screenshots,
@@ -392,7 +389,6 @@ class FeiXueAcgParser extends SiteParser {
 
     final postContent = document.querySelector('td.t_f');
     String? description;
-    String? descriptionHtml;
     String? changelog;
     final screenshots = <String>[];
     final downloads = <DownloadLink>[];
@@ -405,7 +401,6 @@ class FeiXueAcgParser extends SiteParser {
     }
 
     if (postContent != null) {
-      descriptionHtml = postContent.innerHtml;
       for (final tipDiv in postContent.querySelectorAll('div.tip, div.tip_4, div.aimg_tip')) {
         tipDiv.remove();
       }
@@ -525,7 +520,6 @@ class FeiXueAcgParser extends SiteParser {
       tags: tags,
       category: category,
       description: description,
-      descriptionHtml: descriptionHtml,
       changelog: changelog,
       screenshots: screenshots,
       downloads: downloads,
@@ -969,8 +963,6 @@ class VikAcgParser extends SiteParser {
       }
     }
 
-    final descriptionHtml = contentContainer.innerHtml;
-
     final downloads = <DownloadLink>[];
     final contentText = _elementText(contentContainer);
     final unzipCode = extractUnzipCode(contentText);
@@ -987,7 +979,6 @@ class VikAcgParser extends SiteParser {
       tags: tags,
       category: category,
       description: description,
-      descriptionHtml: descriptionHtml,
       screenshots: screenshots,
       downloads: downloads,
       sourceUrl: url,
