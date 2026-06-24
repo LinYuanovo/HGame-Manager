@@ -92,24 +92,38 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   Future<String?> _findLeProcPath() async {
     final repo = ref.read(toolRepositoryProvider);
     final tools = await repo.getAllTools();
+    debugPrint('[LE] Searching for LEProc.exe among ${tools.length} tools');
     for (final tool in tools) {
       final fileName = tool.path.split(RegExp(r'[/\\]')).last.toLowerCase();
+      debugPrint('[LE] Tool: ${tool.name} -> $fileName');
       if (fileName == 'leproc.exe') {
         final file = File(tool.path);
-        if (await file.exists()) return tool.path;
+        final exists = await file.exists();
+        debugPrint('[LE] Found LEProc.exe at ${tool.path}, exists: $exists');
+        if (exists) return tool.path;
       }
     }
+    debugPrint('[LE] LEProc.exe not found in tools');
     return null;
   }
 
   Future<bool> _launchWithLocaleEmulator(Game game) async {
+    debugPrint('[LE] Attempting locale emulator launch for: ${game.title}');
     final leProcPath = await _findLeProcPath();
-    if (leProcPath == null) return false;
+    if (leProcPath == null) {
+      debugPrint('[LE] LEProc.exe path is null, returning false');
+      return false;
+    }
 
     try {
-      await Process.run(leProcPath, [game.path]);
+      debugPrint('[LE] Running: $leProcPath with args: [${game.path}]');
+      final result = await Process.run(leProcPath, [game.path]);
+      debugPrint('[LE] Process exit code: ${result.exitCode}');
+      debugPrint('[LE] stdout: ${result.stdout}');
+      debugPrint('[LE] stderr: ${result.stderr}');
       return true;
     } catch (e) {
+      debugPrint('[LE] Launch failed with exception: $e');
       if (mounted) {
         AppTheme.showGlassToast(context, message: '转区启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
@@ -451,6 +465,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     ),
                     onTap: () async {
                       final newValue = !_currentGame.useLocaleEmulator;
+                      debugPrint('[LE] Toggling locale emulator for ${_currentGame.title}: $newValue');
                       final repo = ref.read(gameRepositoryProvider);
                       await repo.updateLocaleEmulator(_currentGame.id!, newValue);
                       setState(() {
@@ -491,9 +506,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
                   // 优先检查转区启动
                   if (_currentGame.useLocaleEmulator) {
+                    debugPrint('[LE] Game has locale emulator flag, attempting LE launch');
                     launched = await _launchWithLocaleEmulator(_currentGame);
                     // 如果转区启动失败（工具不存在），自动回退并清除标记
                     if (!launched) {
+                      debugPrint('[LE] LE launch failed, checking if LEProc exists');
                       final leProcPath = await _findLeProcPath();
                       if (leProcPath == null) {
                         await repo.updateLocaleEmulator(_currentGame.id!, false);
