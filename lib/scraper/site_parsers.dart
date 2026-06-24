@@ -1206,6 +1206,20 @@ class VikAcgParser extends SiteParser {
     final introBuffer = StringBuffer();
     bool collecting = false;
     bool foundStartMarker = false;
+
+    // Pre-scan: if any paragraph has images, start collecting from beginning
+    bool hasImages = false;
+    for (final p in paragraphs) {
+      if (p.querySelector('img') != null) {
+        hasImages = true;
+        break;
+      }
+    }
+    if (hasImages) {
+      collecting = true;
+      foundStartMarker = true;
+    }
+
     for (final p in paragraphs) {
       final imgEl = p.querySelector('img');
       if (imgEl != null) {
