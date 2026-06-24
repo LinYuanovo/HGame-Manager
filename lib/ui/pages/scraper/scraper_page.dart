@@ -682,7 +682,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               final displayTitle = gameInfo.title != null
                   ? _stripVersionFromTitle(gameInfo.title!, gameInfo.version)
                   : null;
-              final updated = game.copyWith(
+              var updated = game.copyWith(
                 title: displayTitle ?? game.title,
                 version: gameInfo.version ?? game.version,
                 intro: gameInfo.description ?? game.intro,
@@ -733,9 +733,37 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               _addLog('  -> 成功: ${displayTitle ?? "无标题"}');
 
               // Download images
+              Map<String, String> urlToLocal = {};
               if (gameInfo.screenshots.isNotEmpty) {
                 _addLog('  -> 下载 ${gameInfo.screenshots.length} 张配图...');
-                await _downloadImages(updated.copyWith(id: gameId), gameInfo.screenshots, client, game.sourceUrl!);
+                urlToLocal = await _downloadImages(updated.copyWith(id: gameId), gameInfo.screenshots, client, game.sourceUrl!);
+              }
+
+              // Replace remote URLs with local paths in intro and metadata
+              if (urlToLocal.isNotEmpty) {
+                var metaJson = gameInfo.toJson();
+                if (gameInfo.description != null) {
+                  var desc = gameInfo.description!;
+                  for (final entry in urlToLocal.entries) {
+                    desc = desc.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
+                  }
+                  updated = updated.copyWith(intro: desc);
+                  metaJson['intro'] = desc;
+                }
+                if (gameInfo.descriptionHtml != null) {
+                  var html = gameInfo.descriptionHtml!;
+                  for (final entry in urlToLocal.entries) {
+                    html = html.replaceAll(entry.key, entry.value);
+                    if (entry.key.startsWith('https:')) {
+                      html = html.replaceAll(entry.key.replaceFirst('https:', ''), entry.value);
+                    }
+                  }
+                  metaJson['intro_html'] = html;
+                }
+                await metadataFile.writeAsString(jsonEncode(metaJson), flush: true);
+                if (game.id != null) {
+                  await gameRepo.updateGame(updated);
+                }
               }
 
               // Reload game with images from database
@@ -818,7 +846,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     }
   }
 
-  Future<void> _downloadImages(Game game, List<String> imageUrls, http.Client client, String sourceUrl) async {
+  Future<Map<String, String>> _downloadImages(Game game, List<String> imageUrls, http.Client client, String sourceUrl) async {
+    final urlToLocal = <String, String>{};
     final gameRepo = ref.read(gameRepositoryProvider);
     final imagesDir = Directory(path.join(game.path, 'images'));
 
@@ -867,12 +896,14 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
         // Save to database (both new downloads and existing files)
         await gameRepo.addGameImage(game.id!, filePath, i);
+        urlToLocal[imageUrl] = filePath;
         downloaded++;
       } catch (e) {
         _addLog('    图片 ${i + 1} 处理失败: $e URL: $imageUrl');
       }
     }
     _addLog('  -> 配图处理完成: $downloaded/${imageUrls.length}');
+    return urlToLocal;
   }
 
   static const _categoryOrder = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS', '3D'];

@@ -931,6 +931,7 @@ class VikAcgParser extends SiteParser {
       }
       final text = _elementText(p).trim();
       if (_isCopyrightText(text)) continue;
+      if (RegExp(r'^网页链接\(.+\)$').hasMatch(text)) continue;
       if (RegExp(r'^游戏(?:介绍|内容|概述)[：:]\s*').hasMatch(text)) {
         collecting = true;
         foundStartMarker = true;
@@ -963,6 +964,7 @@ class VikAcgParser extends SiteParser {
         }
         final text = _elementText(p).trim();
         if (_isCopyrightText(text)) continue;
+        if (RegExp(r'^网页链接\(.+\)$').hasMatch(text)) continue;
         if (text.contains('游戏特点') ||
             text.contains('更新内容') ||
             RegExp(r'^下载(?:链接|地址)?[：:]?\s*$').hasMatch(text) ||
@@ -1120,6 +1122,7 @@ class VikAcgParser extends SiteParser {
       }
       final text = _elementText(p).trim();
       if (_isCopyrightText(text)) continue;
+      if (RegExp(r'^网页链接\(.+\)$').hasMatch(text)) continue;
       if (RegExp(r'^游戏(?:介绍|内容|概述)[：:]\s*').hasMatch(text)) {
         collecting = true;
         foundStartMarker = true;
@@ -1156,6 +1159,7 @@ class VikAcgParser extends SiteParser {
         }
         final text = _elementText(p).trim();
         if (_isCopyrightText(text)) continue;
+        if (RegExp(r'^网页链接\(.+\)$').hasMatch(text)) continue;
         if (text.contains('游戏特点') ||
             text.contains('更新内容') ||
             RegExp(r'^下载(?:链接|地址)?[：:]?\s*$').hasMatch(text) ||
