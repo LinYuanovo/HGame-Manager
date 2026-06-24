@@ -37,6 +37,8 @@ class Game {
   final double rating;        // 评分 0-5，支持半星
   final String? review;       // 评论内容
   final String? savePath;  // 新增：存档路径
+  final String? maker;       // 厂商名（DLsite社团名 / Steam开发者）
+  final String? makerUrl;    // 厂商链接（DLsite社团页 / Steam为空）
   final String? gameLauncher;
   final bool launcherLocked;
   final bool useLocaleEmulator;
@@ -62,6 +64,8 @@ class Game {
     this.rating = 0.0,
     this.review,
     this.savePath,  // 新增
+    this.maker,
+    this.makerUrl,
     this.gameLauncher,
     this.launcherLocked = false,
     this.useLocaleEmulator = false,
@@ -91,6 +95,8 @@ class Game {
       rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
       review: map['review'] as String?,
       savePath: map['save_path'] as String?,  // 新增
+      maker: map['maker'] as String?,
+      makerUrl: map['maker_url'] as String?,
       gameLauncher: map['game_launcher'] as String?,
       launcherLocked: (map['launcher_locked'] as int?) == 1,
       useLocaleEmulator: (map['use_locale_emulator'] as int?) == 1,
@@ -117,6 +123,8 @@ class Game {
       'rating': rating,
       if (review != null) 'review': review,
       if (savePath != null) 'save_path': savePath,  // 新增
+      if (maker != null) 'maker': maker,
+      if (makerUrl != null) 'maker_url': makerUrl,
       'game_launcher': gameLauncher,
       'launcher_locked': launcherLocked ? 1 : 0,
       'use_locale_emulator': useLocaleEmulator ? 1 : 0,
@@ -144,6 +152,8 @@ class Game {
     Object? rating = _undefined,
     Object? review = _undefined,
     Object? savePath = _undefined,  // 新增
+    Object? maker = _undefined,
+    Object? makerUrl = _undefined,
     Object? gameLauncher = _undefined,
     Object? launcherLocked = _undefined,
     Object? useLocaleEmulator = _undefined,
@@ -169,6 +179,8 @@ class Game {
       rating: identical(rating, _undefined) ? this.rating : rating as double,
       review: identical(review, _undefined) ? this.review : review as String?,
       savePath: identical(savePath, _undefined) ? this.savePath : savePath as String?,  // 新增
+      maker: identical(maker, _undefined) ? this.maker : maker as String?,
+      makerUrl: identical(makerUrl, _undefined) ? this.makerUrl : makerUrl as String?,
       gameLauncher: identical(gameLauncher, _undefined) ? this.gameLauncher : gameLauncher as String?,
       launcherLocked: identical(launcherLocked, _undefined) ? this.launcherLocked : launcherLocked as bool,
       useLocaleEmulator: identical(useLocaleEmulator, _undefined) ? this.useLocaleEmulator : useLocaleEmulator as bool,

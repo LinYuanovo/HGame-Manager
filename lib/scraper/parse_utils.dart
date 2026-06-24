@@ -36,9 +36,15 @@ class GameInfo {
   String? fileSize;
   List<String> platforms;
   String? publishDate;
+  String? maker;
+  String? makerUrl;
+  String? descriptionHtml;  // 原始HTML片段，用于保留布局
   String sourceUrl;
 
   GameInfo({
+    this.maker,
+    this.makerUrl,
+    this.descriptionHtml,
     this.title,
     this.version,
     this.tags = const [],
@@ -85,6 +91,9 @@ class GameInfo {
         if (features.isNotEmpty) 'features': features.join('\n'),
         if (changelog != null) 'changelog': changelog,
         if (downloadUrl.isNotEmpty) 'download_url': downloadUrl,
+        if (maker != null) 'maker': maker,
+        if (makerUrl != null) 'maker_url': makerUrl,
+        if (descriptionHtml != null) 'intro_html': descriptionHtml,
         'source_url': sourceUrl,
         if (screenshots.isNotEmpty) 'image_urls': screenshots,
       };
