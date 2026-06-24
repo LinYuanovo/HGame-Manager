@@ -1617,24 +1617,7 @@ if (_isEditing) ...[
     return src.startsWith('//') ? 'https:$src' : src;
   }
 
-  String _introToHtml(String intro) {
-    final imageTagStart = '[图片:';
-    final videoTagStart = '[视频:';
-    final tagEnd = ']';
-    final buffer = StringBuffer();
-    for (final line in intro.split('\n')) {
-      if (line.startsWith(imageTagStart) && line.endsWith(tagEnd)) {
-        final path = line.substring(imageTagStart.length, line.length - tagEnd.length);
-        buffer.writeln('<p><img src="$path"></p>');
-      } else if (line.startsWith(videoTagStart) && line.endsWith(tagEnd)) {
-        final path = line.substring(videoTagStart.length, line.length - tagEnd.length);
-        buffer.writeln('<p><video src="$path"></video></p>');
-      } else {
-        buffer.writeln('<p>$line</p>');
-      }
-    }
-    return buffer.toString();
-  }
+
 
   Widget _buildHtmlContent(String html, double fontSize) {
     final blocks = _parseHtmlToBlocks(html, '');
@@ -2297,7 +2280,6 @@ if (_isEditing) ...[
           if (newVersion != null) metadata['version'] = newVersion;
           if (newIntro != null) {
             metadata['intro'] = newIntro;
-            metadata['intro_html'] = _introToHtml(newIntro);
           }
           if (newFeatures != null) metadata['features'] = newFeatures;
           if (newChangelog != null) metadata['changelog'] = newChangelog;
