@@ -57,6 +57,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   String? _introHtml;
 
+  double _downloadProgress = 0.0;
+  int _downloadTotal = 0;
+  int _downloadCurrent = 0;
+
   final TextEditingController _quickScrapeController = TextEditingController();
   String _quickScrapeChannel = 'auto';
   bool _showChannelSelector = false;
@@ -302,6 +306,43 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           ),
           child: Column(
             children: [
+              if (_downloadTotal > 0 && _downloadCurrent < _downloadTotal)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.cloud_download, size: 14, color: AppTheme.primaryColor),
+                          const SizedBox(width: 8),
+                          Text(
+                            '正在下载截图 $_downloadCurrent/$_downloadTotal',
+                            style: TextStyle(fontSize: 12, color: AppTheme.primaryColor),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '${(_downloadProgress * 100).round()}%',
+                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: _downloadProgress,
+                          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                          minHeight: 4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               _buildHeader(),
               Container(height: 1, color: AppTheme.borderColor),
               Expanded(child: _buildBody()),
@@ -2663,15 +2704,22 @@ if (_isEditing) ...[
         }
 
         if (gameInfo.screenshots.isNotEmpty) {
-          final totalImages = gameInfo.screenshots.length;
-          AppTheme.showGlassToast(context, message: '正在下载截图... 0/$totalImages', duration: const Duration(seconds: 60));
+          setState(() {
+            _downloadTotal = gameInfo!.screenshots.length;
+            _downloadCurrent = 0;
+            _downloadProgress = 0.0;
+          });
           final urlToLocal = await _downloadImagesWithMapping(updated, gameInfo.screenshots, onProgress: (current, total) {
-            if (current % 5 == 0 || current == total) {
-              AppTheme.showGlassToast(context, message: '正在下载截图... $current/$total', duration: const Duration(seconds: 60));
-            }
-            if (current == total) {
-              AppTheme.showGlassToast(context, message: '截图下载完成 ($total张)', duration: const Duration(seconds: 3));
-            }
+            setState(() {
+              _downloadCurrent = current;
+              _downloadTotal = total;
+              _downloadProgress = current / total;
+            });
+          });
+          setState(() {
+            _downloadTotal = 0;
+            _downloadCurrent = 0;
+            _downloadProgress = 0.0;
           });
           if (urlToLocal.isNotEmpty) {
             if (gameInfo.description != null) {
@@ -2865,20 +2913,27 @@ if (_isEditing) ...[
         }
 
         if (gameInfo.screenshots.isNotEmpty) {
-          final totalImages = gameInfo.screenshots.length;
-          AppTheme.showGlassToast(context, message: '正在下载截图... 0/$totalImages', duration: const Duration(seconds: 60));
+          setState(() {
+            _downloadTotal = gameInfo!.screenshots.length;
+            _downloadCurrent = 0;
+            _downloadProgress = 0.0;
+          });
           final urlToLocal = await _downloadImagesWithMapping(
             _currentGame.copyWith(id: _currentGame.id!),
             gameInfo.screenshots,
             onProgress: (current, total) {
-              if (current % 5 == 0 || current == total) {
-                AppTheme.showGlassToast(context, message: '正在下载截图... $current/$total', duration: const Duration(seconds: 60));
-              }
-              if (current == total) {
-                AppTheme.showGlassToast(context, message: '截图下载完成 ($total张)', duration: const Duration(seconds: 3));
-              }
+              setState(() {
+                _downloadCurrent = current;
+                _downloadTotal = total;
+                _downloadProgress = current / total;
+              });
             },
           );
+          setState(() {
+            _downloadTotal = 0;
+            _downloadCurrent = 0;
+            _downloadProgress = 0.0;
+          });
           if (urlToLocal.isNotEmpty) {
             var desc = gameInfo.description;
             if (desc != null) {
