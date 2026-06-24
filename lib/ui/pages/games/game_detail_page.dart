@@ -89,6 +89,34 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _refreshTags();
   }
 
+  Future<String?> _findLeProcPath() async {
+    final repo = ref.read(toolRepositoryProvider);
+    final tools = await repo.getAllTools();
+    for (final tool in tools) {
+      final fileName = tool.path.split(RegExp(r'[/\\]')).last.toLowerCase();
+      if (fileName == 'leproc.exe') {
+        final file = File(tool.path);
+        if (await file.exists()) return tool.path;
+      }
+    }
+    return null;
+  }
+
+  Future<bool> _launchWithLocaleEmulator(Game game) async {
+    final leProcPath = await _findLeProcPath();
+    if (leProcPath == null) return false;
+
+    try {
+      await Process.run(leProcPath, ['"${game.path}"']);
+      return true;
+    } catch (e) {
+      if (mounted) {
+        AppTheme.showGlassToast(context, message: '转区启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+      }
+      return false;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -389,67 +417,148 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         children: [
           _buildImageCarousel(),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                final repo = ref.read(gameRepositoryProvider);
-                try {
-                  await repo.markAsPlayed(_currentGame.id!);
-                  setState(() {
-                    _currentGame = _currentGame.copyWith(
-                      isPlayed: true,
-                      playCount: _currentGame.playCount + 1,
-                      lastPlayedTime: DateTime.now(),
-                    );
-                  });
-                } catch (e) {
-                  debugPrint('markAsPlayed error: $e');
+          GestureDetector(
+            onSecondaryTapUp: (details) async {
+              final leProcPath = await _findLeProcPath();
+              if (leProcPath == null) {
+                if (mounted) {
+                  AppTheme.showGlassToast(context, message: '未找到 LEProc.exe，请先在工具页面导入', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
                 }
+                return;
+              }
 
-                final launched = await _launchGame(_currentGame);
-
-                if (!launched && mounted) {
-                  final result = await FilePicker.pickFiles(
-                    dialogTitle: '选择游戏启动器',
-                    type: FileType.any,
-                    initialDirectory: _currentGame.path,
-                  );
-                  if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
-                    final launcherPath = result.files.first.path!;
-                    final updated = _currentGame.copyWith(
-                      gameLauncher: launcherPath,
-                      launcherLocked: true,
-                    );
-                    await repo.updateGame(updated);
-                    setState(() {
-                      _currentGame = updated;
-                    });
-                    try {
-                      await Process.run(launcherPath, [], workingDirectory: _currentGame.path);
-                    } catch (e) {
+              if (!mounted) return;
+              showMenu(
+                context: context,
+                position: RelativeRect.fromLTRB(
+                  details.globalPosition.dx,
+                  details.globalPosition.dy,
+                  details.globalPosition.dx + 1,
+                  details.globalPosition.dy + 1,
+                ),
+                items: [
+                  PopupMenuItem(
+                    child: Row(
+                      children: [
+                        Icon(
+                          _currentGame.useLocaleEmulator ? Icons.check_box : Icons.check_box_outline_blank,
+                          size: 18,
+                          color: AppTheme.primaryColor,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('转区启动'),
+                      ],
+                    ),
+                    onTap: () async {
+                      final newValue = !_currentGame.useLocaleEmulator;
+                      final repo = ref.read(gameRepositoryProvider);
+                      await repo.updateLocaleEmulator(_currentGame.id!, newValue);
+                      setState(() {
+                        _currentGame = _currentGame.copyWith(useLocaleEmulator: newValue);
+                      });
                       if (mounted) {
-                        AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+                        AppTheme.showGlassToast(
+                          context,
+                          message: newValue ? '已切换为转区启动模式' : '已切换为普通启动模式',
+                          icon: newValue ? Icons.language : Icons.play_arrow,
+                          iconColor: AppTheme.primaryColor,
+                        );
+                      }
+                    },
+                  ),
+                ],
+              );
+            },
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final repo = ref.read(gameRepositoryProvider);
+                  try {
+                    await repo.markAsPlayed(_currentGame.id!);
+                    setState(() {
+                      _currentGame = _currentGame.copyWith(
+                        isPlayed: true,
+                        playCount: _currentGame.playCount + 1,
+                        lastPlayedTime: DateTime.now(),
+                      );
+                    });
+                  } catch (e) {
+                    debugPrint('markAsPlayed error: $e');
+                  }
+
+                  bool launched = false;
+
+                  // 优先检查转区启动
+                  if (_currentGame.useLocaleEmulator) {
+                    launched = await _launchWithLocaleEmulator(_currentGame);
+                    // 如果转区启动失败（工具不存在），自动回退并清除标记
+                    if (!launched) {
+                      final leProcPath = await _findLeProcPath();
+                      if (leProcPath == null) {
+                        await repo.updateLocaleEmulator(_currentGame.id!, false);
+                        setState(() {
+                          _currentGame = _currentGame.copyWith(useLocaleEmulator: false);
+                        });
+                        if (mounted) {
+                          AppTheme.showGlassToast(context, message: 'LEProc.exe 不存在，已回退为普通启动', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
+                        }
                       }
                     }
-                  } else {
-                    try {
-                      await Process.run('explorer.exe', [_currentGame.path]);
-                    } catch (_) {}
                   }
-                }
 
-                if (mounted) {
-                  _refreshAllProviders();
-                }
-              },
-              icon: const Icon(Icons.play_arrow, size: 20),
-              label: const Text('开始游玩'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+                  // 普通启动
+                  if (!launched) {
+                    launched = await _launchGame(_currentGame);
+                  }
+
+                  if (!launched && mounted) {
+                    final result = await FilePicker.pickFiles(
+                      dialogTitle: '选择游戏启动器',
+                      type: FileType.any,
+                      initialDirectory: _currentGame.path,
+                    );
+                    if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
+                      final launcherPath = result.files.first.path!;
+                      final updated = _currentGame.copyWith(
+                        gameLauncher: launcherPath,
+                        launcherLocked: true,
+                      );
+                      await repo.updateGame(updated);
+                      setState(() {
+                        _currentGame = updated;
+                      });
+                      try {
+                        await Process.run(launcherPath, [], workingDirectory: _currentGame.path);
+                      } catch (e) {
+                        if (mounted) {
+                          AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+                        }
+                      }
+                    } else {
+                      try {
+                        await Process.run('explorer.exe', [_currentGame.path]);
+                      } catch (_) {}
+                    }
+                  }
+
+                  if (mounted) {
+                    _refreshAllProviders();
+                  }
+                },
+                icon: Icon(
+                  _currentGame.useLocaleEmulator ? Icons.language : Icons.play_arrow,
+                  size: 20,
+                ),
+                label: Text(_currentGame.useLocaleEmulator ? '开始游玩[转区]' : '开始游玩'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _currentGame.useLocaleEmulator
+                      ? AppTheme.secondaryColor
+                      : AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+                ),
               ),
             ),
           ),
