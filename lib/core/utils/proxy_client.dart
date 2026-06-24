@@ -196,3 +196,36 @@ Future<bool> testProxyConnection(String testUrl) async {
     return false;
   }
 }
+
+Future<http.Response> httpGetWithRetry(
+  Uri url, {
+  Map<String, String>? headers,
+  int maxRetries = 3,
+  int baseDelaySeconds = 5,
+  http.Client? client,
+}) async {
+  final httpClient = client ?? http.Client();
+  try {
+    for (int attempt = 0; attempt <= maxRetries; attempt++) {
+      final response = await httpClient.get(url, headers: headers)
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 429) {
+        if (attempt < maxRetries) {
+          final delay = baseDelaySeconds * (attempt + 1);
+          AppLogger.instance.warning('HTTP', '429 限流，$delay秒后重试 (${attempt + 1}/$maxRetries): $url');
+          await Future.delayed(Duration(seconds: delay));
+          continue;
+        }
+      }
+
+      return response;
+    }
+    return await httpClient.get(url, headers: headers)
+        .timeout(const Duration(seconds: 30));
+  } finally {
+    if (client == null) {
+      httpClient.close();
+    }
+  }
+}
