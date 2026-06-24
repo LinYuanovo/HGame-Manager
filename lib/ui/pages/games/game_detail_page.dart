@@ -2989,6 +2989,26 @@ if (_isEditing) ...[
       )).toList();
       await repo.setGameImages(game.id!, updatedImages);
     }
+
+    final currentGame = await repo.getGameById(game.id!);
+    if (currentGame != null && currentGame.intro != null) {
+      var updatedIntro = currentGame.intro!;
+      if (updatedIntro.contains(game.path)) {
+        updatedIntro = updatedIntro.replaceAll(game.path, targetDir.path);
+        await repo.updateGame(currentGame.copyWith(intro: updatedIntro));
+      }
+    }
+
+    try {
+      final metadataFile = File('${targetDir.path}${Platform.pathSeparator}metadata.json');
+      if (await metadataFile.exists()) {
+        final content = await metadataFile.readAsString();
+        if (content.contains(game.path)) {
+          final updatedContent = content.replaceAll(game.path, targetDir.path);
+          await metadataFile.writeAsString(updatedContent, flush: true);
+        }
+      }
+    } catch (_) {}
   }
 
   static final _versionPattern = RegExp(r'\s+(?:build|v(?:er(?:sion)?)?)\s*\.?\d+(?:[\d.]*\d+)?\s*', caseSensitive: false);
