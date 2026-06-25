@@ -41,14 +41,14 @@ class _GamesPageState extends ConsumerState<GamesPage> {
             IconButton(
               icon: Icon(Icons.add_circle_outline,
                   color: AppTheme.primaryColor, size: 20),
-              tooltip: '添加本地游戏',
-              onPressed: () => _showAddGameDialog(),
+              tooltip: '添加单个游戏',
+              onPressed: () => _showCloudImportDialog(),
             ),
             IconButton(
-              icon: Icon(Icons.cloud_download_outlined,
+              icon: Icon(Icons.create_new_folder_outlined,
                   color: AppTheme.primaryColor, size: 20),
-              tooltip: '从云端导入信息',
-              onPressed: () => _showCloudImportDialog(),
+              tooltip: '批量添加游戏',
+              onPressed: () => _showAddGameDialog(),
             ),
             _isRefreshing
                 ? GestureDetector(
@@ -331,12 +331,12 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     return Padding(
       padding: const EdgeInsets.all(28),
       child: SizedBox(
-        width: 500,
+        width: MediaQuery.of(context).size.width * 0.5,
         height: 500,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('批量导入游戏', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            const Text('批量添加游戏', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -828,14 +828,14 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     return Padding(
       padding: const EdgeInsets.all(28),
       child: SizedBox(
-        width: 550,
+        width: MediaQuery.of(context).size.width * 0.5,
         height: _showSearchResults ? 600 : 450,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '从云端导入信息',
+              '添加单个游戏',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -852,7 +852,12 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                 _buildSourceChip(ImportSource.steam, 'Steam'),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            Text(
+              '提示: 若要刮削信息，需要游戏在该平台能搜到',
+              style: TextStyle(fontSize: 12, color: AppTheme.warningColor),
+            ),
+            const SizedBox(height: 8),
 
             // Folder picker
             Row(
