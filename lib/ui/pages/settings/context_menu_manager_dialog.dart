@@ -199,7 +199,7 @@ class _TabItemWidgetState extends State<_TabItemWidget> {
           child: Text(
             widget.label,
             style: TextStyle(
-              color: widget.isSelected ? Colors.white : AppTheme.getTextSecondary(context),
+              color: widget.isSelected ? AppTheme.getTextColorOnPrimary(context) : AppTheme.getTextSecondary(context),
               fontWeight: widget.isSelected ? FontWeight.w500 : FontWeight.normal,
             ),
           ),
