@@ -390,7 +390,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   isDense: true,
                   filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.6),
+                  fillColor: AppTheme.getGlassFillColor(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
@@ -3513,7 +3513,7 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
               constraints: BoxConstraints(maxHeight: maxHeight),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.getSurfaceColor(context),
                 borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
                 border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
                 boxShadow: [
@@ -3681,7 +3681,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.getSurfaceColor(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
       ),
@@ -3770,10 +3770,10 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                 hintText: '写下你的评论...',
                 hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
                 filled: true,
-                fillColor: Colors.grey.shade50,
+                fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.grey.shade50,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
+                  borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
