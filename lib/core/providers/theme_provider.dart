@@ -16,6 +16,7 @@ final flutterThemeModeProvider = Provider<ThemeMode>((ref) {
   return switch (mode) {
     AppThemeMode.light => ThemeMode.light,
     AppThemeMode.dark => ThemeMode.dark,
+    AppThemeMode.system => ThemeMode.system,
   };
 });
 
@@ -27,11 +28,11 @@ class ThemeModeNotifier extends StateNotifier<AppThemeMode> {
   static AppThemeMode _loadInitialMode(AppSettings prefs) {
     final modeStr = prefs.getString(AppSettings.themeModeKey);
     if (modeStr == null || modeStr.isEmpty) {
-      return AppThemeMode.light;
+      return AppThemeMode.system;
     }
     return AppThemeMode.values.firstWhere(
       (m) => m.name == modeStr,
-      orElse: () => AppThemeMode.light,
+      orElse: () => AppThemeMode.system,
     );
   }
 
