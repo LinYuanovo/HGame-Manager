@@ -228,6 +228,27 @@ class _MenuItemsList extends ConsumerWidget {
       onReorder: (oldIndex, newIndex) {
         ref.read(provider.notifier).reorderItem(oldIndex, newIndex);
       },
+      proxyDecorator: (Widget child, int index, Animation<double> animation) {
+        return Material(
+          color: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
+              child: child,
+            ),
+          ),
+        );
+      },
       itemBuilder: (context, index) {
         final item = items[index];
         final def = _getDefinition(item.id);
