@@ -39,26 +39,23 @@ class WindowController extends ChangeNotifier with WindowListener {
       y = null;
     }
 
-    await windowManager.setMinimumSize(const Size(1200, 700));
+    WindowOptions windowOptions = WindowOptions(
+      size: Size(width, height),
+      minimumSize: const Size(1200, 700),
+      titleBarStyle: TitleBarStyle.hidden,
+    );
 
-    // 先设置窗口大小和位置
-    await windowManager.setSize(Size(width, height));
-    if (x != null && y != null) {
-      await windowManager.setPosition(Offset(x, y));
-    }
-
-    // 设置标题栏样式和图标
-    await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
-    await windowManager.setIcon('windows/runner/resources/app_icon.ico');
-
-    // 先显示窗口，再最大化（避免白框问题）
-    await windowManager.show();
-    await windowManager.focus();
-
-    // 如果之前是最大化状态，在窗口显示后再最大化
-    if (_isMaximized) {
-      await windowManager.maximize();
-    }
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.setIcon('windows/runner/resources/app_icon.ico');
+      if (x != null && y != null) {
+        await windowManager.setPosition(Offset(x, y));
+      }
+      await windowManager.show();
+      await windowManager.focus();
+      if (_isMaximized) {
+        await windowManager.maximize();
+      }
+    });
   }
 
   void _saveWindowSettings() {
