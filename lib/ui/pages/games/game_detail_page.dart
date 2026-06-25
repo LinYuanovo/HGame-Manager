@@ -20,6 +20,7 @@ import '../../../core/services/folder_rename_service.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../widgets/image_manager_dialog.dart';
 import '../../widgets/markdown_editor.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/services/concurrent_image_downloader.dart';
 import 'save_management_dialog.dart';
 
@@ -1699,7 +1700,7 @@ if (_isEditing) ...[
   }
 
   Widget _buildBlockImage(String imageUrl) {
-    if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+    if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://') && !imageUrl.startsWith('//')) {
       if (_existingMediaFiles.contains(imageUrl)) {
         return GestureDetector(
           onTap: () => _openImageViewer(imageUrl),
@@ -1712,8 +1713,20 @@ if (_isEditing) ...[
       }
       return const SizedBox.shrink();
     }
-    // Remote URL — try to find matching local image
-    return const SizedBox.shrink();
+    final url = imageUrl.startsWith('//') ? 'https:$imageUrl' : imageUrl;
+    return CachedNetworkImage(
+      imageUrl: url,
+      fit: BoxFit.contain,
+      placeholder: (_, __) => const SizedBox(
+        height: 100,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+      errorWidget: (_, __, ___) => const SizedBox.shrink(),
+      httpHeaders: const {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://www.dlsite.com/',
+      },
+    );
   }
 
   void _openImageViewer(String imagePath) {
