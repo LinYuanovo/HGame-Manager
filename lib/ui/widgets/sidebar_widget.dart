@@ -111,12 +111,12 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                   width: widget.controller.width,
                   decoration: BoxDecoration(
                     color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.black.withValues(alpha: 0.4)
+                        ? AppTheme.darkSurfaceColor.withValues(alpha: 0.6)
                         : Colors.white.withValues(alpha: 0.4),
                     border: Border(
                       right: BorderSide(
                         color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white.withValues(alpha: 0.1)
+                            ? AppTheme.darkBorderColor.withValues(alpha: 0.3)
                             : Colors.white.withValues(alpha: 0.2),
                       ),
                     ),
@@ -191,7 +191,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
               children: [
                 Icon(
                   widget.controller.isExpanded ? Icons.menu_open : Icons.menu,
-                  color: AppTheme.textPrimary,
+                  color: AppTheme.getTextPrimary(context),
                   size: 22,
                 ),
                 if (widget.controller.isExpanded) ...[
@@ -201,7 +201,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                       '收起',
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: AppTheme.textPrimary,
+                        color: AppTheme.getTextPrimary(context),
                         fontSize: fontSize,
                         fontWeight: FontWeight.w400,
                       ),

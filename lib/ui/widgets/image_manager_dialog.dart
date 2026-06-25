@@ -161,29 +161,35 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
       ),
       child: Container(
         width: MediaQuery.of(context).size.width * 0.5,
         height: MediaQuery.of(context).size.height * 0.7,
+        decoration: BoxDecoration(
+          color: AppTheme.getSurfaceColor(context),
+          borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
+          border: Border.all(color: AppTheme.getBorderColor(context)),
+        ),
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                const Icon(Icons.photo_library, color: AppTheme.primaryColor, size: 24),
+                Icon(Icons.photo_library, color: AppTheme.getPrimaryColor(context), size: 24),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     '图片管理 - ${widget.game.title ?? "未命名游戏"}',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context)),
                   ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
+                  color: AppTheme.getTextSecondary(context),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -197,8 +203,8 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                     icon: const Icon(Icons.folder_open, size: 18),
                     label: const Text('本地图片'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.primaryColor,
-                      side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                      foregroundColor: AppTheme.getPrimaryColor(context),
+                      side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
@@ -210,8 +216,8 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                     icon: const Icon(Icons.link, size: 18),
                     label: const Text('URL图片'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.primaryColor,
-                      side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                      foregroundColor: AppTheme.getPrimaryColor(context),
+                      side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
@@ -219,9 +225,9 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
               ],
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               '点击图片设为封面，封面将显示在第一张',
-              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
             ),
             const SizedBox(height: 16),
             Expanded(
@@ -243,7 +249,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
               children: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('取消'),
+                  child: Text('取消', style: TextStyle(color: AppTheme.getTextSecondary(context))),
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton.icon(
@@ -251,7 +257,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                   icon: const Icon(Icons.save, size: 18),
                   label: const Text('保存'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
+                    backgroundColor: AppTheme.getPrimaryColor(context),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   ),

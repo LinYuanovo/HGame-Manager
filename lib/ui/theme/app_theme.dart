@@ -68,6 +68,7 @@ class AppTheme {
   static const Color darkBackgroundGradientEnd = Color(0xFF1F1F3A);
 
   static const Color darkSurfaceColor = Color(0xFF2D2D44);
+  static const Color darkSurfaceDeepColor = Color(0xFF1F1F35); // 更深的表面色用于详情页等
   static const Color darkCardColor = Color(0xFF2D2D44);
   static const Color darkGlassFillColor = Color(0xCC2D2D44);
   static const Color darkGlassBorderWhite = Color(0x33555577);
@@ -589,6 +590,13 @@ class AppTheme {
   static Color getSurfaceColor(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
         ? darkSurfaceColor
+        : surfaceColor;
+  }
+
+  /// 获取更深层的表面色（用于详情页、弹窗等）
+  static Color getSurfaceDeepColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkSurfaceDeepColor
         : surfaceColor;
   }
 

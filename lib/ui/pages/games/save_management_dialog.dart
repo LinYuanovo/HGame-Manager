@@ -92,12 +92,12 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
               constraints: const BoxConstraints(maxWidth: 950, maxHeight: 700),
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppTheme.surfaceColor,
+                  color: AppTheme.getSurfaceColor(context),
                   borderRadius: BorderRadius.circular(GlassConstants.radiusXLarge),
                   border: Border.all(color: AppTheme.getBorderColor(context)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
+                      color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.15),
                       blurRadius: 30,
                       offset: const Offset(0, 10),
                     ),
@@ -108,7 +108,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
                     _buildHeader(),
                     _buildSavePathSection(),
                     _buildActionButtons(),
-                    const Divider(height: 1),
+                    Divider(height: 1, color: AppTheme.getBorderColor(context)),
                     Expanded(child: _buildBackupList()),
                   ],
                 ),
@@ -126,7 +126,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
       padding: const EdgeInsets.fromLTRB(24, 20, 16, 12),
       child: Row(
         children: [
-          const Icon(Icons.folder_special, color: AppTheme.primaryColor, size: 24),
+          Icon(Icons.folder_special, color: AppTheme.getPrimaryColor(context), size: 24),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
