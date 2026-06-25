@@ -204,12 +204,15 @@ class _GamesPageState extends ConsumerState<GamesPage> {
   }
 
   void _showAddGameDialog() {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final userFont = prefs.getString('font_family') ?? '';
     showGlassDialog(
       context: context,
       child: _BatchImportDialog(
         onImportComplete: () {
           ref.invalidate(allGamesProvider);
         },
+        userFont: userFont,
       ),
     );
   }
@@ -228,8 +231,9 @@ class _GamesPageState extends ConsumerState<GamesPage> {
 
 class _BatchImportDialog extends StatefulWidget {
   final VoidCallback onImportComplete;
+  final String userFont;
 
-  const _BatchImportDialog({required this.onImportComplete});
+  const _BatchImportDialog({required this.onImportComplete, required this.userFont});
 
   @override
   State<_BatchImportDialog> createState() => _BatchImportDialogState();
@@ -506,12 +510,16 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     }
 
     item.status = '下载图片...';
+    item.progress = 0.1;
     if (mounted) setState(() {});
 
     final urlToLocal = await steamService.downloadAllImages(
       gameInfo.screenshots,
       folderPath,
     );
+
+    item.progress = 0.8;
+    if (mounted) setState(() {});
 
     String? description = gameInfo.description;
     if (description != null && urlToLocal.isNotEmpty) {
@@ -625,12 +633,16 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     }
 
     item.status = '下载图片...';
+    item.progress = 0.1;
     if (mounted) setState(() {});
 
     final urlToLocal = await dlsiteService.downloadAllImages(
       gameInfo.screenshots,
       folderPath,
     );
+
+    item.progress = 0.8;
+    if (mounted) setState(() {});
 
     String? description = gameInfo.description;
     if (description != null && urlToLocal.isNotEmpty) {
@@ -803,9 +815,9 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                     border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.15)),
                   ),
                   child: ListView.builder(
-                    itemCount: _items.length,
+                    itemCount: _importing ? _items.where((i) => i.selected).length : _items.length,
                     itemBuilder: (context, index) {
-                      final item = _items[index];
+                      final item = _importing ? _items.where((i) => i.selected).toList()[index] : _items[index];
                       final name = path.basename(item.folder.path);
                       if (_importing) {
                         return Padding(
@@ -833,6 +845,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                                       color: item.source == _BatchScrapeSource.none
                                           ? AppTheme.textSecondary
                                           : AppTheme.primaryColor,
+                                      fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -840,33 +853,42 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                               ),
                               const SizedBox(width: 8),
                               SizedBox(
-                                width: 120,
+                                width: 180,
                                 child: Text(
                                   name,
-                                  style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                                  style: TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: Text(
-                                  item.status,
-                                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              SizedBox(
-                                width: 80,
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(3),
-                                  child: LinearProgressIndicator(
-                                    value: item.progress > 0 ? item.progress : null,
-                                    backgroundColor: AppTheme.textSecondary.withValues(alpha: 0.1),
-                                    valueColor: AlwaysStoppedAnimation(
-                                      item.progress >= 1.0 ? AppTheme.successColor : AppTheme.primaryColor,
+                                child: Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        item.status,
+                                        style: TextStyle(fontSize: 11, color: AppTheme.textSecondary, fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                    minHeight: 6,
-                                  ),
+                                    if (item.progress > 0) ...[
+                                      const SizedBox(width: 8),
+                                      SizedBox(
+                                        width: 100,
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(3),
+                                          child: LinearProgressIndicator(
+                                            value: item.progress,
+                                            backgroundColor: AppTheme.textSecondary.withValues(alpha: 0.1),
+                                            valueColor: AlwaysStoppedAnimation(
+                                              item.progress >= 1.0 ? AppTheme.successColor : AppTheme.primaryColor,
+                                            ),
+                                            minHeight: 6,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                             ],
@@ -902,7 +924,11 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                                   icon: Icon(Icons.arrow_drop_down, size: 18, color: AppTheme.textSecondary),
                                   borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
                                   dropdownColor: AppTheme.surfaceColor,
-                                  style: TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.textPrimary,
+                                    fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null,
+                                  ),
                                   items: const [
                                     DropdownMenuItem(value: _BatchScrapeSource.none, child: Text('不刮削')),
                                     DropdownMenuItem(value: _BatchScrapeSource.steam, child: Text('Steam')),
@@ -918,10 +944,10 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                             ),
                             const SizedBox(width: 8),
                             SizedBox(
-                              width: 120,
+                              width: 180,
                               child: Text(
                                 name,
-                                style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                                style: TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -929,7 +955,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                             Expanded(
                               child: TextField(
                                 controller: TextEditingController(text: item.keyword),
-                                style: const TextStyle(fontSize: 13),
+                                style: TextStyle(fontSize: 13, fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
                                 decoration: InputDecoration(
                                   hintText: '搜索关键词',
                                   hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
