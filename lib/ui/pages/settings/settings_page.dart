@@ -867,7 +867,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
           child: ElevatedButton.icon(
             onPressed: _isRenamingFolders ? null : _renameAllFolders,
             icon: _isRenamingFolders
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.getTextColorOnPrimary(context)))
                 : const Icon(Icons.drive_file_rename_outline, size: 18),
             label: Text(_isRenamingFolders ? '重命名中...' : '立即重命名所有游戏文件夹'),
             style: ElevatedButton.styleFrom(
@@ -1002,7 +1002,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             ElevatedButton.icon(
               onPressed: _isTestingProxy ? null : _testProxy,
               icon: _isTestingProxy
-                  ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.getTextColorOnPrimary(context)))
                   : Icon(Icons.network_check, size: 18),
               label: const Text('测试连接'),
               style: ElevatedButton.styleFrom(
@@ -1039,7 +1039,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                   hintText: '例如: 127.0.0.1:7890',
                   hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
                   filled: true,
-                  fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+                  fillColor: AppTheme.getInputFillColor(context),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium), borderSide: BorderSide(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.2))),
                   enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium), borderSide: BorderSide(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.2))),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1101,7 +1101,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                   hintText: '默认: 留空自动检测',
                   hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.4), fontSize: 11),
                   filled: true,
-                  fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+                  fillColor: AppTheme.getInputFillColor(context),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium), borderSide: BorderSide(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.2))),
                   enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium), borderSide: BorderSide(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.2))),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -1114,7 +1114,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               child: ElevatedButton.icon(
                 onPressed: _isDetecting2dfanDomain ? null : _detect2dfanDomain,
                 icon: _isDetecting2dfanDomain
-                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.getTextColorOnPrimary(context)))
                     : const Icon(Icons.search, size: 16),
                 label: Text(_isDetecting2dfanDomain ? '检测中...' : '检测可用域名', style: const TextStyle(fontSize: 12)),
                 style: ElevatedButton.styleFrom(
@@ -1164,7 +1164,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             hintText: hint,
             hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.4), fontSize: 11),
             filled: true,
-            fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+            fillColor: AppTheme.getInputFillColor(context),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium), borderSide: BorderSide(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.2))),
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium), borderSide: BorderSide(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.2))),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -1233,7 +1233,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             hintText: hint,
             hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.4), fontSize: 11),
             filled: true,
-            fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+            fillColor: AppTheme.getInputFillColor(context),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium), borderSide: BorderSide(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.2))),
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium), borderSide: BorderSide(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.2))),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -2209,7 +2209,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
             prefixIcon: Icon(icon, size: 18, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6)),
             filled: true,
-            fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+            fillColor: AppTheme.getInputFillColor(context),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
               borderSide: BorderSide(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.2)),
@@ -2248,7 +2248,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               onPressed: () => setState(() => _webdavPasswordVisible = !_webdavPasswordVisible),
             ),
             filled: true,
-            fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+            fillColor: AppTheme.getInputFillColor(context),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
               borderSide: BorderSide(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.2)),
@@ -2806,7 +2806,7 @@ class _BlacklistDialogState extends ConsumerState<_BlacklistDialog> {
           children: [
             Row(
               children: [
-                const Icon(Icons.block, color: Color(0xFFFFA000), size: 22),
+                Icon(Icons.block, color: AppTheme.warningOrange, size: 22),
                 const SizedBox(width: 12),
                 Text(
                   '黑名单管理',
@@ -3085,7 +3085,7 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
             hintText: hint,
             hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.4), fontSize: 11),
             filled: true,
-            fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+            fillColor: AppTheme.getInputFillColor(context),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
               borderSide: BorderSide(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.2)),
