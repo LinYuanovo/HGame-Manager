@@ -145,7 +145,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.favorite, size: 16, color: const Color(0xFFFF6B9D)),
+                    icon: Icon(Icons.favorite, size: 16, color: AppTheme.getFavoriteColor(context)),
                     onPressed: () async {
                       await ref.read(tagRepositoryProvider).toggleFavorite(tag.id!, false);
                       ref.invalidate(favoriteTagsProvider);

@@ -946,7 +946,7 @@ if (_isEditing) ...[
           style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.5),
+            fillColor: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
             contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             isDense: true,
@@ -976,7 +976,7 @@ if (_isEditing) ...[
                     style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.5),
+                      fillColor: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       isDense: true,
@@ -999,7 +999,7 @@ if (_isEditing) ...[
                     style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.5),
+                      fillColor: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       isDense: true,
@@ -1042,7 +1042,7 @@ if (_isEditing) ...[
                     style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.5),
+                      fillColor: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       isDense: true,
@@ -1180,7 +1180,7 @@ if (_isEditing) ...[
                     style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.5),
+                      fillColor: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                       isDense: true,
@@ -1303,7 +1303,7 @@ if (_isEditing) ...[
               style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context), height: 1.4),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.5),
+                fillColor: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 hintText: '输入游戏标题',
@@ -1401,11 +1401,11 @@ if (_isEditing) ...[
                     children: List.generate(5, (index) {
                       final starValue = index + 1;
                       if (_currentGame.rating >= starValue) {
-                        return const Icon(Icons.star, size: 18, color: Color(0xFFFFD700));
+                        return Icon(Icons.star, size: 18, color: AppTheme.getStarColor(context));
                       } else if (_currentGame.rating >= starValue - 0.5) {
-                        return const Icon(Icons.star_half, size: 18, color: Color(0xFFFFD700));
+                        return Icon(Icons.star_half, size: 18, color: AppTheme.getStarColor(context));
                       } else {
-                        return Icon(Icons.star_border, size: 18, color: Colors.grey.shade400);
+                        return Icon(Icons.star_border, size: 18, color: AppTheme.getTextSecondary(context));
                       }
                     }),
                   ),
@@ -1426,7 +1426,7 @@ if (_isEditing) ...[
           const SizedBox(height: 32),
           Container(
             height: 1,
-            color: Colors.white.withValues(alpha: 0.3),
+            color: AppTheme.getBorderColor(context).withValues(alpha: 0.3),
           ),
           const SizedBox(height: 16),
 
@@ -1504,7 +1504,7 @@ if (_isEditing) ...[
                   style: TextStyle(fontSize: 14, height: 1.7, color: AppTheme.getTextPrimary(context)),
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.5),
+                    fillColor: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                     contentPadding: const EdgeInsets.all(16),
                   ),
@@ -3743,7 +3743,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                         child: Icon(
                           icon,
                           size: starSize,
-                          color: icon == Icons.star_border ? Colors.grey.shade400 : const Color(0xFFFFD700),
+                          color: icon == Icons.star_border ? AppTheme.getTextSecondary(context) : AppTheme.getStarColor(context),
                         ),
                       );
                     }),
@@ -3770,14 +3770,14 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                 hintText: '写下你的评论...',
                 hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
                 filled: true,
-                fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.grey.shade50,
+                fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
+                  borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -4119,7 +4119,7 @@ class _ImageSelectionDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.getSurfaceColor(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
       ),

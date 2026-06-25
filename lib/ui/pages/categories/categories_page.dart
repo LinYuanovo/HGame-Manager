@@ -282,7 +282,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
               const SizedBox(width: 4),
               if (!_isMultiSelectMode)
                 IconButton(
-                  icon: Icon(tag.isFavorite ? Icons.favorite : Icons.favorite_border, size: 16, color: tag.isFavorite ? const Color(0xFFFF6B9D) : null),
+                  icon: Icon(tag.isFavorite ? Icons.favorite : Icons.favorite_border, size: 16, color: tag.isFavorite ? AppTheme.getFavoriteColor(context) : null),
                   onPressed: () async {
                     await ref.read(tagRepositoryProvider).toggleFavorite(tag.id!, !tag.isFavorite);
                     ref.invalidate(allTagsProvider);
