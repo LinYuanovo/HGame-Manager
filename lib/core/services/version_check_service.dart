@@ -4,6 +4,19 @@ import 'package:html/parser.dart' as html_parser;
 import '../utils/proxy_client.dart';
 import '../../scraper/parse_utils.dart';
 
+const List<String> kGenericGameNames = [
+  'game', 'launcher', 'start', 'launch', 'play', 'player',
+  'config', 'setup', 'install', 'update', 'updater',
+  'server', 'client', 'tool', 'tools', 'editor', 'viewer',
+  'helper', 'crashreport', 'bugreport', 'feedback',
+  'unity', 'unreal', 'godot', 'renpy', 'rpgmaker', 'rpg',
+  'wolf', 'wolfrpg', 'nw', 'cef_simple', 'renderdoc',
+  'vcredist_x64', 'vcredist_x86', 'dxwebsetup', 'oalinst',
+  'crashpad_handler', 'crash_handler', 'unitycrashhandler64',
+  'unitycrashhandler32', 'unins000', 'unins001',
+  '与工具一同启动', '启动', '游戏', '工具', '设置', '配置',
+];
+
 class VersionCheckResult {
   final String siteName;
   final String? maxVersion;
@@ -22,9 +35,15 @@ class VersionCheckService {
   List<String> extractKeywords(String title) {
     final tokens = title.split(RegExp(r'\s+'));
 
-    const filterWords = ['官中', '+', '存档', '汉化', 'steam', '官方'];
+    const filterWords = [
+      '官中', '+', '存档', '汉化', 'steam', '官方',
+    ];
+
     final filtered = tokens.where((t) {
-      return !filterWords.any((w) => t.toLowerCase().contains(w.toLowerCase()));
+      final lower = t.toLowerCase();
+      if (filterWords.any((w) => lower.contains(w.toLowerCase()))) return false;
+      if (kGenericGameNames.any((w) => lower == w)) return false;
+      return true;
     }).toList();
 
     final subTokens = <String>[];
@@ -53,7 +72,7 @@ class VersionCheckService {
       merged.add(buffer.toString().trim());
     }
 
-    return merged.where((k) => k.isNotEmpty).toList();
+    return merged.where((k) => k.isNotEmpty && k.length > 1).toList();
   }
 
   int compareVersions(String v1, String v2) {

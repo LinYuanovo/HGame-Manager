@@ -5,6 +5,7 @@ import '../models/backup_entry.dart';
 import '../services/backup_service.dart';
 import '../utils/proxy_client.dart';
 import '../utils/app_settings.dart';
+import 'version_check_service.dart';
 
 class Fan2dSearchResult {
   final String title;
@@ -92,20 +93,22 @@ class Fan2dService {
     String? gameLauncher,
     required String gameTitle,
   }) async {
-    // 1. 优先用启动器名（不含扩展名）搜索
     if (gameLauncher != null && gameLauncher.isNotEmpty) {
       final launcherName = gameLauncher.replaceAll('\\', '/').split('/').last;
       final nameWithoutExt = launcherName.contains('.')
           ? launcherName.substring(0, launcherName.lastIndexOf('.'))
           : launcherName;
-      if (nameWithoutExt.isNotEmpty) {
+
+      final lowerName = nameWithoutExt.toLowerCase();
+      final isGeneric = kGenericGameNames.any((w) => lowerName == w || lowerName.contains(w));
+
+      if (nameWithoutExt.isNotEmpty && !isGeneric) {
         if (kDebugMode) debugPrint('[Fan2d] 尝试启动器名搜索: $nameWithoutExt');
         final results = await search(nameWithoutExt);
         if (results.isNotEmpty) return results;
       }
     }
 
-    // 2. 用 metadata title 分词逐个尝试，命中即停
     final keywords = _extractKeywords(gameTitle);
     for (final keyword in keywords) {
       if (kDebugMode) debugPrint('[Fan2d] 尝试关键词搜索: $keyword');
@@ -119,9 +122,10 @@ class Fan2dService {
   /// 从标题中提取关键词（复用 VersionCheckService 的分词逻辑）
   List<String> _extractKeywords(String title) {
     final tokens = title.split(RegExp(r'\s+'));
-    const filterWords = ['官中', '+', '存档', '汉化', 'steam', '官方'];
+
     final filtered = tokens.where((t) {
-      return !filterWords.any((w) => t.toLowerCase().contains(w.toLowerCase()));
+      final lower = t.toLowerCase();
+      return !kGenericGameNames.any((w) => lower == w || lower.contains(w));
     }).toList();
 
     final subTokens = <String>[];
@@ -148,7 +152,7 @@ class Fan2dService {
     if (buffer.isNotEmpty) {
       merged.add(buffer.toString().trim());
     }
-    return merged.where((k) => k.isNotEmpty).toList();
+    return merged.where((k) => k.isNotEmpty && k.length > 1).toList();
   }
 
   Future<List<Fan2dSearchResult>> _doSearch(String domain, String keyword) async {

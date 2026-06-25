@@ -5,6 +5,7 @@ import '../utils/proxy_client.dart';
 import '../../scraper/steam_html_converter.dart';
 import 'app_logger.dart';
 import 'concurrent_image_downloader.dart';
+import 'version_check_service.dart';
 
 class SteamService {
   static final _commonExeNames = [
@@ -53,8 +54,8 @@ class SteamService {
 
     for (final exe in exeFiles) {
       final exeName = path.basename(exe.path).toLowerCase();
-      if (_commonExeNames.contains(exeName)) continue;
-      if (_engineExePatterns.any((p) => exeName.contains(p))) continue;
+      final isGeneric = kGenericGameNames.any((w) => exeName.contains(w));
+      if (isGeneric) continue;
       gameName = path.basenameWithoutExtension(exe.path);
       break;
     }
