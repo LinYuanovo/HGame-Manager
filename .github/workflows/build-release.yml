@@ -58,16 +58,28 @@ jobs:
         id: changelog
         run: |
           VERSION="${{ github.event.inputs.version || github.ref_name }}"
-          # 去掉 v 前缀
           VERSION_NUM="${VERSION#v}"
-          # 提取当前版本到下一个版本之间的内容
           NOTES=$(sed -n "/^## v${VERSION_NUM}/,/^## v/{/^## v${VERSION_NUM}/p;/^## v/!p;}" CHANGELOG.md | sed '$d' | tail -n +2)
-          # 如果没找到，使用默认内容
           if [ -z "$NOTES" ]; then
-            NOTES="Release ${VERSION}"
+            NOTES="- 详见 CHANGELOG.md"
           fi
-          # 写入文件（处理多行内容）
-          echo "$NOTES" > release_notes.md
+          {
+            echo "## 📦 下载说明"
+            echo "- 下载 \`HGame-Manager-${VERSION}-windows.zip\`"
+            echo "- 解压到任意目录（保持目录结构完整）"
+            echo "- 运行 \`hgame_manager.exe\`"
+            echo ""
+            echo "## ✨ 系统要求"
+            echo "- Windows 10/11 (64位)"
+            echo "- 首次运行可能需要几秒钟初始化"
+            echo ""
+            echo "## ⚠️ 注意事项"
+            echo "- 如遇杀毒软件误报，请添加信任或临时关闭防护"
+            echo ""
+            echo "## 🆕 更新内容"
+            echo ""
+            echo "$NOTES"
+          } > release_notes.md
           cat release_notes.md
 
       - name: Download Artifacts
