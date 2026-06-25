@@ -297,7 +297,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 0.4 : 0.15),
+                color: AppTheme.getShadowColor(context).withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 2.0 : 3.0),
                 blurRadius: 30,
                 spreadRadius: 2,
                 offset: const Offset(0, 8),
@@ -764,10 +764,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.black54,
+                            color: AppTheme.getOverlayColor(context),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Text('${_currentImageIndex + 1} / ${images.length}', style: const TextStyle(fontSize: 11, color: Colors.white)),
+                          child: Text('${_currentImageIndex + 1} / ${images.length}', style: TextStyle(fontSize: 11, color: AppTheme.getTextColorOnPrimary(context))),
                         ),
                       ),
                     ),
@@ -1748,7 +1748,7 @@ if (_isEditing) ...[
       showDialog(
         context: context,
         barrierDismissible: true,
-        barrierColor: Colors.black.withValues(alpha: 0.6),
+        barrierColor: AppTheme.getOverlayColor(context),
         builder: (dialogContext) => _ImageViewerDialog(
           images: [image],
           initialIndex: 0,
@@ -1765,7 +1765,7 @@ if (_isEditing) ...[
     showDialog(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.6),
+      barrierColor: AppTheme.getOverlayColor(context),
       builder: (dialogContext) => _ImageViewerDialog(
         images: allImages,
         initialIndex: initialIndex,
@@ -2068,7 +2068,7 @@ if (_isEditing) ...[
     showDialog(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.6),
+      barrierColor: AppTheme.getOverlayColor(context),
       builder: (dialogContext) => _ImageViewerDialog(
         images: _currentGame.images,
         initialIndex: initialIndex,
