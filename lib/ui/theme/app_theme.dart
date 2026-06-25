@@ -74,8 +74,8 @@ class AppTheme {
   static const Color darkGlassBorderWhite = Color(0x33555577);
   static const Color darkGlassBorderBlue = Color(0x1A2563EB);
 
-  static const Color darkTextPrimary = Color(0xFFF0F0F0);
-  static const Color darkTextSecondary = Color(0xFFB0B8C4);
+  static const Color darkTextPrimary = Color(0xFFE8E8E8);
+  static const Color darkTextSecondary = Color(0xFFA0A8B4);
 
   static const Color darkBorderColor = Color(0xFF4A4A6A);
 

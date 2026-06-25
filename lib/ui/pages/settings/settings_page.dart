@@ -1808,18 +1808,20 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+                color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                border: Border.all(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.2)),
+                border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
               ),
               child: DropdownButton<AppThemeMode>(
                 value: currentMode,
                 underline: const SizedBox.shrink(),
-                dropdownColor: AppTheme.surfaceColor,
+                dropdownColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
+                style: TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 14),
+                iconEnabledColor: AppTheme.getTextSecondary(context),
                 items: AppThemeMode.values.map((mode) {
                   return DropdownMenuItem(
                     value: mode,
-                    child: Text(mode.label, style: const TextStyle(fontSize: 14)),
+                    child: Text(mode.label, style: TextStyle(fontSize: 14, color: AppTheme.getTextPrimary(context))),
                   );
                 }).toList(),
                 onChanged: (mode) {

@@ -28,12 +28,12 @@ class TitleBarWidget extends StatelessWidget {
               height: LayoutConstants.titleBarHeight,
               decoration: BoxDecoration(
                 color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.black.withValues(alpha: 0.7)
+                    ? AppTheme.darkSurfaceColor.withValues(alpha: 0.8)
                     : Colors.white.withValues(alpha: 0.7),
                 border: Border(
                   bottom: BorderSide(
                     color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white.withValues(alpha: 0.1)
+                        ? AppTheme.darkBorderColor.withValues(alpha: 0.3)
                         : Colors.white.withValues(alpha: 0.3),
                   ),
                 ),
@@ -49,7 +49,7 @@ class TitleBarWidget extends StatelessWidget {
                   const SizedBox(width: 12),
                   ShaderMask(
                     shaderCallback: (bounds) =>
-                        AppTheme.primaryGradient.createShader(bounds),
+                        AppTheme.getPrimaryGradient(context).createShader(bounds),
                     child: const Text(
                       'HGame Manager',
                       style: TextStyle(
