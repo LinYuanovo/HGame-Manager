@@ -1068,23 +1068,23 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.6),
+                            color: AppTheme.getOverlayColor(context),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
                                 Icons.cloud_queue,
                                 size: 16,
-                                color: Colors.white70,
+                                color: AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7),
                               ),
                               SizedBox(width: 2),
                               Text(
                                 '仅备份',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Colors.white70,
+                                  color: AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -1102,12 +1102,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                             color: AppTheme.getStarColor(context).withValues(alpha: 0.9),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.emoji_events, size: 16, color: Colors.white),
+                              Icon(Icons.emoji_events, size: 16, color: AppTheme.getTextColorOnPrimary(context)),
                               SizedBox(width: 2),
-                              Text('通关', style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w600)),
+                              Text('通关', style: TextStyle(fontSize: 14, color: AppTheme.getTextColorOnPrimary(context), fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ),
@@ -1122,16 +1122,16 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                             color: AppTheme.primaryColor.withValues(alpha: 0.8),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.check_circle_outline, size: 16, color: Colors.white70),
+                              Icon(Icons.check_circle_outline, size: 16, color: AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7)),
                               SizedBox(width: 2),
                               Text(
                                 '玩过',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Colors.white70,
+                                  color: AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -1298,26 +1298,26 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.6),
+                            color: AppTheme.getOverlayColor(context),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.2),
                             ),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
                                 Icons.cloud_queue,
                                 size: 16,
-                                color: Colors.white70,
+                                color: AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7),
                               ),
                               SizedBox(width: 4),
                               Text(
                                 '仅备份',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Colors.white70,
+                                  color: AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -1336,12 +1336,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.2)),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.emoji_events, size: 16, color: Colors.white),
+                              Icon(Icons.emoji_events, size: 16, color: AppTheme.getTextColorOnPrimary(context)),
                               SizedBox(width: 4),
-                              Text('通关', style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w600)),
+                              Text('通关', style: TextStyle(fontSize: 14, color: AppTheme.getTextColorOnPrimary(context), fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ),
@@ -1357,16 +1357,16 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.2)),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.check_circle_outline, size: 16, color: Colors.white70),
+                              Icon(Icons.check_circle_outline, size: 16, color: AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7)),
                               SizedBox(width: 4),
                               Text(
                                 '玩过',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Colors.white70,
+                                  color: AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -1388,7 +1388,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                         child: Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.35),
+                            color: AppTheme.getOverlayColor(context).withValues(alpha: 0.7),
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.15),
@@ -1401,7 +1401,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                             size: 20,
                             color: game.isFavorite
                                 ? AppTheme.getFavoriteColor(context)
-                                : Colors.white70,
+                                : AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7),
                           ),
                         ),
                       ),
@@ -1413,7 +1413,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.35),
+                            color: AppTheme.getOverlayColor(context).withValues(alpha: 0.7),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
@@ -2943,7 +2943,7 @@ class _ReviewDialogState extends State<_ReviewDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.getSurfaceColor(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
       ),
@@ -3000,7 +3000,7 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                         child: Icon(
                           icon,
                           size: starSize,
-                          color: icon == Icons.star_border ? Colors.grey.shade400 : const Color(0xFFFFD700),
+                          color: icon == Icons.star_border ? AppTheme.getTextSecondary(context).withValues(alpha: 0.4) : AppTheme.getStarColor(context),
                         ),
                       );
                     }),
@@ -3030,14 +3030,14 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                 hintText: '写下你的评论...',
                 hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
                 filled: true,
-                fillColor: Colors.grey.shade50,
+                fillColor: AppTheme.getInputFillColor(context),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
+                  borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
+                  borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -3103,7 +3103,7 @@ class _MoveToSeriesDialogState extends State<_MoveToSeriesDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.getSurfaceColor(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
       ),
