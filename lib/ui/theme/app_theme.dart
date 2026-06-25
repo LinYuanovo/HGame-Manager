@@ -62,6 +62,22 @@ class GlassConstants {
 }
 
 class AppTheme {
+  // 暗黑模式颜色
+  static const Color darkBackgroundColor = Color(0xFF1A1A2E);
+  static const Color darkBackgroundGradientStart = Color(0xFF16213E);
+  static const Color darkBackgroundGradientEnd = Color(0xFF1F1F3A);
+
+  static const Color darkSurfaceColor = Color(0xFF2D2D44);
+  static const Color darkCardColor = Color(0xFF2D2D44);
+  static const Color darkGlassFillColor = Color(0xCC2D2D44);
+  static const Color darkGlassBorderWhite = Color(0x33444466);
+  static const Color darkGlassBorderBlue = Color(0x1A2563EB);
+
+  static const Color darkTextPrimary = Color(0xFFE0E0E0);
+  static const Color darkTextSecondary = Color(0xFF9CA3AF);
+
+  static const Color darkBorderColor = Color(0xFF3D3D5C);
+
   // 主色调 - 蓝紫渐变色系
   static const Color primaryColor = Color(0xFF2563EB);
   static const Color primaryLightColor = Color(0xFF3B82F6);
@@ -109,6 +125,12 @@ class AppTheme {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [primaryLightColor, secondaryColor],
+  );
+
+  static const LinearGradient darkBackgroundGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [darkBackgroundGradientStart, darkBackgroundGradientEnd],
   );
 
   static ImageErrorWidgetBuilder imageErrorBuilder = (context, error, stackTrace) {
@@ -277,6 +299,130 @@ class AppTheme {
     );
   }
 
+  static ThemeData darkTheme({String? fontFamily}) {
+    final effectiveFontFamily = fontFamily ?? 'Microsoft YaHei';
+    return ThemeData(
+      fontFamily: effectiveFontFamily,
+      brightness: Brightness.dark,
+      primaryColor: primaryColor,
+      scaffoldBackgroundColor: darkBackgroundColor,
+      colorScheme: ColorScheme.fromSwatch(
+        primarySwatch: Colors.blue,
+        brightness: Brightness.dark,
+      ).copyWith(
+        primary: primaryColor,
+        secondary: secondaryColor,
+        tertiary: accentColor,
+        surface: darkSurfaceColor,
+        error: errorColor,
+      ),
+      cardTheme: CardThemeData(
+        color: darkCardColor.withValues(alpha: 0.6),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
+        ),
+        shadowColor: Colors.black.withValues(alpha: 0.3),
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          color: darkTextPrimary,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        ),
+        iconTheme: IconThemeData(
+          color: darkTextSecondary,
+        ),
+      ),
+      iconTheme: const IconThemeData(
+        color: darkTextSecondary,
+        size: 24,
+      ),
+      textTheme: TextTheme(
+        headlineLarge: TextStyle(color: darkTextPrimary, fontSize: 34, fontWeight: FontWeight.bold),
+        headlineMedium: TextStyle(color: darkTextPrimary, fontSize: 26, fontWeight: FontWeight.w600),
+        headlineSmall: TextStyle(color: darkTextPrimary, fontSize: 22, fontWeight: FontWeight.w600),
+        titleLarge: TextStyle(color: darkTextPrimary, fontSize: 20, fontWeight: FontWeight.w500),
+        titleMedium: TextStyle(color: darkTextPrimary, fontSize: 18, fontWeight: FontWeight.w500),
+        titleSmall: TextStyle(color: darkTextSecondary, fontSize: 16, fontWeight: FontWeight.w400),
+        bodyLarge: TextStyle(color: darkTextPrimary, fontSize: 18),
+        bodyMedium: TextStyle(color: darkTextSecondary, fontSize: 15),
+        bodySmall: TextStyle(color: darkTextSecondary, fontSize: 13),
+      ).apply(fontFamily: effectiveFontFamily),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryColor.withValues(alpha: 0.7),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+          ),
+          elevation: 0,
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: darkTextSecondary.withValues(alpha: 0.7),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: primaryColor.withValues(alpha: 0.7),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: primaryColor.withValues(alpha: 0.7),
+          side: BorderSide(color: primaryColor.withValues(alpha: 0.7)),
+        ),
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: primaryColor.withValues(alpha: 0.7),
+        foregroundColor: Colors.white,
+        elevation: 2,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: darkSurfaceColor.withValues(alpha: 0.6),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+          borderSide: BorderSide(color: darkBorderColor.withValues(alpha: 0.3)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+          borderSide: BorderSide(color: darkBorderColor.withValues(alpha: 0.3)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+          borderSide: const BorderSide(color: primaryColor, width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+      scrollbarTheme: ScrollbarThemeData(
+        thumbColor: WidgetStateProperty.all(Colors.grey.withValues(alpha: 0.4)),
+        radius: const Radius.circular(4),
+        thickness: WidgetStateProperty.all(6),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
+        ),
+        color: darkSurfaceColor.withValues(alpha: 0.95),
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.black54,
+        elevation: 12,
+        textStyle: const TextStyle(
+          color: darkTextPrimary,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
   static void showGlassSnackBar(BuildContext context, String message, {Color? color}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -418,6 +564,55 @@ class AppTheme {
     Future.delayed(duration, () {
       overlayEntry.remove();
     });
+  }
+
+  /// 根据当前主题获取颜色
+  static Color getBackgroundColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkBackgroundColor
+        : backgroundColor;
+  }
+
+  static Color getSurfaceColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkSurfaceColor
+        : surfaceColor;
+  }
+
+  static Color getCardColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkCardColor
+        : cardColor;
+  }
+
+  static Color getTextPrimary(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkTextPrimary
+        : textPrimary;
+  }
+
+  static Color getTextSecondary(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkTextSecondary
+        : textSecondary;
+  }
+
+  static Color getBorderColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkBorderColor
+        : borderColor;
+  }
+
+  static Color getGlassFillColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkGlassFillColor
+        : glassFillColor;
+  }
+
+  static LinearGradient getBackgroundGradient(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkBackgroundGradient
+        : backgroundGradient;
   }
 }
 
