@@ -240,6 +240,9 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
   List<_BatchGameItem> _items = [];
   bool _scanning = false;
   bool _importing = false;
+  bool _importDone = false;
+  int _successCount = 0;
+  int _failCount = 0;
 
   Future<void> _pickFolder() async {
     final result = await FilePicker.getDirectoryPath(dialogTitle: '选择游戏父目录');
@@ -332,15 +335,12 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     await Future.wait(workers);
 
     if (mounted) {
-      Navigator.of(context).pop();
-      widget.onImportComplete();
-      final msg = failCount > 0 ? '导入完成: $successCount 成功, $failCount 失败' : '成功导入 $successCount 个游戏';
-      AppTheme.showGlassToast(
-        context,
-        message: msg,
-        icon: failCount > 0 ? Icons.warning_amber : Icons.check_circle_outline,
-        iconColor: failCount > 0 ? AppTheme.warningColor : AppTheme.successColor,
-      );
+      setState(() {
+        _importing = false;
+        _importDone = true;
+        _successCount = successCount;
+        _failCount = failCount;
+      });
     }
   }
 
@@ -861,32 +861,38 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                           children: [
                             Checkbox(
                               value: item.selected,
-                              onChanged: (checked) {
-                                setState(() => item.selected = checked ?? false);
-                              },
+                              onChanged: _importing
+                                  ? null
+                                  : (checked) {
+                                      setState(() => item.selected = checked ?? false);
+                                    },
                               activeColor: AppTheme.primaryColor,
                             ),
-                            SizedBox(
+                            Container(
                               width: 100,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.3)),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.surfaceColor.withValues(alpha: 0.8),
+                                borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
+                                border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+                              ),
+                              child: DropdownButtonHideUnderline(
                                 child: DropdownButton<_BatchScrapeSource>(
                                   value: item.source,
                                   isExpanded: true,
-                                  underline: const SizedBox.shrink(),
+                                  isDense: true,
+                                  icon: Icon(Icons.arrow_drop_down, size: 18, color: AppTheme.textSecondary),
                                   style: TextStyle(fontSize: 12, color: AppTheme.textPrimary),
                                   items: const [
                                     DropdownMenuItem(value: _BatchScrapeSource.none, child: Text('不刮削')),
                                     DropdownMenuItem(value: _BatchScrapeSource.steam, child: Text('Steam')),
                                     DropdownMenuItem(value: _BatchScrapeSource.dlsite, child: Text('DLsite')),
                                   ],
-                                  onChanged: (val) {
-                                    if (val != null) setState(() => item.source = val);
-                                  },
+                                  onChanged: _importing
+                                      ? null
+                                      : (val) {
+                                          if (val != null) setState(() => item.source = val);
+                                        },
                                 ),
                               ),
                             ),
@@ -926,37 +932,91 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
               ),
             ],
             const SizedBox(height: 20),
-            if (_importing)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    '请不要退出该页面',
-                    style: TextStyle(fontSize: 13, color: AppTheme.warningColor),
+            if (_importDone) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _failCount > 0
+                      ? AppTheme.warningColor.withValues(alpha: 0.1)
+                      : AppTheme.successColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
+                  border: Border.all(
+                    color: _failCount > 0
+                        ? AppTheme.warningColor.withValues(alpha: 0.3)
+                        : AppTheme.successColor.withValues(alpha: 0.3),
                   ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _failCount > 0 ? Icons.warning_amber : Icons.check_circle_outline,
+                      color: _failCount > 0 ? AppTheme.warningColor : AppTheme.successColor,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _failCount > 0
+                          ? '导入完成: $_successCount 成功, $_failCount 失败'
+                          : '成功导入 $_successCount 个游戏',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: _failCount > 0 ? AppTheme.warningColor : AppTheme.successColor,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: _importing ? null : () => Navigator.of(context).pop(),
-                  child: const Text('取消'),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton(
-                  onPressed: _items.isEmpty || _importing || !_items.any((i) => i.selected) ? null : _startImport,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.4),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      widget.onImportComplete();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('确认'),
                   ),
-                  child: _importing
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : Text('导入 (${_items.where((i) => i.selected).length})'),
+                ],
+              ),
+            ] else ...[
+              if (_importing)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      '请不要退出该页面',
+                      style: TextStyle(fontSize: 13, color: AppTheme.warningColor),
+                    ),
+                  ),
                 ),
-              ],
-            ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _importing ? null : () => Navigator.of(context).pop(),
+                    child: const Text('取消'),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: _items.isEmpty || _importing || !_items.any((i) => i.selected) ? null : _startImport,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.4),
+                    ),
+                    child: _importing
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Text('导入 (${_items.where((i) => i.selected).length})'),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
