@@ -21,70 +21,47 @@ class WindowController extends ChangeNotifier with WindowListener {
     await windowManager.setPreventClose(true);
     windowManager.addListener(this);
 
+    _isMaximized = _prefs.getBool('window_maximized') ?? false;
+
+    // 如果之前是最大化，使用保存的尺寸（最大化时的实际尺寸）
+    // 如果不是最大化，使用保存的普通尺寸
     var width = _prefs.getDouble('window_width') ?? defaultWindowWidth;
     var height = _prefs.getDouble('window_height') ?? defaultWindowHeight;
     var x = _prefs.getDouble('window_x');
     var y = _prefs.getDouble('window_y');
-    _isMaximized = _prefs.getBool('window_maximized') ?? false;
 
     if (width < 100 || width > 10000 || height < 100 || height > 10000) {
       width = defaultWindowWidth;
       height = defaultWindowHeight;
     }
-
-    if (x != null && (x < -10000 || x > 10000)) {
-      x = null;
-    }
-    if (y != null && (y < -10000 || y > 10000)) {
-      y = null;
-    }
+    if (x != null && (x < -10000 || x > 10000)) x = null;
+    if (y != null && (y < -10000 || y > 10000)) y = null;
 
     _lastNormalSize = Size(width, height);
     if (x != null && y != null) {
-      _lastNormalPosition = Offset(x!, y!);
+      _lastNormalPosition = Offset(x, y);
     }
 
-    // 不使用 WindowOptions 的 size 参数，避免覆盖 maximize
+    // 设置窗口
     await windowManager.setMinimumSize(const Size(1200, 700));
     await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
     await windowManager.setIcon('windows/runner/resources/app_icon.ico');
-
-    // 先设置非最大化尺寸（如果需要最大化，这个尺寸会在 unmaximize 时使用）
     await windowManager.setSize(Size(width, height));
     if (x != null && y != null) {
-      await windowManager.setPosition(Offset(x!, y!));
+      await windowManager.setPosition(Offset(x, y));
     }
-
     await windowManager.show();
     await windowManager.focus();
-
-    // 使用多重延迟确保窗口完全初始化
-    if (_isMaximized) {
-      // 第一次延迟：等待窗口显示完成
-      await Future.delayed(const Duration(milliseconds: 200));
-      await windowManager.maximize();
-      // 第二次验证：确保最大化生效
-      await Future.delayed(const Duration(milliseconds: 100));
-      final isActuallyMaximized = await windowManager.isMaximized();
-      if (!isActuallyMaximized) {
-        // 如果还没生效，再试一次
-        await windowManager.maximize();
-      }
-    }
   }
 
   void _saveWindowSettings() {
     try {
-      final isMax = _isMaximized;
-      final size = _lastNormalSize ?? Size(defaultWindowWidth, defaultWindowHeight);
-      final position = _lastNormalPosition ?? Offset.zero;
-
       _prefs.setValuesSync({
-        'window_maximized': isMax,
-        'window_width': size.width,
-        'window_height': size.height,
-        'window_x': position.dx,
-        'window_y': position.dy,
+        'window_maximized': _isMaximized,
+        'window_width': _lastNormalSize?.width ?? defaultWindowWidth,
+        'window_height': _lastNormalSize?.height ?? defaultWindowHeight,
+        'window_x': _lastNormalPosition?.dx ?? 0,
+        'window_y': _lastNormalPosition?.dy ?? 0,
       });
     } catch (e) {
       debugPrint('Error saving settings: $e');
@@ -128,16 +105,19 @@ class WindowController extends ChangeNotifier with WindowListener {
   }
 
   @override
-  void onWindowMaximize() {
+  void onWindowMaximize() async {
     _isMaximized = true;
-    _saveWindowSettings(); // 立即保存
+    // 保存最大化后的实际尺寸
+    _lastNormalSize = await windowManager.getSize();
+    _lastNormalPosition = await windowManager.getPosition();
+    _saveWindowSettings();
     notifyListeners();
   }
 
   @override
-  void onWindowUnmaximize() {
+  void onWindowUnmaximize() async {
     _isMaximized = false;
-    _saveWindowSettings(); // 立即保存
+    _saveWindowSettings();
     notifyListeners();
   }
 
