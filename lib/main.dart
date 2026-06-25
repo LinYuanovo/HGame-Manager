@@ -193,7 +193,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
               margin: const EdgeInsets.all(40),
               padding: const EdgeInsets.all(32),
               borderRadius: GlassConstants.radiusXLarge,
-              color: Colors.white.withValues(alpha: 0.85),
+              color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.85),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
