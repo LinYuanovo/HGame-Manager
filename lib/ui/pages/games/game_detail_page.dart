@@ -17,8 +17,6 @@ import '../../../scraper/parse_utils.dart';
 import '../../theme/app_theme.dart';
 import '../../../core/services/version_check_service.dart';
 import '../../../core/services/folder_rename_service.dart';
-import '../../../core/services/dlsite_service.dart';
-import '../../../core/services/steam_service.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../widgets/image_manager_dialog.dart';
 import '../../widgets/markdown_editor.dart';
@@ -2316,27 +2314,34 @@ if (_isEditing) ...[
       // Sync metadata.json
       try {
         final metadataFile = File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
+        Map<String, dynamic> metadata;
+        
         if (await metadataFile.exists()) {
           final content = await metadataFile.readAsString();
-          final metadata = jsonDecode(content) as Map<String, dynamic>;
-          if (newTitle != null) metadata['title'] = newTitle;
-          if (newVersion != null) metadata['version'] = newVersion;
-          if (newIntro != null) {
-            metadata['intro'] = newIntro;
-            if (_introHtml != null && _introHtml!.isNotEmpty) {
-              final oldIntro = _currentGame.intro ?? '';
-              if (oldIntro != newIntro) {
-                _introHtml = _syncIntroToHtml(oldIntro, newIntro, _introHtml!);
-                metadata['intro_html'] = _introHtml;
-              }
+          metadata = jsonDecode(content) as Map<String, dynamic>;
+        } else {
+          metadata = <String, dynamic>{};
+        }
+        
+        if (newTitle != null) metadata['title'] = newTitle;
+        if (newVersion != null) metadata['version'] = newVersion;
+        if (newIntro != null) {
+          metadata['intro'] = newIntro;
+          if (_introHtml != null && _introHtml!.isNotEmpty) {
+            final oldIntro = _currentGame.intro ?? '';
+            if (oldIntro != newIntro) {
+              _introHtml = _syncIntroToHtml(oldIntro, newIntro, _introHtml!);
+              metadata['intro_html'] = _introHtml;
             }
           }
-          if (newFeatures != null) metadata['features'] = newFeatures;
-          if (newChangelog != null) metadata['changelog'] = newChangelog;
-          if (newDownloadUrl != null) metadata['download_url'] = newDownloadUrl;
-          await metadataFile.writeAsString(jsonEncode(metadata), flush: true);
-          debugPrint('[Edit] metadata.json updated for: ${_currentGame.path}');
         }
+        if (newFeatures != null) metadata['features'] = newFeatures;
+        if (newChangelog != null) metadata['changelog'] = newChangelog;
+        if (newDownloadUrl != null) metadata['download_url'] = newDownloadUrl;
+        if (newSourceUrl != null) metadata['source_url'] = newSourceUrl;
+        
+        await metadataFile.writeAsString(jsonEncode(metadata), flush: true);
+        debugPrint('[Edit] metadata.json updated for: ${_currentGame.path}');
       } catch (e) {
         debugPrint('[Edit] Failed to update metadata.json: $e');
       }
