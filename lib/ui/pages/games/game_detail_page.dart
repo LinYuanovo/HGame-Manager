@@ -1333,6 +1333,15 @@ if (_isEditing) ...[
                             launchUrl(Uri.parse(_currentGame.makerUrl!));
                           }
                         },
+                        onDoubleTap: () {
+                          Clipboard.setData(ClipboardData(text: trimmedName));
+                          AppTheme.showGlassToast(
+                            context,
+                            message: '已复制: $trimmedName',
+                            icon: Icons.copy,
+                            iconColor: AppTheme.successColor,
+                          );
+                        },
                         borderRadius: BorderRadius.circular(6),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
