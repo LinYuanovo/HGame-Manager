@@ -1805,26 +1805,20 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               ),
             ),
             const SizedBox(width: 16),
-            Theme(
-              data: Theme.of(context).copyWith(
-                popupMenuTheme: PopupMenuThemeData(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                  ),
-                  color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
-                  elevation: 8,
-                ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
               ),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                  border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
-                ),
+              child: DropdownButtonHideUnderline(
                 child: DropdownButton<AppThemeMode>(
                   value: currentMode,
-                  underline: const SizedBox.shrink(),
+                  isExpanded: false,
+                  isDense: true,
+                  icon: Icon(Icons.arrow_drop_down, size: 20, color: AppTheme.getTextSecondary(context)),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
                   dropdownColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
                   style: TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 14, fontFamily: _selectedFont.isEmpty ? null : _selectedFont),
                   iconEnabledColor: AppTheme.getTextSecondary(context),
