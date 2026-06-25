@@ -129,9 +129,8 @@ build/windows/x64/runner/Release/hgame_manager.exe
 - **云端导入**: 支持从 DLsite（RJ号/名称搜索）或 Steam（App ID/名称搜索）导入游戏信息和封面图
 - **自动整理**：刮削后按系列分类移动到整理目录
 - **智能标签**：自动关联重叠标签（如"互动SLG" → "SLG"）
-- **厂商名显示**：DLsite 社团名 / Steam 开发者
 - **简介排版优化**：尽可能保留原始 HTML 布局
-- **🧵 多线程刮削**：支持1-8线程并发刮削，图片下载自动多线程（遇429降级）
+- **批量导入**：同时导入多个游戏
 
 ![刮削页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/scraper_page.png)
 
@@ -144,7 +143,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 - **分页 / 瀑布流**：两种浏览模式
 - **收藏功能**：收藏游戏优先排列
 - **游玩追踪**：记录游玩次数和时间
-- **✏️ 富文本编辑**：Markdown 编辑器，支持实时预览和图片插入
+- **富文本编辑**：Markdown 编辑器，支持图片预览和插入
 
 ![游戏页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/games_page.png)
 
@@ -159,8 +158,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 ### 🖼️ 游戏详情
 
-- **图片轮播**：支持键盘导航
-- **大图查看**：80% 窗口大小的图片查看器，支持鼠标滚轮缩放（20%-500%）和拖拽
+- **大图查看**：支持键盘导航，80% 窗口大小的图片查看器，支持鼠标滚轮缩放（20%-500%）和拖拽
 - **图片管理**：自定义添加、删除、排序图片
 - **信息存储**：网盘链接、解压码按钮双击复制
 - **编辑模式**：可编辑版本号、标签、下载地址、解压码等
@@ -183,11 +181,14 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 ![查看云端备份](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/game_save_cloud.png)
 
-### ⚙️ 设置
+### 🔧 工具导入
 
-- **忽略文件夹**：扫描和刮削分别设置
-- **系列类型管理**：自定义添加系列类型
-- **字体大小**：全局字体大小调整
+- **导入工具**：导入常用软件
+- **转区启动**：导入'[LEProc.exe](https://github.com/xupefei/Locale-Emulator/releases)'后可以联动转区启动游戏
+
+![导入工具](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/import_tools.png)
+
+![转区启动](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/LE_launch.png)
 
 ## 技术栈
 
@@ -199,6 +200,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 | [SQLite](https://www.sqlite.org) | via sqflite_common_ffi | 本地数据存储 |
 | [window_manager](https://pub.dev/packages/window_manager) | ^0.3.7 | 窗口管理 |
 | [http](https://pub.dev/packages/http) | ^1.1.0 | HTTP 客户端（代理支持） |
+
 
 ## 项目结构
 

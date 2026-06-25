@@ -429,7 +429,9 @@ class AppTheme {
         content: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.92),
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppTheme.darkSurfaceColor.withValues(alpha: 0.92)
+                : Colors.white.withValues(alpha: 0.92),
             borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
             border: Border.all(
               color: (color ?? AppTheme.primaryColor).withValues(alpha: 0.15),
@@ -500,7 +502,9 @@ class AppTheme {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
       ),
-      color: Colors.white.withValues(alpha: 0.95),
+      color: Theme.of(context).brightness == Brightness.dark
+          ? AppTheme.darkSurfaceColor.withValues(alpha: 0.95)
+          : Colors.white.withValues(alpha: 0.95),
       elevation: 12,
       shadowColor: Colors.black26,
       items: items,
@@ -534,9 +538,15 @@ class AppTheme {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.85),
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? AppTheme.darkSurfaceColor.withValues(alpha: 0.85)
+                          : Colors.white.withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+                      border: Border.all(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? AppTheme.darkGlassBorderWhite.withValues(alpha: 0.5)
+                            : Colors.white.withValues(alpha: 0.5),
+                      ),
                       boxShadow: [
                         BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 4)),
                       ],
@@ -1001,13 +1011,17 @@ class _GlassButtonState extends State<GlassButton> {
           padding: widget.padding,
           decoration: BoxDecoration(
             color: widget.gradient == null
-                ? (widget.color ?? Colors.white.withValues(alpha:_isPressed ? 0.5 : _isHovered ? 0.6 : 0.4))
+                ? (widget.color ?? (Theme.of(context).brightness == Brightness.dark
+                    ? AppTheme.darkSurfaceColor.withValues(alpha: _isPressed ? 0.5 : _isHovered ? 0.6 : 0.4)
+                    : Colors.white.withValues(alpha: _isPressed ? 0.5 : _isHovered ? 0.6 : 0.4)))
                 : null,
             gradient: widget.gradient,
             borderRadius: BorderRadius.circular(widget.borderRadius),
             border: Border.all(
               color: widget.gradient == null
-                  ? Colors.white.withValues(alpha:_isHovered ? 0.4 : 0.2)
+                  ? (Theme.of(context).brightness == Brightness.dark
+                      ? AppTheme.darkGlassBorderWhite.withValues(alpha: _isHovered ? 0.4 : 0.2)
+                      : Colors.white.withValues(alpha: _isHovered ? 0.4 : 0.2))
                   : Colors.transparent,
               width: 1,
             ),
@@ -1167,10 +1181,14 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
           height: preferredSize.height,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha:0.7),
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppTheme.darkSurfaceColor.withValues(alpha: 0.7)
+                : Colors.white.withValues(alpha: 0.7),
             border: Border(
               bottom: BorderSide(
-                color: Colors.white.withValues(alpha:0.3),
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? AppTheme.darkGlassBorderWhite.withValues(alpha: 0.3)
+                    : Colors.white.withValues(alpha: 0.3),
               ),
             ),
           ),
@@ -1209,10 +1227,14 @@ class GlassSearchBar extends StatelessWidget {
       margin: margin ?? EdgeInsets.zero,
       borderRadius: 24,
       blur: GlassConstants.blurSmall,
-      color: Colors.white.withValues(alpha:0.5),
+      color: Theme.of(context).brightness == Brightness.dark
+          ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5)
+          : Colors.white.withValues(alpha: 0.5),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       border: Border.all(
-        color: Colors.white.withValues(alpha:0.4),
+        color: Theme.of(context).brightness == Brightness.dark
+            ? AppTheme.darkGlassBorderWhite.withValues(alpha: 0.4)
+            : Colors.white.withValues(alpha: 0.4),
         width: 1,
       ),
       boxShadow: [
@@ -1274,13 +1296,17 @@ class GlassChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? chipColor.withValues(alpha:0.2)
-              : Colors.white.withValues(alpha:0.5),
+              ? chipColor.withValues(alpha: 0.2)
+              : (Theme.of(context).brightness == Brightness.dark
+                  ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5)
+                  : Colors.white.withValues(alpha: 0.5)),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
-                ? chipColor.withValues(alpha:0.5)
-                : Colors.white.withValues(alpha:0.3),
+                ? chipColor.withValues(alpha: 0.5)
+                : (Theme.of(context).brightness == Brightness.dark
+                    ? AppTheme.darkGlassBorderWhite.withValues(alpha: 0.3)
+                    : Colors.white.withValues(alpha: 0.3)),
           ),
           boxShadow: [
             BoxShadow(
@@ -1457,7 +1483,9 @@ class _CopyToastContentState extends State<_CopyToastContent>
           vertical: 12,
         ),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.92),
+          color: Theme.of(context).brightness == Brightness.dark
+              ? AppTheme.darkSurfaceColor.withValues(alpha: 0.92)
+              : Colors.white.withValues(alpha: 0.92),
           borderRadius: BorderRadius.circular(
             GlassConstants.radiusMedium,
           ),
@@ -1538,10 +1566,14 @@ class GlassTabBar extends StatelessWidget implements PreferredSizeWidget {
         child: Container(
           height: preferredSize.height,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.35),
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppTheme.darkSurfaceColor.withValues(alpha: 0.35)
+                : Colors.white.withValues(alpha: 0.35),
             border: Border(
               bottom: BorderSide(
-                color: Colors.white.withValues(alpha: 0.3),
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? AppTheme.darkGlassBorderWhite.withValues(alpha: 0.3)
+                    : Colors.white.withValues(alpha: 0.3),
               ),
             ),
           ),
@@ -1604,10 +1636,14 @@ Future<T?> showGlassDialog<T>({
                 ),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.88),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? AppTheme.darkSurfaceColor.withValues(alpha: 0.88)
+                        : Colors.white.withValues(alpha: 0.88),
                     borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.5),
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? AppTheme.darkGlassBorderWhite.withValues(alpha: 0.5)
+                          : Colors.white.withValues(alpha: 0.5),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -1659,12 +1695,12 @@ class EmptyStateWidget extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 64, color: AppTheme.textSecondary.withValues(alpha: 0.4)),
+          Icon(icon, size: 64, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.4)),
           const SizedBox(height: 16),
           Text(
             message,
             style: TextStyle(
-              color: AppTheme.textSecondary.withValues(alpha: 0.6),
+              color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
@@ -1674,7 +1710,7 @@ class EmptyStateWidget extends StatelessWidget {
             Text(
               subMessage!,
               style: TextStyle(
-                color: AppTheme.textSecondary.withValues(alpha: 0.4),
+                color: AppTheme.getTextSecondary(context).withValues(alpha: 0.4),
                 fontSize: 13,
               ),
             ),
