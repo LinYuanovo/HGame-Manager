@@ -134,6 +134,24 @@ class AppTheme {
   static const Color toolCyan = Color(0xFF00BCD4);
   static const Color toolPink = Color(0xFFE91E63);
 
+  // 深色模式渐变颜色
+  static const List<Color> darkGradientColors = [
+    Color(0xFF0D1117),
+    Color(0xFF161B22),
+    Color(0xFF1F2937),
+    Color(0xFF161B22),
+    Color(0xFF0D1117),
+  ];
+
+  // 浅色模式渐变颜色
+  static const List<Color> lightGradientColors = [
+    Color(0xFFE0E8F0),
+    Color(0xFFE8E4F2),
+    Color(0xFFF0ECFA),
+    Color(0xFFE8EFF8),
+    Color(0xFFF2F0FF),
+  ];
+
   // 边框
   static const Color borderColor = Color(0xFFE5E7EB);
 
@@ -1231,21 +1249,7 @@ class _GradientBackgroundState extends State<GradientBackground>
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: isDark
-              ? [
-                  const Color(0xFF0D1117),
-                  const Color(0xFF161B22),
-                  const Color(0xFF1F2937),
-                  const Color(0xFF161B22),
-                  const Color(0xFF0D1117),
-                ]
-              : [
-                  const Color(0xFFE0E8F0),
-                  const Color(0xFFE8E4F2),
-                  const Color(0xFFF0ECFA),
-                  const Color(0xFFE8EFF8),
-                  const Color(0xFFF2F0FF),
-                ],
+          colors: isDark ? AppTheme.darkGradientColors : AppTheme.lightGradientColors,
           stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
         ),
       ),
@@ -1398,16 +1402,16 @@ class GlassSearchBar extends StatelessWidget {
         child: TextField(
           controller: controller,
           onChanged: onChanged,
-          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+          style: TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 14),
           decoration: InputDecoration(
             hintText: hintText ?? '搜索...',
             hintStyle: TextStyle(
-              color: AppTheme.textSecondary.withValues(alpha:0.6),
+              color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
               fontSize: 14,
             ),
             prefixIcon: Icon(
               Icons.search,
-              color: AppTheme.textSecondary.withValues(alpha:0.6),
+              color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
               size: 20,
             ),
             border: InputBorder.none,
@@ -1468,7 +1472,7 @@ class GlassChip extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? chipColor : AppTheme.textSecondary,
+            color: isSelected ? chipColor : AppTheme.getTextSecondary(context),
             fontSize: 13,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
           ),
