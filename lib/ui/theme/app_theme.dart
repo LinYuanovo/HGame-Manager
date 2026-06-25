@@ -649,6 +649,10 @@ class GlassContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fillColor = color ?? (isDark ? AppTheme.darkGlassFillColor : AppTheme.glassFillColor);
+    final borderColor = isDark ? AppTheme.darkGlassBorderWhite : AppTheme.glassBorderWhite;
+
     return Container(
       width: width,
       height: height,
@@ -663,23 +667,23 @@ class GlassContainer extends StatelessWidget {
           child: Container(
             padding: padding,
             decoration: BoxDecoration(
-              color: color ?? AppTheme.glassFillColor,
+              color: fillColor,
               borderRadius: BorderRadius.circular(borderRadius),
               border: border ??
                   Border.all(
-                    color: AppTheme.glassBorderWhite,
+                    color: borderColor,
                     width: 1,
                   ),
               boxShadow: boxShadow ??
                   [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha:0.06),
+                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
                       blurRadius: 20,
                       spreadRadius: 2,
                       offset: const Offset(0, 4),
                     ),
                     BoxShadow(
-                      color: AppTheme.primaryColor.withValues(alpha:0.03),
+                      color: AppTheme.primaryColor.withValues(alpha: isDark ? 0.05 : 0.03),
                       blurRadius: 40,
                       spreadRadius: 0,
                       offset: const Offset(0, 8),
