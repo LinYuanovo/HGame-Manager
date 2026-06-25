@@ -39,6 +39,11 @@ class WindowController extends ChangeNotifier with WindowListener {
       y = null;
     }
 
+    _lastNormalSize = Size(width, height);
+    if (x != null && y != null) {
+      _lastNormalPosition = Offset(x!, y!);
+    }
+
     WindowOptions windowOptions = WindowOptions(
       size: Size(width, height),
       minimumSize: const Size(1200, 700),
@@ -47,13 +52,17 @@ class WindowController extends ChangeNotifier with WindowListener {
 
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
       await windowManager.setIcon('windows/runner/resources/app_icon.ico');
-      if (x != null && y != null) {
-        await windowManager.setPosition(Offset(x, y));
-      }
       await windowManager.show();
       await windowManager.focus();
       if (_isMaximized) {
+        if (x != null && y != null) {
+          await windowManager.setPosition(Offset(x!, y!));
+        }
         await windowManager.maximize();
+      } else {
+        if (x != null && y != null) {
+          await windowManager.setPosition(Offset(x!, y!));
+        }
       }
     });
   }
