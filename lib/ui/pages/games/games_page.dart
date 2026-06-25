@@ -1144,7 +1144,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                       disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.4),
                     ),
                     child: _importing
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.getTextColorOnPrimary(context)))
                         : Text('导入 (${_items.where((i) => i.selected).length})'),
                   ),
                 ],
@@ -1772,13 +1772,13 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                       disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.4),
                     ),
                     child: _isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppTheme.getTextColorOnPrimary(context),
+                              ),
                           )
                         : const Text('导入'),
                   )
@@ -1791,13 +1791,13 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                       disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.4),
                     ),
                     child: _isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppTheme.getTextColorOnPrimary(context),
+                              ),
                           )
                         : const Text('导入选中'),
                   ),
