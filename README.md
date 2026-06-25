@@ -16,7 +16,7 @@
 
 <p align="center">
   <b>一款基于 Flutter 开发的 Windows 本地 HGame 管理器</b><br>
-  <i>玻璃拟态设计 · 智能刮削 · 标签管理 · 收藏追踪</i>
+  <i>玻璃拟态设计 · 智能刮削 · 存档管理 · 转区启动 · 分类存放</i>
 </p>
 
 ***
@@ -117,7 +117,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 │       └── images/
 ├── RPG/
 │   └── ...
-└── 未分类/                     # 无系列标签的游戏
+└── Unclassified/                     # 无系列标签的游戏
     └── ...
 ```
 
@@ -126,6 +126,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 ### 🔍 刮削中心
 
 - **多站点支持**：[ACG嘤嘤怪](https://acgyyg.ru/) / [飞雪ACG](https://feixueacg.org/)/ [维咔ACG](https://www.vikacg.com/)
+- **自定义解析器**：通过xpath实现自定义站点宽泛解析
 - **云端导入**: 支持从 DLsite（RJ号/名称搜索）或 Steam（App ID/名称搜索）导入游戏信息和封面图
 - **自动整理**：刮削后按系列分类移动到整理目录
 - **智能标签**：自动关联重叠标签（如"互动SLG" → "SLG"）
@@ -183,7 +184,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 ### 🔧 工具导入
 
-- **导入工具**：导入常用软件
+- **导入工具**：导入常用软件可双击快速启动
 - **转区启动**：导入'[LEProc.exe](https://github.com/xupefei/Locale-Emulator/releases)'后可以联动转区启动游戏
 
 ![导入工具](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/import_tools.png)

@@ -37,7 +37,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
     return Column(
       children: [
         GlassAppBar(
-          title: const Text('分类', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+          title: Text('分类', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context))),
         ),
         GlassTabBar(
           controller: _tabController,
@@ -148,7 +148,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                       child: Icon(
                         _isMultiSelectMode ? Icons.deselect : Icons.checklist,
                         size: 18,
-                        color: _isMultiSelectMode ? AppTheme.primaryColor : AppTheme.textSecondary,
+                        color: _isMultiSelectMode ? AppTheme.primaryColor : AppTheme.getTextSecondary(context),
                       ),
                     ),
                   ),
@@ -166,7 +166,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor.withValues(alpha: 0.08),
-                  border: Border(bottom: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.2))),
+                  border: Border(bottom: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.2))),
                 ),
                 child: Row(
                   children: [
@@ -187,7 +187,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                           _selectedTagIds.clear();
                         });
                       },
-                      child: Text('取消选择', style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
+                      child: Text('取消选择', style: TextStyle(fontSize: 16, color: AppTheme.getTextSecondary(context))),
                     ),
                   ],
                 ),
@@ -308,9 +308,9 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('删除选中', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            Text('删除选中', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
             const SizedBox(height: 12),
-            Text('确定要删除选中的 ${_selectedTagIds.length} 个标签/系列吗？', style: const TextStyle(color: AppTheme.textSecondary)),
+            Text('确定要删除选中的 ${_selectedTagIds.length} 个标签/系列吗？', style: TextStyle(color: AppTheme.getTextSecondary(context))),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -369,8 +369,8 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
             child: ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.lock_outline, size: 18, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
-              title: Text('默认系列（不可修改）', style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5))),
+              leading: Icon(Icons.lock_outline, size: 18, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
+              title: Text('默认系列（不可修改）', style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5))),
             ),
           ),
       ],
@@ -399,7 +399,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(tag.type == Tag.typeCustom ? '修改标签' : '修改系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              Text(tag.type == Tag.typeCustom ? '修改标签' : '修改系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
               const SizedBox(height: 16),
               TextField(
                 controller: controller,
@@ -447,9 +447,9 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(tag.type == Tag.typeCustom ? '删除标签' : '删除系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              Text(tag.type == Tag.typeCustom ? '删除标签' : '删除系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
               const SizedBox(height: 12),
-              Text('确定要删除"${tag.displayName ?? tag.name}"吗？', style: TextStyle(color: AppTheme.textSecondary)),
+              Text('确定要删除"${tag.displayName ?? tag.name}"吗？', style: TextStyle(color: AppTheme.getTextSecondary(context))),
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -488,7 +488,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(type == Tag.typeCustom ? '添加标签' : '添加系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              Text(type == Tag.typeCustom ? '添加标签' : '添加系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
               const SizedBox(height: 16),
               TextField(
                 controller: controller,

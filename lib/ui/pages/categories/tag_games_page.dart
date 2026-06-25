@@ -45,8 +45,8 @@ class _TagGamesPageState extends ConsumerState<TagGamesPage> {
                   title: Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.arrow_back,
-                            size: 20, color: AppTheme.textSecondary),
+                        icon: Icon(Icons.arrow_back,
+                            size: 20, color: AppTheme.getTextSecondary(context)),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: 8),
@@ -54,7 +54,7 @@ class _TagGamesPageState extends ConsumerState<TagGamesPage> {
                           style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
-                              color: AppTheme.textPrimary)),
+                              color: AppTheme.getTextPrimary(context))),
                     ],
                   ),
                 ),
@@ -72,12 +72,12 @@ class _TagGamesPageState extends ConsumerState<TagGamesPage> {
                               children: [
                                 Icon(Icons.label_off_outlined,
                                     size: 64,
-                                    color: AppTheme.textSecondary.withValues(alpha: 0.3)),
+                                    color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
                                 const SizedBox(height: 16),
                                 Text('该标签下暂无游戏',
                                     style: TextStyle(
                                         color:
-                                            AppTheme.textSecondary.withValues(alpha: 0.6),
+                                            AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
                                         fontSize: 16)),
                               ],
                             ),

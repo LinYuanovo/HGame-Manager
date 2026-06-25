@@ -40,8 +40,8 @@ class _ClearedGamesPageState extends ConsumerState<ClearedGamesPage> {
                   title: Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.arrow_back,
-                            size: 20, color: AppTheme.textSecondary),
+                        icon: Icon(Icons.arrow_back,
+                            size: 20, color: AppTheme.getTextSecondary(context)),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: 8),
@@ -51,7 +51,7 @@ class _ClearedGamesPageState extends ConsumerState<ClearedGamesPage> {
                           style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
-                              color: AppTheme.textPrimary)),
+                              color: AppTheme.getTextPrimary(context))),
                     ],
                   ),
                 ),
@@ -67,18 +67,18 @@ class _ClearedGamesPageState extends ConsumerState<ClearedGamesPage> {
                             children: [
                               Icon(Icons.emoji_events_outlined,
                                   size: 64,
-                                  color: AppTheme.textSecondary.withValues(alpha: 0.3)),
+                                  color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
                               const SizedBox(height: 16),
                               Text('暂无已通关游戏',
                                   style: TextStyle(
                                       color:
-                                          AppTheme.textSecondary.withValues(alpha: 0.6),
+                                          AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
                                       fontSize: 16)),
                               const SizedBox(height: 8),
                               Text('右键点击游戏选择"标记已通关"',
                                   style: TextStyle(
                                       color:
-                                          AppTheme.textSecondary.withValues(alpha: 0.4),
+                                          AppTheme.getTextSecondary(context).withValues(alpha: 0.4),
                                       fontSize: 13)),
                             ],
                           ),

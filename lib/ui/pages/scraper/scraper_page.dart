@@ -227,12 +227,12 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       child: GlassContainer(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         color: AppTheme.glassFillColor,
-        border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.15)),
+        border: Border.all(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.15)),
         enableBlur: false,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('线程数', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w500)),
+            Text('线程数', style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 13, fontWeight: FontWeight.w500)),
             Row(
               children: [
                 _buildThreadButton(-1),
@@ -276,13 +276,13 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       child: GlassContainer(
         padding: const EdgeInsets.all(16),
         color: AppTheme.glassFillColor,
-        border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.15)),
+        border: Border.all(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.15)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('统计信息', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w600)),
+            Text('统计信息', style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 13, fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
-            _StatRow(label: '已扫描', value: '${_stats.total}', color: AppTheme.textPrimary),
+            _StatRow(label: '已扫描', value: '${_stats.total}', color: AppTheme.getTextPrimary(context)),
             const SizedBox(height: 8),
             _StatRow(label: '待处理', value: '${_stats.pending}', color: Colors.orange),
             const SizedBox(height: 8),
@@ -321,10 +321,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             children: [
               Icon(Icons.list_alt_outlined, color: AppTheme.primaryColor, size: 20),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 '待刮削游戏',
                 style: TextStyle(
-                  color: AppTheme.textPrimary,
+                  color: AppTheme.getTextPrimary(context),
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
@@ -333,7 +333,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               Text(
                 '共 ${_gameItems.length} 个',
                 style: TextStyle(
-                  color: AppTheme.textSecondary,
+                  color: AppTheme.getTextSecondary(context),
                   fontSize: 13,
                 ),
               ),
@@ -358,7 +358,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               borderRadius: BorderRadius.circular(3),
               child: LinearProgressIndicator(
                 value: _gameItems.isEmpty ? 0 : _gameItems.where((i) => i.progress >= 1).length / _gameItems.length,
-                backgroundColor: AppTheme.textSecondary.withValues(alpha: 0.1),
+                backgroundColor: AppTheme.getTextSecondary(context).withValues(alpha: 0.1),
                 valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
                 minHeight: 6,
               ),
@@ -372,17 +372,17 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.cloud_off_outlined, size: 48, color: AppTheme.textSecondary.withValues(alpha: 0.3)),
+                        Icon(Icons.cloud_off_outlined, size: 48, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
                         const SizedBox(height: 12),
-                        Text('暂无待刮削游戏', style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5), fontSize: 14)),
+                        Text('暂无待刮削游戏', style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5), fontSize: 14)),
                         const SizedBox(height: 8),
-                        Text('点击左侧"扫描游戏库"开始', style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.3), fontSize: 12)),
+                        Text('点击左侧"扫描游戏库"开始', style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3), fontSize: 12)),
                       ],
                     ),
                   )
                 : ListView.separated(
                     itemCount: _gameItems.length,
-                    separatorBuilder: (_, __) => Divider(height: 1, color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                    separatorBuilder: (_, __) => Divider(height: 1, color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
                     itemBuilder: (_, index) => _buildGameListItem(_gameItems[index]),
                   ),
           ),
@@ -396,7 +396,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       '成功' => AppTheme.successColor,
       '失败' || '刮削失败' => AppTheme.errorColor,
       '刮削中' => AppTheme.primaryColor,
-      _ => AppTheme.textSecondary,
+      _ => AppTheme.getTextSecondary(context),
     };
 
     return Padding(
@@ -410,14 +410,14 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               children: [
                 Text(
                   _stripVersionFromTitle(item.game.title ?? path.basename(item.game.path), item.game.version),
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   item.game.sourceUrl ?? '',
-                  style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                  style: TextStyle(fontSize: 11, color: AppTheme.getTextSecondary(context)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -432,7 +432,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 borderRadius: BorderRadius.circular(3),
                 child: LinearProgressIndicator(
                   value: item.progress,
-                  backgroundColor: AppTheme.textSecondary.withValues(alpha: 0.1),
+                  backgroundColor: AppTheme.getTextSecondary(context).withValues(alpha: 0.1),
                   valueColor: AlwaysStoppedAnimation(statusColor),
                   minHeight: 6,
                 ),
@@ -460,7 +460,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             width: 32,
             child: IconButton(
               icon: const Icon(Icons.edit_outlined, size: 14),
-              color: AppTheme.textSecondary,
+              color: AppTheme.getTextSecondary(context),
               tooltip: '编辑来源',
               onPressed: () => _editSourceUrl(item),
             ),
@@ -480,10 +480,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             children: [
               Icon(Icons.terminal_outlined, color: AppTheme.primaryColor, size: 20),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 '运行日志',
                 style: TextStyle(
-                  color: AppTheme.textPrimary,
+                  color: AppTheme.getTextPrimary(context),
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
@@ -493,7 +493,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 onPressed: () => setState(() => _logs.clear()),
                 icon: const Icon(Icons.delete_sweep, size: 16),
                 label: const Text('清空'),
-                style: TextButton.styleFrom(foregroundColor: AppTheme.textSecondary),
+                style: TextButton.styleFrom(foregroundColor: AppTheme.getTextSecondary(context)),
               ),
             ],
           ),
@@ -503,7 +503,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           Expanded(
             child: GlassContainer(
               color: Colors.black.withValues(alpha: 0.04),
-              border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+              border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
               enableBlur: false,
               padding: const EdgeInsets.all(12),
               child: _logs.isEmpty
@@ -511,9 +511,9 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.nights_stay_outlined, size: 40, color: AppTheme.textSecondary.withValues(alpha: 0.25)),
+                          Icon(Icons.nights_stay_outlined, size: 40, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.25)),
                           const SizedBox(height: 8),
-                          Text('暂无日志', style: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.4), fontSize: 13)),
+                          Text('暂无日志', style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.4), fontSize: 13)),
                         ],
                       ),
                     )
@@ -529,7 +529,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                             log,
                             style: TextStyle(
                               fontSize: 11.5,
-                              color: isError ? AppTheme.errorColor : isSuccess ? AppTheme.successColor : AppTheme.textPrimary,
+                              color: isError ? AppTheme.errorColor : isSuccess ? AppTheme.successColor : AppTheme.getTextPrimary(context),
                             ),
                           ),
                         );
@@ -1037,7 +1037,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('编辑来源链接', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              Text('编辑来源链接', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
               const SizedBox(height: 16),
               TextField(
                 controller: controller,
@@ -1108,7 +1108,7 @@ class _StatRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+        Text(label, style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 12)),
         Text(value, style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w700)),
       ],
     );

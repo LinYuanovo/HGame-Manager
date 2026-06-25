@@ -28,10 +28,10 @@ class _PlayedPageState extends ConsumerState<PlayedPage> {
         GlassAppBar(
           title: Text(
             _selectedGames.isNotEmpty ? '已选 ${_selectedGames.length} 项' : '已玩',
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary),
+                color: AppTheme.getTextPrimary(context)),
           ),
         ),
         Expanded(

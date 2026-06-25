@@ -34,11 +34,11 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
     return Column(
       children: [
         GlassAppBar(
-          title: const Text('收藏',
+          title: Text('收藏',
               style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary)),
+                  color: AppTheme.getTextPrimary(context))),
         ),
         GlassTabBar(
           controller: _tabController,

@@ -104,19 +104,19 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                 Expanded(
                   child: Text(
                     '云端备份 - ${widget.game.title ?? "未知游戏"}',
-                    style: const TextStyle(color: AppTheme.textPrimary, fontSize: 16),
+                    style: TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 16),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh, size: 20),
-                  color: AppTheme.textSecondary,
+                  color: AppTheme.getTextSecondary(context),
                   onPressed: _loadCloudBackups,
                   tooltip: '刷新',
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, size: 20),
-                  color: AppTheme.textSecondary,
+                  color: AppTheme.getTextSecondary(context),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
@@ -134,7 +134,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                           child: Center(
                             child: Text(
                               _matchedFolder == null ? '未找到匹配的云端备份文件夹' : '暂无云端备份',
-                              style: const TextStyle(color: AppTheme.textSecondary),
+                              style: TextStyle(color: AppTheme.getTextSecondary(context)),
                             ),
                           ),
                         )
@@ -142,12 +142,12 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                           child: DataTable(
                             columnSpacing: 32,
                             horizontalMargin: 12,
-                            headingTextStyle: const TextStyle(
-                              color: AppTheme.textPrimary,
+                            headingTextStyle: TextStyle(
+                              color: AppTheme.getTextPrimary(context),
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                             ),
-                            dataTextStyle: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                            dataTextStyle: TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 13),
                             columns: const [
                               DataColumn(label: Text('名称')),
                               DataColumn(label: Text('大小'), numeric: true),
@@ -307,9 +307,9 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('删除云端备份', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              Text('删除云端备份', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
               const SizedBox(height: 12),
-              Text('确定要删除云端备份 "${file.name}" 吗？', style: const TextStyle(color: AppTheme.textSecondary)),
+              Text('确定要删除云端备份 "${file.name}" 吗？', style: TextStyle(color: AppTheme.getTextSecondary(context))),
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,

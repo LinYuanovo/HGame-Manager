@@ -37,8 +37,7 @@ class _GamesPageState extends ConsumerState<GamesPage> {
           title: const Text('游戏库',
               style: TextStyle(
                   fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary)),
+                  fontWeight: FontWeight.w600)),
           actions: [
             IconButton(
               icon: Icon(Icons.add_circle_outline,
@@ -86,7 +85,7 @@ class _GamesPageState extends ConsumerState<GamesPage> {
                     ),
                   )
                 : IconButton(
-                    icon: Icon(Icons.refresh, color: AppTheme.textSecondary, size: 20),
+                    icon: Icon(Icons.refresh, size: 20),
                     tooltip: '刷新',
                     onPressed: () async {
                       setState(() => _isRefreshing = true);
@@ -812,7 +811,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('批量添加游戏', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            Text('批量添加游戏', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -822,13 +821,13 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                     decoration: BoxDecoration(
                       color: AppTheme.surfaceColor.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                      border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.2)),
+                      border: Border.all(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.2)),
                     ),
                     child: Text(
                       _parentPath ?? '未选择文件夹',
                       style: TextStyle(
                         fontSize: 13,
-                        color: _parentPath != null ? AppTheme.textPrimary : AppTheme.textSecondary,
+                        color: _parentPath != null ? AppTheme.getTextPrimary(context) : AppTheme.getTextSecondary(context),
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -861,7 +860,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                 child: Center(
                   child: Text(
                     _parentPath != null ? '未找到子文件夹' : '选择一个包含游戏子文件夹的目录',
-                    style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+                    style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 14),
                   ),
                 ),
               )
@@ -870,7 +869,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                 children: [
                   Text(
                     '找到 ${_items.length} 个文件夹，已选 ${_items.where((i) => i.selected).length} 个',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                    style: TextStyle(fontSize: 13, color: AppTheme.getTextSecondary(context)),
                   ),
                   const Spacer(),
                   TextButton(
@@ -897,7 +896,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                   decoration: BoxDecoration(
                     color: AppTheme.surfaceColor.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                    border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.15)),
+                    border: Border.all(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.15)),
                   ),
                   child: ListView.builder(
                     itemCount: _importing ? _items.where((i) => i.selected).length : _items.length,
@@ -915,7 +914,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: item.source == _BatchScrapeSource.none
-                                        ? AppTheme.textSecondary.withValues(alpha: 0.1)
+                                        ? AppTheme.getTextSecondary(context).withValues(alpha: 0.1)
                                         : AppTheme.primaryColor.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
@@ -928,7 +927,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: item.source == _BatchScrapeSource.none
-                                          ? AppTheme.textSecondary
+                                          ? AppTheme.getTextSecondary(context)
                                           : AppTheme.primaryColor,
                                       fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null,
                                     ),
@@ -941,7 +940,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                                 width: 220,
                                 child: Text(
                                   name,
-                                  style: TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
+                                  style: TextStyle(fontSize: 13, color: AppTheme.getTextPrimary(context), fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -952,7 +951,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                                     Flexible(
                                       child: Text(
                                         item.status,
-                                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
+                                        style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context), fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
@@ -964,7 +963,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                                           borderRadius: BorderRadius.circular(3),
                                           child: LinearProgressIndicator(
                                             value: item.progress,
-                                            backgroundColor: AppTheme.textSecondary.withValues(alpha: 0.1),
+                                            backgroundColor: AppTheme.getTextSecondary(context).withValues(alpha: 0.1),
                                             valueColor: AlwaysStoppedAnimation(
                                               item.progress >= 1.0 ? AppTheme.successColor : AppTheme.primaryColor,
                                             ),
@@ -1000,19 +999,19 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                               decoration: BoxDecoration(
                                 color: AppTheme.surfaceColor.withValues(alpha: 0.8),
                                 borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
-                                border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+                                border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.5)),
                               ),
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<_BatchScrapeSource>(
                                   value: item.source,
                                   isExpanded: true,
                                   isDense: true,
-                                  icon: Icon(Icons.arrow_drop_down, size: 18, color: AppTheme.textSecondary),
+                                  icon: Icon(Icons.arrow_drop_down, size: 18, color: AppTheme.getTextSecondary(context)),
                                   borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
                                   dropdownColor: AppTheme.surfaceColor,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: AppTheme.textPrimary,
+                                    color: AppTheme.getTextPrimary(context),
                                     fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null,
                                   ),
                                   items: const [
@@ -1033,7 +1032,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                               width: 220,
                               child: Text(
                                 name,
-                                style: TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
+                                style: TextStyle(fontSize: 13, color: AppTheme.getTextPrimary(context), fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -1044,11 +1043,11 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                                 style: TextStyle(fontSize: 13, fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
                                 decoration: InputDecoration(
                                   hintText: '搜索关键词',
-                                  hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                                  hintStyle: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(4),
-                                    borderSide: BorderSide(color: AppTheme.textSecondary.withValues(alpha: 0.3)),
+                                    borderSide: BorderSide(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
                                   ),
                                   isDense: true,
                                 ),
@@ -1613,12 +1612,12 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               '添加单个游戏',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
+                color: AppTheme.getTextPrimary(context),
               ),
             ),
             const SizedBox(height: 16),
@@ -1650,13 +1649,13 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                     decoration: BoxDecoration(
                       color: AppTheme.surfaceColor.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                      border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.2)),
+                      border: Border.all(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.2)),
                     ),
                     child: Text(
                       _folderPath ?? '未选择文件夹',
                       style: TextStyle(
                         fontSize: 13,
-                        color: _folderPath != null ? AppTheme.textPrimary : AppTheme.textSecondary,
+                        color: _folderPath != null ? AppTheme.getTextPrimary(context) : AppTheme.getTextSecondary(context),
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1687,7 +1686,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                         hintText: _source == ImportSource.dlsite
                             ? '输入DLsite ID (如 RJ123456)，留空则自动按游戏名称搜索'
                             : '输入Steam App ID或商店链接，留空按名称搜索',
-                        hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                        hintStyle: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
                         ),
@@ -1721,16 +1720,16 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                     fontSize: 12,
                     color: _statusText.contains('失败') || _statusText.contains('无效')
                         ? AppTheme.errorColor
-                        : AppTheme.textSecondary,
+                        : AppTheme.getTextSecondary(context),
                   ),
                 ),
               ),
 
             // Search results
             if (_showSearchResults && _searchResults.isNotEmpty) ...[
-              const Text(
+              Text(
                 '选择游戏:',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textPrimary),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.getTextPrimary(context)),
               ),
               const SizedBox(height: 8),
               Expanded(
@@ -1738,7 +1737,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                   decoration: BoxDecoration(
                     color: AppTheme.surfaceColor.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                    border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.15)),
+                    border: Border.all(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.15)),
                   ),
                   child: ListView.builder(
                     itemCount: _searchResults.length,
@@ -1827,7 +1826,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
           border: Border.all(
-            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary.withValues(alpha: 0.3),
+            color: isSelected ? AppTheme.primaryColor : AppTheme.getTextSecondary(context).withValues(alpha: 0.3),
           ),
         ),
         child: Text(
@@ -1835,7 +1834,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+            color: isSelected ? AppTheme.primaryColor : AppTheme.getTextSecondary(context),
           ),
         ),
       ),
@@ -1860,7 +1859,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
               placeholder: (context, url) => const Center(
                 child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
               ),
-              errorWidget: (context, url, error) => const Icon(Icons.gamepad, color: AppTheme.textSecondary),
+              errorWidget: (context, url, error) => Icon(Icons.gamepad, color: AppTheme.getTextSecondary(context)),
             ),
           ),
         ),
@@ -1869,14 +1868,14 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
+            color: isSelected ? AppTheme.primaryColor : AppTheme.getTextPrimary(context),
           ),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(
           result.id,
-          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+          style: TextStyle(fontSize: 11, color: AppTheme.getTextSecondary(context)),
         ),
         selected: isSelected,
         selectedTileColor: AppTheme.primaryColor.withValues(alpha: 0.1),
@@ -1900,9 +1899,9 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                     placeholder: (context, url) => const Center(
                       child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
                     ),
-                    errorWidget: (context, url, error) => const Icon(Icons.gamepad, color: AppTheme.textSecondary),
+                    errorWidget: (context, url, error) => Icon(Icons.gamepad, color: AppTheme.getTextSecondary(context)),
                   )
-                : const Icon(Icons.gamepad, color: AppTheme.textSecondary),
+                : Icon(Icons.gamepad, color: AppTheme.getTextSecondary(context)),
           ),
         ),
         title: Text(
@@ -1910,14 +1909,14 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
+            color: isSelected ? AppTheme.primaryColor : AppTheme.getTextPrimary(context),
           ),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(
           'Steam App ID: ${result.id}',
-          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+          style: TextStyle(fontSize: 11, color: AppTheme.getTextSecondary(context)),
         ),
         selected: isSelected,
         selectedTileColor: AppTheme.primaryColor.withValues(alpha: 0.1),

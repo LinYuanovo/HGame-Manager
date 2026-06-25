@@ -283,7 +283,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     return PopScope(
       canPop: !_isImageViewerOpen,
       child: Dialog(
-        backgroundColor: Colors.white,
+        backgroundColor: AppTheme.getSurfaceColor(context),
         insetPadding: const EdgeInsets.all(24),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
@@ -293,11 +293,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           height: dialogHeight,
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.getSurfaceColor(context),
             borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.black.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.15),
                 blurRadius: 30,
                 spreadRadius: 2,
                 offset: const Offset(0, 8),
@@ -326,7 +326,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                           const Spacer(),
                           Text(
                             '${(_downloadProgress * 100).round()}%',
-                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                            style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
                           ),
                         ],
                       ),
@@ -344,9 +344,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   ),
                 ),
               _buildHeader(),
-              Container(height: 1, color: AppTheme.borderColor),
+              Container(height: 1, color: AppTheme.getBorderColor(context)),
               Expanded(child: _buildBody()),
-              if (_isEditing) Container(height: 1, color: AppTheme.borderColor),
+              if (_isEditing) Container(height: 1, color: AppTheme.getBorderColor(context)),
               if (_isEditing) _buildEditBar(),
             ],
           ),
@@ -372,7 +372,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           Expanded(
             child: Text(
               _isEditing ? (_titleController.text.isEmpty ? '游戏详情' : _titleController.text) : (_currentGame.title ?? '游戏详情'),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context)),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -383,21 +383,21 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               height: 36,
               child: TextField(
                 controller: _quickScrapeController,
-                style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                style: TextStyle(fontSize: 13, color: AppTheme.getTextPrimary(context)),
                 decoration: InputDecoration(
                   hintText: '输入链接/id/关键词回车刮削',
-                  hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+                  hintStyle: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   isDense: true,
                   filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.6),
+                  fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.6),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                    borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                    borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -433,7 +433,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                                 color: _quickScrapeChannel == 'auto' ? AppTheme.primaryColor.withValues(alpha: 0.2) : Colors.transparent,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text('自动', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'auto' ? AppTheme.primaryColor : AppTheme.textSecondary)),
+                              child: Text('自动', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'auto' ? AppTheme.primaryColor : AppTheme.getTextSecondary(context))),
                             ),
                           ),
                           GestureDetector(
@@ -447,7 +447,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                                 color: _quickScrapeChannel == 'steam' ? AppTheme.primaryColor.withValues(alpha: 0.2) : Colors.transparent,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text('Steam', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'steam' ? AppTheme.primaryColor : AppTheme.textSecondary)),
+                              child: Text('Steam', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'steam' ? AppTheme.primaryColor : AppTheme.getTextSecondary(context))),
                             ),
                           ),
                           GestureDetector(
@@ -461,7 +461,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                                 color: _quickScrapeChannel == 'dlsite' ? AppTheme.primaryColor.withValues(alpha: 0.2) : Colors.transparent,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text('DLsite', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'dlsite' ? AppTheme.primaryColor : AppTheme.textSecondary)),
+                              child: Text('DLsite', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'dlsite' ? AppTheme.primaryColor : AppTheme.getTextSecondary(context))),
                             ),
                           ),
                         ],
@@ -475,7 +475,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             _quickScrapeController.clear();
                             setState(() {});
                           },
-                          child: Icon(Icons.close, size: 16, color: AppTheme.textSecondary),
+                          child: Icon(Icons.close, size: 16, color: AppTheme.getTextSecondary(context)),
                         )
                       : null,
                 ),
@@ -492,8 +492,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 icon: _isRescraping
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                     : Icon(Icons.refresh, size: 20, color: _currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty
-                        ? AppTheme.textPrimary
-                        : AppTheme.textPrimary.withValues(alpha: 0.3)),
+                        ? AppTheme.getTextPrimary(context)
+                        : AppTheme.getTextPrimary(context).withValues(alpha: 0.3)),
                 tooltip: '重新刮削',
                 onPressed: _currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty && !_isRescraping
                     ? _rescrapeGame
@@ -501,12 +501,12 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               ),
             ),
             IconButton(
-              icon: Icon(Icons.edit_outlined, size: 20, color: AppTheme.textPrimary),
+              icon: Icon(Icons.edit_outlined, size: 20, color: AppTheme.getTextPrimary(context)),
               tooltip: '编辑',
               onPressed: () => setState(() => _isEditing = true),
             ),
             IconButton(
-              icon: Icon(Icons.close, size: 22, color: AppTheme.textPrimary),
+              icon: Icon(Icons.close, size: 22, color: AppTheme.getTextPrimary(context)),
               tooltip: '关闭 (ESC)',
               onPressed: () => Navigator.of(context).pop(),
             ),
@@ -522,7 +522,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         SizedBox(width: 320, child: _buildLeftPanel()),
         Container(
           width: 1,
-          color: AppTheme.borderColor,
+          color: AppTheme.getBorderColor(context),
         ),
         Expanded(child: _buildContentPanel()),
       ],
@@ -718,16 +718,16 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           Container(
             height: 200,
             decoration: BoxDecoration(
-              color: AppTheme.backgroundColor.withValues(alpha: 0.3),
+              color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
             ),
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.image_not_supported_outlined, size: 48, color: AppTheme.textPrimary.withValues(alpha: 0.3)),
+                  Icon(Icons.image_not_supported_outlined, size: 48, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.3)),
                   const SizedBox(height: 8),
-                  Text('暂无图片', style: TextStyle(color: AppTheme.textPrimary.withValues(alpha: 0.5), fontSize: 13)),
+                  Text('暂无图片', style: TextStyle(color: AppTheme.getTextPrimary(context).withValues(alpha: 0.5), fontSize: 13)),
                 ],
               ),
             ),
@@ -739,7 +739,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               height: 200,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
               ),
               child: Stack(
                 fit: StackFit.expand,
@@ -750,8 +750,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       File(images[_currentImageIndex].imagePath),
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
-                        color: AppTheme.backgroundColor.withValues(alpha: 0.3),
-                        child: Center(child: Icon(Icons.broken_image, size: 36, color: AppTheme.textPrimary.withValues(alpha: 0.3))),
+                        color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
+                        child: Center(child: Icon(Icons.broken_image, size: 36, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.3))),
                       ),
                     ),
                   ),
@@ -876,9 +876,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.4),
+        color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.2)),
+        border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -935,18 +935,18 @@ if (_isEditing) ...[
   Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const Icon(Icons.folder_outlined, size: 15, color: AppTheme.textPrimary),
+      Icon(Icons.folder_outlined, size: 15, color: AppTheme.getTextPrimary(context)),
       const SizedBox(width: 8),
-      const Text('路径:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+      Text('路径:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
       const SizedBox(width: 6),
       Expanded(
         child: TextField(
           controller: _pathController,
           maxLines: 3,
-          style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+          style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.5),
+            fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
             contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             isDense: true,
@@ -966,17 +966,17 @@ if (_isEditing) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.tag, size: 15, color: AppTheme.textPrimary),
+                Icon(Icons.tag, size: 15, color: AppTheme.getTextPrimary(context)),
                 const SizedBox(width: 8),
-                const Text('版本:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+                Text('版本:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
                 const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
                     controller: _versionController,
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+                    style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.5),
+                      fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       isDense: true,
@@ -989,17 +989,17 @@ if (_isEditing) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.business, size: 15, color: AppTheme.textPrimary),
+                Icon(Icons.business, size: 15, color: AppTheme.getTextPrimary(context)),
                 const SizedBox(width: 8),
-                const Text('厂商:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+                Text('厂商:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
                 const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
                     controller: TextEditingController(text: _currentGame.maker ?? ''),
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+                    style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.5),
+                      fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       isDense: true,
@@ -1021,7 +1021,7 @@ if (_isEditing) ...[
             icon: _currentGame.isPlayed ? Icons.check_circle : Icons.circle_outlined,
             label: '状态',
             value: _currentGame.isPlayed ? '已游玩 (${_currentGame.playCount}次)' : '未游玩',
-            valueColor: _currentGame.isPlayed ? AppTheme.successColor : AppTheme.textPrimary,
+            valueColor: _currentGame.isPlayed ? AppTheme.successColor : AppTheme.getTextPrimary(context),
           ),
           if (_currentGame.lastPlayedTime != null) ...[
             const SizedBox(height: 10),
@@ -1032,17 +1032,17 @@ if (_isEditing) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.link, size: 15, color: AppTheme.textPrimary),
+                Icon(Icons.link, size: 15, color: AppTheme.getTextPrimary(context)),
                 const SizedBox(width: 8),
-                const Text('来源:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+                Text('来源:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
                 const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
                     controller: _sourceUrlController,
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+                    style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.5),
+                      fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       isDense: true,
@@ -1056,9 +1056,9 @@ if (_isEditing) ...[
             const SizedBox(height: 10),
             Row(
               children: [
-                const Icon(Icons.link, size: 15, color: AppTheme.textPrimary),
+                Icon(Icons.link, size: 15, color: AppTheme.getTextPrimary(context)),
                 const SizedBox(width: 8),
-                const Text('来源:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+                Text('来源:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
                 const SizedBox(width: 6),
                 ElevatedButton.icon(
                   onPressed: () async {
@@ -1085,7 +1085,7 @@ if (_isEditing) ...[
           ],
           if (_isEditing) ...[
             const SizedBox(height: 12),
-            Text('启动器路径', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+            Text('启动器路径', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context))),
             const SizedBox(height: 4),
             Row(
               children: [
@@ -1094,15 +1094,15 @@ if (_isEditing) ...[
                     controller: _gameLauncherController,
                     decoration: InputDecoration(
                       hintText: '留空则自动检测',
-                      hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+                      hintStyle: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                        borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                        borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
                       ),
                       isDense: true,
                     ),
@@ -1139,9 +1139,9 @@ if (_isEditing) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.folder_special, size: 15, color: AppTheme.textPrimary),
+                Icon(Icons.folder_special, size: 15, color: AppTheme.getTextPrimary(context)),
                 const SizedBox(width: 8),
-                const Text('存档:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+                Text('存档:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
                 const SizedBox(width: 6),
                 Expanded(
                   child: GestureDetector(
@@ -1150,7 +1150,7 @@ if (_isEditing) ...[
                       _currentGame.savePath ?? '点击设置存档路径',
                       style: TextStyle(
                         fontSize: 12,
-                        color: _currentGame.savePath != null ? AppTheme.primaryColor : AppTheme.textSecondary.withValues(alpha: 0.5),
+                        color: _currentGame.savePath != null ? AppTheme.primaryColor : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
                         decoration: _currentGame.savePath != null ? TextDecoration.underline : null,
                       ),
                       maxLines: 2,
@@ -1169,18 +1169,18 @@ if (_isEditing) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.download, size: 15, color: AppTheme.textPrimary),
+                Icon(Icons.download, size: 15, color: AppTheme.getTextPrimary(context)),
                 const SizedBox(width: 8),
-                const Text('下载:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+                Text('下载:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
                 const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
                     controller: _downloadUrlController,
                     maxLines: 3,
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+                    style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.5),
+                      fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                       isDense: true,
@@ -1253,7 +1253,7 @@ if (_isEditing) ...[
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('添加标签', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              Text('添加标签', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
               const SizedBox(height: 16),
               TextField(
                 controller: controller,
@@ -1300,10 +1300,10 @@ if (_isEditing) ...[
           if (_isEditing)
             TextField(
               controller: _titleController,
-              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.textPrimary, height: 1.4),
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context), height: 1.4),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.5),
+                fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 hintText: '输入游戏标题',
@@ -1312,14 +1312,14 @@ if (_isEditing) ...[
             )
           else
             SelectableText(
-              _currentGame.title ?? '未命名游戏', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.textPrimary, height: 1.4),
+              _currentGame.title ?? '未命名游戏', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context), height: 1.4),
             ),
 
           if (!_isEditing && _currentGame.maker != null && _currentGame.maker!.isNotEmpty) ...[
             const SizedBox(height: 6),
             Row(
               children: [
-                Icon(Icons.business, size: 15, color: AppTheme.textSecondary),
+                Icon(Icons.business, size: 15, color: AppTheme.getTextSecondary(context)),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Wrap(
@@ -1426,7 +1426,7 @@ if (_isEditing) ...[
           const SizedBox(height: 32),
           Container(
             height: 1,
-            color: Colors.white.withValues(alpha: 0.3),
+            color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.3),
           ),
           const SizedBox(height: 16),
 
@@ -1478,7 +1478,7 @@ if (_isEditing) ...[
           children: [
             Icon(icon, size: 18, color: AppTheme.primaryColor),
             const SizedBox(width: 8),
-            Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+            Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context))),
           ],
         ),
         const SizedBox(height: 14),
@@ -1501,10 +1501,10 @@ if (_isEditing) ...[
                 child: TextField(
                   controller: title == '特性' ? _featuresController : _changelogController,
                   maxLines: null,
-                  style: const TextStyle(fontSize: 14, height: 1.7, color: AppTheme.textPrimary),
+                  style: TextStyle(fontSize: 14, height: 1.7, color: AppTheme.getTextPrimary(context)),
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.5),
+                    fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                     contentPadding: const EdgeInsets.all(16),
                   ),
@@ -1524,7 +1524,7 @@ if (_isEditing) ...[
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text('插入图片', style: TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+                    Text('插入图片', style: TextStyle(fontSize: 10, color: AppTheme.getTextSecondary(context))),
                   ],
                 ),
               ],
@@ -1645,7 +1645,7 @@ if (_isEditing) ...[
   Widget _buildHtmlContent(String html, double fontSize) {
     final blocks = _parseHtmlToBlocks(html, '');
     if (blocks.isEmpty) {
-      return SelectableText('暂无信息', style: TextStyle(fontSize: fontSize, color: AppTheme.textPrimary));
+      return SelectableText('暂无信息', style: TextStyle(fontSize: fontSize, color: AppTheme.getTextPrimary(context)));
     }
 
     return Column(
@@ -1657,7 +1657,7 @@ if (_isEditing) ...[
               padding: const EdgeInsets.only(top: 12, bottom: 4),
               child: SelectableText(
                 block.text,
-                style: TextStyle(fontSize: fontSize + 2, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                style: TextStyle(fontSize: fontSize + 2, fontWeight: FontWeight.w700, color: AppTheme.getTextPrimary(context)),
               ),
             );
           case _ContentBlockType.text:
@@ -1665,7 +1665,7 @@ if (_isEditing) ...[
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: SelectableText(
                 block.text,
-                style: TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.textPrimary),
+                style: TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getTextPrimary(context)),
               ),
             );
           case _ContentBlockType.imageWithText:
@@ -1687,7 +1687,7 @@ if (_isEditing) ...[
                         Expanded(
                           child: SelectableText(
                             block.text,
-                            style: TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.textPrimary),
+                            style: TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getTextPrimary(context)),
                           ),
                         ),
                       ],
@@ -1831,8 +1831,8 @@ if (_isEditing) ...[
         spans.add(TextSpan(
           text: '$line\n',
           style: isHeading
-              ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)
-              : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.textPrimary),
+              ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.getTextPrimary(context))
+              : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getTextPrimary(context)),
         ));
       }
       return SelectableText.rich(TextSpan(children: spans));
@@ -1886,8 +1886,8 @@ if (_isEditing) ...[
           SelectableText(
             line,
             style: isHeading
-                ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)
-                : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.textPrimary),
+                ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.getTextPrimary(context))
+                : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getTextPrimary(context)),
           ),
         );
       }
@@ -1938,9 +1938,9 @@ if (_isEditing) ...[
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.download, size: 15, color: AppTheme.textPrimary),
+            Icon(Icons.download, size: 15, color: AppTheme.getTextPrimary(context)),
             const SizedBox(width: 8),
-            const Text('下载:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+            Text('下载:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
           ],
         ),
         const SizedBox(height: 8),
@@ -2004,9 +2004,9 @@ if (_isEditing) ...[
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.vpn_key_outlined, size: 15, color: AppTheme.textPrimary),
+              Icon(Icons.vpn_key_outlined, size: 15, color: AppTheme.getTextPrimary(context)),
               const SizedBox(width: 8),
-              const Text('解压码:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+              Text('解压码:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
               const SizedBox(width: 8),
               ...decompressCodes.map((code) => Padding(
                 padding: const EdgeInsets.only(right: 6),
@@ -2089,7 +2089,7 @@ if (_isEditing) ...[
           children: [
             const Icon(Icons.photo_library_outlined, size: 18, color: AppTheme.primaryColor),
             const SizedBox(width: 8),
-            const Text('更多图片', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+            Text('更多图片', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context))),
           ],
         ),
         const SizedBox(height: 14),
@@ -2110,7 +2110,7 @@ if (_isEditing) ...[
           children: [
             const Icon(Icons.photo_library, size: 18, color: AppTheme.primaryColor),
             const SizedBox(width: 8),
-            Text('全部图片 (${images.length})', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+            Text('全部图片 (${images.length})', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context))),
           ],
         ),
         const SizedBox(height: 14),
@@ -2127,7 +2127,7 @@ if (_isEditing) ...[
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
       decoration: BoxDecoration(
-        color: AppTheme.backgroundColor.withValues(alpha: 0.05),
+        color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.05),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -2136,7 +2136,7 @@ if (_isEditing) ...[
             onPressed: () => setState(() => _isEditing = false),
             icon: const Icon(Icons.close, size: 18),
             label: const Text('取消'),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.textPrimary),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.getTextPrimary(context)),
           ),
           const SizedBox(width: 12),
           ElevatedButton.icon(
@@ -2272,13 +2272,13 @@ if (_isEditing) ...[
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('确认修改路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                  Text('确认修改路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
                   const SizedBox(height: 16),
-                  Text('原路径: ${_currentGame.path}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                  Text('原路径: ${_currentGame.path}', style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 13)),
                   const SizedBox(height: 8),
-                  Text('新路径: $newPath', style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
+                  Text('新路径: $newPath', style: TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 13, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 12),
-                  const Text('将移动文件夹到新路径并更新数据库记录。', style: TextStyle(color: AppTheme.textSecondary)),
+                  Text('将移动文件夹到新路径并更新数据库记录。', style: TextStyle(color: AppTheme.getTextSecondary(context))),
                   const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -2439,9 +2439,9 @@ if (_isEditing) ...[
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('重新刮削', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                    Text('重新刮削', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
                     const SizedBox(height: 12),
-                    const Text('来源链接已修改，是否立即重新刮削该游戏？', style: TextStyle(color: AppTheme.textSecondary)),
+                    Text('来源链接已修改，是否立即重新刮削该游戏？', style: TextStyle(color: AppTheme.getTextSecondary(context))),
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -2610,7 +2610,7 @@ if (_isEditing) ...[
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('编辑存档路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              Text('编辑存档路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
               const SizedBox(height: 16),
               TextField(
                 controller: controller,
@@ -3364,17 +3364,17 @@ if (_isEditing) ...[
                 children: [
                   Icon(Icons.system_update, color: AppTheme.successColor, size: 22),
                   const SizedBox(width: 8),
-                  const Text('发现新版本', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                  Text('发现新版本', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
                 ],
               ),
               const SizedBox(height: 16),
-              Text('来源: ${result.siteName}', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              Text('来源: ${result.siteName}', style: TextStyle(fontSize: 13, color: AppTheme.getTextSecondary(context))),
               const SizedBox(height: 4),
-              Text('当前版本: ${_currentGame.version ?? "未知"}', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              Text('当前版本: ${_currentGame.version ?? "未知"}', style: TextStyle(fontSize: 13, color: AppTheme.getTextSecondary(context))),
               const SizedBox(height: 4),
               Text('最新版本: ${result.maxVersion}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
               const SizedBox(height: 8),
-              Text('帖子标题: ${result.postTitle}', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary), maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text('帖子标题: ${result.postTitle}', style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)), maxLines: 2, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -3513,9 +3513,9 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
               constraints: BoxConstraints(maxHeight: maxHeight),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.getSurfaceColor(context),
                 borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
                 boxShadow: [
                   BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 24, offset: const Offset(0, 4)),
                 ],
@@ -3524,11 +3524,11 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Row(
+                  Row(
                     children: [
                       Icon(Icons.comment, size: 14, color: Colors.red),
                       SizedBox(width: 6),
-                      Text('评论预览', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                      Text('评论预览', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.getTextSecondary(context))),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -3536,7 +3536,7 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
                     child: SingleChildScrollView(
                       child: Text(
                         widget.review,
-                        style: const TextStyle(fontSize: 13, height: 1.5, color: AppTheme.textPrimary),
+                        style: TextStyle(fontSize: 13, height: 1.5, color: AppTheme.getTextPrimary(context)),
                       ),
                     ),
                   ),
@@ -3622,9 +3622,9 @@ class _InfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 15, color: AppTheme.textPrimary),
+        Icon(icon, size: 15, color: AppTheme.getTextPrimary(context)),
         const SizedBox(width: 8),
-        Text('$label:', style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
+        Text('$label:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
         const SizedBox(width: 6),
         Expanded(
           child: isLink
@@ -3634,7 +3634,7 @@ class _InfoRow extends StatelessWidget {
                 )
               : SelectableText(
                   value,
-                  style: TextStyle(fontSize: 12, color: valueColor ?? AppTheme.textPrimary),
+                  style: TextStyle(fontSize: 12, color: valueColor ?? AppTheme.getTextPrimary(context)),
                   maxLines: isPath ? 2 : 1,
                 ),
         ),
@@ -3681,7 +3681,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.getSurfaceColor(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
       ),
@@ -3699,7 +3699,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                 Expanded(
                   child: Text(
                     widget.game.title ?? '未命名游戏',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context)),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -3711,7 +3711,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
               ],
             ),
             const SizedBox(height: 20),
-            const Text('评分', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+            Text('评分', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context))),
             const SizedBox(height: 8),
             Builder(
               builder: (context) {
@@ -3756,19 +3756,19 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   _rating == _rating.roundToDouble() ? '${_rating.toInt()} / 5' : '$_rating / 5',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
                 ),
               ),
             const SizedBox(height: 20),
-            const Text('评论', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+            Text('评论', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context))),
             const SizedBox(height: 8),
             TextField(
               controller: _reviewController,
               maxLines: 5,
-              style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary),
+              style: TextStyle(fontSize: 14, color: AppTheme.getTextPrimary(context)),
               decoration: InputDecoration(
                 hintText: '写下你的评论...',
-                hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+                hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
                 filled: true,
                 fillColor: Colors.grey.shade50,
                 border: OutlineInputBorder(
@@ -3802,7 +3802,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                   children: [
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('取消', style: TextStyle(color: AppTheme.textSecondary)),
+                      child: Text('取消', style: TextStyle(color: AppTheme.getTextSecondary(context))),
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton(
@@ -3944,7 +3944,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                 decoration: BoxDecoration(
                   color: AppTheme.surfaceColor.withValues(alpha: 0.95),
                   borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
-                  border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                  border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.3),
@@ -3967,7 +3967,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                                 color: Colors.transparent,
                                 alignment: Alignment.center,
                                 child: _currentIndex > 0
-                                    ? Icon(Icons.chevron_left, size: 48, color: AppTheme.textPrimary.withValues(alpha: 0.5))
+                                    ? Icon(Icons.chevron_left, size: 48, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.5))
                                     : const SizedBox.shrink(),
                               ),
                             ),
@@ -4009,7 +4009,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                                             child: Image.file(
                                               File(widget.images[_currentIndex].imagePath!),
                                               fit: BoxFit.contain,
-                                              errorBuilder: (_, __, ___) => Icon(Icons.broken_image, size: 64, color: AppTheme.textPrimary.withValues(alpha: 0.3)),
+                                              errorBuilder: (_, __, ___) => Icon(Icons.broken_image, size: 64, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.3)),
                                             ),
                                           )
                                         : const SizedBox.shrink(),
@@ -4026,7 +4026,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                                 color: Colors.transparent,
                                 alignment: Alignment.center,
                                 child: _currentIndex < widget.images.length - 1
-                                    ? Icon(Icons.chevron_right, size: 48, color: AppTheme.textPrimary.withValues(alpha: 0.5))
+                                    ? Icon(Icons.chevron_right, size: 48, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.5))
                                     : const SizedBox.shrink(),
                               ),
                             ),
@@ -4046,10 +4046,10 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                           child: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: AppTheme.backgroundColor.withValues(alpha: 0.5),
+                              color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(Icons.close, size: 22, color: AppTheme.textPrimary),
+                            child: Icon(Icons.close, size: 22, color: AppTheme.getTextPrimary(context)),
                           ),
                         ),
                       ),
@@ -4061,10 +4061,10 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppTheme.backgroundColor.withValues(alpha: 0.5),
+                          color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text('${_currentIndex + 1} / ${widget.images.length}', style: TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
+                        child: Text('${_currentIndex + 1} / ${widget.images.length}', style: TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 13)),
                       ),
                     ),
                     // Zoom percentage
@@ -4074,10 +4074,10 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppTheme.backgroundColor.withValues(alpha: 0.5),
+                          color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text('${(_scale * 100).round()}%', style: TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
+                        child: Text('${(_scale * 100).round()}%', style: TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 13)),
                       ),
                     ),
                     // Reset button
@@ -4093,7 +4093,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: AppTheme.backgroundColor.withValues(alpha: 0.5),
+                              color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text('重置', style: TextStyle(color: AppTheme.primaryColor, fontSize: 13)),
@@ -4119,7 +4119,7 @@ class _ImageSelectionDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.getSurfaceColor(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
       ),
@@ -4134,10 +4134,10 @@ class _ImageSelectionDialog extends StatelessWidget {
               children: [
                 const Icon(Icons.photo_library, color: AppTheme.primaryColor, size: 24),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Text(
                     '选择图片',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context)),
                   ),
                 ),
                 IconButton(
@@ -4147,9 +4147,9 @@ class _ImageSelectionDialog extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               '选择一张图片插入到内容中',
-              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
             ),
             const SizedBox(height: 16),
             Expanded(
@@ -4168,7 +4168,7 @@ class _ImageSelectionDialog extends StatelessWidget {
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
-                        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+                        border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(GlassConstants.radiusSmall - 1),
@@ -4176,7 +4176,7 @@ class _ImageSelectionDialog extends StatelessWidget {
                           File(image.imagePath),
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => Container(
-                            color: AppTheme.backgroundColor.withValues(alpha: 0.3),
+                            color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
                             child: const Center(child: Icon(Icons.broken_image, size: 32)),
                           ),
                         ),
