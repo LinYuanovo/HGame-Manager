@@ -74,13 +74,13 @@ class AppTheme {
   static const Color darkGlassBorderWhite = Color(0x33555577);
   static const Color darkGlassBorderBlue = Color(0x1A2563EB);
 
-  static const Color darkTextPrimary = Color(0xFFE8E8E8);
-  static const Color darkTextSecondary = Color(0xFFA0A8B4);
+  static const Color darkTextPrimary = Color(0xFFE0E0E0);
+  static const Color darkTextSecondary = Color(0xFF9CA3AF);
 
   static const Color darkBorderColor = Color(0xFF4A4A6A);
 
   // 暗黑模式下增强的主色（提高对比度）
-  static const Color darkPrimaryColor = Color(0xFF60A5FA);
+  static const Color darkPrimaryColor = Color(0xFF7DD3FC);
 
   // 主色调 - 蓝紫渐变色系
   static const Color primaryColor = Color(0xFF2563EB);
