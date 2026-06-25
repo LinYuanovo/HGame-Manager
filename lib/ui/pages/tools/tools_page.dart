@@ -126,7 +126,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
           border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.05),
+              color: AppTheme.getShadowColor(context),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
