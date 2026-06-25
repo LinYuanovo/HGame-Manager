@@ -599,12 +599,18 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   Widget _buildSortDropdown() {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final keepPlayedInGames = prefs.getBool(AppSettings.keepPlayedInGamesKey) ?? false;
+
     final sortOptions = [
       SortMode.titleAsc,
       SortMode.addedTimeDesc,
     ];
-    // 在已玩/通关页面或指定显示游玩时间排序时添加
-    if (widget.contextMenuMode == ContextMenuMode.played || widget.isClearedPage || widget.showPlayTimeSort) {
+    // 在已玩/通关页面、指定显示游玩时间排序、或开启"已玩保留库中"时添加
+    if (widget.contextMenuMode == ContextMenuMode.played || 
+        widget.isClearedPage || 
+        widget.showPlayTimeSort ||
+        keepPlayedInGames) {
       sortOptions.add(SortMode.lastPlayedTimeDesc);
     }
     final sortLabels = {
