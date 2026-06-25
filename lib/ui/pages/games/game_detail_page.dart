@@ -310,18 +310,18 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                    color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.08),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.cloud_download, size: 14, color: AppTheme.primaryColor),
+                          Icon(Icons.cloud_download, size: 14, color: AppTheme.getPrimaryColor(context)),
                           const SizedBox(width: 8),
                           Text(
                             '正在下载截图 $_downloadCurrent/$_downloadTotal',
-                            style: TextStyle(fontSize: 12, color: AppTheme.primaryColor),
+                            style: TextStyle(fontSize: 12, color: AppTheme.getPrimaryColor(context)),
                           ),
                           const Spacer(),
                           Text(
@@ -335,8 +335,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
                           value: _downloadProgress,
-                          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-                          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                          backgroundColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
+                          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.getPrimaryColor(context)),
                           minHeight: 4,
                         ),
                       ),
@@ -360,14 +360,14 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppTheme.primaryColor.withValues(alpha: 0.08), Colors.transparent],
+          colors: [AppTheme.getPrimaryColor(context).withValues(alpha: 0.08), Colors.transparent],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
       ),
       child: Row(
         children: [
-          Icon(Icons.videogame_asset, color: AppTheme.primaryColor, size: 22),
+          Icon(Icons.videogame_asset, color: AppTheme.getPrimaryColor(context), size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -401,7 +401,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.5)),
+                    borderSide: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.5)),
                   ),
                   prefixIcon: GestureDetector(
                     onTap: () {
@@ -418,7 +418,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                                   ? Icons.language
                                   : Icons.auto_fix_high,
                           size: 16,
-                          color: AppTheme.primaryColor,
+                          color: AppTheme.getPrimaryColor(context),
                         ),
                         if (_showChannelSelector) ...[
                           const SizedBox(width: 4),
@@ -430,10 +430,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: _quickScrapeChannel == 'auto' ? AppTheme.primaryColor.withValues(alpha: 0.2) : Colors.transparent,
+                                color: _quickScrapeChannel == 'auto' ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.2) : Colors.transparent,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text('自动', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'auto' ? AppTheme.primaryColor : AppTheme.textSecondary)),
+                              child: Text('自动', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'auto' ? AppTheme.getPrimaryColor(context) : AppTheme.textSecondary)),
                             ),
                           ),
                           GestureDetector(
@@ -444,10 +444,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: _quickScrapeChannel == 'steam' ? AppTheme.primaryColor.withValues(alpha: 0.2) : Colors.transparent,
+                                color: _quickScrapeChannel == 'steam' ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.2) : Colors.transparent,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text('Steam', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'steam' ? AppTheme.primaryColor : AppTheme.textSecondary)),
+                              child: Text('Steam', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'steam' ? AppTheme.getPrimaryColor(context) : AppTheme.textSecondary)),
                             ),
                           ),
                           GestureDetector(
@@ -458,10 +458,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: _quickScrapeChannel == 'dlsite' ? AppTheme.primaryColor.withValues(alpha: 0.2) : Colors.transparent,
+                                color: _quickScrapeChannel == 'dlsite' ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.2) : Colors.transparent,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text('DLsite', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'dlsite' ? AppTheme.primaryColor : AppTheme.textSecondary)),
+                              child: Text('DLsite', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'dlsite' ? AppTheme.getPrimaryColor(context) : AppTheme.textSecondary)),
                             ),
                           ),
                         ],
@@ -563,7 +563,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                         Icon(
                           _currentGame.useLocaleEmulator ? Icons.check_box : Icons.check_box_outline_blank,
                           size: 18,
-                          color: AppTheme.primaryColor,
+                          color: AppTheme.getPrimaryColor(context),
                         ),
                         const SizedBox(width: 8),
                         const Text('转区启动'),
@@ -582,7 +582,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                           context,
                           message: newValue ? '已切换为转区启动模式' : '已切换为普通启动模式',
                           icon: newValue ? Icons.language : Icons.play_arrow,
-                          iconColor: AppTheme.primaryColor,
+                          iconColor: AppTheme.getPrimaryColor(context),
                         );
                       }
                     },
@@ -677,7 +677,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _currentGame.useLocaleEmulator
                       ? AppTheme.secondaryColor
-                      : AppTheme.primaryColor,
+                      : AppTheme.getPrimaryColor(context),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
@@ -695,8 +695,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 icon: const Icon(Icons.folder_special, size: 18),
                 label: const Text('存档管理'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.primaryColor,
-                  side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                  foregroundColor: AppTheme.getPrimaryColor(context),
+                  side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
                 ),
@@ -783,8 +783,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             icon: const Icon(Icons.edit, size: 16),
             label: const Text('管理图片'),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.primaryColor,
-              side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+              foregroundColor: AppTheme.getPrimaryColor(context),
+              side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
               padding: const EdgeInsets.symmetric(vertical: 8),
             ),
           ),
@@ -1069,14 +1069,14 @@ if (_isEditing) ...[
                   icon: const Icon(Icons.open_in_new, size: 12),
                   label: const Text('来源', style: TextStyle(fontSize: 11)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                    foregroundColor: AppTheme.primaryColor,
+                    backgroundColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+                    foregroundColor: AppTheme.getPrimaryColor(context),
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6),
-                      side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                      side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
                     ),
                   ),
                 ),
@@ -1124,8 +1124,8 @@ if (_isEditing) ...[
                   icon: const Icon(Icons.folder_open, size: 16),
                   label: const Text('浏览', style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.primaryColor,
-                    side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                    foregroundColor: AppTheme.getPrimaryColor(context),
+                    side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                   ),
@@ -1150,7 +1150,7 @@ if (_isEditing) ...[
                       _currentGame.savePath ?? '点击设置存档路径',
                       style: TextStyle(
                         fontSize: 12,
-                        color: _currentGame.savePath != null ? AppTheme.primaryColor : AppTheme.textSecondary.withValues(alpha: 0.5),
+                        color: _currentGame.savePath != null ? AppTheme.getPrimaryColor(context) : AppTheme.textSecondary.withValues(alpha: 0.5),
                         decoration: _currentGame.savePath != null ? TextDecoration.underline : null,
                       ),
                       maxLines: 2,
@@ -1230,11 +1230,11 @@ if (_isEditing) ...[
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
+              border: Border.all(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.2)),
             ),
-            child: const Icon(Icons.add, size: 12, color: AppTheme.primaryColor),
+            child: Icon(Icons.add, size: 12, color: AppTheme.getPrimaryColor(context)),
           ),
         ),
       ],
@@ -1346,13 +1346,13 @@ if (_isEditing) ...[
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                            border: Border.all(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
                           ),
                           child: Text(
                             trimmedName,
-                            style: TextStyle(fontSize: 13, color: AppTheme.primaryColor, fontWeight: FontWeight.w500),
+                            style: TextStyle(fontSize: 13, color: AppTheme.getPrimaryColor(context), fontWeight: FontWeight.w500),
                           ),
                         ),
                       );
@@ -1373,14 +1373,14 @@ if (_isEditing) ...[
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(_currentGame.version ?? '',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryColor)),
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.getPrimaryColor(context))),
                         const SizedBox(width: 6),
                         GestureDetector(
                           onTap: _isCheckingUpdate ? null : _checkForUpdate,
@@ -1388,9 +1388,9 @@ if (_isEditing) ...[
                               ? SizedBox(
                                   width: 14,
                                   height: 14,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.getPrimaryColor(context)),
                                 )
-                              : Icon(Icons.system_update, size: 16, color: AppTheme.primaryColor),
+                              : Icon(Icons.system_update, size: 16, color: AppTheme.getPrimaryColor(context)),
                         ),
                       ],
                     ),
@@ -1476,7 +1476,7 @@ if (_isEditing) ...[
       children: [
         Row(
           children: [
-            Icon(icon, size: 18, color: AppTheme.primaryColor),
+            Icon(icon, size: 18, color: AppTheme.getPrimaryColor(context)),
             const SizedBox(width: 8),
             Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
           ],
@@ -1519,8 +1519,8 @@ if (_isEditing) ...[
                       icon: const Icon(Icons.add_photo_alternate, size: 20),
                       tooltip: '插入图片',
                       style: IconButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                        foregroundColor: AppTheme.primaryColor,
+                        backgroundColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+                        foregroundColor: AppTheme.getPrimaryColor(context),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1966,11 +1966,11 @@ if (_isEditing) ...[
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
+                            border: Border.all(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.2)),
                           ),
-                          child: Text(entry.key, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppTheme.primaryColor)),
+                          child: Text(entry.key, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppTheme.getPrimaryColor(context))),
                         ),
                       ),
                       if (extractCode != null) ...[
@@ -2087,7 +2087,7 @@ if (_isEditing) ...[
       children: [
         Row(
           children: [
-            const Icon(Icons.photo_library_outlined, size: 18, color: AppTheme.primaryColor),
+            Icon(Icons.photo_library_outlined, size: 18, color: AppTheme.getPrimaryColor(context)),
             const SizedBox(width: 8),
             const Text('更多图片', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
           ],
@@ -2108,7 +2108,7 @@ if (_isEditing) ...[
       children: [
         Row(
           children: [
-            const Icon(Icons.photo_library, size: 18, color: AppTheme.primaryColor),
+            Icon(Icons.photo_library, size: 18, color: AppTheme.getPrimaryColor(context)),
             const SizedBox(width: 8),
             Text('全部图片 (${images.length})', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
           ],
@@ -2144,7 +2144,7 @@ if (_isEditing) ...[
             icon: const Icon(Icons.save, size: 18),
             label: const Text('保存修改'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
+              backgroundColor: AppTheme.getPrimaryColor(context),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -2291,7 +2291,7 @@ if (_isEditing) ...[
                       ElevatedButton(
                         onPressed: () => Navigator.pop(context, true),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
+                          backgroundColor: AppTheme.getPrimaryColor(context),
                           foregroundColor: Colors.white,
                         ),
                         child: const Text('确认修改'),
@@ -2454,7 +2454,7 @@ if (_isEditing) ...[
                         ElevatedButton(
                           onPressed: () => Navigator.pop(context, true),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
+                            backgroundColor: AppTheme.getPrimaryColor(context),
                             foregroundColor: Colors.white,
                           ),
                           child: const Text('立即刮削'),
@@ -2667,7 +2667,7 @@ if (_isEditing) ...[
     }
 
     setState(() => _isCheckingUpdate = true);
-    AppTheme.showGlassToast(context, message: '正在检查更新...', icon: Icons.system_update, iconColor: AppTheme.primaryColor);
+    AppTheme.showGlassToast(context, message: '正在检查更新...', icon: Icons.system_update, iconColor: AppTheme.getPrimaryColor(context));
 
     try {
       final service = VersionCheckService();
@@ -2928,7 +2928,7 @@ if (_isEditing) ...[
         final isUrl = url.startsWith('http://') || url.startsWith('https://');
         if (!isUrl) {
           if (mounted) {
-            AppTheme.showGlassToast(context, message: '请输入有效的链接、Steam AppID 或 DLsite ID', icon: Icons.info_outline, iconColor: AppTheme.primaryColor);
+            AppTheme.showGlassToast(context, message: '请输入有效的链接、Steam AppID 或 DLsite ID', icon: Icons.info_outline, iconColor: AppTheme.getPrimaryColor(context));
           }
           return;
         }
@@ -3396,7 +3396,7 @@ if (_isEditing) ...[
                     icon: const Icon(Icons.open_in_new, size: 16),
                     label: const Text('前往下载'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
+                      backgroundColor: AppTheme.getPrimaryColor(context),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
@@ -3630,7 +3630,7 @@ class _InfoRow extends StatelessWidget {
           child: isLink
               ? InkWell(
                   onTap: () async { try { await launchUrl(Uri.parse(value)); } catch (_) {} },
-                  child: Text(value, style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, decoration: TextDecoration.underline), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  child: Text(value, style: TextStyle(fontSize: 12, color: AppTheme.getPrimaryColor(context), decoration: TextDecoration.underline), maxLines: 2, overflow: TextOverflow.ellipsis),
                 )
               : SelectableText(
                   value,
@@ -3781,7 +3781,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.primaryColor),
+                  borderSide: BorderSide(color: AppTheme.getPrimaryColor(context)),
                 ),
                 contentPadding: const EdgeInsets.all(12),
               ),
@@ -3811,7 +3811,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                         Navigator.of(context).pop();
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
+                        backgroundColor: AppTheme.getPrimaryColor(context),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
@@ -4096,7 +4096,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                               color: AppTheme.backgroundColor.withValues(alpha: 0.5),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Text('重置', style: TextStyle(color: AppTheme.primaryColor, fontSize: 13)),
+                            child: Text('重置', style: TextStyle(color: AppTheme.getPrimaryColor(context), fontSize: 13)),
                           ),
                         ),
                       ),
@@ -4132,7 +4132,7 @@ class _ImageSelectionDialog extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.photo_library, color: AppTheme.primaryColor, size: 24),
+                Icon(Icons.photo_library, color: AppTheme.getPrimaryColor(context), size: 24),
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
