@@ -21,7 +21,6 @@ import '../../../core/utils/app_settings.dart';
 import '../../widgets/image_manager_dialog.dart';
 import '../../widgets/markdown_editor.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../../core/services/concurrent_image_downloader.dart';
 import 'save_management_dialog.dart';
 
 class GameDetailDialog extends ConsumerStatefulWidget {
@@ -2806,6 +2805,8 @@ if (_isEditing) ...[
           }
         }
 
+        await _fixImageUrlsInMetadata(updated);
+
         try {
           final prefs = await AppSettings.load();
           final autoRename = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
@@ -3015,6 +3016,8 @@ if (_isEditing) ...[
           }
         }
 
+        await _fixImageUrlsInMetadata(updatedGame);
+
         try {
           final prefs = await AppSettings.load();
           final autoRename = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
@@ -3106,6 +3109,76 @@ if (_isEditing) ...[
     client.close();
   }
 
+  Future<void> _fixImageUrlsInMetadata(Game game) async {
+    try {
+      final metadataFile = File('${game.path}${Platform.pathSeparator}metadata.json');
+      if (!await metadataFile.exists()) return;
+
+      final metaJson = jsonDecode(await metadataFile.readAsString());
+      final imageDir = Directory('${game.path}${Platform.pathSeparator}images');
+      if (!await imageDir.exists()) return;
+
+      final localImages = <String>[];
+      await for (final entity in imageDir.list()) {
+        if (entity is File) {
+          localImages.add(entity.path);
+        }
+      }
+      if (localImages.isEmpty) return;
+
+      final imageUrls = (metaJson['image_urls'] as List<dynamic>?)?.cast<String>() ?? [];
+      if (imageUrls.isEmpty) return;
+
+      final urlToLocal = <String, String>{};
+      for (int i = 0; i < imageUrls.length; i++) {
+        final remoteUrl = imageUrls[i];
+        for (final localPath in localImages) {
+          final fileName = localPath.split(Platform.pathSeparator).last;
+          final baseName = fileName.split('.').first;
+          if (baseName == '${i + 1}') {
+            urlToLocal[remoteUrl] = localPath;
+            if (remoteUrl.startsWith('https:')) {
+              urlToLocal[remoteUrl.replaceFirst('https:', '')] = localPath;
+            }
+            if (remoteUrl.startsWith('http:')) {
+              urlToLocal[remoteUrl.replaceFirst('http:', '')] = localPath;
+            }
+            break;
+          }
+        }
+      }
+
+      if (urlToLocal.isEmpty) return;
+
+      var intro = metaJson['intro'] as String? ?? '';
+      if (intro.isNotEmpty) {
+        for (final entry in urlToLocal.entries) {
+          intro = intro.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
+          intro = intro.replaceAll(entry.key, entry.value);
+        }
+        metaJson['intro'] = intro;
+      }
+
+      var introHtml = metaJson['intro_html'] as String? ?? '';
+      if (introHtml.isNotEmpty) {
+        for (final entry in urlToLocal.entries) {
+          introHtml = introHtml.replaceAll(entry.key, entry.value);
+        }
+        metaJson['intro_html'] = introHtml;
+      }
+
+      await metadataFile.writeAsString(jsonEncode(metaJson), flush: true);
+
+      final repo = ref.read(gameRepositoryProvider);
+      final updatedGame = game.copyWith(intro: intro);
+      await repo.updateGame(updatedGame);
+
+      debugPrint('[FixImageUrls] Updated ${urlToLocal.length} image URLs for ${game.title}');
+    } catch (e) {
+      debugPrint('[FixImageUrls] Error: $e');
+    }
+  }
+
   Future<Map<String, String>> _downloadImagesWithMapping(
     Game game,
     List<String> imageUrls, {
@@ -3115,12 +3188,6 @@ if (_isEditing) ...[
     final imageDir = Directory('${game.path}${Platform.pathSeparator}images');
     if (!await imageDir.exists()) {
       await imageDir.create(recursive: true);
-    }
-    await ref.read(gameRepositoryProvider).deleteGameImagesByGameId(game.id!);
-    if (await imageDir.exists()) {
-      await for (final entity in imageDir.list()) {
-        if (entity is File) await entity.delete();
-      }
     }
 
     final sourceUrl = game.sourceUrl ?? '';
@@ -3132,21 +3199,27 @@ if (_isEditing) ...[
       if (cookie.isNotEmpty) 'Cookie': cookie,
     };
 
-    final downloaded = await ConcurrentImageDownloader.downloadAll(
-      imageUrls: imageUrls,
-      saveDir: game.path,
-      headers: imgHeaders,
-      maxConcurrency: 3,
-    );
-
     final repo = ref.read(gameRepositoryProvider);
     for (int i = 0; i < imageUrls.length; i++) {
-      final localPath = downloaded[imageUrls[i]];
-      if (localPath != null) {
-        await repo.addGameImage(game.id!, localPath, i);
-        urlToLocal[imageUrls[i]] = localPath;
-      }
-      onProgress?.call(i + 1, imageUrls.length);
+      try {
+        final imageUrl = imageUrls[i];
+        final uri = Uri.parse(imageUrl);
+        final ext = imageUrl.contains('.') ? '.${imageUrl.split('.').last.split('?').first.split('#').first}' : '.jpg';
+        final validExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext.toLowerCase()) ? ext : '.jpg';
+        final fileName = '${i + 1}$validExt';
+        final filePath = '${imageDir.path}${Platform.pathSeparator}$fileName';
+        final file = File(filePath);
+
+        if (!await file.exists()) {
+          final response = await httpGetWithRetry(uri, headers: imgHeaders);
+          if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+            await file.writeAsBytes(response.bodyBytes, flush: true);
+          }
+        }
+        await repo.addGameImage(game.id!, filePath, i);
+        urlToLocal[imageUrl] = filePath;
+        onProgress?.call(i + 1, imageUrls.length);
+      } catch (_) {}
     }
 
     return urlToLocal;
