@@ -1049,19 +1049,29 @@ class _GradientBackgroundState extends State<GradientBackground>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFE0E8F0),
-            Color(0xFFE8E4F2),
-            Color(0xFFF0ECFA),
-            Color(0xFFE8EFF8),
-            Color(0xFFF2F0FF),
-          ],
-          stops: [0.0, 0.25, 0.5, 0.75, 1.0],
+          colors: isDark
+              ? [
+                  const Color(0xFF0D1117),
+                  const Color(0xFF161B22),
+                  const Color(0xFF1F2937),
+                  const Color(0xFF161B22),
+                  const Color(0xFF0D1117),
+                ]
+              : [
+                  const Color(0xFFE0E8F0),
+                  const Color(0xFFE8E4F2),
+                  const Color(0xFFF0ECFA),
+                  const Color(0xFFE8EFF8),
+                  const Color(0xFFF2F0FF),
+                ],
+          stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
         ),
       ),
       child: Stack(
@@ -1079,7 +1089,7 @@ class _GradientBackgroundState extends State<GradientBackground>
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        Color(0xFF2563EB).withValues(alpha: _glowAnimation.value),
+                        Color(0xFF2563EB).withValues(alpha: isDark ? _glowAnimation.value * 0.5 : _glowAnimation.value),
                         Colors.transparent,
                       ],
                     ),
@@ -1101,7 +1111,7 @@ class _GradientBackgroundState extends State<GradientBackground>
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        Color(0xFF7C3AED).withValues(alpha: _glowAnimation.value * 0.75),
+                        Color(0xFF7C3AED).withValues(alpha: isDark ? _glowAnimation.value * 0.4 : _glowAnimation.value * 0.75),
                         Colors.transparent,
                       ],
                     ),
