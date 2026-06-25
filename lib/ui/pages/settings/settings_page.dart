@@ -1806,7 +1806,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             ),
             const SizedBox(width: 16),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                 color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -1816,7 +1816,6 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 child: DropdownButton<AppThemeMode>(
                   value: currentMode,
                   isExpanded: false,
-                  isDense: true,
                   icon: Icon(Icons.arrow_drop_down, size: 20, color: AppTheme.getTextSecondary(context)),
                   borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
                   dropdownColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
@@ -1827,7 +1826,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                     return DropdownMenuItem(
                       value: mode,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
                           color: currentMode == mode
