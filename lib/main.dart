@@ -276,12 +276,12 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
                         _hasError = false;
                       });
                     },
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.refresh, color: Colors.white, size: 18),
-                        SizedBox(width: 8),
-                        Text('重试', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                        Icon(Icons.refresh, color: AppTheme.getTextColorOnPrimary(context), size: 18),
+                        const SizedBox(width: 8),
+                        Text('重试', style: TextStyle(color: AppTheme.getTextColorOnPrimary(context), fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
