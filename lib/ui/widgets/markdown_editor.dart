@@ -33,7 +33,8 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
         }
         // Windows 路径：含 : 的路径（如 F:/xxx 或 F:\xxx）
         if (RegExp(r'^[A-Za-z]:').hasMatch(imgPath)) {
-          imgPath = 'file:///${imgPath.replaceAll('\\', '/')}';
+          final encodedPath = imgPath.replaceAll('\\', '/').replaceAll(' ', '%20');
+          imgPath = 'file:///$encodedPath';
         }
         return '![]($imgPath)';
       },
@@ -211,48 +212,48 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
         child: Text('暂无内容', style: TextStyle(color: AppTheme.textSecondary)),
       );
     }
-    return Markdown(
-      data: preview,
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-        p: TextStyle(fontSize: widget.fontSize, height: 1.7, color: AppTheme.textPrimary),
-        h1: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-        h2: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-        h3: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
-        listBullet: TextStyle(fontSize: widget.fontSize, color: AppTheme.textPrimary),
-      ),
-      imageBuilder: (uri, title, alt) {
-        final uriStr = uri.toString();
-        debugPrint('[MarkdownPreview] Loading image: $uriStr');
-        
-        try {
-          if (uriStr.startsWith('file:///')) {
-            // file:///F:/path -> F:/path
-            final filePath = Uri.parse(uriStr).toFilePath();
-            final file = File(filePath);
-            if (file.existsSync()) {
-              return Image.file(file, fit: BoxFit.contain);
+      child: MarkdownBody(
+        data: preview,
+        styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+          p: TextStyle(fontSize: widget.fontSize, height: 1.7, color: AppTheme.textPrimary),
+          h1: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+          h2: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+          h3: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+          listBullet: TextStyle(fontSize: widget.fontSize, color: AppTheme.textPrimary),
+        ),
+        imageBuilder: (uri, title, alt) {
+          final uriStr = uri.toString();
+          debugPrint('[MarkdownPreview] Loading image: $uriStr');
+
+          try {
+            if (uriStr.startsWith('file:///')) {
+              final parsedUri = Uri.parse(uriStr);
+              final filePath = parsedUri.toFilePath();
+              final file = File(filePath);
+              if (file.existsSync()) {
+                return Image.file(file, fit: BoxFit.contain);
+              }
+              debugPrint('[MarkdownPreview] File not found: $filePath');
+            } else if (uriStr.startsWith('http://') || uriStr.startsWith('https://')) {
+              return Image.network(uriStr, fit: BoxFit.contain);
+            } else {
+              final file = File(uriStr);
+              if (file.existsSync()) {
+                return Image.file(file, fit: BoxFit.contain);
+              }
             }
-            debugPrint('[MarkdownPreview] File not found: $filePath');
-          } else if (uriStr.startsWith('http://') || uriStr.startsWith('https://')) {
-            return Image.network(uriStr, fit: BoxFit.contain);
-          } else {
-            // 尝试直接作为本地路径
-            final file = File(uriStr);
-            if (file.existsSync()) {
-              return Image.file(file, fit: BoxFit.contain);
-            }
+          } catch (e) {
+            debugPrint('[MarkdownPreview] Image load error: $e');
           }
-        } catch (e) {
-          debugPrint('[MarkdownPreview] Image load error: $e');
-        }
-        
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Text('[图片加载失败: ${uriStr.length > 50 ? '${uriStr.substring(0, 50)}...' : uriStr}]', 
-            style: TextStyle(fontSize: 12, color: AppTheme.errorColor.withValues(alpha: 0.7))),
-        );
-      },
+
+          return Container(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text('[图片加载失败]', style: TextStyle(fontSize: 12, color: AppTheme.errorColor.withValues(alpha: 0.7))),
+          );
+        },
+      ),
     );
   }
 }
