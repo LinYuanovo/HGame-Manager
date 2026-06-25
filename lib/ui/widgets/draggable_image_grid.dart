@@ -95,7 +95,7 @@ class DraggableImageGrid extends StatelessWidget {
                     color: AppTheme.getPrimaryColor(context),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text('封面', style: TextStyle(fontSize: 10, color: Colors.white)),
+                  child: Text('封面', style: TextStyle(fontSize: 10, color: AppTheme.getTextColorOnPrimary(context))),
                 ),
               ),
             Positioned(
@@ -105,11 +105,11 @@ class DraggableImageGrid extends StatelessWidget {
                 onTap: () => onDelete(index),
                 child: Container(
                   padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Colors.black54,
+                  decoration: BoxDecoration(
+                    color: AppTheme.getOverlayColor(context),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close, size: 14, color: Colors.white),
+                  child: Icon(Icons.close, size: 14, color: AppTheme.getTextColorOnPrimary(context)),
                 ),
               ),
             ),
