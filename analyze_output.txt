@@ -1,0 +1,63 @@
+Analyzing game_list_widget.dart...                              
+
+  error - Target of URI doesn't exist: '../pages/games/game_detail_page.dart' - lib\ui\widgets\game_list_widget.dart:13:8 - uri_does_not_exist
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:462:22 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:519:22 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:564:22 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:593:22 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:815:15 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:818:24 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:821:48 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:868:20 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:868:38 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:875:20 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:875:38 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:885:20 - prefer_const_constructors
+   info - Use 'const' for final variables initialized to a constant value - lib\ui\widgets\game_list_widget.dart:1221:7 - prefer_const_declarations
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1288:31 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1289:26 - prefer_const_constructors
+   info - Use 'isNotEmpty' instead of 'length' to test whether the collection is empty - lib\ui\widgets\game_list_widget.dart:1481:19 - prefer_is_empty
+  error - The method 'GameDetailDialog' isn't defined for the type '_GameListWidgetState' - lib\ui\widgets\game_list_widget.dart:1795:35 - undefined_method
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1833:31 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1835:16 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1838:22 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1842:33 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1844:18 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1847:24 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1852:31 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1854:18 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1857:24 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1869:42 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1887:36 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1889:18 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1892:24 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1902:24 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1918:29 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1920:18 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1928:31 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1930:18 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1937:29 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1939:16 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1943:17 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1948:35 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1950:18 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:1954:19 - prefer_const_constructors
+   info - Don't use 'BuildContext's across async gaps - lib\ui\widgets\game_list_widget.dart:2035:13 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\ui\widgets\game_list_widget.dart:2046:15 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\ui\widgets\game_list_widget.dart:2053:13 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\ui\widgets\game_list_widget.dart:2062:125 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\ui\widgets\game_list_widget.dart:2067:75 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\ui\widgets\game_list_widget.dart:2102:13 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\ui\widgets\game_list_widget.dart:2111:128 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\ui\widgets\game_list_widget.dart:2116:75 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\ui\widgets\game_list_widget.dart:2155:39 - use_build_context_synchronously
+warning - The declaration '_formatPath' isn't referenced - lib\ui\widgets\game_list_widget.dart:2202:10 - unused_element
+   info - Don't use 'BuildContext's across async gaps - lib\ui\widgets\game_list_widget.dart:2443:7 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\ui\widgets\game_list_widget.dart:2452:122 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\ui\widgets\game_list_widget.dart:2454:91 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\ui\widgets\game_list_widget.dart:2456:85 - use_build_context_synchronously
+warning - The '!' will have no effect because the receiver can't be null - lib\ui\widgets\game_list_widget.dart:2851:68 - unnecessary_non_null_assertion
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:3044:31 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\ui\widgets\game_list_widget.dart:3163:31 - prefer_const_constructors
+
+59 issues found. (ran in 1.5s)

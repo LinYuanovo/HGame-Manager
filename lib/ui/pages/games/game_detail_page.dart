@@ -91,7 +91,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     ref.invalidate(allSeriesProvider);
   }
 
-  /// 刷新所有游戏相�?provider（关闭详情页等场景使用）
+  /// 刷新所有游戏相关 provider（关闭详情页等场景使用）
   void _refreshAllProviders() {
     _refreshGames();
     _refreshPlayed();
@@ -168,7 +168,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     if (exePath == null) {
       debugPrint('[LE] Could not find game exe in ${game.path}');
       if (mounted) {
-        AppTheme.showGlassToast(context, message: '未找到游戏启动器，请先手动启动一次游�?, icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
+        AppTheme.showGlassToast(context, message: '未找到游戏启动器，请先手动启动一次游戏', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
       }
       return false;
     }
@@ -283,7 +283,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     return PopScope(
       canPop: !_isImageViewerOpen,
       child: Dialog(
-        backgroundColor: AppTheme.getSurfaceDeepColor(context),
+        backgroundColor: Colors.white,
         insetPadding: const EdgeInsets.all(24),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
@@ -293,11 +293,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           height: dialogHeight,
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: AppTheme.getSurfaceDeepColor(context),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
             boxShadow: [
               BoxShadow(
-                color: Theme.of(context).brightness == Brightness.dark ? Colors.black.withValues(alpha: 0.4) : Colors.black.withValues(alpha: 0.15),
+                color: Colors.black.withValues(alpha: 0.15),
                 blurRadius: 30,
                 spreadRadius: 2,
                 offset: const Offset(0, 8),
@@ -310,23 +310,23 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.08),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.08),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.cloud_download, size: 14, color: AppTheme.getPrimaryColor(context)),
+                          Icon(Icons.cloud_download, size: 14, color: AppTheme.primaryColor),
                           const SizedBox(width: 8),
                           Text(
                             '正在下载截图 $_downloadCurrent/$_downloadTotal',
-                            style: TextStyle(fontSize: 12, color: AppTheme.getPrimaryColor(context)),
+                            style: TextStyle(fontSize: 12, color: AppTheme.primaryColor),
                           ),
                           const Spacer(),
                           Text(
                             '${(_downloadProgress * 100).round()}%',
-                            style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
+                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                           ),
                         ],
                       ),
@@ -335,8 +335,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
                           value: _downloadProgress,
-                          backgroundColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
-                          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.getPrimaryColor(context)),
+                          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
                           minHeight: 4,
                         ),
                       ),
@@ -344,9 +344,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   ),
                 ),
               _buildHeader(),
-              Container(height: 1, color: AppTheme.getBorderColor(context)),
+              Container(height: 1, color: AppTheme.borderColor),
               Expanded(child: _buildBody()),
-              if (_isEditing) Container(height: 1, color: AppTheme.getBorderColor(context)),
+              if (_isEditing) Container(height: 1, color: AppTheme.borderColor),
               if (_isEditing) _buildEditBar(),
             ],
           ),
@@ -360,19 +360,19 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppTheme.getPrimaryColor(context).withValues(alpha: 0.08), Colors.transparent],
+          colors: [AppTheme.primaryColor.withValues(alpha: 0.08), Colors.transparent],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
       ),
       child: Row(
         children: [
-          Icon(Icons.videogame_asset, color: AppTheme.getPrimaryColor(context), size: 22),
+          Icon(Icons.videogame_asset, color: AppTheme.primaryColor, size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               _isEditing ? (_titleController.text.isEmpty ? '游戏详情' : _titleController.text) : (_currentGame.title ?? '游戏详情'),
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context)),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -383,25 +383,25 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               height: 36,
               child: TextField(
                 controller: _quickScrapeController,
-                style: TextStyle(fontSize: 13, color: AppTheme.getTextPrimary(context)),
+                style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
                 decoration: InputDecoration(
-                  hintText: '输入链接/id/关键词回车刮�?,
-                  hintStyle: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
+                  hintText: '输入链接/id/关键词回车刮削',
+                  hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   isDense: true,
                   filled: true,
-                  fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.6),
+                  fillColor: Colors.white.withValues(alpha: 0.6),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                    borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                    borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.5)),
+                    borderSide: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.5)),
                   ),
                   prefixIcon: GestureDetector(
                     onTap: () {
@@ -418,7 +418,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                                   ? Icons.language
                                   : Icons.auto_fix_high,
                           size: 16,
-                          color: AppTheme.getPrimaryColor(context),
+                          color: AppTheme.primaryColor,
                         ),
                         if (_showChannelSelector) ...[
                           const SizedBox(width: 4),
@@ -430,10 +430,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: _quickScrapeChannel == 'auto' ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.2) : Colors.transparent,
+                                color: _quickScrapeChannel == 'auto' ? AppTheme.primaryColor.withValues(alpha: 0.2) : Colors.transparent,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text('自动', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'auto' ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context))),
+                              child: Text('自动', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'auto' ? AppTheme.primaryColor : AppTheme.textSecondary)),
                             ),
                           ),
                           GestureDetector(
@@ -444,10 +444,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: _quickScrapeChannel == 'steam' ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.2) : Colors.transparent,
+                                color: _quickScrapeChannel == 'steam' ? AppTheme.primaryColor.withValues(alpha: 0.2) : Colors.transparent,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text('Steam', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'steam' ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context))),
+                              child: Text('Steam', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'steam' ? AppTheme.primaryColor : AppTheme.textSecondary)),
                             ),
                           ),
                           GestureDetector(
@@ -458,10 +458,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: _quickScrapeChannel == 'dlsite' ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.2) : Colors.transparent,
+                                color: _quickScrapeChannel == 'dlsite' ? AppTheme.primaryColor.withValues(alpha: 0.2) : Colors.transparent,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text('DLsite', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'dlsite' ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context))),
+                              child: Text('DLsite', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'dlsite' ? AppTheme.primaryColor : AppTheme.textSecondary)),
                             ),
                           ),
                         ],
@@ -475,7 +475,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             _quickScrapeController.clear();
                             setState(() {});
                           },
-                          child: Icon(Icons.close, size: 16, color: AppTheme.getTextSecondary(context)),
+                          child: Icon(Icons.close, size: 16, color: AppTheme.textSecondary),
                         )
                       : null,
                 ),
@@ -486,14 +486,14 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             const SizedBox(width: 8),
             Tooltip(
               message: _currentGame.sourceUrl == null || _currentGame.sourceUrl!.isEmpty
-                  ? '该游戏没有来源URL，无法重新刮�?
+                  ? '该游戏没有来源URL，无法重新刮削'
                   : '重新刮削',
               child: IconButton(
                 icon: _isRescraping
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                     : Icon(Icons.refresh, size: 20, color: _currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty
-                        ? AppTheme.getTextPrimary(context)
-                        : AppTheme.getTextPrimary(context).withValues(alpha: 0.3)),
+                        ? AppTheme.textPrimary
+                        : AppTheme.textPrimary.withValues(alpha: 0.3)),
                 tooltip: '重新刮削',
                 onPressed: _currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty && !_isRescraping
                     ? _rescrapeGame
@@ -501,12 +501,12 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               ),
             ),
             IconButton(
-              icon: Icon(Icons.edit_outlined, size: 20, color: AppTheme.getTextPrimary(context)),
+              icon: Icon(Icons.edit_outlined, size: 20, color: AppTheme.textPrimary),
               tooltip: '编辑',
               onPressed: () => setState(() => _isEditing = true),
             ),
             IconButton(
-              icon: Icon(Icons.close, size: 22, color: AppTheme.getTextPrimary(context)),
+              icon: Icon(Icons.close, size: 22, color: AppTheme.textPrimary),
               tooltip: '关闭 (ESC)',
               onPressed: () => Navigator.of(context).pop(),
             ),
@@ -522,7 +522,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         SizedBox(width: 320, child: _buildLeftPanel()),
         Container(
           width: 1,
-          color: AppTheme.getBorderColor(context),
+          color: AppTheme.borderColor,
         ),
         Expanded(child: _buildContentPanel()),
       ],
@@ -542,7 +542,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               final leProcPath = await _findLeProcPath();
               if (leProcPath == null) {
                 if (mounted) {
-                  AppTheme.showGlassToast(context, message: '未找�?LEProc.exe，请先在工具页面导入', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
+                  AppTheme.showGlassToast(context, message: '未找到 LEProc.exe，请先在工具页面导入', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
                 }
                 return;
               }
@@ -563,7 +563,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                         Icon(
                           _currentGame.useLocaleEmulator ? Icons.check_box : Icons.check_box_outline_blank,
                           size: 18,
-                          color: AppTheme.getPrimaryColor(context),
+                          color: AppTheme.primaryColor,
                         ),
                         const SizedBox(width: 8),
                         const Text('转区启动'),
@@ -580,9 +580,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       if (mounted) {
                         AppTheme.showGlassToast(
                           context,
-                          message: newValue ? '已切换为转区启动模式' : '已切换为普通启动模�?,
+                          message: newValue ? '已切换为转区启动模式' : '已切换为普通启动模式',
                           icon: newValue ? Icons.language : Icons.play_arrow,
-                          iconColor: AppTheme.getPrimaryColor(context),
+                          iconColor: AppTheme.primaryColor,
                         );
                       }
                     },
@@ -610,11 +610,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
                   bool launched = false;
 
-                  // 优先检查转区启�?
+                  // 优先检查转区启动
                   if (_currentGame.useLocaleEmulator) {
                     debugPrint('[LE] Game has locale emulator flag, attempting LE launch');
                     launched = await _launchWithLocaleEmulator(_currentGame);
-                    // 如果转区启动失败（工具不存在），自动回退并清除标�?
+                    // 如果转区启动失败（工具不存在），自动回退并清除标记
                     if (!launched) {
                       debugPrint('[LE] LE launch failed, checking if LEProc exists');
                       final leProcPath = await _findLeProcPath();
@@ -624,20 +624,20 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                           _currentGame = _currentGame.copyWith(useLocaleEmulator: false);
                         });
                         if (mounted) {
-                          AppTheme.showGlassToast(context, message: 'LEProc.exe 不存在，已回退为普通启�?, icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
+                          AppTheme.showGlassToast(context, message: 'LEProc.exe 不存在，已回退为普通启动', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
                         }
                       }
                     }
                   }
 
-                  // 普通启�?
+                  // 普通启动
                   if (!launched) {
                     launched = await _launchGame(_currentGame);
                   }
 
                   if (!launched && mounted) {
                     final result = await FilePicker.pickFiles(
-                      dialogTitle: '选择游戏启动�?,
+                      dialogTitle: '选择游戏启动器',
                       type: FileType.any,
                       initialDirectory: _currentGame.path,
                     );
@@ -673,11 +673,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   _currentGame.useLocaleEmulator ? Icons.language : Icons.play_arrow,
                   size: 20,
                 ),
-                label: Text(_currentGame.useLocaleEmulator ? '开始游玩[转区]' : '开始游�?),
+                label: Text(_currentGame.useLocaleEmulator ? '开始游玩[转区]' : '开始游玩'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _currentGame.useLocaleEmulator
                       ? AppTheme.secondaryColor
-                      : AppTheme.getPrimaryColor(context),
+                      : AppTheme.primaryColor,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
@@ -686,7 +686,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ),
           ),
           const SizedBox(height: 12),
-          // 存档按钮 - 仅在已玩/已通关时显�?
+          // 存档按钮 - 仅在已玩/已通关时显示
           if (_currentGame.isPlayed || _currentGame.playCount > 0)
             SizedBox(
               width: double.infinity,
@@ -695,8 +695,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 icon: const Icon(Icons.folder_special, size: 18),
                 label: const Text('存档管理'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.getPrimaryColor(context),
-                  side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
+                  foregroundColor: AppTheme.primaryColor,
+                  side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
                 ),
@@ -718,16 +718,16 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           Container(
             height: 200,
             decoration: BoxDecoration(
-              color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
+              color: AppTheme.backgroundColor.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
             ),
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.image_not_supported_outlined, size: 48, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.3)),
+                  Icon(Icons.image_not_supported_outlined, size: 48, color: AppTheme.textPrimary.withValues(alpha: 0.3)),
                   const SizedBox(height: 8),
-                  Text('暂无图片', style: TextStyle(color: AppTheme.getTextPrimary(context).withValues(alpha: 0.5), fontSize: 13)),
+                  Text('暂无图片', style: TextStyle(color: AppTheme.textPrimary.withValues(alpha: 0.5), fontSize: 13)),
                 ],
               ),
             ),
@@ -739,7 +739,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               height: 200,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
               ),
               child: Stack(
                 fit: StackFit.expand,
@@ -750,8 +750,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       File(images[_currentImageIndex].imagePath),
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
-                        color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
-                        child: Center(child: Icon(Icons.broken_image, size: 36, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.3))),
+                        color: AppTheme.backgroundColor.withValues(alpha: 0.3),
+                        child: Center(child: Icon(Icons.broken_image, size: 36, color: AppTheme.textPrimary.withValues(alpha: 0.3))),
                       ),
                     ),
                   ),
@@ -783,8 +783,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             icon: const Icon(Icons.edit, size: 16),
             label: const Text('管理图片'),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.getPrimaryColor(context),
-              side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
+              foregroundColor: AppTheme.primaryColor,
+              side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
               padding: const EdgeInsets.symmetric(vertical: 8),
             ),
           ),
@@ -825,20 +825,20 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       return;
     }
 
-    // 显示图片选择对话�?
+    // 显示图片选择对话框
     final selectedImage = await showDialog<GameImage>(
       context: context,
       builder: (context) => _ImageSelectionDialog(images: images),
     );
     if (selectedImage == null) return;
 
-    // 获取对应�?TextEditingController
+    // 获取对应的 TextEditingController
     TextEditingController controller;
     switch (sectionTitle) {
-      case '简�?:
+      case '简介':
         controller = _introController;
         break;
-      case '特�?:
+      case '特性':
         controller = _featuresController;
         break;
       case '更新日志':
@@ -848,12 +848,12 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         return;
     }
 
-    // 在光标位置插入图片标�?
+    // 在光标位置插入图片标记
     final text = controller.text;
     final selection = controller.selection;
     final imageTag = '\n[图片:${selectedImage.imagePath}]\n';
     
-    // 检�?selection 是否有效
+    // 检查 selection 是否有效
     final startPos = selection.start >= 0 ? selection.start : text.length;
     final endPos = selection.end >= 0 ? selection.end : text.length;
     
@@ -867,7 +867,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     );
 
     if (mounted) {
-      AppTheme.showGlassToast(context, message: '图片已插�?);
+      AppTheme.showGlassToast(context, message: '图片已插入');
     }
   }
 
@@ -876,9 +876,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.4),
+        color: Colors.white.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-        border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.2)),
+        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -935,18 +935,18 @@ if (_isEditing) ...[
   Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Icon(Icons.folder_outlined, size: 15, color: AppTheme.getTextPrimary(context)),
+      const Icon(Icons.folder_outlined, size: 15, color: AppTheme.textPrimary),
       const SizedBox(width: 8),
-      Text('路径:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
+      const Text('路径:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
       const SizedBox(width: 6),
       Expanded(
         child: TextField(
           controller: _pathController,
           maxLines: 3,
-          style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
+          style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
           decoration: InputDecoration(
             filled: true,
-            fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+            fillColor: Colors.white.withValues(alpha: 0.5),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
             contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             isDense: true,
@@ -966,17 +966,17 @@ if (_isEditing) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.tag, size: 15, color: AppTheme.getTextPrimary(context)),
+                const Icon(Icons.tag, size: 15, color: AppTheme.textPrimary),
                 const SizedBox(width: 8),
-                Text('版本:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
+                const Text('版本:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
                 const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
                     controller: _versionController,
-                    style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+                      fillColor: Colors.white.withValues(alpha: 0.5),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       isDense: true,
@@ -989,21 +989,21 @@ if (_isEditing) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.business, size: 15, color: AppTheme.getTextPrimary(context)),
+                const Icon(Icons.business, size: 15, color: AppTheme.textPrimary),
                 const SizedBox(width: 8),
-                Text('厂商:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
+                const Text('厂商:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
                 const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
                     controller: TextEditingController(text: _currentGame.maker ?? ''),
-                    style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+                      fillColor: Colors.white.withValues(alpha: 0.5),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       isDense: true,
-                      hintText: '输入厂商�?,
+                      hintText: '输入厂商名',
                     ),
                     onChanged: (value) {
                       _currentGame = _currentGame.copyWith(maker: value.isEmpty ? null : value);
@@ -1019,30 +1019,30 @@ if (_isEditing) ...[
           const SizedBox(height: 10),
           _InfoRow(
             icon: _currentGame.isPlayed ? Icons.check_circle : Icons.circle_outlined,
-            label: '状�?,
-            value: _currentGame.isPlayed ? '已游�?(${_currentGame.playCount}�?' : '未游�?,
-            valueColor: _currentGame.isPlayed ? AppTheme.successColor : AppTheme.getTextPrimary(context),
+            label: '状态',
+            value: _currentGame.isPlayed ? '已游玩 (${_currentGame.playCount}次)' : '未游玩',
+            valueColor: _currentGame.isPlayed ? AppTheme.successColor : AppTheme.textPrimary,
           ),
           if (_currentGame.lastPlayedTime != null) ...[
             const SizedBox(height: 10),
-            _InfoRow(icon: Icons.access_time, label: '最后游�?, value: _formatDate(_currentGame.lastPlayedTime!)),
+            _InfoRow(icon: Icons.access_time, label: '最后游玩', value: _formatDate(_currentGame.lastPlayedTime!)),
           ],
           if (_isEditing) ...[
             const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.link, size: 15, color: AppTheme.getTextPrimary(context)),
+                const Icon(Icons.link, size: 15, color: AppTheme.textPrimary),
                 const SizedBox(width: 8),
-                Text('来源:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
+                const Text('来源:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
                 const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
                     controller: _sourceUrlController,
-                    style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+                      fillColor: Colors.white.withValues(alpha: 0.5),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       isDense: true,
@@ -1056,9 +1056,9 @@ if (_isEditing) ...[
             const SizedBox(height: 10),
             Row(
               children: [
-                Icon(Icons.link, size: 15, color: AppTheme.getTextPrimary(context)),
+                const Icon(Icons.link, size: 15, color: AppTheme.textPrimary),
                 const SizedBox(width: 8),
-                Text('来源:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
+                const Text('来源:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
                 const SizedBox(width: 6),
                 ElevatedButton.icon(
                   onPressed: () async {
@@ -1069,14 +1069,14 @@ if (_isEditing) ...[
                   icon: const Icon(Icons.open_in_new, size: 12),
                   label: const Text('来源', style: TextStyle(fontSize: 11)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
-                    foregroundColor: AppTheme.getPrimaryColor(context),
+                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    foregroundColor: AppTheme.primaryColor,
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6),
-                      side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
+                      side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
                     ),
                   ),
                 ),
@@ -1085,7 +1085,7 @@ if (_isEditing) ...[
           ],
           if (_isEditing) ...[
             const SizedBox(height: 12),
-            Text('启动器路�?, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context))),
+            Text('启动器路径', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
             const SizedBox(height: 4),
             Row(
               children: [
@@ -1093,16 +1093,16 @@ if (_isEditing) ...[
                   child: TextField(
                     controller: _gameLauncherController,
                     decoration: InputDecoration(
-                      hintText: '留空则自动检�?,
-                      hintStyle: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
+                      hintText: '留空则自动检测',
+                      hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                        borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                        borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.3)),
                       ),
                       isDense: true,
                     ),
@@ -1113,7 +1113,7 @@ if (_isEditing) ...[
                 OutlinedButton.icon(
                   onPressed: () async {
                     final result = await FilePicker.pickFiles(
-                      dialogTitle: '选择启动器文�?,
+                      dialogTitle: '选择启动器文件',
                       type: FileType.any,
                       initialDirectory: _currentGame.path,
                     );
@@ -1124,8 +1124,8 @@ if (_isEditing) ...[
                   icon: const Icon(Icons.folder_open, size: 16),
                   label: const Text('浏览', style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.getPrimaryColor(context),
-                    side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
+                    foregroundColor: AppTheme.primaryColor,
+                    side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                   ),
@@ -1139,9 +1139,9 @@ if (_isEditing) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.folder_special, size: 15, color: AppTheme.getTextPrimary(context)),
+                const Icon(Icons.folder_special, size: 15, color: AppTheme.textPrimary),
                 const SizedBox(width: 8),
-                Text('存档:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
+                const Text('存档:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
                 const SizedBox(width: 6),
                 Expanded(
                   child: GestureDetector(
@@ -1150,7 +1150,7 @@ if (_isEditing) ...[
                       _currentGame.savePath ?? '点击设置存档路径',
                       style: TextStyle(
                         fontSize: 12,
-                        color: _currentGame.savePath != null ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
+                        color: _currentGame.savePath != null ? AppTheme.primaryColor : AppTheme.textSecondary.withValues(alpha: 0.5),
                         decoration: _currentGame.savePath != null ? TextDecoration.underline : null,
                       ),
                       maxLines: 2,
@@ -1169,18 +1169,18 @@ if (_isEditing) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.download, size: 15, color: AppTheme.getTextPrimary(context)),
+                const Icon(Icons.download, size: 15, color: AppTheme.textPrimary),
                 const SizedBox(width: 8),
-                Text('下载:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
+                const Text('下载:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
                 const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
                     controller: _downloadUrlController,
                     maxLines: 3,
-                    style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+                      fillColor: Colors.white.withValues(alpha: 0.5),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                       isDense: true,
@@ -1230,11 +1230,11 @@ if (_isEditing) ...[
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+              color: AppTheme.primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.2)),
+              border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
             ),
-            child: const Icon(Icons.add, size: 12, color: AppTheme.getPrimaryColor(context)),
+            child: const Icon(Icons.add, size: 12, color: AppTheme.primaryColor),
           ),
         ),
       ],
@@ -1253,7 +1253,7 @@ if (_isEditing) ...[
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('添加标签', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+              const Text('添加标签', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
               const SizedBox(height: 16),
               TextField(
                 controller: controller,
@@ -1300,10 +1300,10 @@ if (_isEditing) ...[
           if (_isEditing)
             TextField(
               controller: _titleController,
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context), height: 1.4),
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.textPrimary, height: 1.4),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+                fillColor: Colors.white.withValues(alpha: 0.5),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 hintText: '输入游戏标题',
@@ -1312,14 +1312,14 @@ if (_isEditing) ...[
             )
           else
             SelectableText(
-              _currentGame.title ?? '未命名游�?, style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context), height: 1.4),
+              _currentGame.title ?? '未命名游戏', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.textPrimary, height: 1.4),
             ),
 
           if (!_isEditing && _currentGame.maker != null && _currentGame.maker!.isNotEmpty) ...[
             const SizedBox(height: 6),
             Row(
               children: [
-                Icon(Icons.business, size: 15, color: AppTheme.getTextSecondary(context)),
+                Icon(Icons.business, size: 15, color: AppTheme.textSecondary),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Wrap(
@@ -1337,7 +1337,7 @@ if (_isEditing) ...[
                           Clipboard.setData(ClipboardData(text: trimmedName));
                           AppTheme.showGlassToast(
                             context,
-                            message: '已复�? $trimmedName',
+                            message: '已复制: $trimmedName',
                             icon: Icons.copy,
                             iconColor: AppTheme.successColor,
                           );
@@ -1346,13 +1346,13 @@ if (_isEditing) ...[
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
+                            border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
                           ),
                           child: Text(
                             trimmedName,
-                            style: TextStyle(fontSize: 13, color: AppTheme.getPrimaryColor(context), fontWeight: FontWeight.w500),
+                            style: TextStyle(fontSize: 13, color: AppTheme.primaryColor, fontWeight: FontWeight.w500),
                           ),
                         ),
                       );
@@ -1373,14 +1373,14 @@ if (_isEditing) ...[
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(_currentGame.version ?? '',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.getPrimaryColor(context))),
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryColor)),
                         const SizedBox(width: 6),
                         GestureDetector(
                           onTap: _isCheckingUpdate ? null : _checkForUpdate,
@@ -1388,9 +1388,9 @@ if (_isEditing) ...[
                               ? SizedBox(
                                   width: 14,
                                   height: 14,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.getPrimaryColor(context)),
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
                                 )
-                              : Icon(Icons.system_update, size: 16, color: AppTheme.getPrimaryColor(context)),
+                              : Icon(Icons.system_update, size: 16, color: AppTheme.primaryColor),
                         ),
                       ],
                     ),
@@ -1415,7 +1415,7 @@ if (_isEditing) ...[
                       onTap: () => _showReviewDetail(context),
                       onDoubleTap: () {
                         Clipboard.setData(ClipboardData(text: _currentGame.review!));
-                        AppTheme.showGlassToast(context, message: '已复制评论内�?);
+                        AppTheme.showGlassToast(context, message: '已复制评论内容');
                       },
                     ),
                 ],
@@ -1426,16 +1426,16 @@ if (_isEditing) ...[
           const SizedBox(height: 32),
           Container(
             height: 1,
-            color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.3),
+            color: Colors.white.withValues(alpha: 0.3),
           ),
           const SizedBox(height: 16),
 
           // Insert images between sections, matching original article layout
-          _buildSectionWithImages(title: '简�?, icon: Icons.description_outlined, content: _currentGame.intro, images: images, sectionIndex: 0),
+          _buildSectionWithImages(title: '简介', icon: Icons.description_outlined, content: _currentGame.intro, images: images, sectionIndex: 0),
 
           if (_currentGame.features != null && _currentGame.features!.isNotEmpty) ...[
             const SizedBox(height: 32),
-            _buildSectionWithImages(title: '特�?, icon: Icons.stars_outlined, content: _currentGame.features, images: images, sectionIndex: 1),
+            _buildSectionWithImages(title: '特性', icon: Icons.stars_outlined, content: _currentGame.features, images: images, sectionIndex: 1),
           ],
 
           if (_currentGame.changelog != null && _currentGame.changelog!.isNotEmpty) ...[
@@ -1443,7 +1443,7 @@ if (_isEditing) ...[
             _buildSectionWithImages(title: '更新日志', icon: Icons.history, content: _currentGame.changelog, images: images, sectionIndex: 2),
           ],
 
-          // 本地游戏显示全部图片画廊，刮削游戏显示更多图�?
+          // 本地游戏显示全部图片画廊，刮削游戏显示更多图片
           if (_isLocalGame()) ...[
             if (images.isNotEmpty) ...[
               const SizedBox(height: 32),
@@ -1467,7 +1467,7 @@ if (_isEditing) ...[
     required List<GameImage> images,
     required int sectionIndex,
   }) {
-    // 刮削游戏：每个section显示1张图�?
+    // 刮削游戏：每个section显示1张图片
     // 本地游戏：不自动显示图片，由用户通过插入功能选择
     final isLocal = _isLocalGame();
 
@@ -1476,13 +1476,13 @@ if (_isEditing) ...[
       children: [
         Row(
           children: [
-            Icon(icon, size: 18, color: AppTheme.getPrimaryColor(context)),
+            Icon(icon, size: 18, color: AppTheme.primaryColor),
             const SizedBox(width: 8),
-            Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context))),
+            Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
           ],
         ),
         const SizedBox(height: 14),
-        if (_isEditing && title == '简�?) ...[
+        if (_isEditing && title == '简介') ...[
           ConstrainedBox(
             constraints: const BoxConstraints(
               minHeight: 200,
@@ -1499,12 +1499,12 @@ if (_isEditing) ...[
             children: [
               Expanded(
                 child: TextField(
-                  controller: title == '特�? ? _featuresController : _changelogController,
+                  controller: title == '特性' ? _featuresController : _changelogController,
                   maxLines: null,
-                  style: TextStyle(fontSize: 14, height: 1.7, color: AppTheme.getTextPrimary(context)),
+                  style: const TextStyle(fontSize: 14, height: 1.7, color: AppTheme.textPrimary),
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5),
+                    fillColor: Colors.white.withValues(alpha: 0.5),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                     contentPadding: const EdgeInsets.all(16),
                   ),
@@ -1519,18 +1519,18 @@ if (_isEditing) ...[
                       icon: const Icon(Icons.add_photo_alternate, size: 20),
                       tooltip: '插入图片',
                       style: IconButton.styleFrom(
-                        backgroundColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
-                        foregroundColor: AppTheme.getPrimaryColor(context),
+                        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        foregroundColor: AppTheme.primaryColor,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text('插入图片', style: TextStyle(fontSize: 10, color: AppTheme.getTextSecondary(context))),
+                    const Text('插入图片', style: TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
                   ],
                 ),
               ],
             ],
           ),
-        ] else if (title == '简�? && _introHtml != null && _introHtml!.isNotEmpty) ...[
+        ] else if (title == '简介' && _introHtml != null && _introHtml!.isNotEmpty) ...[
           _buildHtmlContent(_introHtml!, ref.watch(detailFontSizeProvider)),
         ] else
           _buildRichIntro(content ?? '暂无信息', ref.watch(detailFontSizeProvider)),
@@ -1554,7 +1554,7 @@ if (_isEditing) ...[
       final tag = child.localName;
       final cls = child.className;
 
-      // Pattern 1: type_multiimages �?<li class="work_parts_multiimage_item">
+      // Pattern 1: type_multiimages — <li class="work_parts_multiimage_item">
       if (tag == 'li' && cls.contains('work_parts_multiimage_item')) {
         final imgEl = child.querySelector('.image img');
         final textEl = child.querySelector('.text');
@@ -1566,7 +1566,7 @@ if (_isEditing) ...[
           blocks.add(_ContentBlock.text(text));
         }
       }
-      // Pattern 2: type_image �?work_parts_multitype_item
+      // Pattern 2: type_image — work_parts_multitype_item
       else if (tag == 'div' && cls.contains('work_parts_multitype_item')) {
         if (cls.contains('type_contents')) {
           final imgEl = child.querySelector('img');
@@ -1608,7 +1608,7 @@ if (_isEditing) ...[
           _parseElement(area, blocks);
         }
       }
-      // Pattern 3: type_text �?plain text
+      // Pattern 3: type_text — plain text
       else if (tag == 'p') {
         final imgEl = child.querySelector('img');
         if (imgEl != null) {
@@ -1645,7 +1645,7 @@ if (_isEditing) ...[
   Widget _buildHtmlContent(String html, double fontSize) {
     final blocks = _parseHtmlToBlocks(html, '');
     if (blocks.isEmpty) {
-      return SelectableText('暂无信息', style: TextStyle(fontSize: fontSize, color: AppTheme.getTextPrimary(context)));
+      return SelectableText('暂无信息', style: TextStyle(fontSize: fontSize, color: AppTheme.textPrimary));
     }
 
     return Column(
@@ -1657,7 +1657,7 @@ if (_isEditing) ...[
               padding: const EdgeInsets.only(top: 12, bottom: 4),
               child: SelectableText(
                 block.text,
-                style: TextStyle(fontSize: fontSize + 2, fontWeight: FontWeight.w700, color: AppTheme.getTextPrimary(context)),
+                style: TextStyle(fontSize: fontSize + 2, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
               ),
             );
           case _ContentBlockType.text:
@@ -1665,7 +1665,7 @@ if (_isEditing) ...[
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: SelectableText(
                 block.text,
-                style: TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getTextPrimary(context)),
+                style: TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.textPrimary),
               ),
             );
           case _ContentBlockType.imageWithText:
@@ -1687,7 +1687,7 @@ if (_isEditing) ...[
                         Expanded(
                           child: SelectableText(
                             block.text,
-                            style: TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getTextPrimary(context)),
+                            style: TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.textPrimary),
                           ),
                         ),
                       ],
@@ -1739,10 +1739,10 @@ if (_isEditing) ...[
 
   void _openImageViewer(String imagePath) {
     final allImages = _currentGame.images;
-    // 查找点击的图片在所有图片中的索�?
+    // 查找点击的图片在所有图片中的索引
     int initialIndex = allImages.indexWhere((img) => img.imagePath == imagePath);
     if (initialIndex < 0) {
-      // 如果找不到，创建一个临时列�?
+      // 如果找不到，创建一个临时列表
       final image = GameImage(gameId: _currentGame.id ?? 0, imagePath: imagePath);
       setState(() => _isImageViewerOpen = true);
       showDialog(
@@ -1781,7 +1781,7 @@ if (_isEditing) ...[
   List<GameImage> _getUnusedImages(List<GameImage> allImages) {
     final usedFileNames = <String>{};
     
-    // �?intro 文本中提�?[图片:path] 标记的文件名
+    // 从 intro 文本中提取 [图片:path] 标记的文件名
     final intro = _currentGame.intro ?? '';
     final imagePattern = RegExp(r'\[图片:(.+?)\]');
     for (final match in imagePattern.allMatches(intro)) {
@@ -1793,7 +1793,7 @@ if (_isEditing) ...[
       }
     }
     
-    // �?intro_html 中提�?img src 属�?
+    // 从 intro_html 中提取 img src 属性
     if (_introHtml != null && _introHtml!.isNotEmpty) {
       final srcPattern = RegExp(r'src="([^"]+)"');
       for (final match in srcPattern.allMatches(_introHtml!)) {
@@ -1806,7 +1806,7 @@ if (_isEditing) ...[
       }
     }
     
-    // 过滤掉已�?intro 中使用的图片
+    // 过滤掉已在 intro 中使用的图片
     return allImages.where((img) {
       final fileName = img.imagePath.split(Platform.pathSeparator).last;
       final baseName = fileName.split('.').first;
@@ -1824,15 +1824,15 @@ if (_isEditing) ...[
       final spans = <InlineSpan>[];
       for (var i = 0; i < lines.length; i++) {
         final line = lines[i].trimRight();
-        final isHeading = RegExp(r'^.{1,6}[�?]\s*$').hasMatch(line);
+        final isHeading = RegExp(r'^.{1,6}[：:]\s*$').hasMatch(line);
         if (isHeading && i > 0 && lines[i - 1].trim().isNotEmpty) {
           spans.add(const TextSpan(text: '\n'));
         }
         spans.add(TextSpan(
           text: '$line\n',
           style: isHeading
-              ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.getTextPrimary(context))
-              : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getTextPrimary(context)),
+              ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)
+              : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.textPrimary),
         ));
       }
       return SelectableText.rich(TextSpan(children: spans));
@@ -1878,7 +1878,7 @@ if (_isEditing) ...[
           );
         }
       } else {
-        final isHeading = RegExp(r'^.{1,6}[�?]\s*$').hasMatch(line);
+        final isHeading = RegExp(r'^.{1,6}[：:]\s*$').hasMatch(line);
         if (isHeading && i > 0 && lines[i - 1].trim().isNotEmpty) {
           widgets.add(const SizedBox(height: 8));
         }
@@ -1886,8 +1886,8 @@ if (_isEditing) ...[
           SelectableText(
             line,
             style: isHeading
-                ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.getTextPrimary(context))
-                : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getTextPrimary(context)),
+                ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)
+                : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.textPrimary),
           ),
         );
       }
@@ -1906,7 +1906,7 @@ if (_isEditing) ...[
 
     for (final line in lines) {
       // Check for decompress code
-      final decompressMatch = RegExp(r'解压(?:码|密码)[�?]?\s*(.{1,50})').firstMatch(line);
+      final decompressMatch = RegExp(r'解压(?:码|密码)[：:]?\s*(.{1,50})').firstMatch(line);
       if (decompressMatch != null) {
         final code = decompressMatch.group(1)?.trim() ?? '';
         if (code.isNotEmpty) {
@@ -1915,8 +1915,8 @@ if (_isEditing) ...[
         continue; // Don't add decompress code line to download links
       }
 
-      // Check for labeled download link (e.g., "飞猫直连：https://..." or "飞猫直链�?https://...")
-      final labeledMatch = RegExp(r'^([^�?]+)[�?]\s*(https?://.+)').firstMatch(line.trim());
+      // Check for labeled download link (e.g., "飞猫直连：https://..." or "飞猫直链① https://...")
+      final labeledMatch = RegExp(r'^([^：:]+)[：:]\s*(https?://.+)').firstMatch(line.trim());
       if (labeledMatch != null) {
         final customLabel = labeledMatch.group(1)!.trim();
         final url = labeledMatch.group(2)!.trim();
@@ -1938,9 +1938,9 @@ if (_isEditing) ...[
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.download, size: 15, color: AppTheme.getTextPrimary(context)),
+            const Icon(Icons.download, size: 15, color: AppTheme.textPrimary),
             const SizedBox(width: 8),
-            Text('下载:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
+            const Text('下载:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
           ],
         ),
         const SizedBox(height: 8),
@@ -1952,7 +1952,7 @@ if (_isEditing) ...[
               ...entry.value.map((link) {
                 final urlMatch = RegExp('https?://[^\\s"\\)]+').firstMatch(link);
                 final url = urlMatch?.group(0) ?? '';
-                final extractCodeMatch = RegExp(r'(?:提取码|密码)[�?]\s*(\w+)').firstMatch(link);
+                final extractCodeMatch = RegExp(r'(?:提取码|密码)[：:]\s*(\w+)').firstMatch(link);
                 final extractCode = extractCodeMatch?.group(1);
                 return Padding(
                   padding: const EdgeInsets.only(top: 4),
@@ -1961,16 +1961,16 @@ if (_isEditing) ...[
                       GestureDetector(
                         onDoubleTap: () {
                           Clipboard.setData(ClipboardData(text: url));
-                          AppTheme.showGlassToast(context, message: '已复制链�?);
+                          AppTheme.showGlassToast(context, message: '已复制链接');
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.2)),
+                            border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
                           ),
-                          child: Text(entry.key, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppTheme.getPrimaryColor(context))),
+                          child: Text(entry.key, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppTheme.primaryColor)),
                         ),
                       ),
                       if (extractCode != null) ...[
@@ -1987,7 +1987,7 @@ if (_isEditing) ...[
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: Colors.orange.withValues(alpha: 0.2)),
                             ),
-                            child: const Text('提取�?, style: TextStyle(fontSize: 11, color: Colors.orange)),
+                            child: const Text('提取码', style: TextStyle(fontSize: 11, color: Colors.orange)),
                           ),
                         ),
                       ],
@@ -2004,9 +2004,9 @@ if (_isEditing) ...[
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.vpn_key_outlined, size: 15, color: AppTheme.getTextPrimary(context)),
+              const Icon(Icons.vpn_key_outlined, size: 15, color: AppTheme.textPrimary),
               const SizedBox(width: 8),
-              Text('解压�?', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
+              const Text('解压码:', style: TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
               const SizedBox(width: 8),
               ...decompressCodes.map((code) => Padding(
                 padding: const EdgeInsets.only(right: 6),
@@ -2022,7 +2022,7 @@ if (_isEditing) ...[
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.purple.withValues(alpha: 0.2)),
                     ),
-                    child: const Text('解压�?, style: TextStyle(fontSize: 11, color: Colors.purple)),
+                    child: const Text('解压码', style: TextStyle(fontSize: 11, color: Colors.purple)),
                   ),
                 ),
               )),
@@ -2087,9 +2087,9 @@ if (_isEditing) ...[
       children: [
         Row(
           children: [
-            const Icon(Icons.photo_library_outlined, size: 18, color: AppTheme.getPrimaryColor(context)),
+            const Icon(Icons.photo_library_outlined, size: 18, color: AppTheme.primaryColor),
             const SizedBox(width: 8),
-            Text('更多图片', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context))),
+            const Text('更多图片', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
           ],
         ),
         const SizedBox(height: 14),
@@ -2108,9 +2108,9 @@ if (_isEditing) ...[
       children: [
         Row(
           children: [
-            const Icon(Icons.photo_library, size: 18, color: AppTheme.getPrimaryColor(context)),
+            const Icon(Icons.photo_library, size: 18, color: AppTheme.primaryColor),
             const SizedBox(width: 8),
-            Text('全部图片 (${images.length})', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context))),
+            Text('全部图片 (${images.length})', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
           ],
         ),
         const SizedBox(height: 14),
@@ -2127,7 +2127,7 @@ if (_isEditing) ...[
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
       decoration: BoxDecoration(
-        color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.05),
+        color: AppTheme.backgroundColor.withValues(alpha: 0.05),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -2136,7 +2136,7 @@ if (_isEditing) ...[
             onPressed: () => setState(() => _isEditing = false),
             icon: const Icon(Icons.close, size: 18),
             label: const Text('取消'),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.getTextPrimary(context)),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.textPrimary),
           ),
           const SizedBox(width: 12),
           ElevatedButton.icon(
@@ -2144,7 +2144,7 @@ if (_isEditing) ...[
             icon: const Icon(Icons.save, size: 18),
             label: const Text('保存修改'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.getPrimaryColor(context),
+              backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -2193,7 +2193,7 @@ if (_isEditing) ...[
                           !await Directory(_currentGame.path).exists();
       if (titleChanged && isBackupGame && gameId != null) {
         final prefs = ref.read(sharedPreferencesProvider);
-        // 读取所有整理目�?
+        // 读取所有整理目录
         final sortedPathList = <String>[];
         final rawSorted = prefs.getString('sorted_paths') ?? '';
         if (rawSorted.startsWith('{')) {
@@ -2216,11 +2216,11 @@ if (_isEditing) ...[
           final backupDir = Directory(backupDirPath);
           
           if (await backupDir.exists()) {
-            // 找到实际的备份目录（通过遍历 Backup 目录查找匹配的文件夹�?
+            // 找到实际的备份目录（通过遍历 Backup 目录查找匹配的文件夹）
             String? actualBackupPath;
             await for (final entity in backupDir.list()) {
               if (entity is Directory) {
-                // 检查这个备份目录是否与当前游戏匹配（通过 metadata.json 中的标题�?
+                // 检查这个备份目录是否与当前游戏匹配（通过 metadata.json 中的标题）
                 final metadataFile = File('${entity.path}${sep}metadata.json');
                 if (await metadataFile.exists()) {
                   try {
@@ -2272,13 +2272,13 @@ if (_isEditing) ...[
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('确认修改路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+                  const Text('确认修改路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                   const SizedBox(height: 16),
-                  Text('原路�? ${_currentGame.path}', style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 13)),
+                  Text('原路径: ${_currentGame.path}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                   const SizedBox(height: 8),
-                  Text('新路�? $newPath', style: TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 13, fontWeight: FontWeight.w500)),
+                  Text('新路径: $newPath', style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 12),
-                  Text('将移动文件夹到新路径并更新数据库记录�?, style: TextStyle(color: AppTheme.getTextSecondary(context))),
+                  const Text('将移动文件夹到新路径并更新数据库记录。', style: TextStyle(color: AppTheme.textSecondary)),
                   const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -2291,7 +2291,7 @@ if (_isEditing) ...[
                       ElevatedButton(
                         onPressed: () => Navigator.pop(context, true),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.getPrimaryColor(context),
+                          backgroundColor: AppTheme.primaryColor,
                           foregroundColor: Colors.white,
                         ),
                         child: const Text('确认修改'),
@@ -2439,9 +2439,9 @@ if (_isEditing) ...[
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('重新刮削', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+                    const Text('重新刮削', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                     const SizedBox(height: 12),
-                    Text('来源链接已修改，是否立即重新刮削该游戏？', style: TextStyle(color: AppTheme.getTextSecondary(context))),
+                    const Text('来源链接已修改，是否立即重新刮削该游戏？', style: TextStyle(color: AppTheme.textSecondary)),
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -2454,7 +2454,7 @@ if (_isEditing) ...[
                         ElevatedButton(
                           onPressed: () => Navigator.pop(context, true),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.getPrimaryColor(context),
+                            backgroundColor: AppTheme.primaryColor,
                             foregroundColor: Colors.white,
                           ),
                           child: const Text('立即刮削'),
@@ -2469,7 +2469,7 @@ if (_isEditing) ...[
 
           if (shouldRescrape == true && mounted) {
             Navigator.of(context).pop();
-            AppTheme.showGlassToast(context, message: '请在刮削页面点击"扫描游戏�?后刮削该游戏');
+            AppTheme.showGlassToast(context, message: '请在刮削页面点击"扫描游戏库"后刮削该游戏');
             return;
           }
         }
@@ -2487,7 +2487,7 @@ if (_isEditing) ...[
   }
 
   Future<void> _launchExe(String exePath, String gamePath) async {
-    // 工作目录应该�?exe 文件所在的文件�?
+    // 工作目录应该是 exe 文件所在的文件夹
     final exeDir = File(exePath).parent.path;
     try {
       await Process.run(exePath, [], workingDirectory: exeDir);
@@ -2517,7 +2517,7 @@ if (_isEditing) ...[
     final gameDir = Directory(game.path);
     if (!await gameDir.exists()) return false;
 
-    final toolBat = File('${game.path}${Platform.pathSeparator}与工具一同启�?bat');
+    final toolBat = File('${game.path}${Platform.pathSeparator}与工具一同启动.bat');
     if (await toolBat.exists()) {
       await repo.updateGame(game.copyWith(gameLauncher: toolBat.path));
       try {
@@ -2534,7 +2534,7 @@ if (_isEditing) ...[
     await for (final entity in gameDir.list()) {
       if (entity is File) {
         final fileName = entity.path.split(RegExp(r'[/\\]')).last.toLowerCase();
-        if (fileName.endsWith('.bat') && (fileName.contains('启动') || fileName.contains('开�?))) {
+        if (fileName.endsWith('.bat') && (fileName.contains('启动') || fileName.contains('开始'))) {
           await repo.updateGame(game.copyWith(gameLauncher: entity.path));
           try {
             await _launchExe(entity.path, game.path);
@@ -2585,13 +2585,13 @@ if (_isEditing) ...[
   }
 
   void _openSaveLocation() async {
-    // 如果未设置存档路径，先提示用户设�?
+    // 如果未设置存档路径，先提示用户设置
     if (_currentGame.savePath == null || _currentGame.savePath!.isEmpty) {
       _showEditSavePathDialog();
       return;
     }
 
-    // 打开存档管理对话�?
+    // 打开存档管理对话框
     showDialog(
       context: context,
       builder: (ctx) => SaveManagementDialog(game: _currentGame),
@@ -2610,12 +2610,12 @@ if (_isEditing) ...[
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('编辑存档路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+              const Text('编辑存档路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
               const SizedBox(height: 16),
               TextField(
                 controller: controller,
                 decoration: const InputDecoration(
-                  hintText: '输入存档文件夹路�?,
+                  hintText: '输入存档文件夹路径',
                   labelText: '存档路径',
                 ),
                 autofocus: true,
@@ -2646,7 +2646,7 @@ if (_isEditing) ...[
                       if (mounted) {
                         _refreshAllProviders();
                         Navigator.pop(context);
-                        AppTheme.showGlassToast(context, message: '存档路径已更�?);
+                        AppTheme.showGlassToast(context, message: '存档路径已更新');
                       }
                     },
                     child: const Text('保存'),
@@ -2662,12 +2662,12 @@ if (_isEditing) ...[
 
   Future<void> _checkForUpdate() async {
     if (_currentGame.title == null || _currentGame.title!.isEmpty) {
-      AppTheme.showGlassToast(context, message: '游戏标题为空，无法检查更�?);
+      AppTheme.showGlassToast(context, message: '游戏标题为空，无法检查更新');
       return;
     }
 
     setState(() => _isCheckingUpdate = true);
-    AppTheme.showGlassToast(context, message: '正在检查更�?..', icon: Icons.system_update, iconColor: AppTheme.getPrimaryColor(context));
+    AppTheme.showGlassToast(context, message: '正在检查更新...', icon: Icons.system_update, iconColor: AppTheme.primaryColor);
 
     try {
       final service = VersionCheckService();
@@ -2688,7 +2688,7 @@ if (_isEditing) ...[
     } catch (e) {
       if (mounted) {
         setState(() => _isCheckingUpdate = false);
-        AppTheme.showGlassToast(context, message: '检查更新失�? $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        AppTheme.showGlassToast(context, message: '检查更新失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
     }
   }
@@ -2696,7 +2696,7 @@ if (_isEditing) ...[
   Future<void> _rescrapeGame() async {
     if (_currentGame.sourceUrl == null || _currentGame.sourceUrl!.isEmpty) return;
     setState(() => _isRescraping = true);
-    AppTheme.showGlassToast(context, message: '刮削等待时间可能较长，请勿关闭当前窗�?, duration: const Duration(seconds: 5));
+    AppTheme.showGlassToast(context, message: '刮削等待时间可能较长，请勿关闭当前窗口', duration: const Duration(seconds: 5));
     try {
       final sourceUrl = _currentGame.sourceUrl!;
       final isDlsite = sourceUrl.contains('dlsite');
@@ -2864,7 +2864,7 @@ if (_isEditing) ...[
         }
       } else {
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '刮削失败：无法解析页�?, icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          AppTheme.showGlassToast(context, message: '刮削失败：无法解析页面', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
       }
     } catch (e) {
@@ -2880,7 +2880,7 @@ if (_isEditing) ...[
     final input = _quickScrapeController.text.trim();
     if (input.isEmpty) return;
     setState(() => _isRescraping = true);
-    AppTheme.showGlassToast(context, message: '刮削等待时间可能较长，请勿关闭当前窗�?, duration: const Duration(seconds: 5));
+    AppTheme.showGlassToast(context, message: '刮削等待时间可能较长，请勿关闭当前窗口', duration: const Duration(seconds: 5));
     try {
       GameInfo? gameInfo;
       String url = input;
@@ -2928,7 +2928,7 @@ if (_isEditing) ...[
         final isUrl = url.startsWith('http://') || url.startsWith('https://');
         if (!isUrl) {
           if (mounted) {
-            AppTheme.showGlassToast(context, message: '请输入有效的链接、Steam AppID �?DLsite ID', icon: Icons.info_outline, iconColor: AppTheme.getPrimaryColor(context));
+            AppTheme.showGlassToast(context, message: '请输入有效的链接、Steam AppID 或 DLsite ID', icon: Icons.info_outline, iconColor: AppTheme.primaryColor);
           }
           return;
         }
@@ -2950,7 +2950,7 @@ if (_isEditing) ...[
 
       if (gameInfo == null) {
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '刮削失败，无法解析页面内容。请确认链接正确且站点已配置解析器�?, icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          AppTheme.showGlassToast(context, message: '刮削失败，无法解析页面内容。请确认链接正确且站点已配置解析器。', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
         return;
       }
@@ -3102,7 +3102,7 @@ if (_isEditing) ...[
 
     await ref.read(gameRepositoryProvider).deleteGameImagesByGameId(game.id!);
 
-    // 清理旧图片文�?
+    // 清理旧图片文件
     if (await imageDir.exists()) {
       await for (final entity in imageDir.list()) {
         if (entity is File) await entity.delete();
@@ -3364,17 +3364,17 @@ if (_isEditing) ...[
                 children: [
                   Icon(Icons.system_update, color: AppTheme.successColor, size: 22),
                   const SizedBox(width: 8),
-                  Text('发现新版�?, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+                  const Text('发现新版本', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                 ],
               ),
               const SizedBox(height: 16),
-              Text('来源: ${result.siteName}', style: TextStyle(fontSize: 13, color: AppTheme.getTextSecondary(context))),
+              Text('来源: ${result.siteName}', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
               const SizedBox(height: 4),
-              Text('当前版本: ${_currentGame.version ?? "未知"}', style: TextStyle(fontSize: 13, color: AppTheme.getTextSecondary(context))),
+              Text('当前版本: ${_currentGame.version ?? "未知"}', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
               const SizedBox(height: 4),
-              Text('最新版�? ${result.maxVersion}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
+              Text('最新版本: ${result.maxVersion}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
               const SizedBox(height: 8),
-              Text('帖子标题: ${result.postTitle}', style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)), maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text('帖子标题: ${result.postTitle}', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary), maxLines: 2, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -3396,7 +3396,7 @@ if (_isEditing) ...[
                     icon: const Icon(Icons.open_in_new, size: 16),
                     label: const Text('前往下载'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.getPrimaryColor(context),
+                      backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
@@ -3432,7 +3432,7 @@ if (_isEditing) ...[
             debugPrint('[Review] Updated rating=$rating, review=${review.isEmpty ? "null" : review} for game id=$gameId');
             if (mounted) {
               _refreshAllProviders();
-              AppTheme.showGlassToast(context, message: '评论已保�?);
+              AppTheme.showGlassToast(context, message: '评论已保存');
             }
           } catch (e, stackTrace) {
             debugPrint('[Review] Error saving review: $e\n$stackTrace');
@@ -3459,7 +3459,7 @@ if (_isEditing) ...[
             debugPrint('[Review] Deleted rating/review for game id=$gameId');
             if (mounted) {
               _refreshAllProviders();
-              AppTheme.showGlassToast(context, message: '评论已删�?);
+              AppTheme.showGlassToast(context, message: '评论已删除');
             }
           } catch (e, stackTrace) {
             debugPrint('[Review] Error deleting review: $e\n$stackTrace');
@@ -3513,9 +3513,9 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
               constraints: BoxConstraints(maxHeight: maxHeight),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.getSurfaceColor(context),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
                 boxShadow: [
                   BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 24, offset: const Offset(0, 4)),
                 ],
@@ -3524,11 +3524,11 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
+                  const Row(
                     children: [
                       Icon(Icons.comment, size: 14, color: Colors.red),
                       SizedBox(width: 6),
-                      Text('评论预览', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.getTextSecondary(context))),
+                      Text('评论预览', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -3536,7 +3536,7 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
                     child: SingleChildScrollView(
                       child: Text(
                         widget.review,
-                        style: TextStyle(fontSize: 13, height: 1.5, color: AppTheme.getTextPrimary(context)),
+                        style: const TextStyle(fontSize: 13, height: 1.5, color: AppTheme.textPrimary),
                       ),
                     ),
                   ),
@@ -3622,19 +3622,19 @@ class _InfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 15, color: AppTheme.getTextPrimary(context)),
+        Icon(icon, size: 15, color: AppTheme.textPrimary),
         const SizedBox(width: 8),
-        Text('$label:', style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context))),
+        Text('$label:', style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary)),
         const SizedBox(width: 6),
         Expanded(
           child: isLink
               ? InkWell(
                   onTap: () async { try { await launchUrl(Uri.parse(value)); } catch (_) {} },
-                  child: Text(value, style: const TextStyle(fontSize: 12, color: AppTheme.getPrimaryColor(context), decoration: TextDecoration.underline), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  child: Text(value, style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, decoration: TextDecoration.underline), maxLines: 2, overflow: TextOverflow.ellipsis),
                 )
               : SelectableText(
                   value,
-                  style: TextStyle(fontSize: 12, color: valueColor ?? AppTheme.getTextPrimary(context)),
+                  style: TextStyle(fontSize: 12, color: valueColor ?? AppTheme.textPrimary),
                   maxLines: isPath ? 2 : 1,
                 ),
         ),
@@ -3681,7 +3681,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppTheme.getSurfaceColor(context),
+      backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
       ),
@@ -3698,8 +3698,8 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    widget.game.title ?? '未命名游�?,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context)),
+                    widget.game.title ?? '未命名游戏',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -3711,7 +3711,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
               ],
             ),
             const SizedBox(height: 20),
-            Text('评分', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context))),
+            const Text('评分', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
             const SizedBox(height: 8),
             Builder(
               builder: (context) {
@@ -3756,19 +3756,19 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   _rating == _rating.roundToDouble() ? '${_rating.toInt()} / 5' : '$_rating / 5',
-                  style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
               ),
             const SizedBox(height: 20),
-            Text('评论', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context))),
+            const Text('评论', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
             const SizedBox(height: 8),
             TextField(
               controller: _reviewController,
               maxLines: 5,
-              style: TextStyle(fontSize: 14, color: AppTheme.getTextPrimary(context)),
+              style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary),
               decoration: InputDecoration(
                 hintText: '写下你的评论...',
-                hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
+                hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5)),
                 filled: true,
                 fillColor: Colors.grey.shade50,
                 border: OutlineInputBorder(
@@ -3781,7 +3781,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.getPrimaryColor(context)),
+                  borderSide: BorderSide(color: AppTheme.primaryColor),
                 ),
                 contentPadding: const EdgeInsets.all(12),
               ),
@@ -3802,7 +3802,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                   children: [
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      child: Text('取消', style: TextStyle(color: AppTheme.getTextSecondary(context))),
+                      child: const Text('取消', style: TextStyle(color: AppTheme.textSecondary)),
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton(
@@ -3811,7 +3811,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                         Navigator.of(context).pop();
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.getPrimaryColor(context),
+                        backgroundColor: AppTheme.primaryColor,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
@@ -3944,7 +3944,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                 decoration: BoxDecoration(
                   color: AppTheme.surfaceColor.withValues(alpha: 0.95),
                   borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
-                  border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                  border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.3),
@@ -3967,7 +3967,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                                 color: Colors.transparent,
                                 alignment: Alignment.center,
                                 child: _currentIndex > 0
-                                    ? Icon(Icons.chevron_left, size: 48, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.5))
+                                    ? Icon(Icons.chevron_left, size: 48, color: AppTheme.textPrimary.withValues(alpha: 0.5))
                                     : const SizedBox.shrink(),
                               ),
                             ),
@@ -4009,7 +4009,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                                             child: Image.file(
                                               File(widget.images[_currentIndex].imagePath!),
                                               fit: BoxFit.contain,
-                                              errorBuilder: (_, __, ___) => Icon(Icons.broken_image, size: 64, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.3)),
+                                              errorBuilder: (_, __, ___) => Icon(Icons.broken_image, size: 64, color: AppTheme.textPrimary.withValues(alpha: 0.3)),
                                             ),
                                           )
                                         : const SizedBox.shrink(),
@@ -4026,7 +4026,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                                 color: Colors.transparent,
                                 alignment: Alignment.center,
                                 child: _currentIndex < widget.images.length - 1
-                                    ? Icon(Icons.chevron_right, size: 48, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.5))
+                                    ? Icon(Icons.chevron_right, size: 48, color: AppTheme.textPrimary.withValues(alpha: 0.5))
                                     : const SizedBox.shrink(),
                               ),
                             ),
@@ -4046,10 +4046,10 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                           child: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
+                              color: AppTheme.backgroundColor.withValues(alpha: 0.5),
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(Icons.close, size: 22, color: AppTheme.getTextPrimary(context)),
+                            child: Icon(Icons.close, size: 22, color: AppTheme.textPrimary),
                           ),
                         ),
                       ),
@@ -4061,10 +4061,10 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
+                          color: AppTheme.backgroundColor.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text('${_currentIndex + 1} / ${widget.images.length}', style: TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 13)),
+                        child: Text('${_currentIndex + 1} / ${widget.images.length}', style: TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
                       ),
                     ),
                     // Zoom percentage
@@ -4074,10 +4074,10 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
+                          color: AppTheme.backgroundColor.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text('${(_scale * 100).round()}%', style: TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 13)),
+                        child: Text('${(_scale * 100).round()}%', style: TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
                       ),
                     ),
                     // Reset button
@@ -4093,10 +4093,10 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
+                              color: AppTheme.backgroundColor.withValues(alpha: 0.5),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Text('重置', style: TextStyle(color: AppTheme.getPrimaryColor(context), fontSize: 13)),
+                            child: Text('重置', style: TextStyle(color: AppTheme.primaryColor, fontSize: 13)),
                           ),
                         ),
                       ),
@@ -4119,7 +4119,7 @@ class _ImageSelectionDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppTheme.getSurfaceColor(context),
+      backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
       ),
@@ -4132,12 +4132,12 @@ class _ImageSelectionDialog extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.photo_library, color: AppTheme.getPrimaryColor(context), size: 24),
+                const Icon(Icons.photo_library, color: AppTheme.primaryColor, size: 24),
                 const SizedBox(width: 12),
-                Expanded(
+                const Expanded(
                   child: Text(
                     '选择图片',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context)),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                   ),
                 ),
                 IconButton(
@@ -4147,9 +4147,9 @@ class _ImageSelectionDialog extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              '选择一张图片插入到内容�?,
-              style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
+            const Text(
+              '选择一张图片插入到内容中',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 16),
             Expanded(
@@ -4168,7 +4168,7 @@ class _ImageSelectionDialog extends StatelessWidget {
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
-                        border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(GlassConstants.radiusSmall - 1),
@@ -4176,7 +4176,7 @@ class _ImageSelectionDialog extends StatelessWidget {
                           File(image.imagePath),
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => Container(
-                            color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
+                            color: AppTheme.backgroundColor.withValues(alpha: 0.3),
                             child: const Center(child: Icon(Icons.broken_image, size: 32)),
                           ),
                         ),
