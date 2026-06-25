@@ -1815,6 +1815,17 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                       borderSide: BorderSide.none,
                     ),
                   ),
+                  menuStyle: MenuStyle(
+                    shape: WidgetStateProperty.all(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                      ),
+                    ),
+                    elevation: WidgetStateProperty.all(8),
+                    backgroundColor: WidgetStateProperty.all(
+                      Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
+                    ),
+                  ),
                 ),
               ),
               child: Container(
