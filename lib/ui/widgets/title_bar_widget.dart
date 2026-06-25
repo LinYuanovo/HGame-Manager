@@ -27,10 +27,14 @@ class TitleBarWidget extends StatelessWidget {
             child: Container(
               height: LayoutConstants.titleBarHeight,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.black.withValues(alpha: 0.7)
+                    : Colors.white.withValues(alpha: 0.7),
                 border: Border(
                   bottom: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.3),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : Colors.white.withValues(alpha: 0.3),
                   ),
                 ),
               ),
@@ -117,6 +121,8 @@ class _WindowButtonState extends State<_WindowButton> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -129,14 +135,14 @@ class _WindowButtonState extends State<_WindowButton> {
           color: _isHovered
               ? (widget.isClose
                   ? AppTheme.accentColor.withValues(alpha: 0.8)
-                  : Colors.white.withValues(alpha: 0.15))
+                  : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.15)))
               : Colors.transparent,
           child: Icon(
             widget.icon,
             size: widget.iconSize ?? 16,
             color: _isHovered && widget.isClose
                 ? Colors.white
-                : AppTheme.textSecondary,
+                : (isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
           ),
         ),
       ),
