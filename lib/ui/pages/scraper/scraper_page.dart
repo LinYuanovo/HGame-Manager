@@ -1,8 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
@@ -13,6 +13,7 @@ import '../../../scraper/html_parser.dart';
 import '../../../scraper/parse_utils.dart';
 import '../../../core/services/dlsite_service.dart';
 import '../../../core/services/steam_service.dart';
+import '../../../core/services/concurrent_image_downloader.dart';
 import '../../theme/app_theme.dart';
 
 class ScraperPage extends ConsumerStatefulWidget {
@@ -52,6 +53,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   final List<String> _logs = [];
   final _ScrapeStats _stats = _ScrapeStats();
   final List<_GameScrapeItem> _gameItems = [];
+  int _threadCount = 3;
 
   @override
   Widget build(BuildContext context) {
@@ -106,12 +108,16 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           const SizedBox(height: 12),
 
           _buildActionButton(
-            icon: Icons.cloud_download,
+            icon: Icons.description_outlined,
             label: '刮削元数据',
             color: AppTheme.successColor,
             isEnabled: !_isProcessing && _gameItems.isNotEmpty,
             onPressed: _startScrape,
           ),
+
+          const SizedBox(height: 12),
+
+          _buildThreadCountSelector(),
 
           if (_isProcessing) ...[
             const SizedBox(height: 12),
@@ -212,6 +218,55 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThreadCountSelector() {
+    return SizedBox(
+      width: 200,
+      child: GlassContainer(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        color: AppTheme.glassFillColor,
+        border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.15)),
+        enableBlur: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('线程数', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w500)),
+            Row(
+              children: [
+                _buildThreadButton(-1),
+                const SizedBox(width: 8),
+                Text('$_threadCount', style: TextStyle(color: AppTheme.primaryColor, fontSize: 15, fontWeight: FontWeight.w700)),
+                const SizedBox(width: 8),
+                _buildThreadButton(1),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThreadButton(int delta) {
+    return GestureDetector(
+      onTap: _isProcessing ? null : () {
+        setState(() {
+          _threadCount = (_threadCount + delta).clamp(1, 8);
+        });
+      },
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          color: _isProcessing ? Colors.grey.withValues(alpha: 0.1) : AppTheme.primaryColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: _isProcessing ? Colors.grey.withValues(alpha: 0.3) : AppTheme.primaryColor.withValues(alpha: 0.3)),
+        ),
+        child: Center(
+          child: Text(delta > 0 ? '+' : '-', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _isProcessing ? Colors.grey : AppTheme.primaryColor)),
         ),
       ),
     );
@@ -617,220 +672,39 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       }
     });
 
-    _addLog('========== 开始刮削 ${_gameItems.length} 个游戏 ==========');
+    _addLog('========== 开始刮削 ${_gameItems.length} 个游戏 (线程数: $_threadCount) ==========');
 
     try {
       final gameRepo = ref.read(gameRepositoryProvider);
       final tagRepo = ref.read(tagRepositoryProvider);
-      final client = await createProxyClientFromPrefs();
-
       await _scraper.ensureLoaded();
 
-      for (int i = 0; i < _gameItems.length; i++) {
-        final item = _gameItems[i];
-        final game = item.game;
+      int activeCount = 0;
+      final queue = List.generate(_gameItems.length, (i) => i);
+      final completer = Completer<void>();
 
-        setState(() {
-          item.status = '刮削中';
-          item.progress = 0.1;
-        });
-
-        _addLog('[${i + 1}/${_gameItems.length}] 刮削: ${game.title ?? path.basename(game.path)}');
-        _addLog('  URL: ${game.sourceUrl}');
-
-        // 确定使用的解析器
-        final parser = ParserRegistry.getParserForUrl(game.sourceUrl!);
-        _addLog('  解析器: ${parser?.runtimeType.toString().replaceAll("Parser", "") ?? "无匹配"}');
-
-        try {
-          final headers = await buildScrapeHeaders(game.sourceUrl!);
-          final response = await client.get(Uri.parse(game.sourceUrl!), headers: headers);
-
-          if (response.statusCode == 200) {
-            GameInfo? gameInfo;
-            final sourceUrl = game.sourceUrl!;
-            final isDlsite = sourceUrl.contains('dlsite');
-            final isSteam = sourceUrl.contains('steam');
-
-            if (isDlsite) {
-              final dlsiteService = ref.read(dlsiteServiceProvider);
-              final id = dlsiteService.normalizeId(sourceUrl);
-              if (id != null) {
-                gameInfo = await dlsiteService.fetchById(id);
-              }
-            } else if (isSteam) {
-              final steamService = ref.read(steamServiceProvider);
-              final appidMatch = RegExp(r'/app/(\d+)').firstMatch(sourceUrl);
-              if (appidMatch != null) {
-                final id = appidMatch.group(1)!;
-                final steamInfo = await steamService.fetchById(id);
-                if (steamInfo != null) {
-                  gameInfo = GameInfo(
-                    title: steamInfo.title,
-                    description: steamInfo.description,
-                    tags: steamInfo.tags,
-                    screenshots: steamInfo.screenshots,
-                    sourceUrl: steamInfo.sourceUrl,
-                    maker: steamInfo.developers.isNotEmpty ? steamInfo.developers.join(', ') : null,
-                  );
-                }
-              }
-            } else {
-              gameInfo = _scraper.scrapeGameInfo(response.body, sourceUrl);
-            }
-            if (gameInfo != null) {
-              final displayTitle = gameInfo.title != null
-                  ? _stripVersionFromTitle(gameInfo.title!, gameInfo.version)
-                  : null;
-              var updated = game.copyWith(
-                title: displayTitle ?? game.title,
-                version: gameInfo.version ?? game.version,
-                intro: gameInfo.description ?? game.intro,
-                features: gameInfo.features.isNotEmpty ? gameInfo.features.join('\n') : game.features,
-                changelog: gameInfo.changelog ?? game.changelog,
-                downloadUrl: gameInfo.downloadUrl.isNotEmpty ? gameInfo.downloadUrl : game.downloadUrl,
-              );
-
-              final metadataFile = File(path.join(game.path, 'metadata.json'));
-              await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()), flush: true);
-
-              int gameId;
-              if (game.id != null) {
-                await gameRepo.updateGame(updated);
-                gameId = game.id!;
-              } else {
-                gameId = await gameRepo.insertGame(updated);
-                item.game = updated.copyWith(id: gameId);
-              }
-
-              for (final tagName in gameInfo.tags) {
-                final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
-                await gameRepo.addTagToGame(gameId, tagId);
-              }
-              if (gameInfo.category != null) {
-                final tagId = await tagRepo.insertOrGetTag(gameInfo.category!, Tag.typeSeries);
-                await gameRepo.addTagToGame(gameId, tagId);
-              }
-
-              // Smart tag overlap: if a game has tag "互动SLG" and "SLG" exists in the system,
-              // also associate the game with "SLG"
-              final allTags = await tagRepo.getAllTags();
-              final gameTagNames = [...gameInfo.tags, if (gameInfo.category != null) gameInfo.category!];
-              for (final existingTag in allTags) {
-                // Skip if already associated
-                final alreadyHas = gameTagNames.any((t) => t.toLowerCase() == existingTag.name.toLowerCase());
-                if (alreadyHas) continue;
-                // Check if any of the game's tags contain this existing tag's name
-                final isOverlapping = gameTagNames.any(
-                  (t) => t.toLowerCase().contains(existingTag.name.toLowerCase()) && t.toLowerCase() != existingTag.name.toLowerCase()
-                );
-                if (isOverlapping) {
-                  await gameRepo.addTagToGame(gameId, existingTag.id!);
-                  _addLog('  -> 智能关联标签: ${existingTag.name}');
-                }
-              }
-
-              _addLog('  -> 成功: ${displayTitle ?? "无标题"}');
-
-              // Download images
-              Map<String, String> urlToLocal = {};
-              if (gameInfo.screenshots.isNotEmpty) {
-                _addLog('  -> 下载 ${gameInfo.screenshots.length} 张配图...');
-                urlToLocal = await _downloadImages(updated.copyWith(id: gameId), gameInfo.screenshots, client, game.sourceUrl!);
-              }
-
-              // Replace remote URLs with local paths in intro and metadata
-              if (urlToLocal.isNotEmpty) {
-                var metaJson = gameInfo.toJson();
-                if (gameInfo.description != null) {
-                  var desc = gameInfo.description!;
-                  for (final entry in urlToLocal.entries) {
-                    desc = desc.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
-                  }
-                  updated = updated.copyWith(intro: desc);
-                  metaJson['intro'] = desc;
-                }
-                if (gameInfo.descriptionHtml != null) {
-                  var html = gameInfo.descriptionHtml!;
-                  for (final entry in urlToLocal.entries) {
-                    html = html.replaceAll(entry.key, entry.value);
-                    if (entry.key.startsWith('https:')) {
-                      html = html.replaceAll(entry.key.replaceFirst('https:', ''), entry.value);
-                    }
-                  }
-                  metaJson['intro_html'] = html;
-                }
-                await metadataFile.writeAsString(jsonEncode(metaJson), flush: true);
-                if (game.id != null) {
-                  await gameRepo.updateGame(updated);
-                }
-              }
-
-              // Reload game with images from database
-              final reloadedGame = await gameRepo.getGameById(gameId);
-              if (reloadedGame != null) {
-                item.game = reloadedGame;
-              }
-
-              // Auto-rename folder if setting enabled
-              try {
-                final prefs = await AppSettings.load();
-                final autoRename = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
-                if (autoRename && item.game.id != null) {
-                  final renameService = FolderRenameService(gameRepository: gameRepo);
-                  final newPath = await renameService.renameGameFolder(item.game);
-                  if (newPath != null) {
-                    _addLog('  -> 文件夹已重命名: ${path.basename(newPath)}');
-                    // Reload game with updated path
-                    final renamedGame = await gameRepo.getGameById(item.game.id!);
-                    if (renamedGame != null) {
-                      item.game = renamedGame;
-                    }
-                  }
-                }
-              } catch (e) {
-                _addLog('  -> 重命名失败: $e');
-              }
-
-              setState(() {
-                item.progress = 1.0;
-                item.status = '成功';
-                _stats.success++;
-                _stats.pending--;
-              });
-
-              await _moveToSorted(item.game);
-            } else {
-              _addLog('  -> 无匹配的解析器 (HTML已获取但无法解析)');
-              setState(() {
-                item.progress = 1.0;
-                item.status = '无解析器';
-                _stats.failed++;
-                _stats.pending--;
-              });
-            }
-          } else {
-            _addLog('  -> HTTP ${response.statusCode}');
-            setState(() {
-              item.progress = 1.0;
-              item.status = 'HTTP${response.statusCode}';
-              _stats.failed++;
-              _stats.pending--;
-            });
+      void processNext() {
+        if (queue.isEmpty) {
+          if (activeCount == 0 && !completer.isCompleted) {
+            completer.complete();
           }
-        } catch (e) {
-          _addLog('  -> 失败: $e');
-          setState(() {
-            item.progress = 1.0;
-            item.status = '失败';
-            item.error = e.toString();
-            _stats.failed++;
-            _stats.pending--;
-          });
+          return;
         }
+        final idx = queue.removeAt(0);
+        activeCount++;
+        _scrapeSingleGame(idx, gameRepo, tagRepo).then((_) {
+          activeCount--;
+          processNext();
+        });
       }
 
-      client.close();
+      final initialCount = _threadCount.clamp(1, _gameItems.length);
+      for (int i = 0; i < initialCount; i++) {
+        processNext();
+      }
+
+      await completer.future;
+
       _addLog('========== 刮削完成 ==========');
       _addLog('总计: ${_gameItems.length}, 成功: ${_stats.success}, 失败: ${_stats.failed}');
       ref.invalidate(allGamesProvider);
@@ -846,63 +720,239 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     }
   }
 
-  Future<Map<String, String>> _downloadImages(Game game, List<String> imageUrls, http.Client client, String sourceUrl) async {
-    final urlToLocal = <String, String>{};
-    final gameRepo = ref.read(gameRepositoryProvider);
-    final imagesDir = Directory(path.join(game.path, 'images'));
+  Future<void> _scrapeSingleGame(int i, dynamic gameRepo, dynamic tagRepo) async {
+    final item = _gameItems[i];
+    final game = item.game;
 
-    if (!await imagesDir.exists()) {
-      await imagesDir.create(recursive: true);
+    setState(() {
+      item.status = '刮削中';
+      item.progress = 0.1;
+    });
+
+    _addLog('[${i + 1}/${_gameItems.length}] 刮削: ${game.title ?? path.basename(game.path)}');
+    _addLog('  URL: ${game.sourceUrl}');
+
+    final parser = ParserRegistry.getParserForUrl(game.sourceUrl!);
+    _addLog('  解析器: ${parser?.runtimeType.toString().replaceAll("Parser", "") ?? "无匹配"}');
+
+    try {
+      final client = await createProxyClientFromPrefs();
+      final headers = await buildScrapeHeaders(game.sourceUrl!);
+      final response = await client.get(Uri.parse(game.sourceUrl!), headers: headers);
+      client.close();
+
+      if (response.statusCode == 200) {
+        GameInfo? gameInfo;
+        final sourceUrl = game.sourceUrl!;
+        final isDlsite = sourceUrl.contains('dlsite');
+        final isSteam = sourceUrl.contains('steam');
+
+        if (isDlsite) {
+          final dlsiteService = ref.read(dlsiteServiceProvider);
+          final id = dlsiteService.normalizeId(sourceUrl);
+          if (id != null) {
+            gameInfo = await dlsiteService.fetchById(id);
+          }
+        } else if (isSteam) {
+          final steamService = ref.read(steamServiceProvider);
+          final appidMatch = RegExp(r'/app/(\d+)').firstMatch(sourceUrl);
+          if (appidMatch != null) {
+            final id = appidMatch.group(1)!;
+            final steamInfo = await steamService.fetchById(id);
+            if (steamInfo != null) {
+              gameInfo = GameInfo(
+                title: steamInfo.title,
+                description: steamInfo.description,
+                tags: steamInfo.tags,
+                screenshots: steamInfo.screenshots,
+                sourceUrl: steamInfo.sourceUrl,
+                maker: steamInfo.developers.isNotEmpty ? steamInfo.developers.join(', ') : null,
+              );
+            }
+          }
+        } else {
+          gameInfo = _scraper.scrapeGameInfo(response.body, sourceUrl);
+        }
+        if (gameInfo != null) {
+          final displayTitle = gameInfo.title != null
+              ? _stripVersionFromTitle(gameInfo.title!, gameInfo.version)
+              : null;
+          var updated = game.copyWith(
+            title: displayTitle ?? game.title,
+            version: gameInfo.version ?? game.version,
+            intro: gameInfo.description ?? game.intro,
+            features: gameInfo.features.isNotEmpty ? gameInfo.features.join('\n') : game.features,
+            changelog: gameInfo.changelog ?? game.changelog,
+            downloadUrl: gameInfo.downloadUrl.isNotEmpty ? gameInfo.downloadUrl : game.downloadUrl,
+          );
+
+          final metadataFile = File(path.join(game.path, 'metadata.json'));
+          await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()), flush: true);
+
+          int gameId;
+          if (game.id != null) {
+            await gameRepo.updateGame(updated);
+            gameId = game.id!;
+          } else {
+            gameId = await gameRepo.insertGame(updated);
+            item.game = updated.copyWith(id: gameId);
+          }
+
+          for (final tagName in gameInfo.tags) {
+            final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
+            await gameRepo.addTagToGame(gameId, tagId);
+          }
+          if (gameInfo.category != null) {
+            final tagId = await tagRepo.insertOrGetTag(gameInfo.category!, Tag.typeSeries);
+            await gameRepo.addTagToGame(gameId, tagId);
+          }
+
+          final allTags = await tagRepo.getAllTags();
+          final gameTagNames = [...gameInfo.tags, if (gameInfo.category != null) gameInfo.category!];
+          for (final existingTag in allTags) {
+            final alreadyHas = gameTagNames.any((t) => t.toLowerCase() == existingTag.name.toLowerCase());
+            if (alreadyHas) continue;
+            final isOverlapping = gameTagNames.any(
+              (t) => t.toLowerCase().contains(existingTag.name.toLowerCase()) && t.toLowerCase() != existingTag.name.toLowerCase()
+            );
+            if (isOverlapping) {
+              await gameRepo.addTagToGame(gameId, existingTag.id!);
+              _addLog('  -> 智能关联标签: ${existingTag.name}');
+            }
+          }
+
+          _addLog('  -> 成功: ${displayTitle ?? "无标题"}');
+
+          Map<String, String> urlToLocal = {};
+          if (gameInfo.screenshots.isNotEmpty) {
+            _addLog('  -> 下载 ${gameInfo.screenshots.length} 张配图...');
+            final cookie = await getCookieForSite(game.sourceUrl!);
+            final imgHeaders = {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+              'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+              'Referer': game.sourceUrl!,
+              if (cookie.isNotEmpty) 'Cookie': cookie,
+            };
+            urlToLocal = await _downloadImages(updated.copyWith(id: gameId), gameInfo.screenshots, game.sourceUrl!, headers: imgHeaders);
+          }
+
+          if (urlToLocal.isNotEmpty) {
+            var metaJson = gameInfo.toJson();
+            if (gameInfo.description != null) {
+              var desc = gameInfo.description!;
+              for (final entry in urlToLocal.entries) {
+                desc = desc.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
+              }
+              updated = updated.copyWith(intro: desc);
+              metaJson['intro'] = desc;
+            }
+            if (gameInfo.descriptionHtml != null) {
+              var html = gameInfo.descriptionHtml!;
+              for (final entry in urlToLocal.entries) {
+                html = html.replaceAll(entry.key, entry.value);
+                if (entry.key.startsWith('https:')) {
+                  html = html.replaceAll(entry.key.replaceFirst('https:', ''), entry.value);
+                }
+              }
+              metaJson['intro_html'] = html;
+            }
+            await metadataFile.writeAsString(jsonEncode(metaJson), flush: true);
+            if (game.id != null) {
+              await gameRepo.updateGame(updated);
+            }
+          }
+
+          final reloadedGame = await gameRepo.getGameById(gameId);
+          if (reloadedGame != null) {
+            item.game = reloadedGame;
+          }
+
+          try {
+            final prefs = await AppSettings.load();
+            final autoRename = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
+            if (autoRename && item.game.id != null) {
+              final renameService = FolderRenameService(gameRepository: gameRepo);
+              final newPath = await renameService.renameGameFolder(item.game);
+              if (newPath != null) {
+                _addLog('  -> 文件夹已重命名: ${path.basename(newPath)}');
+                final renamedGame = await gameRepo.getGameById(item.game.id!);
+                if (renamedGame != null) {
+                  item.game = renamedGame;
+                }
+              }
+            }
+          } catch (e) {
+            _addLog('  -> 重命名失败: $e');
+          }
+
+          setState(() {
+            item.progress = 1.0;
+            item.status = '成功';
+            _stats.success++;
+            _stats.pending--;
+          });
+
+          await _moveToSorted(item.game);
+        } else {
+          _addLog('  -> 无匹配的解析器 (HTML已获取但无法解析)');
+          setState(() {
+            item.progress = 1.0;
+            item.status = '无解析器';
+            _stats.failed++;
+            _stats.pending--;
+          });
+        }
+      } else {
+        _addLog('  -> HTTP ${response.statusCode}');
+        setState(() {
+          item.progress = 1.0;
+          item.status = 'HTTP${response.statusCode}';
+          _stats.failed++;
+          _stats.pending--;
+        });
+      }
+    } catch (e) {
+      _addLog('  -> 失败: $e');
+      setState(() {
+        item.progress = 1.0;
+        item.status = '失败';
+        item.error = e.toString();
+        _stats.failed++;
+        _stats.pending--;
+      });
     }
+  }
+
+  Future<Map<String, String>> _downloadImages(Game game, List<String> imageUrls, String sourceUrl, {Map<String, String>? headers}) async {
+    final gameRepo = ref.read(gameRepositoryProvider);
 
     // Clear existing image records to prevent duplicates on re-scrape
     await gameRepo.deleteGameImagesByGameId(game.id!);
 
     // 清理旧图片文件
+    final imagesDir = Directory(path.join(game.path, 'images'));
     if (await imagesDir.exists()) {
       await for (final entity in imagesDir.list()) {
         if (entity is File) await entity.delete();
       }
     }
 
-    final cookie = await getCookieForSite(sourceUrl);
+    final urlToLocal = await ConcurrentImageDownloader.downloadAll(
+      imageUrls: imageUrls,
+      saveDir: game.path,
+      headers: headers,
+      maxConcurrency: _threadCount,
+    );
 
-    int downloaded = 0;
+    // Save to database
     for (int i = 0; i < imageUrls.length; i++) {
-      final imageUrl = imageUrls[i];
-      try {
-        final uri = Uri.parse(imageUrl);
-        final ext = path.extension(uri.path).toLowerCase();
-        final validExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext) ? ext : '.jpg';
-        final fileName = '${i + 1}$validExt';
-        final filePath = path.join(imagesDir.path, fileName);
-
-        // Download if not exists - use image-appropriate headers, not page headers
-        if (!await File(filePath).exists()) {
-          final imgHeaders = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-            'Referer': sourceUrl,
-            if (cookie.isNotEmpty) 'Cookie': cookie,
-          };
-          final imgResponse = await client.get(uri, headers: imgHeaders).timeout(const Duration(seconds: 15));
-          if (imgResponse.statusCode == 200 && imgResponse.bodyBytes.isNotEmpty) {
-            await File(filePath).writeAsBytes(imgResponse.bodyBytes, flush: true);
-          } else {
-            _addLog('    图片 ${i + 1} 下载失败: HTTP ${imgResponse.statusCode} URL: $imageUrl');
-            continue;
-          }
-        }
-
-        // Save to database (both new downloads and existing files)
-        await gameRepo.addGameImage(game.id!, filePath, i);
-        urlToLocal[imageUrl] = filePath;
-        downloaded++;
-      } catch (e) {
-        _addLog('    图片 ${i + 1} 处理失败: $e URL: $imageUrl');
+      final localPath = urlToLocal[imageUrls[i]];
+      if (localPath != null) {
+        await gameRepo.addGameImage(game.id!, localPath, i);
       }
     }
-    _addLog('  -> 配图处理完成: $downloaded/${imageUrls.length}');
+
+    _addLog('  -> 配图处理完成: ${urlToLocal.length}/${imageUrls.length}');
     return urlToLocal;
   }
 
