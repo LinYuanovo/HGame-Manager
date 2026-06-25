@@ -455,8 +455,60 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
 
   /// 检测关键词是否为 DLsite ID
   String? _detectDlsiteId(String keyword) {
-    final match = RegExp(r'\b(RJ|RE|VJ)\d{4,}\b', caseSensitive: false).firstMatch(keyword);
+    final match = RegExp(r'(RJ|RE|VJ)\d{4,}', caseSensitive: false).firstMatch(keyword);
     return match?.group(0)?.toUpperCase();
+  }
+
+  /// 清理关键词：去除括号内容、版本号等
+  String _cleanKeyword(String keyword) {
+    var cleaned = keyword;
+    // 去除 [] 和 【】 中的内容
+    cleaned = cleaned.replaceAll(RegExp(r'\[[^\]]*\]'), '');
+    cleaned = cleaned.replaceAll(RegExp(r'【[^】]*】'), '');
+    // 去除版本号 (V1.0.1, v1.02, ver1.0, build123 等)
+    cleaned = cleaned.replaceAll(RegExp(r'\s*[Vv](?:er(?:sion)?)?\s*\.?\d+(?:[\d.]*\d+)?\s*', caseSensitive: false), ' ');
+    // 去除常见后缀
+    cleaned = cleaned.replaceAll(RegExp(r'\s*(?:官方中文版|官方中文|中文版|汉化版|汉化|steam|fixed|patch)\s*', caseSensitive: false), ' ');
+    // 清理多余空格
+    cleaned = cleaned.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
+    return cleaned;
+  }
+
+  /// 分词并逐步缩短搜索
+  Future<List<DlsiteSearchResult>> _searchDlsiteWithFallback(
+    DlsiteService dlsiteService,
+    String keyword,
+    String folderPath,
+  ) async {
+    // 先用完整关键词搜索
+    var results = await dlsiteService.search(keyword);
+    if (results.isNotEmpty) return results;
+
+    // 清理关键词
+    final cleaned = _cleanKeyword(keyword);
+    if (cleaned != keyword && cleaned.isNotEmpty) {
+      results = await dlsiteService.search(cleaned);
+      if (results.isNotEmpty) return results;
+    }
+
+    // 分词逐步缩短
+    final parts = cleaned.split(RegExp(r'\s+'));
+    if (parts.length <= 1) {
+      // 只有一个词，用 searchWithFallback
+      return await dlsiteService.searchWithFallback(folderPath);
+    }
+
+    // 从少一个词开始，逐步缩短
+    for (int i = parts.length - 1; i >= 1; i--) {
+      final shortened = parts.sublist(0, i).join(' ');
+      if (shortened.isNotEmpty) {
+        results = await dlsiteService.search(shortened);
+        if (results.isNotEmpty) return results;
+      }
+    }
+
+    // 所有尝试都失败，用 searchWithFallback
+    return await dlsiteService.searchWithFallback(folderPath);
   }
 
   /// 检测关键词是否为 Steam ID
@@ -622,12 +674,8 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
       // 直接使用 ID
       results = [DlsiteSearchResult(id: dlsiteId, name: 'ID: $dlsiteId')];
     } else if (item.keyword.isNotEmpty) {
-      // 使用关键词搜索
-      results = await dlsiteService.search(item.keyword);
-      // 如果关键词搜索无结果，使用回退搜索
-      if (results.isEmpty) {
-        results = await dlsiteService.searchWithFallback(folderPath);
-      }
+      // 使用带回退的搜索
+      results = await _searchDlsiteWithFallback(dlsiteService, item.keyword, folderPath);
     } else {
       results = await dlsiteService.searchWithFallback(folderPath);
     }
