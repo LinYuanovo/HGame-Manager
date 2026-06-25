@@ -153,7 +153,7 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
   void _saveAndClose() {
     ref.read(contextMenuGamesProvider.notifier).save();
     ref.read(contextMenuPlayedProvider.notifier).save();
-    Navigator.pop(context);
+    Navigator.pop(context, true);
     AppTheme.showGlassToast(context, message: '右键菜单配置已保存', icon: Icons.check_circle, iconColor: AppTheme.successColor);
   }
 }
@@ -222,113 +222,74 @@ class _MenuItemsList extends ConsumerWidget {
     final config = ref.watch(provider);
     final items = config.sortedItems;
 
-    return ListView.builder(
+    return ReorderableListView.builder(
       padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       itemCount: items.length,
+      onReorder: (oldIndex, newIndex) {
+        ref.read(provider.notifier).reorderItem(oldIndex, newIndex);
+      },
       itemBuilder: (context, index) {
         final item = items[index];
-        return _MenuItemTile(
-          mode: mode,
-          item: item,
-          isFirst: index == 0,
-          isLast: index == items.length - 1,
-          onToggle: () => ref.read(provider.notifier).toggleItem(item.id),
-          onMoveUp: index > 0
-              ? () => ref.read(provider.notifier).moveItem(item.id, -1)
-              : null,
-          onMoveDown: index < items.length - 1
-              ? () => ref.read(provider.notifier).moveItem(item.id, 1)
-              : null,
-        );
-      },
-    );
-  }
-}
+        final def = _getDefinition(item.id);
+        if (def == null) return SizedBox.shrink(key: ValueKey('empty_$index'));
 
-class _MenuItemTile extends StatelessWidget {
-  final String mode;
-  final ContextMenuItemState item;
-  final bool isFirst;
-  final bool isLast;
-  final VoidCallback onToggle;
-  final VoidCallback? onMoveUp;
-  final VoidCallback? onMoveDown;
-
-  const _MenuItemTile({
-    required this.mode,
-    required this.item,
-    required this.isFirst,
-    required this.isLast,
-    required this.onToggle,
-    this.onMoveUp,
-    this.onMoveDown,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final def = _getDefinition(item.id);
-    if (def == null) return SizedBox.shrink();
-
-    return Container(
-      margin: EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: item.enabled
-            ? AppTheme.surfaceColor
-            : AppTheme.surfaceColor.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
-        border: Border.all(
-          color: item.enabled
-              ? AppTheme.borderColor
-              : AppTheme.borderColor.withValues(alpha: 0.5),
-        ),
-      ),
-      child: ListTile(
-        dense: true,
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              _getIconData(def.icon),
-              size: 20,
+        return Container(
+          key: ValueKey(item.id),
+          margin: EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: item.enabled
+                ? AppTheme.surfaceColor
+                : AppTheme.surfaceColor.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
+            border: Border.all(
               color: item.enabled
-                  ? AppTheme.primaryColor
-                  : AppTheme.textSecondary.withValues(alpha: 0.5),
+                  ? AppTheme.borderColor
+                  : AppTheme.borderColor.withValues(alpha: 0.5),
             ),
-            const SizedBox(width: 12),
-            Text(
-              def.label,
-              style: TextStyle(
-                fontSize: 15,
-                color: item.enabled
-                    ? AppTheme.textPrimary
-                    : AppTheme.textSecondary.withValues(alpha: 0.5),
-              ),
+          ),
+          child: ListTile(
+            dense: true,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
             ),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: Icon(Icons.arrow_upward, size: 18),
-              onPressed: onMoveUp,
-              color: AppTheme.textSecondary,
-              tooltip: '上移',
+            leading: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ReorderableDragStartListener(
+                  index: index,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.grab,
+                    child: Icon(Icons.drag_handle, size: 20, color: AppTheme.textSecondary),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Icon(
+                  _getIconData(def.icon),
+                  size: 20,
+                  color: item.enabled
+                      ? AppTheme.primaryColor
+                      : AppTheme.textSecondary.withValues(alpha: 0.5),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  def.label,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: item.enabled
+                        ? AppTheme.textPrimary
+                        : AppTheme.textSecondary.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
             ),
-            IconButton(
-              icon: Icon(Icons.arrow_downward, size: 18),
-              onPressed: onMoveDown,
-              color: AppTheme.textSecondary,
-              tooltip: '下移',
-            ),
-            Switch(
+            trailing: Switch(
               value: item.enabled,
-              onChanged: (_) => onToggle(),
+              onChanged: (_) => ref.read(provider.notifier).toggleItem(item.id),
               activeThumbColor: AppTheme.primaryColor,
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 

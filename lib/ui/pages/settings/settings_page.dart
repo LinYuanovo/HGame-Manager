@@ -73,7 +73,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _SidebarCategory(
       label: '管理',
       icon: Icons.admin_panel_settings_outlined,
-      items: ['右键菜单管理', '侧边栏页面管理', '黑名单管理'],
+      items: ['黑名单管理', '右键菜单管理', '侧边栏页面管理'],
     ),
     _SidebarCategory(
       label: '刮削',
@@ -1929,10 +1929,15 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   void _showContextMenuManager() {
-    showDialog(
+    showDialog<bool>(
       context: context,
       builder: (context) => const ContextMenuManagerDialog(),
-    );
+    ).then((saved) {
+      if (saved == true) {
+        ref.invalidate(contextMenuGamesProvider);
+        ref.invalidate(contextMenuPlayedProvider);
+      }
+    });
   }
 
   Widget _buildSidebarManagerSection() {
@@ -1961,10 +1966,14 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   void _showSidebarManager() {
-    showDialog(
+    showDialog<bool>(
       context: context,
       builder: (context) => const SidebarManagerDialog(),
-    );
+    ).then((saved) {
+      if (saved == true) {
+        ref.read(sidebarRefreshProvider.notifier).state++;
+      }
+    });
   }
 
   Future<void> _scanNow() async {

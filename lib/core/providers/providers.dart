@@ -527,6 +527,17 @@ class ContextMenuConfigNotifier extends StateNotifier<ContextMenuConfig> {
     state = ContextMenuConfig(items: items);
   }
 
+  void reorderItem(int oldIndex, int newIndex) {
+    final items = List<ContextMenuItemState>.from(state.sortedItems);
+    if (newIndex > oldIndex) newIndex--;
+    final item = items.removeAt(oldIndex);
+    items.insert(newIndex, item);
+    for (int i = 0; i < items.length; i++) {
+      items[i] = items[i].copyWith(order: i);
+    }
+    state = ContextMenuConfig(items: items);
+  }
+
   void resetToDefaults() {
     state = ContextMenuConfig.defaults(PresetMenuItems.getDefs(_mode));
   }
@@ -536,3 +547,5 @@ final noImageModeProvider = StateProvider<bool>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
   return prefs.getBool(AppSettings.noImageModeKey) ?? false;
 });
+
+final sidebarRefreshProvider = StateProvider<int>((ref) => 0);

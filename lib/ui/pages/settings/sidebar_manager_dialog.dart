@@ -162,6 +162,9 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
           ),
           child: ListTile(
             dense: true,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
+            ),
             leading: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -222,7 +225,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
             onPressed: () async {
               await _saveConfig();
               if (mounted) {
-                Navigator.pop(context);
+                Navigator.pop(context, true);
                 AppTheme.showGlassToast(context, message: '侧边栏配置已保存', icon: Icons.check_circle, iconColor: AppTheme.successColor);
               }
             },

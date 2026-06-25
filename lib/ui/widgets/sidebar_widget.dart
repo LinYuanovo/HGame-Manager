@@ -33,6 +33,16 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
     _loadSidebarConfig();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    ref.listen<int>(sidebarRefreshProvider, (prev, next) {
+      if (prev != null && prev != next) {
+        _loadSidebarConfig();
+      }
+    });
+  }
+
   Future<void> _loadSidebarConfig() async {
     final prefs = await AppSettings.load();
     final raw = prefs.getString(AppSettings.sidebarConfigKey);
