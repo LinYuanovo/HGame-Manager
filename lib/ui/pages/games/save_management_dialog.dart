@@ -664,13 +664,36 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
       if (!mounted) return;
 
       AppTheme.showGlassToast(context, message: '正在下载存档...', icon: Icons.downloading, iconColor: AppTheme.primaryColor);
-      final entry = await fan2dService.downloadAndImport(
+      final result = await fan2dService.downloadAndImport(
         downloadPageUrl: selected.downloadUrl,
         gamePath: widget.game.path,
       );
 
+      // kind 页面：让用户选择具体存档
+      if (result.hasSaveFiles) {
+        if (!mounted) return;
+        final picked = await _showSaveFilesDialog(result.saveFiles);
+        if (picked == null) return;
+        if (!mounted) return;
+
+        AppTheme.showGlassToast(context, message: '正在下载存档...', icon: Icons.downloading, iconColor: AppTheme.primaryColor);
+        final entry = await fan2dService.downloadSaveFile(
+          saveFileUrl: picked.downloadUrl,
+          gamePath: widget.game.path,
+        );
+        if (mounted) {
+          if (entry != null) {
+            AppTheme.showGlassToast(context, message: '下载成功', icon: Icons.check_circle, iconColor: AppTheme.successColor);
+            _loadBackups();
+          } else {
+            AppTheme.showGlassToast(context, message: '下载失败', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          }
+        }
+        return;
+      }
+
       if (mounted) {
-        if (entry != null) {
+        if (result.hasEntry) {
           AppTheme.showGlassToast(context, message: '下载成功', icon: Icons.check_circle, iconColor: AppTheme.successColor);
           _loadBackups();
         } else {
@@ -730,6 +753,75 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
                                 Icon(Icons.archive_outlined, size: 18, color: AppTheme.primaryColor),
                                 const SizedBox(width: 12),
                                 Expanded(child: Text(result.title, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary), overflow: TextOverflow.ellipsis)),
+                                Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textSecondary),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消'))],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 显示 kind 页面的具体存档列表，让用户选择
+  Future<Fan2dSaveFile?> _showSaveFilesDialog(List<Fan2dSaveFile> saveFiles) async {
+    return showGlassDialog<Fan2dSaveFile>(
+      context: context,
+      child: SizedBox(
+        width: GlassConstants.dialogWidth,
+        height: 500,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.folder_open, color: AppTheme.primaryColor, size: 22),
+                  const SizedBox(width: 10),
+                  const Text('选择存档', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text('找到 ${saveFiles.length} 个存档，请选择：', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: saveFiles.length,
+                  itemBuilder: (context, index) {
+                    final sf = saveFiles[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                          onTap: () => Navigator.pop(context, sf),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.backgroundColor.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                              border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.save_alt, size: 18, color: AppTheme.successColor),
+                                const SizedBox(width: 12),
+                                Expanded(child: Text(sf.title, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary), overflow: TextOverflow.ellipsis)),
                                 Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textSecondary),
                               ],
                             ),

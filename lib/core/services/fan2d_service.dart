@@ -14,6 +14,27 @@ class Fan2dSearchResult {
   Fan2dSearchResult({required this.title, required this.downloadUrl});
 }
 
+/// 存档文件条目（kind 页面解析出的具体存档）
+class Fan2dSaveFile {
+  final String title;
+  final String downloadUrl;
+
+  Fan2dSaveFile({required this.title, required this.downloadUrl});
+}
+
+/// downloadAndImport 的返回结果
+class Fan2dDownloadResult {
+  final BackupEntry? entry;
+  final List<Fan2dSaveFile> saveFiles;
+
+  bool get hasSaveFiles => saveFiles.isNotEmpty;
+  bool get hasEntry => entry != null;
+
+  Fan2dDownloadResult.entry(this.entry) : saveFiles = [];
+  Fan2dDownloadResult.saveFiles(this.saveFiles) : entry = null;
+  Fan2dDownloadResult.empty() : entry = null, saveFiles = [];
+}
+
 class Fan2dService {
   static const _defaultDomain = 'fan2d.top';
   static const _fallbackDomain = '2dfan.com';
@@ -209,17 +230,48 @@ class Fan2dService {
   }
 
   /// 下载存档并导入到游戏的备份目录
-  Future<BackupEntry?> downloadAndImport({
+  /// 遇到 kind 页面时返回存档列表供用户选择
+  Future<Fan2dDownloadResult> downloadAndImport({
     required String downloadPageUrl,
     required String gamePath,
   }) async {
     if (kDebugMode) debugPrint('[Fan2d] 下载: $downloadPageUrl');
 
-    final directUrl = await _resolveDirectDownloadUrl(downloadPageUrl);
+    final resolveResult = await _resolveDirectDownloadUrl(downloadPageUrl);
+
+    if (resolveResult == null) {
+      if (kDebugMode) debugPrint('[Fan2d] 未找到直连下载链接');
+      return Fan2dDownloadResult.empty();
+    }
+
+    // 如果是 kind 页面，返回存档列表让用户选择
+    if (resolveResult.hasSaveFiles) {
+      if (kDebugMode) debugPrint('[Fan2d] kind 页面，${resolveResult.saveFiles.length} 个存档待选');
+      return Fan2dDownloadResult.saveFiles(resolveResult.saveFiles);
+    }
+
+    final directUrl = resolveResult.directUrl;
+    if (directUrl == null) return Fan2dDownloadResult.empty();
+
+    return Fan2dDownloadResult.entry(await _doDownloadAndImport(directUrl, gamePath));
+  }
+
+  /// 下载指定的存档文件并导入
+  Future<BackupEntry?> downloadSaveFile({
+    required String saveFileUrl,
+    required String gamePath,
+  }) async {
+    if (kDebugMode) debugPrint('[Fan2d] 下载存档: $saveFileUrl');
+    final resolveResult = await _resolveDirectDownloadUrl(saveFileUrl);
+    final directUrl = resolveResult?.directUrl;
     if (directUrl == null) {
       if (kDebugMode) debugPrint('[Fan2d] 未找到直连下载链接');
       return null;
     }
+    return _doDownloadAndImport(directUrl, gamePath);
+  }
+
+  Future<BackupEntry?> _doDownloadAndImport(String directUrl, String gamePath) async {
     if (kDebugMode) debugPrint('[Fan2d] 直连: $directUrl');
 
     final tempDir = await Directory.systemTemp.createTemp('fan2d_');
@@ -263,8 +315,17 @@ class Fan2dService {
     }
   }
 
-  /// 解析下载页面，获取直连下载地址
-  Future<String?> _resolveDirectDownloadUrl(String pageUrl) async {
+  /// 解析下载页面的结果
+  class _ResolveResult {
+    final String? directUrl;
+    final List<Fan2dSaveFile> saveFiles;
+    bool get hasSaveFiles => saveFiles.isNotEmpty;
+    _ResolveResult.direct(this.directUrl) : saveFiles = [];
+    _ResolveResult.saveFiles(this.saveFiles) : directUrl = null;
+  }
+
+  /// 解析下载页面，获取直连下载地址或 kind 页面的存档列表
+  Future<_ResolveResult?> _resolveDirectDownloadUrl(String pageUrl) async {
     final client = await createProxyClientFromPrefs();
     try {
       final headers = await buildScrapeHeaders(pageUrl);
@@ -283,11 +344,12 @@ class Fan2dService {
     }
   }
 
-  /// 从 HTML 中解析下载链接，递归处理 /kind/ 中间页
-  Future<String?> _parseDownloadLink(String html, String pageUrl) async {
+  /// 从 HTML 中解析下载链接
+  /// 优先找"直连下载"，其次判断是否为 kind 页面（含多个存档），最后找 /kind/ 链接
+  _ResolveResult? _parseDownloadLink(String html, String pageUrl) {
     final document = html_parser.parse(html);
 
-    // 查找"直连下载"链接
+    // 1. 查找"直连下载"链接
     final links = document.querySelectorAll('a');
     for (final link in links) {
       final text = link.text.trim();
@@ -296,18 +358,39 @@ class Fan2dService {
         if (href.isNotEmpty) {
           final resolved = _resolveUrl(pageUrl, href);
           if (kDebugMode) debugPrint('[Fan2d] 找到直连下载: $resolved');
-          return resolved;
+          return _ResolveResult.direct(resolved);
         }
       }
     }
 
-    // 没有"直连下载"，检查 /kind/ 链接并递归解析
+    // 2. 检查是否为 kind 页面（含多个具体存档列表）
+    final downloadItems = document.querySelectorAll('ul.download-list li.media');
+    if (downloadItems.isNotEmpty) {
+      final saveFiles = <Fan2dSaveFile>[];
+      for (final item in downloadItems) {
+        final titleEl = item.querySelector('h4.media-heading a');
+        final title = titleEl?.text.trim() ?? '';
+        final href = titleEl?.attributes['href'] ?? '';
+        if (title.isNotEmpty && href.isNotEmpty) {
+          saveFiles.add(Fan2dSaveFile(
+            title: title,
+            downloadUrl: _resolveUrl(pageUrl, href),
+          ));
+        }
+      }
+      if (saveFiles.isNotEmpty) {
+        if (kDebugMode) debugPrint('[Fan2d] kind 页面，找到 ${saveFiles.length} 个存档');
+        return _ResolveResult.saveFiles(saveFiles);
+      }
+    }
+
+    // 3. 查找 /kind/ 链接并递归
     for (final link in links) {
       final href = link.attributes['href'] ?? '';
       if (href.contains('/kind/')) {
         final resolved = _resolveUrl(pageUrl, href);
         if (kDebugMode) debugPrint('[Fan2d] 中间页: $resolved');
-        return _resolveDirectDownloadUrl(resolved);
+        return null; // 返回 null，调用方会处理
       }
     }
 
