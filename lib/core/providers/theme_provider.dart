@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/theme_mode.dart';
 import '../utils/app_settings.dart';
+import 'providers.dart';
 
 /// 主题模式 Provider
 final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, AppThemeMode>((ref) {
