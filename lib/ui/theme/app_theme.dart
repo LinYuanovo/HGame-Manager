@@ -704,6 +704,75 @@ class AppTheme {
           )
         : primaryGradient;
   }
+
+  // 获取覆盖层颜色（用于模态遮罩、弹窗背景等）
+  // 浅色和深色模式都使用相同的 alpha 值，确保遮罩效果一致
+  static Color getOverlayColor(BuildContext context) {
+    return Colors.black.withValues(alpha: 0.6);
+  }
+
+  // 获取微弱阴影颜色（用于卡片、边框等轻微阴影）
+  static Color getShadowColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? Colors.black.withValues(alpha: 0.2)
+        : Colors.black.withValues(alpha: 0.05);
+  }
+
+  // 获取禁用状态颜色
+  // 注意：浅色模式保持与原来 Colors.grey 一致
+  static Color getDisabledColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? Colors.grey.withValues(alpha: 0.4)
+        : Colors.grey;
+  }
+
+  // 获取输入框填充色
+  static Color getInputFillColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkSurfaceColor.withValues(alpha: 0.5)
+        : Colors.white.withValues(alpha: 0.5);
+  }
+
+  // 获取标签背景色
+  // 注意：浅色模式保持与原来 Colors.white alpha 0.3 一致
+  static Color getTagBackgroundColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkSurfaceColor.withValues(alpha: 0.4)
+        : Colors.white.withValues(alpha: 0.3);
+  }
+
+  // 获取卡片悬停色
+  static Color getCardHoverColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkSurfaceColor.withValues(alpha: 0.88)
+        : Colors.white.withValues(alpha: 0.88);
+  }
+
+  // 获取卡片默认色
+  static Color getCardDefaultColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkSurfaceColor.withValues(alpha: 0.65)
+        : Colors.white.withValues(alpha: 0.65);
+  }
+
+  // 获取边框颜色（带透明度）
+  static Color getBorderLightColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkGlassBorderWhite.withValues(alpha: 0.35)
+        : Colors.white.withValues(alpha: 0.35);
+  }
+
+  // 获取文字颜色（用于深色背景上的白色文字，如按钮、徽章等）
+  // 始终返回白色，因为主色背景在两种模式下都足够深
+  static Color getTextColorOnPrimary(BuildContext context) {
+    return Colors.white;
+  }
+
+  // 获取按钮加载指示器颜色
+  // 始终返回白色，用于主色背景上的加载动画
+  static Color getLoadingIndicatorColor(BuildContext context) {
+    return Colors.white;
+  }
 }
 
 // ===== 玻璃拟态容器 =====
