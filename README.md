@@ -123,36 +123,32 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 ## 功能特性
 
-### 刮削中心
+### 🔍 刮削中心
 
 - **多站点支持**：[ACG嘤嘤怪](https://acgyyg.ru/) / [飞雪ACG](https://feixueacg.org/)/ [维咔ACG](https://www.vikacg.com/)
 - **云端导入**: 支持从 DLsite（RJ号/名称搜索）或 Steam（App ID/名称搜索）导入游戏信息和封面图
 - **自动整理**：刮削后按系列分类移动到整理目录
 - **智能标签**：自动关联重叠标签（如"互动SLG" → "SLG"）
-- **刮削统一**：详情页与云端导入使用相同的专用刮削器
-- **HTTP 429 限流自动重试**
 - **厂商名显示**：DLsite 社团名 / Steam 开发者
-- **简介排版优化**：保留原始 HTML 布局
-- **图片查看器增强**：支持鼠标滚轮缩放（20%-500%）和拖拽
+- **简介排版优化**：尽可能保留原始 HTML 布局
+- **🧵 多线程刮削**：支持1-8线程并发刮削，图片下载自动多线程（遇429降级）
 
 ![刮削页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/scraper_page.png)
 
 ![多渠道刮削页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/game_scraper.jpg)
 
-### 游戏管理
+### 🎮 游戏管理
 
 - **多种视图模式**：列表 / 海报墙
 - **灵活排序**：标题、添加时间、最近游玩
 - **分页 / 瀑布流**：两种浏览模式
 - **收藏功能**：收藏游戏优先排列
 - **游玩追踪**：记录游玩次数和时间
-- **存档管理**：备份/还原/导入存档，支持 WebDAV 云端同步，跨设备路径迁移
+- **✏️ 富文本编辑**：Markdown 编辑器，支持实时预览和图片插入
 
 ![游戏页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/games_page.png)
 
-![存档弹窗](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/game_saved_window.png)
-
-### 分类系统
+### 📁 分类系统
 
 - **标签 / 系列管理**：右键修改删除
 - **收藏分类**：支持收藏标签和系列
@@ -161,13 +157,12 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 ![分类详情页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/category_detail_page.png)
 
-### 游戏详情
+### 🖼️ 游戏详情
 
 - **图片轮播**：支持键盘导航
-- **大图查看**：80% 窗口大小的图片查看器
+- **大图查看**：80% 窗口大小的图片查看器，支持鼠标滚轮缩放（20%-500%）和拖拽
 - **图片管理**：自定义添加、删除、排序图片
-- **下载链接**：网盘按钮双击复制
-- **解压码**：独立显示，双击复制
+- **信息存储**：网盘链接、解压码按钮双击复制
 - **编辑模式**：可编辑版本号、标签、下载地址、解压码等
 - **检查更新**：根据已有版本号检查更新
 
@@ -177,10 +172,9 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 ![已玩游戏评论弹窗](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/played_comment_window.png)
 
-### 存档管理
+### 💾 存档管理
 
-- **打开存档文件夹**：快捷打开游戏的存档文件夹
-- **打开备份文件夹**：快捷打开游戏的存档备份文件夹
+- **下载存档**：下载存档
 - **导入自定义存档**：导入自定义备份，如：全CG存档等
 - **备份当前存档**：将当前的存档文件夹进行备份
 - **上传至云端**：通过webdav将存档上传，并能够进行下载、恢复等操作
@@ -189,7 +183,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 ![查看云端备份](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/game_save_cloud.png)
 
-### 设置
+### ⚙️ 设置
 
 - **忽略文件夹**：扫描和刮削分别设置
 - **系列类型管理**：自定义添加系列类型
