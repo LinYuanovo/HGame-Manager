@@ -95,11 +95,11 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
         child: Focus(
           autofocus: true,
           child: AlertDialog(
-            backgroundColor: AppTheme.surfaceColor,
+            backgroundColor: AppTheme.getSurfaceColor(context),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusLarge)),
             title: Row(
               children: [
-                const Icon(Icons.cloud_queue, color: AppTheme.primaryColor, size: 22),
+                Icon(Icons.cloud_queue, color: AppTheme.getPrimaryColor(context), size: 22),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -174,7 +174,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                                       _MiniIconButton(
                                         icon: Icons.download,
                                         tooltip: '下载此备份',
-                                        color: AppTheme.primaryColor,
+                                        color: AppTheme.getPrimaryColor(context),
                                         onTap: () => _downloadBackup(f),
                                       ),
                                       const SizedBox(width: 4),

@@ -839,7 +839,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                   icon: const Icon(Icons.folder_open, size: 16),
                   label: const Text('浏览'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
+                    backgroundColor: AppTheme.getPrimaryColor(context),
                     foregroundColor: Colors.white,
                   ),
                 ),
@@ -997,7 +997,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                               width: 80,
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppTheme.surfaceColor.withValues(alpha: 0.8),
+                                color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.8),
                                 borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
                                 border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.5)),
                               ),
@@ -1008,7 +1008,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                                   isDense: true,
                                   icon: Icon(Icons.arrow_drop_down, size: 18, color: AppTheme.getTextSecondary(context)),
                                   borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
-                                  dropdownColor: AppTheme.surfaceColor,
+                                  dropdownColor: AppTheme.getSurfaceColor(context),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: AppTheme.getTextPrimary(context),

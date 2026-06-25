@@ -561,7 +561,7 @@ class AppTheme {
                         Icon(icon, size: 18, color: iconColor),
                         const SizedBox(width: 8),
                         Flexible(
-                          child: Text(message, style: const TextStyle(fontSize: 16, color: AppTheme.textPrimary), overflow: TextOverflow.ellipsis, maxLines: 2),
+                          child: Text(message, style: TextStyle(fontSize: 16, color: AppTheme.getTextPrimary(context)), overflow: TextOverflow.ellipsis, maxLines: 2),
                         ),
                       ],
                     ),
