@@ -71,9 +71,11 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
         }
       }
 
-      setState(() {
-        _visibleRoutes = visible;
-      });
+      if (mounted) {
+        setState(() {
+          _visibleRoutes = visible;
+        });
+      }
     } catch (_) {}
   }
 

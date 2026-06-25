@@ -147,10 +147,12 @@ class _GamesPageState extends ConsumerState<GamesPage> {
                           AppTheme.showGlassToast(context, message: '扫描失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
                         }
                       } finally {
-                        setState(() {
-                          _isRefreshing = false;
-                          _refreshProgress = '';
-                        });
+                        if (mounted) {
+                          setState(() {
+                            _isRefreshing = false;
+                            _refreshProgress = '';
+                          });
+                        }
                       }
                     },
                   ),
