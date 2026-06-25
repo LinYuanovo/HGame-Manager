@@ -283,7 +283,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     return PopScope(
       canPop: !_isImageViewerOpen,
       child: Dialog(
-        backgroundColor: Colors.white,
+        backgroundColor: AppTheme.getSurfaceDeepColor(context),
         insetPadding: const EdgeInsets.all(24),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
@@ -293,11 +293,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           height: dialogHeight,
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.getSurfaceDeepColor(context),
             borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
+                color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 0.4 : 0.15),
                 blurRadius: 30,
                 spreadRadius: 2,
                 offset: const Offset(0, 8),
