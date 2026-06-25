@@ -1738,15 +1738,37 @@ if (_isEditing) ...[
   }
 
   void _openImageViewer(String imagePath) {
-    final image = GameImage(gameId: _currentGame.id ?? 0, imagePath: imagePath);
+    final allImages = _currentGame.images;
+    // 查找点击的图片在所有图片中的索引
+    int initialIndex = allImages.indexWhere((img) => img.imagePath == imagePath);
+    if (initialIndex < 0) {
+      // 如果找不到，创建一个临时列表
+      final image = GameImage(gameId: _currentGame.id ?? 0, imagePath: imagePath);
+      setState(() => _isImageViewerOpen = true);
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        barrierColor: Colors.black.withValues(alpha: 0.6),
+        builder: (dialogContext) => _ImageViewerDialog(
+          images: [image],
+          initialIndex: 0,
+          onClose: () {
+            setState(() => _isImageViewerOpen = false);
+          },
+        ),
+      ).then((_) {
+        if (mounted) setState(() => _isImageViewerOpen = false);
+      });
+      return;
+    }
     setState(() => _isImageViewerOpen = true);
     showDialog(
       context: context,
       barrierDismissible: true,
       barrierColor: Colors.black.withValues(alpha: 0.6),
       builder: (dialogContext) => _ImageViewerDialog(
-        images: [image],
-        initialIndex: 0,
+        images: allImages,
+        initialIndex: initialIndex,
         onClose: () {
           setState(() => _isImageViewerOpen = false);
         },
