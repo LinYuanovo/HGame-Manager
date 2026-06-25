@@ -97,7 +97,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
                   border: Border.all(color: AppTheme.getBorderColor(context)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.15),
+                      color: AppTheme.getShadowColor(context).withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 1.5 : 3.0),
                       blurRadius: 30,
                       offset: const Offset(0, 10),
                     ),
