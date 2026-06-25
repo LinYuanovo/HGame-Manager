@@ -313,7 +313,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                           '$count',
                           style: TextStyle(
                             color: isSelected
-                                ? Colors.white
+                                ? AppTheme.getTextColorOnPrimary(context)
                                 : AppTheme.getTextPrimary(context),
                             fontSize: (fontSize * 0.78).clamp(9, 14),
                             fontWeight: FontWeight.w600,
