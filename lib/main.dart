@@ -12,6 +12,7 @@ import 'core/services/app_logger.dart';
 import 'ui/controllers/window_controller.dart';
 import 'ui/pages/home_page.dart';
 import 'ui/theme/app_theme.dart';
+import 'core/providers/theme_provider.dart';
 
 void main() async {
   // Suppress noisy Flutter accessibility logs
@@ -142,10 +143,14 @@ class HGameManagerApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final prefs = ref.watch(sharedPreferencesProvider);
     final fontFamily = prefs.getString('font_family') ?? '';
+    final themeMode = ref.watch(flutterThemeModeProvider);
+
     return MaterialApp(
       title: 'HGame Manager',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme(fontFamily: fontFamily.isEmpty ? null : fontFamily),
+      darkTheme: AppTheme.darkTheme(fontFamily: fontFamily.isEmpty ? null : fontFamily),
+      themeMode: themeMode,
       builder: (context, child) {
         return GradientBackground(
           child: ErrorBoundary(
