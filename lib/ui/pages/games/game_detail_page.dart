@@ -21,6 +21,7 @@ import '../../../core/services/dlsite_service.dart';
 import '../../../core/services/steam_service.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../widgets/image_manager_dialog.dart';
+import '../../widgets/markdown_editor.dart';
 import 'save_management_dialog.dart';
 
 class GameDetailDialog extends ConsumerStatefulWidget {
@@ -1473,12 +1474,21 @@ if (_isEditing) ...[
           ],
         ),
         const SizedBox(height: 14),
-        if (_isEditing) ...[
+        if (_isEditing && title == '简介') ...[
+          SizedBox(
+            height: 300,
+            child: MarkdownEditor(
+              controller: _introController,
+              imagePaths: _currentGame.images.map((img) => img.imagePath).toList(),
+              fontSize: ref.watch(detailFontSizeProvider),
+            ),
+          ),
+        ] else if (_isEditing) ...[
           Row(
             children: [
               Expanded(
                 child: TextField(
-                  controller: title == '简介' ? _introController : title == '特性' ? _featuresController : _changelogController,
+                  controller: title == '特性' ? _featuresController : _changelogController,
                   maxLines: null,
                   style: const TextStyle(fontSize: 14, height: 1.7, color: AppTheme.textPrimary),
                   decoration: InputDecoration(

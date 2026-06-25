@@ -27,6 +27,7 @@ dependencies:
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
   media_kit_libs_windows_video: ^1.0.11
+  flutter_markdown: ^0.7.4
 
 dev_dependencies:
   flutter_test:
