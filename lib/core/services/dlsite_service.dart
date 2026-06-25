@@ -4,6 +4,7 @@ import '../utils/proxy_client.dart';
 import '../../scraper/html_parser.dart';
 import '../../scraper/parse_utils.dart';
 import 'app_logger.dart';
+import 'concurrent_image_downloader.dart';
 import 'package:html/parser.dart' as html_parser;
 
 class DlsiteService {
@@ -446,43 +447,16 @@ class DlsiteService {
   /// 下载所有图片（封面+截图）到images文件夹
   /// 返回 URL -> 本地路径 的映射
   Future<Map<String, String>> downloadAllImages(List<String> imageUrls, String saveDir) async {
-    final urlToLocal = <String, String>{};
-    if (imageUrls.isEmpty) return urlToLocal;
-
-    final imagesDir = Directory(path.join(saveDir, 'images'));
-    if (!await imagesDir.exists()) {
-      await imagesDir.create(recursive: true);
-    }
-
-    _log.info('DlsiteService', '[downloadAllImages] 开始下载 ${imageUrls.length} 张图片');
-
-    final client = await createProxyClientFromPrefs();
-    final headers = await _buildImageHeaders();
-
-    for (int i = 0; i < imageUrls.length; i++) {
-      final imageUrl = imageUrls[i];
-      try {
-        final response = await client.get(Uri.parse(imageUrl), headers: headers)
-            .timeout(const Duration(seconds: 30));
-
-        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-          final ext = _getExtensionFromUrl(imageUrl);
-          final fileName = '${i + 1}$ext';
-          final filePath = path.join(imagesDir.path, fileName);
-          await File(filePath).writeAsBytes(response.bodyBytes, flush: true);
-          urlToLocal[imageUrl] = filePath;
-          _log.info('DlsiteService', '[downloadAllImages] 图片${i + 1} 下载成功: $fileName');
-        } else {
-          _log.warning('DlsiteService', '[downloadAllImages] 图片${i + 1} 下载失败: HTTP ${response.statusCode}');
-        }
-      } catch (e) {
-        _log.warning('DlsiteService', '[downloadAllImages] 图片${i + 1} 下载异常: $e');
-      }
-    }
-
-    client.close();
-    _log.info('DlsiteService', '[downloadAllImages] 下载完成: ${urlToLocal.length}/${imageUrls.length}');
-    return urlToLocal;
+    final imageHeaders = {
+      'User-Agent': 'HGame-Manager/1.0',
+      'Referer': 'https://www.dlsite.com/',
+    };
+    return await ConcurrentImageDownloader.downloadAll(
+      imageUrls: imageUrls,
+      saveDir: saveDir,
+      headers: imageHeaders,
+      maxConcurrency: 3,
+    );
   }
 
   /// 将描述中的图片URL替换为本地路径标记
@@ -494,27 +468,12 @@ class DlsiteService {
     return result;
   }
 
-  String _getExtensionFromUrl(String url) {
-    final uri = Uri.tryParse(url);
-    if (uri == null) return '.jpg';
-    final ext = path.extension(uri.path).toLowerCase();
-    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext)) return ext;
-    return '.jpg';
-  }
-
   Future<Map<String, String>> _buildHeaders() async {
     return {
       'User-Agent': 'HGame-Manager/1.0',
       'Cookie': 'adultchecked=1; locale=zh_CN',
       'Accept-Language': 'ja,en;q=0.8',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    };
-  }
-
-  Future<Map<String, String>> _buildImageHeaders() async {
-    return {
-      'User-Agent': 'HGame-Manager/1.0',
-      'Referer': 'https://www.dlsite.com/',
     };
   }
 }

@@ -4,6 +4,7 @@ import 'package:path/path.dart' as path;
 import '../utils/proxy_client.dart';
 import '../../scraper/steam_html_converter.dart';
 import 'app_logger.dart';
+import 'concurrent_image_downloader.dart';
 
 class SteamService {
   static final _commonExeNames = [
@@ -253,48 +254,17 @@ class SteamService {
   }
 
   Future<Map<String, String>> downloadAllImages(List<String> imageUrls, String saveDir) async {
-    final urlToLocal = <String, String>{};
-    if (imageUrls.isEmpty) return urlToLocal;
-
-    final imagesDir = Directory(path.join(saveDir, 'images'));
-    if (!await imagesDir.exists()) {
-      await imagesDir.create(recursive: true);
-    }
-
-    _log.info('SteamService', '[downloadAllImages] 开始下载 ${imageUrls.length} 张图片');
-
-    final client = await createProxyClientFromPrefs();
-
-    for (int i = 0; i < imageUrls.length; i++) {
-      final imageUrl = imageUrls[i];
-      try {
-        final response = await client.get(Uri.parse(imageUrl))
-            .timeout(const Duration(seconds: 30));
-
-        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-          final ext = _getExtensionFromUrl(imageUrl);
-          final fileName = '${i + 1}$ext';
-          final filePath = path.join(imagesDir.path, fileName);
-          await File(filePath).writeAsBytes(response.bodyBytes, flush: true);
-          urlToLocal[imageUrl] = filePath;
-          _log.info('SteamService', '[downloadAllImages] 图片${i + 1} 下载成功: $fileName');
-        }
-      } catch (e) {
-        _log.warning('SteamService', '[downloadAllImages] 图片${i + 1} 下载异常: $e');
-      }
-    }
-
-    client.close();
-    _log.info('SteamService', '[downloadAllImages] 下载完成: ${urlToLocal.length}/${imageUrls.length}');
-    return urlToLocal;
-  }
-
-  String _getExtensionFromUrl(String url) {
-    final uri = Uri.tryParse(url);
-    if (uri == null) return '.jpg';
-    final ext = path.extension(uri.path).split('?').first.toLowerCase();
-    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext)) return ext;
-    return '.jpg';
+    final imageHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+      'Referer': 'https://store.steampowered.com/',
+    };
+    return await ConcurrentImageDownloader.downloadAll(
+      imageUrls: imageUrls,
+      saveDir: saveDir,
+      headers: imageHeaders,
+      maxConcurrency: 3,
+    );
   }
 
   /// Extract [视频:url] markers from description text
