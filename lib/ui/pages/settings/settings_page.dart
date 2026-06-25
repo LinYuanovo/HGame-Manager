@@ -1771,8 +1771,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             icon: const Icon(Icons.edit, size: 18),
             label: const Text('编辑黑名单'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFFA000).withValues(alpha: 0.15),
-              foregroundColor: const Color(0xFFFFA000),
+              backgroundColor: AppTheme.warningOrange.withValues(alpha: 0.15),
+              foregroundColor: AppTheme.warningOrange,
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
             ),

@@ -108,6 +108,7 @@ class AppTheme {
   static const Color successColor = Color(0xFF10B981);
   static const Color warningColor = Color(0xFFF59E0B);
   static const Color errorColor = Color(0xFFEF4444);
+  static const Color warningOrange = Color(0xFFFFA000);
 
   // 工具颜色
   static const Color toolGreen = Color(0xFF4CAF50);
