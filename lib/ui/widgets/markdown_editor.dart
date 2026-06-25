@@ -23,13 +23,16 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
   bool _isPreview = false;
 
   String _toPreview(String text) {
-    // 先处理图片
     var result = text.replaceAllMapped(
       RegExp(r'\[图片:([^\]]+)\]'),
       (m) {
-        var imgPath = m[1]!;
-        // Windows 路径需要转换为 file:// URI
-        if (imgPath.contains(':\\') || imgPath.startsWith('\\\\')) {
+        var imgPath = m[1]!.trim();
+        // 如果已经是 file:// 或 http:// 开头，直接使用
+        if (imgPath.startsWith('file://') || imgPath.startsWith('http://') || imgPath.startsWith('https://')) {
+          return '![]($imgPath)';
+        }
+        // Windows 路径：含 : 的路径（如 F:/xxx 或 F:\xxx）
+        if (RegExp(r'^[A-Za-z]:').hasMatch(imgPath)) {
           imgPath = 'file:///${imgPath.replaceAll('\\', '/')}';
         }
         return '![]($imgPath)';
@@ -220,21 +223,35 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       ),
       imageBuilder: (uri, title, alt) {
         final uriStr = uri.toString();
-        if (uriStr.startsWith('file:///')) {
-          final filePath = uriStr.replaceFirst('file:///', '');
-          final file = File(filePath);
-          if (file.existsSync()) {
-            return Image.file(file, fit: BoxFit.contain);
+        debugPrint('[MarkdownPreview] Loading image: $uriStr');
+        
+        try {
+          if (uriStr.startsWith('file:///')) {
+            // file:///F:/path -> F:/path
+            final filePath = Uri.parse(uriStr).toFilePath();
+            final file = File(filePath);
+            if (file.existsSync()) {
+              return Image.file(file, fit: BoxFit.contain);
+            }
+            debugPrint('[MarkdownPreview] File not found: $filePath');
+          } else if (uriStr.startsWith('http://') || uriStr.startsWith('https://')) {
+            return Image.network(uriStr, fit: BoxFit.contain);
+          } else {
+            // 尝试直接作为本地路径
+            final file = File(uriStr);
+            if (file.existsSync()) {
+              return Image.file(file, fit: BoxFit.contain);
+            }
           }
-        } else if (uriStr.startsWith('http')) {
-          return Image.network(uriStr, fit: BoxFit.contain);
+        } catch (e) {
+          debugPrint('[MarkdownPreview] Image load error: $e');
         }
-        // 也尝试直接作为本地路径
-        final file = File(uriStr);
-        if (file.existsSync()) {
-          return Image.file(file, fit: BoxFit.contain);
-        }
-        return Text('[图片: $uriStr]', style: const TextStyle(color: AppTheme.textSecondary));
+        
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Text('[图片加载失败: ${uriStr.length > 50 ? '${uriStr.substring(0, 50)}...' : uriStr}]', 
+            style: TextStyle(fontSize: 12, color: AppTheme.errorColor.withValues(alpha: 0.7))),
+        );
       },
     );
   }
