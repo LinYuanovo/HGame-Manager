@@ -462,7 +462,11 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     if (mounted) setState(() {});
 
     List<SteamSearchResult> results;
-    results = await steamService.searchWithFallback(folderPath);
+    if (item.keyword.isNotEmpty) {
+      results = await steamService.search(item.keyword);
+    } else {
+      results = await steamService.searchWithFallback(folderPath);
+    }
 
     if (results.isEmpty) {
       item.status = '未找到，按名称导入';
@@ -577,7 +581,11 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     if (mounted) setState(() {});
 
     List<DlsiteSearchResult> results;
-    results = await dlsiteService.searchWithFallback(folderPath);
+    if (item.keyword.isNotEmpty) {
+      results = await dlsiteService.search(item.keyword);
+    } else {
+      results = await dlsiteService.searchWithFallback(folderPath);
+    }
 
     if (results.isEmpty) {
       item.status = '未找到，按名称导入';
@@ -741,7 +749,12 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+            Text(
+              '提示: 若要刮削信息，需要游戏在该平台能搜到',
+              style: TextStyle(fontSize: 12, color: AppTheme.warningColor),
+            ),
+            const SizedBox(height: 8),
             if (_scanning)
               const Expanded(
                 child: Center(child: CircularProgressIndicator()),
@@ -842,15 +855,20 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              if (item.progress > 0 && item.progress < 1.0)
-                                SizedBox(
-                                  width: 60,
+                              SizedBox(
+                                width: 80,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(3),
                                   child: LinearProgressIndicator(
-                                    value: item.progress,
-                                    backgroundColor: AppTheme.surfaceColor,
-                                    color: AppTheme.primaryColor,
+                                    value: item.progress > 0 ? item.progress : null,
+                                    backgroundColor: AppTheme.textSecondary.withValues(alpha: 0.1),
+                                    valueColor: AlwaysStoppedAnimation(
+                                      item.progress >= 1.0 ? AppTheme.successColor : AppTheme.primaryColor,
+                                    ),
+                                    minHeight: 6,
                                   ),
                                 ),
+                              ),
                             ],
                           ),
                         );
@@ -882,6 +900,8 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                                   isExpanded: true,
                                   isDense: true,
                                   icon: Icon(Icons.arrow_drop_down, size: 18, color: AppTheme.textSecondary),
+                                  borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
+                                  dropdownColor: AppTheme.surfaceColor,
                                   style: TextStyle(fontSize: 12, color: AppTheme.textPrimary),
                                   items: const [
                                     DropdownMenuItem(value: _BatchScrapeSource.none, child: Text('不刮削')),
