@@ -453,6 +453,21 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     if (mounted) setState(() {});
   }
 
+  /// 检测关键词是否为 DLsite ID
+  String? _detectDlsiteId(String keyword) {
+    final match = RegExp(r'\b(RJ|RE|VJ)\d{4,}\b', caseSensitive: false).firstMatch(keyword);
+    return match?.group(0)?.toUpperCase();
+  }
+
+  /// 检测关键词是否为 Steam ID
+  String? _detectSteamId(String keyword) {
+    // 纯数字
+    if (RegExp(r'^\d+$').hasMatch(keyword)) return keyword;
+    // Steam URL
+    final urlMatch = RegExp(r'store\.steampowered\.com/app/(\d+)').firstMatch(keyword);
+    return urlMatch?.group(1);
+  }
+
   Future<void> _importSteam(
     GameRepository repo,
     TagRepository tagRepo,
@@ -465,9 +480,20 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     item.status = '搜索中...';
     if (mounted) setState(() {});
 
+    // 先检测是否为 Steam ID
+    final steamId = _detectSteamId(item.keyword);
+    
     List<SteamSearchResult> results;
-    if (item.keyword.isNotEmpty) {
+    if (steamId != null) {
+      // 直接使用 ID
+      results = [SteamSearchResult(id: steamId, name: 'ID: $steamId')];
+    } else if (item.keyword.isNotEmpty) {
+      // 使用关键词搜索
       results = await steamService.search(item.keyword);
+      // 如果关键词搜索无结果，使用回退搜索
+      if (results.isEmpty) {
+        results = await steamService.searchWithFallback(folderPath);
+      }
     } else {
       results = await steamService.searchWithFallback(folderPath);
     }
@@ -588,9 +614,20 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     item.status = '搜索中...';
     if (mounted) setState(() {});
 
+    // 先检测是否为 DLsite ID
+    final dlsiteId = _detectDlsiteId(item.keyword);
+    
     List<DlsiteSearchResult> results;
-    if (item.keyword.isNotEmpty) {
+    if (dlsiteId != null) {
+      // 直接使用 ID
+      results = [DlsiteSearchResult(id: dlsiteId, name: 'ID: $dlsiteId')];
+    } else if (item.keyword.isNotEmpty) {
+      // 使用关键词搜索
       results = await dlsiteService.search(item.keyword);
+      // 如果关键词搜索无结果，使用回退搜索
+      if (results.isEmpty) {
+        results = await dlsiteService.searchWithFallback(folderPath);
+      }
     } else {
       results = await dlsiteService.searchWithFallback(folderPath);
     }
@@ -910,7 +947,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                               visualDensity: VisualDensity(horizontal: -4, vertical: -4),
                             ),
                             Container(
-                              width: 100,
+                              width: 67,
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 color: AppTheme.surfaceColor.withValues(alpha: 0.8),
