@@ -35,6 +35,14 @@ class Fan2dDownloadResult {
   Fan2dDownloadResult.empty() : entry = null, saveFiles = [];
 }
 
+class _ResolveResult {
+  final String? directUrl;
+  final List<Fan2dSaveFile> saveFiles;
+  bool get hasSaveFiles => saveFiles.isNotEmpty;
+  _ResolveResult.direct(this.directUrl) : saveFiles = [];
+  _ResolveResult.saveFiles(this.saveFiles) : directUrl = null;
+}
+
 class Fan2dService {
   static const _defaultDomain = 'fan2d.top';
   static const _fallbackDomain = '2dfan.com';
@@ -313,15 +321,6 @@ class Fan2dService {
         await tempDir.delete(recursive: true);
       } catch (_) {}
     }
-  }
-
-  /// 解析下载页面的结果
-  class _ResolveResult {
-    final String? directUrl;
-    final List<Fan2dSaveFile> saveFiles;
-    bool get hasSaveFiles => saveFiles.isNotEmpty;
-    _ResolveResult.direct(this.directUrl) : saveFiles = [];
-    _ResolveResult.saveFiles(this.saveFiles) : directUrl = null;
   }
 
   /// 解析下载页面，获取直连下载地址或 kind 页面的存档列表
