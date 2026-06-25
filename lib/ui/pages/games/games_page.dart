@@ -819,9 +819,9 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: AppTheme.surfaceColor.withValues(alpha: 0.5),
+                      color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                      border: Border.all(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.2)),
+                      border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
                     ),
                     child: Text(
                       _parentPath ?? '未选择文件夹',
@@ -885,7 +885,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                           },
                     child: Text(
                       _items.every((i) => i.selected) ? '取消全选' : '全选',
-                      style: TextStyle(fontSize: 13, color: AppTheme.primaryColor),
+                      style: TextStyle(fontSize: 13, color: AppTheme.getPrimaryColor(context)),
                     ),
                   ),
                 ],
@@ -894,9 +894,9 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: AppTheme.surfaceColor.withValues(alpha: 0.3),
+                    color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                    border: Border.all(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.15)),
+                    border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.2)),
                   ),
                   child: ListView.builder(
                     itemCount: _importing ? _items.where((i) => i.selected).length : _items.length,
@@ -915,7 +915,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                                   decoration: BoxDecoration(
                                     color: item.source == _BatchScrapeSource.none
                                         ? AppTheme.getTextSecondary(context).withValues(alpha: 0.1)
-                                        : AppTheme.primaryColor.withValues(alpha: 0.1),
+                                        : AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
@@ -1647,9 +1647,9 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: AppTheme.surfaceColor.withValues(alpha: 0.5),
+                      color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                      border: Border.all(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.2)),
+                      border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
                     ),
                     child: Text(
                       _folderPath ?? '未选择文件夹',
@@ -1667,7 +1667,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                   icon: const Icon(Icons.folder_open, size: 16),
                   label: const Text('浏览'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
+                    backgroundColor: AppTheme.getPrimaryColor(context),
                     foregroundColor: Colors.white,
                   ),
                 ),
