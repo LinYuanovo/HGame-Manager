@@ -29,12 +29,12 @@ class TitleBarWidget extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Theme.of(context).brightness == Brightness.dark
                     ? AppTheme.darkSurfaceColor.withValues(alpha: 0.8)
-                    : Colors.white.withValues(alpha: 0.7),
+                    : AppTheme.getSurfaceColor(context).withValues(alpha: 0.7),
                 border: Border(
                   bottom: BorderSide(
                     color: Theme.of(context).brightness == Brightness.dark
                         ? AppTheme.darkBorderColor.withValues(alpha: 0.3)
-                        : Colors.white.withValues(alpha: 0.3),
+                        : AppTheme.getSurfaceColor(context).withValues(alpha: 0.3),
                   ),
                 ),
               ),
@@ -135,7 +135,7 @@ class _WindowButtonState extends State<_WindowButton> {
           color: _isHovered
               ? (widget.isClose
                   ? AppTheme.accentColor.withValues(alpha: 0.8)
-                  : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.15)))
+                  : AppTheme.getSurfaceColor(context).withValues(alpha: isDark ? 0.1 : 0.15))
               : Colors.transparent,
           child: Icon(
             widget.icon,
