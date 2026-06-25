@@ -108,6 +108,16 @@ class AppTheme {
   static const Color successColor = Color(0xFF10B981);
   static const Color warningColor = Color(0xFFF59E0B);
   static const Color errorColor = Color(0xFFEF4444);
+
+  // 收藏红
+  static const Color favoriteColor = Color(0xFFFF6B9D);
+  static const Color darkFavoriteColor = Color(0xFFFF6B9D);
+
+  // 星级金
+  static const Color starColor = Color(0xFFFFD700);
+  static const Color darkStarColor = Color(0xFFFFD700);
+
+  // 警告橙
   static const Color warningOrange = Color(0xFFFFA000);
 
   // 工具颜色
@@ -647,6 +657,18 @@ class AppTheme {
     return Theme.of(context).brightness == Brightness.dark
         ? darkBackgroundGradient
         : backgroundGradient;
+  }
+
+  static Color getFavoriteColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkFavoriteColor
+        : favoriteColor;
+  }
+
+  static Color getStarColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkStarColor
+        : starColor;
   }
 
   /// 根据当前主题获取主色

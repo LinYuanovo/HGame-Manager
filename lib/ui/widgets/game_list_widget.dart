@@ -1099,7 +1099,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFD700).withValues(alpha: 0.9),
+                            color: AppTheme.getStarColor(context).withValues(alpha: 0.9),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Row(
@@ -1332,7 +1332,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFD700).withValues(alpha: 0.9),
+                            color: AppTheme.getStarColor(context).withValues(alpha: 0.9),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.2)),
                           ),
@@ -1400,7 +1400,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                 : Icons.favorite_border,
                             size: 20,
                             color: game.isFavorite
-                                ? const Color(0xFFFF6B9D)
+                                ? AppTheme.getFavoriteColor(context)
                                 : Colors.white70,
                           ),
                         ),
@@ -1421,9 +1421,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                             children: List.generate(5, (index) {
                               final starValue = index + 1;
                               if (game.rating >= starValue) {
-                                return const Icon(Icons.star, size: 20, color: Color(0xFFFFD700));
+                                return Icon(Icons.star, size: 20, color: AppTheme.getStarColor(context));
                               } else if (game.rating >= starValue - 0.5) {
-                                return const Icon(Icons.star_half, size: 20, color: Color(0xFFFFD700));
+                                return Icon(Icons.star_half, size: 20, color: AppTheme.getStarColor(context));
                               } else {
                                 return Icon(Icons.star_border, size: 20, color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5));
                               }
@@ -1521,7 +1521,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         game.isFavorite ? Icons.favorite : Icons.favorite_border,
         size: 24,
         color: game.isFavorite
-            ? const Color(0xFFFF6B9D)
+            ? AppTheme.getFavoriteColor(context)
             : AppTheme.getTextSecondary(context).withValues(alpha: 0.4),
       ),
     );
@@ -1866,7 +1866,7 @@ _refreshAllProviders();
             leading: Icon(
                 game.isFavorite ? Icons.favorite : Icons.favorite_border,
                 size: 18,
-                color: game.isFavorite ? Color(0xFFFF6B9D) : null),
+                color: game.isFavorite ? AppTheme.getFavoriteColor(context) : null),
             title: Text(game.isFavorite ? '取消收藏' : '添加收藏')));
     
     allItems['played'] = PopupMenuItem(
@@ -1920,8 +1920,8 @@ _refreshAllProviders();
           child: ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.emoji_events, size: 18, color: Color(0xFFFFD700)),
-              title: const Text('标记已通关', style: TextStyle(color: Color(0xFFFFD700)))));
+          leading: Icon(Icons.emoji_events, size: 18, color: AppTheme.getStarColor(context)),
+          title: Text('标记已通关', style: TextStyle(color: AppTheme.getStarColor(context)))));
     }
     
     if (widget.isClearedPage) {
@@ -1930,8 +1930,8 @@ _refreshAllProviders();
           child: ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.emoji_events_outlined, size: 18, color: Colors.grey),
-              title: const Text('取消标记已通关', style: TextStyle(color: Colors.grey))));
+          leading: Icon(Icons.emoji_events_outlined, size: 18, color: AppTheme.getTextSecondary(context)),
+          title: Text('取消标记已通关', style: TextStyle(color: AppTheme.getTextSecondary(context)))));
     }
     
     allItems['blacklist'] = PopupMenuItem(
@@ -1940,9 +1940,9 @@ _refreshAllProviders();
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading:
-                Icon(Icons.block, size: 18, color: const Color(0xFFFFA000)),
-            title: const Text('删除记录',
-                style: TextStyle(color: Color(0xFFFFA000)))));
+                Icon(Icons.block, size: 18, color: AppTheme.warningOrange),
+            title: Text('删除记录',
+                style: TextStyle(color: AppTheme.warningOrange))));
     
     if (!isBackupOnly) {
       allItems['delete_folder'] = PopupMenuItem(
@@ -2076,7 +2076,7 @@ _refreshAllProviders();
                         ElevatedButton(
                           onPressed: () => Navigator.pop(context, true),
                           style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFFA000)),
+                              backgroundColor: AppTheme.warningOrange),
                           child: const Text('确认'),
                         ),
                       ],
@@ -2234,7 +2234,7 @@ _refreshAllProviders();
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context, true),
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFD700)),
+                        backgroundColor: AppTheme.getStarColor(context)),
                     child: const Text('确认'),
                   ),
                 ],
@@ -2535,7 +2535,7 @@ _refreshAllProviders();
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey),
+                      backgroundColor: AppTheme.getTextSecondary(context)),
                   child: const Text('确认'),
                 ),
               ],
