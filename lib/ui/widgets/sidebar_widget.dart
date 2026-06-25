@@ -110,14 +110,10 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                   curve: GlassConstants.animCurve,
                   width: widget.controller.width,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? AppTheme.darkSurfaceColor.withValues(alpha: 0.6)
-                        : Colors.white.withValues(alpha: 0.4),
+                    color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.6),
                     border: Border(
                       right: BorderSide(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? AppTheme.darkBorderColor.withValues(alpha: 0.3)
-                            : Colors.white.withValues(alpha: 0.2),
+                        color: AppTheme.getBorderColor(context).withValues(alpha: 0.3),
                       ),
                     ),
                   ),
