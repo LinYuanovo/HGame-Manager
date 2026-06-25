@@ -87,9 +87,9 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
         width: 460,
         height: 560,
         decoration: BoxDecoration(
-          color: AppTheme.surfaceColor,
+          color: AppTheme.getSurfaceColor(context),
           borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
-          border: Border.all(color: AppTheme.borderColor),
+          border: Border.all(color: AppTheme.getBorderColor(context)),
         ),
         child: Column(
           children: [
@@ -107,19 +107,19 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
       padding: const EdgeInsets.all(24),
       child: Row(
         children: [
-          Icon(Icons.view_sidebar_outlined, color: AppTheme.primaryColor, size: 24),
+          Icon(Icons.view_sidebar_outlined, color: AppTheme.getPrimaryColor(context), size: 24),
           const SizedBox(width: 12),
           Text(
             '侧边栏页面管理',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
+              color: AppTheme.getTextPrimary(context),
             ),
           ),
           const Spacer(),
           IconButton(
-            icon: Icon(Icons.close, color: AppTheme.textSecondary),
+            icon: Icon(Icons.close, color: AppTheme.getTextSecondary(context)),
             onPressed: () => Navigator.pop(context),
           ),
         ],
@@ -172,13 +172,13 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
           margin: const EdgeInsets.only(bottom: 8),
           decoration: BoxDecoration(
             color: item.visible
-                ? AppTheme.surfaceColor
-                : AppTheme.surfaceColor.withValues(alpha: 0.5),
+                ? AppTheme.getSurfaceColor(context)
+                : AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
             border: Border.all(
               color: item.visible
-                  ? AppTheme.borderColor
-                  : AppTheme.borderColor.withValues(alpha: 0.5),
+                  ? AppTheme.getBorderColor(context)
+                  : AppTheme.getBorderColor(context).withValues(alpha: 0.5),
             ),
           ),
           child: ListTile(
@@ -193,7 +193,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
                   index: index,
                   child: MouseRegion(
                     cursor: SystemMouseCursors.grab,
-                    child: Icon(Icons.drag_handle, size: 20, color: AppTheme.textSecondary),
+                    child: Icon(Icons.drag_handle, size: 20, color: AppTheme.getTextSecondary(context)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -201,8 +201,8 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
                   route?.icon ?? Icons.help_outline,
                   size: 20,
                   color: item.visible
-                      ? AppTheme.primaryColor
-                      : AppTheme.textSecondary.withValues(alpha: 0.5),
+                      ? AppTheme.getPrimaryColor(context)
+                      : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -210,8 +210,8 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
                   style: TextStyle(
                     fontSize: 15,
                     color: item.visible
-                        ? AppTheme.textPrimary
-                        : AppTheme.textSecondary.withValues(alpha: 0.5),
+                        ? AppTheme.getTextPrimary(context)
+                        : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
                   ),
                 ),
               ],
@@ -223,7 +223,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
                   : (v) {
                       setState(() => item.visible = v);
                     },
-              activeThumbColor: AppTheme.primaryColor,
+              activeThumbColor: AppTheme.getPrimaryColor(context),
             ),
           ),
         );
@@ -239,7 +239,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
         children: [
           TextButton(
             onPressed: _resetToDefaults,
-            child: Text('恢复默认', style: TextStyle(color: AppTheme.textSecondary)),
+            child: Text('恢复默认', style: TextStyle(color: AppTheme.getTextSecondary(context))),
           ),
           const SizedBox(width: 12),
           ElevatedButton(
@@ -251,7 +251,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
+              backgroundColor: AppTheme.getPrimaryColor(context),
               foregroundColor: Colors.white,
             ),
             child: const Text('保存'),

@@ -45,14 +45,14 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.build, color: AppTheme.primaryColor, size: 28),
+        Icon(Icons.build, color: AppTheme.getPrimaryColor(context), size: 28),
         const SizedBox(width: 12),
-        const Text(
+        Text(
           '工具',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: AppTheme.textPrimary,
+            color: AppTheme.getTextPrimary(context),
           ),
         ),
         const Spacer(),
@@ -61,7 +61,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
           icon: const Icon(Icons.add, size: 18),
           label: const Text('导入工具'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryColor,
+            backgroundColor: AppTheme.getPrimaryColor(context),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             shape: RoundedRectangleBorder(
@@ -78,16 +78,16 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.build_circle_outlined, size: 64, color: AppTheme.textPrimary.withValues(alpha: 0.2)),
+          Icon(Icons.build_circle_outlined, size: 64, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.2)),
           const SizedBox(height: 16),
           Text(
             '还没有工具',
-            style: TextStyle(fontSize: 16, color: AppTheme.textPrimary.withValues(alpha: 0.5)),
+            style: TextStyle(fontSize: 16, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.5)),
           ),
           const SizedBox(height: 8),
           Text(
             '点击右上角"导入工具"添加文件',
-            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+            style: TextStyle(fontSize: 13, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
           ),
         ],
       ),
@@ -264,7 +264,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('编辑工具名', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              Text('编辑工具名', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
               const SizedBox(height: 16),
               TextField(
                 controller: controller,

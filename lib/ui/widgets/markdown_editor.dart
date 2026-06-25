@@ -84,7 +84,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withValues(alpha: 0.06),
+        color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.06),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       ),
       child: Row(
@@ -102,7 +102,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
             onTap: () => setState(() => _isPreview = true),
           ),
           const SizedBox(width: 8),
-          Container(width: 1, height: 20, color: AppTheme.textSecondary.withValues(alpha: 0.3)),
+          Container(width: 1, height: 20, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
           const SizedBox(width: 8),
           _formatButton(Icons.format_bold, '粗体', () => _insert('**', suffix: '**')),
           _formatButton(Icons.format_italic, '斜体', () => _insert('*', suffix: '*')),
@@ -128,19 +128,19 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: active ? AppTheme.primaryColor.withValues(alpha: 0.15) : Colors.transparent,
+          color: active ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: active ? AppTheme.primaryColor : AppTheme.textSecondary),
+            Icon(icon, size: 16, color: active ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context)),
             const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(
                 fontSize: 12,
-                color: active ? AppTheme.primaryColor : AppTheme.textSecondary,
+                color: active ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context),
                 fontWeight: active ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
@@ -158,7 +158,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
         borderRadius: BorderRadius.circular(6),
         child: Padding(
           padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 18, color: AppTheme.textSecondary),
+          child: Icon(icon, size: 18, color: AppTheme.getTextSecondary(context)),
         ),
       ),
     );
@@ -172,21 +172,21 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
         final name = p.split(RegExp(r'[/\\]')).last;
         return PopupMenuItem(value: p, child: Text(name, style: const TextStyle(fontSize: 13)));
       }).toList(),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: AppTheme.primaryColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add_photo_alternate, size: 16, color: AppTheme.getPrimaryColor(context)),
+              const SizedBox(width: 4),
+              Text('图片', style: TextStyle(fontSize: 12, color: AppTheme.getPrimaryColor(context))),
+            ],
+          ),
         ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.add_photo_alternate, size: 16, color: AppTheme.primaryColor),
-            SizedBox(width: 4),
-            Text('图片', style: TextStyle(fontSize: 12, color: AppTheme.primaryColor)),
-          ],
-        ),
-      ),
     );
   }
 
@@ -195,12 +195,12 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       controller: widget.controller,
       maxLines: null,
       expands: true,
-      style: TextStyle(fontSize: widget.fontSize, height: 1.7, color: AppTheme.textPrimary),
-      decoration: const InputDecoration(
+      style: TextStyle(fontSize: widget.fontSize, height: 1.7, color: AppTheme.getTextPrimary(context)),
+      decoration: InputDecoration(
         border: InputBorder.none,
-        contentPadding: EdgeInsets.all(16),
+        contentPadding: const EdgeInsets.all(16),
         hintText: '支持 Markdown 语法...',
-        hintStyle: TextStyle(color: AppTheme.textSecondary),
+        hintStyle: TextStyle(color: AppTheme.getTextSecondary(context)),
       ),
     );
   }
@@ -208,8 +208,8 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
   Widget _buildPreview() {
     final preview = _toPreview(widget.controller.text);
     if (preview.isEmpty) {
-      return const Center(
-        child: Text('暂无内容', style: TextStyle(color: AppTheme.textSecondary)),
+      return Center(
+        child: Text('暂无内容', style: TextStyle(color: AppTheme.getTextSecondary(context))),
       );
     }
     return SingleChildScrollView(
@@ -217,11 +217,11 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       child: MarkdownBody(
         data: preview,
         styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-          p: TextStyle(fontSize: widget.fontSize, height: 1.7, color: AppTheme.textPrimary),
-          h1: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-          h2: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-          h3: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
-          listBullet: TextStyle(fontSize: widget.fontSize, color: AppTheme.textPrimary),
+          p: TextStyle(fontSize: widget.fontSize, height: 1.7, color: AppTheme.getTextPrimary(context)),
+          h1: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context)),
+          h2: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context)),
+          h3: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context)),
+          listBullet: TextStyle(fontSize: widget.fontSize, color: AppTheme.getTextPrimary(context)),
         ),
         imageBuilder: (uri, title, alt) {
           final uriStr = uri.toString();

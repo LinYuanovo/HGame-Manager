@@ -41,9 +41,9 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
         width: 500,
         height: 600,
         decoration: BoxDecoration(
-          color: AppTheme.surfaceColor,
+          color: AppTheme.getSurfaceColor(context),
           borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
-          border: Border.all(color: AppTheme.borderColor),
+          border: Border.all(color: AppTheme.getBorderColor(context)),
         ),
         child: Column(
           children: [
@@ -62,19 +62,19 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
       padding: const EdgeInsets.all(24),
       child: Row(
         children: [
-          Icon(Icons.menu, color: AppTheme.primaryColor, size: 24),
+          Icon(Icons.menu, color: AppTheme.getPrimaryColor(context), size: 24),
           const SizedBox(width: 12),
           Text(
             '右键菜单管理',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
+              color: AppTheme.getTextPrimary(context),
             ),
           ),
           Spacer(),
           IconButton(
-            icon: Icon(Icons.close, color: AppTheme.textSecondary),
+            icon: Icon(Icons.close, color: AppTheme.getTextSecondary(context)),
             onPressed: () => Navigator.pop(context),
           ),
         ],
@@ -87,7 +87,7 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
       margin: EdgeInsets.symmetric(horizontal: 24),
       padding: EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
+        color: AppTheme.getBackgroundColor(context),
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
       ),
       child: Row(
@@ -126,13 +126,13 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
         children: [
           TextButton(
             onPressed: _resetToDefaults,
-            child: Text('恢复默认', style: TextStyle(color: AppTheme.textSecondary)),
+            child: Text('恢复默认', style: TextStyle(color: AppTheme.getTextSecondary(context))),
           ),
           const SizedBox(width: 12),
           ElevatedButton(
             onPressed: _saveAndClose,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
+              backgroundColor: AppTheme.getPrimaryColor(context),
               foregroundColor: Colors.white,
             ),
             child: Text('保存'),
@@ -189,9 +189,9 @@ class _TabItemWidgetState extends State<_TabItemWidget> {
           padding: EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: widget.isSelected
-                ? AppTheme.primaryColor
+                ? AppTheme.getPrimaryColor(context)
                 : _isHovered
-                    ? AppTheme.primaryColor.withValues(alpha: 0.08)
+                    ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.08)
                     : Colors.transparent,
             borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
           ),
@@ -199,7 +199,7 @@ class _TabItemWidgetState extends State<_TabItemWidget> {
           child: Text(
             widget.label,
             style: TextStyle(
-              color: widget.isSelected ? Colors.white : AppTheme.textSecondary,
+              color: widget.isSelected ? Colors.white : AppTheme.getTextSecondary(context),
               fontWeight: widget.isSelected ? FontWeight.w500 : FontWeight.normal,
             ),
           ),
@@ -236,7 +236,7 @@ class _MenuItemsList extends ConsumerWidget {
               borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -259,13 +259,13 @@ class _MenuItemsList extends ConsumerWidget {
           margin: EdgeInsets.only(bottom: 8),
           decoration: BoxDecoration(
             color: item.enabled
-                ? AppTheme.surfaceColor
-                : AppTheme.surfaceColor.withValues(alpha: 0.5),
+                ? AppTheme.getSurfaceColor(context)
+                : AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
             border: Border.all(
               color: item.enabled
-                  ? AppTheme.borderColor
-                  : AppTheme.borderColor.withValues(alpha: 0.5),
+                  ? AppTheme.getBorderColor(context)
+                  : AppTheme.getBorderColor(context).withValues(alpha: 0.5),
             ),
           ),
           child: ListTile(
@@ -280,7 +280,7 @@ class _MenuItemsList extends ConsumerWidget {
                   index: index,
                   child: MouseRegion(
                     cursor: SystemMouseCursors.grab,
-                    child: Icon(Icons.drag_handle, size: 20, color: AppTheme.textSecondary),
+                    child: Icon(Icons.drag_handle, size: 20, color: AppTheme.getTextSecondary(context)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -288,8 +288,8 @@ class _MenuItemsList extends ConsumerWidget {
                   _getIconData(def.icon),
                   size: 20,
                   color: item.enabled
-                      ? AppTheme.primaryColor
-                      : AppTheme.textSecondary.withValues(alpha: 0.5),
+                      ? AppTheme.getPrimaryColor(context)
+                      : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -297,8 +297,8 @@ class _MenuItemsList extends ConsumerWidget {
                   style: TextStyle(
                     fontSize: 15,
                     color: item.enabled
-                        ? AppTheme.textPrimary
-                        : AppTheme.textSecondary.withValues(alpha: 0.5),
+                        ? AppTheme.getTextPrimary(context)
+                        : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
                   ),
                 ),
               ],
@@ -306,7 +306,7 @@ class _MenuItemsList extends ConsumerWidget {
             trailing: Switch(
               value: item.enabled,
               onChanged: (_) => ref.read(provider.notifier).toggleItem(item.id),
-              activeThumbColor: AppTheme.primaryColor,
+              activeThumbColor: AppTheme.getPrimaryColor(context),
             ),
           ),
         );

@@ -237,7 +237,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
                           _error.toString(),
                           style: TextStyle(
                             fontSize: 14,
-                            color: AppTheme.textPrimary,
+                            color: AppTheme.getTextPrimary(context),
                           ),
                         ),
                         if (_stackTrace != null) ...[
@@ -257,7 +257,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
                                 _stackTrace.toString(),
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: AppTheme.textSecondary,
+                                  color: AppTheme.getTextSecondary(context),
                                 ),
                               ),
                             ),
