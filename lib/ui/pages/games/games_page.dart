@@ -479,7 +479,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
   }
 }
 
-enum ImportSource { dlsite, steam }
+enum ImportSource { none, dlsite, steam }
 
 class _CloudImportDialog extends StatefulWidget {
   final VoidCallback onImportComplete;
@@ -531,6 +531,11 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       return;
     }
 
+    if (_source == ImportSource.none) {
+      await _importNone();
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _statusText = '正在搜索...';
@@ -546,6 +551,84 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       }
     } catch (e) {
       setState(() => _statusText = '搜索失败: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _importNone() async {
+    if (_folderPath == null) {
+      AppTheme.showGlassToast(
+        context,
+        message: '请先选择游戏文件夹',
+        icon: Icons.warning_amber,
+        iconColor: AppTheme.warningColor,
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _statusText = '正在导入...';
+    });
+
+    try {
+      final repo = GameRepository();
+      final existingGame = await repo.getGameByPath(_folderPath!);
+
+      String? title;
+      String? version;
+      String? intro;
+      String? sourceUrl;
+
+      final metadataFile = File(path.join(_folderPath!, 'metadata.json'));
+      if (await metadataFile.exists()) {
+        try {
+          final content = await metadataFile.readAsString();
+          final map = jsonDecode(content) as Map<String, dynamic>;
+          title = map['title'] as String?;
+          version = map['version'] as String?;
+          intro = map['intro'] as String?;
+          sourceUrl = map['source_url'] as String?;
+        } catch (_) {}
+      }
+
+      final sourceUrlFile = File(path.join(_folderPath!, 'source_url.txt'));
+      if (sourceUrl == null && await sourceUrlFile.exists()) {
+        try {
+          sourceUrl = (await sourceUrlFile.readAsString()).trim();
+          if (sourceUrl.isEmpty) sourceUrl = null;
+        } catch (_) {}
+      }
+
+      final game = Game(
+        path: _folderPath!,
+        title: title ?? path.basename(_folderPath!),
+        version: version,
+        intro: intro,
+        sourceUrl: sourceUrl,
+      );
+
+      if (existingGame != null) {
+        await repo.updateGame(game.copyWith(id: existingGame.id));
+      } else {
+        await repo.insertGame(game);
+      }
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        widget.onImportComplete();
+        AppTheme.showGlassToast(
+          context,
+          message: existingGame != null ? '游戏信息已更新' : '游戏导入成功',
+          icon: Icons.check_circle_outline,
+          iconColor: AppTheme.successColor,
+        );
+      }
+    } catch (e) {
+      setState(() => _statusText = '导入失败: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -847,16 +930,19 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
             // Source selector
             Row(
               children: [
+                _buildSourceChip(ImportSource.none, '不刮削'),
+                const SizedBox(width: 8),
                 _buildSourceChip(ImportSource.dlsite, 'DLsite'),
                 const SizedBox(width: 8),
                 _buildSourceChip(ImportSource.steam, 'Steam'),
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              '提示: 若要刮削信息，需要游戏在该平台能搜到',
-              style: TextStyle(fontSize: 12, color: AppTheme.warningColor),
-            ),
+            if (_source != ImportSource.none)
+              Text(
+                '提示: 若要刮削信息，需要游戏在该平台能搜到',
+                style: TextStyle(fontSize: 12, color: AppTheme.warningColor),
+              ),
             const SizedBox(height: 8),
 
             // Folder picker
@@ -894,38 +980,40 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
             ),
             const SizedBox(height: 12),
 
-            // ID input
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _idController,
-                    decoration: InputDecoration(
-                      hintText: _source == ImportSource.dlsite
-                          ? '输入DLsite ID (如 RJ123456)，留空则自动按游戏名称搜索'
-                          : '输入Steam App ID或商店链接，留空按名称搜索',
-                      hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+            // ID input - hidden when no scrape
+            if (_source != ImportSource.none) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _idController,
+                      decoration: InputDecoration(
+                        hintText: _source == ImportSource.dlsite
+                            ? '输入DLsite ID (如 RJ123456)，留空则自动按游戏名称搜索'
+                            : '输入Steam App ID或商店链接，留空按名称搜索',
+                        hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      style: const TextStyle(fontSize: 13),
                     ),
-                    style: const TextStyle(fontSize: 13),
                   ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _searchGame,
-                  icon: const Icon(Icons.search, size: 16),
-                  label: const Text('搜索'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _searchGame,
+                    icon: const Icon(Icons.search, size: 16),
+                    label: const Text('搜索'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
 
             // Status text
             if (_statusText.isNotEmpty)
@@ -978,24 +1066,44 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                   child: const Text('取消'),
                 ),
                 const SizedBox(width: 12),
-                ElevatedButton(
-                  onPressed: (_isLoading || _selectedResult == null) ? null : _import,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.4),
+                if (_source == ImportSource.none)
+                  ElevatedButton(
+                    onPressed: (_isLoading || _folderPath == null) ? null : _importNone,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.4),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('导入'),
+                  )
+                else
+                  ElevatedButton(
+                    onPressed: (_isLoading || _selectedResult == null) ? null : _import,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.4),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('导入选中'),
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('导入选中'),
-                ),
               ],
             ),
           ],
