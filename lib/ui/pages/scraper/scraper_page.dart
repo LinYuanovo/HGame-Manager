@@ -158,13 +158,13 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             Icon(
               isRunning ? Icons.sync : Icons.circle_outlined,
               size: 18,
-              color: isRunning ? AppTheme.successColor : Colors.grey,
+              color: isRunning ? AppTheme.successColor : AppTheme.getDisabledColor(context),
             ),
             const SizedBox(width: 8),
             Text(
               _processStatus,
               style: TextStyle(
-                color: isRunning ? AppTheme.successColor : Colors.grey,
+                color: isRunning ? AppTheme.successColor : AppTheme.getDisabledColor(context),
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -203,12 +203,12 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: isEnabled ? color : Colors.grey, size: 18),
+                Icon(icon, color: isEnabled ? color : AppTheme.getDisabledColor(context), size: 18),
                 const SizedBox(width: 8),
                 Text(
                   label,
                   style: TextStyle(
-                    color: isEnabled ? color : Colors.grey,
+                    color: isEnabled ? color : AppTheme.getDisabledColor(context),
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
