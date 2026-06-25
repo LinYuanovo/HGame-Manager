@@ -876,7 +876,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.4),
+        color: AppTheme.getGlassFillColor(context),
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
         border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.2)),
       ),

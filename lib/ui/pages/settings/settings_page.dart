@@ -1807,25 +1807,12 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             const SizedBox(width: 16),
             Theme(
               data: Theme.of(context).copyWith(
-                dropdownMenuTheme: DropdownMenuThemeData(
-                  inputDecorationTheme: InputDecorationTheme(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                      borderSide: BorderSide.none,
-                    ),
+                popupMenuTheme: PopupMenuThemeData(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
                   ),
-                  menuStyle: MenuStyle(
-                    shape: WidgetStateProperty.all(
-                      RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                      ),
-                    ),
-                    elevation: WidgetStateProperty.all(8),
-                    backgroundColor: WidgetStateProperty.all(
-                      Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
-                    ),
-                  ),
+                  color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
+                  elevation: 8,
                 ),
               ),
               child: Container(
