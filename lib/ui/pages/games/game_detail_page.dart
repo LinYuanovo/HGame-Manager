@@ -20,6 +20,7 @@ import '../../../core/services/folder_rename_service.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../widgets/image_manager_dialog.dart';
 import '../../widgets/markdown_editor.dart';
+import '../../../core/services/concurrent_image_downloader.dart';
 import 'save_management_dialog.dart';
 
 class GameDetailDialog extends ConsumerStatefulWidget {
@@ -1473,8 +1474,11 @@ if (_isEditing) ...[
         ),
         const SizedBox(height: 14),
         if (_isEditing && title == '简介') ...[
-          SizedBox(
-            height: 300,
+          ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: 200,
+              maxHeight: 500,
+            ),
             child: MarkdownEditor(
               controller: _introController,
               imagePaths: _currentGame.images.map((img) => img.imagePath).toList(),
@@ -3095,7 +3099,6 @@ if (_isEditing) ...[
     void Function(int current, int total)? onProgress,
   }) async {
     final urlToLocal = <String, String>{};
-    final client = await createProxyClientFromPrefs();
     final imageDir = Directory('${game.path}${Platform.pathSeparator}images');
     if (!await imageDir.exists()) {
       await imageDir.create(recursive: true);
@@ -3106,36 +3109,33 @@ if (_isEditing) ...[
         if (entity is File) await entity.delete();
       }
     }
-    final repo = ref.read(gameRepositoryProvider);
+
     final sourceUrl = game.sourceUrl ?? '';
     final cookie = sourceUrl.isNotEmpty ? await getCookieForSite(sourceUrl) : '';
+    final imgHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+      'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+      'Referer': sourceUrl,
+      if (cookie.isNotEmpty) 'Cookie': cookie,
+    };
+
+    final downloaded = await ConcurrentImageDownloader.downloadAll(
+      imageUrls: imageUrls,
+      saveDir: game.path,
+      headers: imgHeaders,
+      maxConcurrency: 3,
+    );
+
+    final repo = ref.read(gameRepositoryProvider);
     for (int i = 0; i < imageUrls.length; i++) {
-      try {
-        final imageUrl = imageUrls[i];
-        final uri = Uri.parse(imageUrl);
-        final ext = imageUrl.contains('.') ? '.${imageUrl.split('.').last.split('?').first.split('#').first}' : '.jpg';
-        final validExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext.toLowerCase()) ? ext : '.jpg';
-        final fileName = '${i + 1}$validExt';
-        final filePath = '${imageDir.path}${Platform.pathSeparator}$fileName';
-        final file = File(filePath);
-        if (!await file.exists()) {
-          final imgHeaders = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-            'Referer': sourceUrl,
-            if (cookie.isNotEmpty) 'Cookie': cookie,
-          };
-          final response = await httpGetWithRetry(uri, headers: imgHeaders, client: client);
-          if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-            await file.writeAsBytes(response.bodyBytes, flush: true);
-          }
-        }
-        await repo.addGameImage(game.id!, filePath, i);
-        urlToLocal[imageUrl] = filePath;
-        onProgress?.call(i + 1, imageUrls.length);
-      } catch (_) {}
+      final localPath = downloaded[imageUrls[i]];
+      if (localPath != null) {
+        await repo.addGameImage(game.id!, localPath, i);
+        urlToLocal[imageUrls[i]] = localPath;
+      }
+      onProgress?.call(i + 1, imageUrls.length);
     }
-    client.close();
+
     return urlToLocal;
   }
 
