@@ -799,30 +799,38 @@ class _GlassCardState extends State<GlassCard>
                 child: AnimatedBuilder(
                   animation: _borderController ?? const AlwaysStoppedAnimation(0),
                   builder: (context, child) {
+                    final isDark = Theme.of(context).brightness == Brightness.dark;
                     final borderOpacity = _borderAnimation?.value ?? 0.35;
+
                     return AnimatedContainer(
                       duration: GlassConstants.animFast,
                       curve: GlassConstants.animCurve,
                       padding: widget.padding,
                       decoration: BoxDecoration(
                         color: widget.color ??
-                            (_isHovered
-                                ? Colors.white.withValues(alpha: 0.88)
-                                : Colors.white.withValues(alpha: 0.65)),
+                            (isDark
+                                ? (_isHovered
+                                    ? AppTheme.darkSurfaceColor.withValues(alpha: 0.88)
+                                    : AppTheme.darkSurfaceColor.withValues(alpha: 0.65))
+                                : (_isHovered
+                                    ? Colors.white.withValues(alpha: 0.88)
+                                    : Colors.white.withValues(alpha: 0.65))),
                         borderRadius: BorderRadius.circular(widget.borderRadius),
                         border: Border.all(
                           color: _isHovered
                               ? AppTheme.primaryColor.withValues(alpha: 0.25)
                               : widget.enableBorderBreathing
                                   ? AppTheme.primaryColor.withValues(alpha: borderOpacity)
-                                  : Colors.white.withValues(alpha: 0.35),
+                                  : (isDark
+                                      ? AppTheme.darkGlassBorderWhite.withValues(alpha: 0.35)
+                                      : Colors.white.withValues(alpha: 0.35)),
                           width: 1,
                         ),
                         boxShadow: [
                           BoxShadow(
                             color: _isHovered
                                 ? AppTheme.primaryColor.withValues(alpha: 0.12)
-                                : Colors.black.withValues(alpha: 0.05),
+                                : Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
                             blurRadius: _isHovered ? 28 : 16,
                             spreadRadius: _isHovered ? 2 : 1,
                             offset: Offset(0, _isHovered ? 6 : 4),
