@@ -893,7 +893,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor.withValues(alpha: 0.5),
+        color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
         border: Border(top: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.2))),
       ),
       child: Row(
@@ -904,11 +904,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text('${_currentPage + 1} / $totalPages',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryColor)),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.getPrimaryColor(context))),
           ),
           const SizedBox(width: 8),
           _buildPageButton(Icons.chevron_right, _currentPage < totalPages - 1 ? () => _updateCurrentPage(_currentPage + 1) : null),
@@ -922,7 +922,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               textAlign: TextAlign.center,
               decoration: InputDecoration(
                 hintText: '页码',
-                hintStyle: TextStyle(fontSize: 12, color: const Color.fromARGB(255, 135, 155, 194).withValues(alpha: 0.4)),
+                hintStyle: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 filled: true,
                 fillColor: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
@@ -936,7 +936,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.5)),
+                  borderSide: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.5)),
                 ),
                 isDense: true,
               ),
@@ -961,10 +961,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       child: Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: onPressed != null ? AppTheme.primaryColor.withValues(alpha: 0.1) : AppTheme.getBackgroundColor(context).withValues(alpha: 0.1),
+          color: onPressed != null ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15) : AppTheme.getBackgroundColor(context).withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6),
         ),
-        child: Icon(icon, size: 18, color: onPressed != null ? AppTheme.primaryColor : AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
+        child: Icon(icon, size: 18, color: onPressed != null ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context).withValues(alpha: 0.4)),
       ),
     );
   }

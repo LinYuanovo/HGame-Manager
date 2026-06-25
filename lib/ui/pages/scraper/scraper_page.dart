@@ -226,8 +226,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       width: 200,
       child: GlassContainer(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        color: AppTheme.glassFillColor,
-        border: Border.all(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.15)),
+        color: AppTheme.getGlassFillColor(context),
+        border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.15)),
         enableBlur: false,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -275,8 +275,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       width: 200,
       child: GlassContainer(
         padding: const EdgeInsets.all(16),
-        color: AppTheme.glassFillColor,
-        border: Border.all(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.15)),
+        color: AppTheme.getGlassFillColor(context),
+        border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.15)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

@@ -70,13 +70,16 @@ class AppTheme {
   static const Color darkSurfaceColor = Color(0xFF2D2D44);
   static const Color darkCardColor = Color(0xFF2D2D44);
   static const Color darkGlassFillColor = Color(0xCC2D2D44);
-  static const Color darkGlassBorderWhite = Color(0x33444466);
+  static const Color darkGlassBorderWhite = Color(0x33555577);
   static const Color darkGlassBorderBlue = Color(0x1A2563EB);
 
-  static const Color darkTextPrimary = Color(0xFFE0E0E0);
-  static const Color darkTextSecondary = Color(0xFF9CA3AF);
+  static const Color darkTextPrimary = Color(0xFFF0F0F0);
+  static const Color darkTextSecondary = Color(0xFFB0B8C4);
 
-  static const Color darkBorderColor = Color(0xFF3D3D5C);
+  static const Color darkBorderColor = Color(0xFF4A4A6A);
+
+  // 暗黑模式下增强的主色（提高对比度）
+  static const Color darkPrimaryColor = Color(0xFF60A5FA);
 
   // 主色调 - 蓝紫渐变色系
   static const Color primaryColor = Color(0xFF2563EB);
@@ -304,13 +307,13 @@ class AppTheme {
     return ThemeData(
       fontFamily: effectiveFontFamily,
       brightness: Brightness.dark,
-      primaryColor: primaryColor,
+      primaryColor: darkPrimaryColor,
       scaffoldBackgroundColor: darkBackgroundColor,
       colorScheme: ColorScheme.fromSwatch(
         primarySwatch: Colors.blue,
         brightness: Brightness.dark,
       ).copyWith(
-        primary: primaryColor,
+        primary: darkPrimaryColor,
         secondary: secondaryColor,
         tertiary: accentColor,
         surface: darkSurfaceColor,
@@ -322,7 +325,7 @@ class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
         ),
-        shadowColor: Colors.black.withValues(alpha: 0.3),
+        shadowColor: Colors.transparent,
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
@@ -354,7 +357,7 @@ class AppTheme {
       ).apply(fontFamily: effectiveFontFamily),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor.withValues(alpha: 0.7),
+          backgroundColor: darkPrimaryColor.withValues(alpha: 0.8),
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           shape: RoundedRectangleBorder(
@@ -365,24 +368,24 @@ class AppTheme {
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
-          foregroundColor: darkTextSecondary.withValues(alpha: 0.7),
+          foregroundColor: darkTextSecondary,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: primaryColor.withValues(alpha: 0.7),
+          foregroundColor: darkPrimaryColor,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: primaryColor.withValues(alpha: 0.7),
-          side: BorderSide(color: primaryColor.withValues(alpha: 0.7)),
+          foregroundColor: darkPrimaryColor,
+          side: BorderSide(color: darkPrimaryColor),
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: primaryColor.withValues(alpha: 0.7),
+        backgroundColor: darkPrimaryColor.withValues(alpha: 0.8),
         foregroundColor: Colors.white,
-        elevation: 2,
+        elevation: 0,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -397,7 +400,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-          borderSide: const BorderSide(color: primaryColor, width: 1.5),
+          borderSide: BorderSide(color: darkPrimaryColor, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
@@ -412,8 +415,8 @@ class AppTheme {
         ),
         color: darkSurfaceColor.withValues(alpha: 0.95),
         surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.black54,
-        elevation: 12,
+        shadowColor: Colors.transparent,
+        elevation: 0,
         textStyle: const TextStyle(
           color: darkTextPrimary,
           fontSize: 14,
@@ -623,6 +626,24 @@ class AppTheme {
     return Theme.of(context).brightness == Brightness.dark
         ? darkBackgroundGradient
         : backgroundGradient;
+  }
+
+  /// 根据当前主题获取主色
+  static Color getPrimaryColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkPrimaryColor
+        : primaryColor;
+  }
+
+  /// 获取主色渐变
+  static LinearGradient getPrimaryGradient(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [darkPrimaryColor, secondaryColor],
+          )
+        : primaryGradient;
   }
 }
 

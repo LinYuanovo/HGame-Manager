@@ -252,15 +252,15 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
               gradient: isSelected
                   ? LinearGradient(
                       colors: [
-                        AppTheme.primaryColor.withValues(alpha: 0.15),
-                        AppTheme.secondaryColor.withValues(alpha: 0.15),
+                        AppTheme.getPrimaryColor(context).withValues(alpha: 0.2),
+                        AppTheme.secondaryColor.withValues(alpha: 0.2),
                       ],
                     )
                   : null,
               color: isSelected ? null : Colors.transparent,
               border: Border.all(
                 color: isSelected
-                    ? AppTheme.primaryColor.withValues(alpha: 0.3)
+                    ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.4)
                     : Colors.transparent,
               ),
             ),
@@ -272,8 +272,8 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                 Icon(
                   isSelected ? route.selectedIcon : route.icon,
                   color: isSelected
-                      ? AppTheme.primaryColor
-                      : AppTheme.textPrimary,
+                      ? AppTheme.getPrimaryColor(context)
+                      : AppTheme.getTextPrimary(context),
                   size: 22,
                 ),
                 if (widget.controller.isExpanded) ...[
@@ -284,8 +284,8 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: isSelected
-                            ? AppTheme.primaryColor
-                            : AppTheme.textPrimary,
+                            ? AppTheme.getPrimaryColor(context)
+                            : AppTheme.getTextPrimary(context),
                         fontSize: fontSize,
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                       ),
@@ -300,14 +300,14 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                           gradient: isSelected
                               ? LinearGradient(
                                   colors: [
-                                    AppTheme.primaryColor.withValues(alpha: 0.8),
-                                    AppTheme.secondaryColor.withValues(alpha: 0.8),
+                                    AppTheme.getPrimaryColor(context).withValues(alpha: 0.9),
+                                    AppTheme.secondaryColor.withValues(alpha: 0.9),
                                   ],
                                 )
                               : null,
                           color: isSelected
                               ? null
-                              : AppTheme.textSecondary.withValues(alpha: 0.2),
+                              : AppTheme.getTextSecondary(context).withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         constraints: const BoxConstraints(minHeight: 18),
@@ -316,7 +316,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                           style: TextStyle(
                             color: isSelected
                                 ? Colors.white
-                                : AppTheme.textSecondary,
+                                : AppTheme.getTextPrimary(context),
                             fontSize: (fontSize * 0.78).clamp(9, 14),
                             fontWeight: FontWeight.w600,
                           ),

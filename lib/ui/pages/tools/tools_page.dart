@@ -121,12 +121,12 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
       onSecondaryTapUp: (details) => _showContextMenu(details.globalPosition, tool),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.getSurfaceColor(context),
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-          border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.3)),
+          border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -152,9 +152,9 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
                   const SizedBox(height: 8),
                   Text(
                     tool.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.textPrimary,
+                      color: AppTheme.getTextPrimary(context),
                       fontWeight: FontWeight.w500,
                     ),
                     maxLines: 2,
