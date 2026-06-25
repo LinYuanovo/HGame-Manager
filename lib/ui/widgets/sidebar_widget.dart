@@ -283,7 +283,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                       style: TextStyle(
                         color: isSelected
                             ? AppTheme.getPrimaryColor(context)
-                            : AppTheme.getTextPrimary(context),
+                            : AppTheme.getCardTitleColor(context),
                         fontSize: fontSize,
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                       ),

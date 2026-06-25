@@ -77,6 +77,7 @@ class AppTheme {
   static const Color darkTextPrimary = Color(0xFFE0E0E0);
   static const Color darkTextSecondary = Color(0xFF9CA3AF);
   static const Color darkDetailTextPrimary = Color(0xFFACB2B8); // 详情页文本色
+  static const Color darkCardTitleColor = Color(0xFFC5CCD2); // 卡片/侧边栏标题色
 
   static const Color darkBorderColor = Color(0xFF4A4A6A);
 
@@ -628,6 +629,13 @@ class AppTheme {
   static Color getDetailTextPrimary(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
         ? darkDetailTextPrimary
+        : textPrimary;
+  }
+
+  /// 获取卡片/侧边栏标题色
+  static Color getCardTitleColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkCardTitleColor
         : textPrimary;
   }
 

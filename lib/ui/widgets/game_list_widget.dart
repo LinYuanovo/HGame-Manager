@@ -1152,7 +1152,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 18,
-                            color: AppTheme.getTextPrimary(context)),
+                            color: AppTheme.getCardTitleColor(context)),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                     if (game.tags.isNotEmpty) ...[
@@ -1449,7 +1449,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         height: 1.3,
-                        color: AppTheme.getTextPrimary(context)),
+                        color: AppTheme.getCardTitleColor(context)),
                   ),
                 ],
               ),
