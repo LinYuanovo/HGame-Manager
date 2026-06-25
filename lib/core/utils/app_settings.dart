@@ -18,6 +18,7 @@ class AppSettings {
   static const String contextMenuPlayedKey = 'context_menu_played';
   static const String noImageModeKey = 'no_image_mode';
   static const String keepPlayedInGamesKey = 'keep_played_in_games';
+  static const String sidebarConfigKey = 'sidebar_config';
 
   Map<String, dynamic> _data = {};
   final String _filePath;

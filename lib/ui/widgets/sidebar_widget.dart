@@ -1,14 +1,16 @@
+import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../controllers/sidebar_controller.dart';
 import '../../core/providers/providers.dart';
+import '../../core/utils/app_settings.dart';
 import '../theme/app_theme.dart';
 import '../pages/app_router.dart';
 import '../pages/settings/settings_page.dart';
 
 /// 侧边栏独立组件，负责侧边栏的UI渲染和用户交互
-class SidebarWidget extends ConsumerWidget {
+class SidebarWidget extends ConsumerStatefulWidget {
   final SidebarController controller;
   final int selectedIndex;
 
@@ -19,7 +21,59 @@ class SidebarWidget extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SidebarWidget> createState() => _SidebarWidgetState();
+}
+
+class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
+  List<NavRoute> _visibleRoutes = NavRoute.values.where((r) => r != NavRoute.settings).toList();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSidebarConfig();
+  }
+
+  Future<void> _loadSidebarConfig() async {
+    final prefs = await AppSettings.load();
+    final raw = prefs.getString(AppSettings.sidebarConfigKey);
+    if (raw == null || raw.isEmpty) {
+      return;
+    }
+
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      final configs = list.map((m) => _SidebarEntry.fromJson(m as Map<String, dynamic>)).toList();
+      configs.sort((a, b) => a.order.compareTo(b.order));
+
+      final routeMap = {for (final r in NavRoute.values) r.name: r};
+      final visible = <NavRoute>[];
+      for (final cfg in configs) {
+        if (!cfg.visible) continue;
+        final route = routeMap[cfg.routeName];
+        if (route != null && route != NavRoute.settings) {
+          visible.add(route);
+        }
+      }
+
+      for (final r in NavRoute.values) {
+        if (r == NavRoute.settings) continue;
+        if (!visible.contains(r)) {
+          final cfg = configs.firstWhere(
+            (c) => c.routeName == r.name,
+            orElse: () => _SidebarEntry(routeName: r.name, visible: true, order: 999),
+          );
+          if (cfg.visible) visible.add(r);
+        }
+      }
+
+      setState(() {
+        _visibleRoutes = visible;
+      });
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final fontSize = ref.watch(fontSizeProvider);
     final gamesAsync = ref.watch(allGamesProvider);
     final playedAsync = ref.watch(playedGamesProvider);
@@ -29,10 +83,10 @@ class SidebarWidget extends ConsumerWidget {
       cursor: SystemMouseCursors.resizeColumn,
       child: GestureDetector(
         onHorizontalDragUpdate: (details) {
-          controller.updateWidth(details.delta.dx);
+          widget.controller.updateWidth(details.delta.dx);
         },
         child: ListenableBuilder(
-          listenable: controller,
+          listenable: widget.controller,
           builder: (context, _) {
             return ClipRRect(
               child: BackdropFilter(
@@ -43,7 +97,7 @@ class SidebarWidget extends ConsumerWidget {
                 child: AnimatedContainer(
                   duration: GlassConstants.animMedium,
                   curve: GlassConstants.animCurve,
-                  width: controller.width,
+                  width: widget.controller.width,
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.4),
                     border: Border(
@@ -55,7 +109,7 @@ class SidebarWidget extends ConsumerWidget {
                   child: Column(
                     children: [
                       const SizedBox(height: 16),
-                      ...NavRoute.values.where((r) => r != NavRoute.settings).map((route) {
+                      ..._visibleRoutes.map((route) {
                         int? count;
                         if (route == NavRoute.games) {
                           count = gamesAsync.valueOrNull?.length;
@@ -67,7 +121,7 @@ class SidebarWidget extends ConsumerWidget {
                         return _buildNavItem(
                           context: context,
                           route: route,
-                          selectedIndex: selectedIndex,
+                          selectedIndex: widget.selectedIndex,
                           count: count,
                           fontSize: fontSize,
                           ref: ref,
@@ -78,7 +132,7 @@ class SidebarWidget extends ConsumerWidget {
                       _buildNavItem(
                         context: context,
                         route: NavRoute.settings,
-                        selectedIndex: selectedIndex,
+                        selectedIndex: widget.selectedIndex,
                         count: null,
                         fontSize: fontSize,
                         ref: ref,
@@ -103,12 +157,12 @@ class SidebarWidget extends ConsumerWidget {
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
         child: InkWell(
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-          onTap: () => controller.toggle(),
+          onTap: () => widget.controller.toggle(),
           child: AnimatedContainer(
             duration: GlassConstants.animFast,
             curve: GlassConstants.animCurve,
             padding: EdgeInsets.symmetric(
-              horizontal: controller.isExpanded ? 16 : 0,
+              horizontal: widget.controller.isExpanded ? 16 : 0,
               vertical: 12,
             ),
             decoration: BoxDecoration(
@@ -116,16 +170,16 @@ class SidebarWidget extends ConsumerWidget {
               color: Colors.transparent,
             ),
             child: Row(
-              mainAxisAlignment: controller.isExpanded
+              mainAxisAlignment: widget.controller.isExpanded
                   ? MainAxisAlignment.start
                   : MainAxisAlignment.center,
               children: [
                 Icon(
-                  controller.isExpanded ? Icons.menu_open : Icons.menu,
+                  widget.controller.isExpanded ? Icons.menu_open : Icons.menu,
                   color: AppTheme.textPrimary,
                   size: 22,
                 ),
-                if (controller.isExpanded) ...[
+                if (widget.controller.isExpanded) ...[
                   const SizedBox(width: 12),
                   Flexible(
                     child: Text(
@@ -175,7 +229,7 @@ class SidebarWidget extends ConsumerWidget {
             duration: GlassConstants.animFast,
             curve: GlassConstants.animCurve,
             padding: EdgeInsets.symmetric(
-              horizontal: controller.isExpanded ? 16 : 0,
+              horizontal: widget.controller.isExpanded ? 16 : 0,
               vertical: 12,
             ),
             decoration: BoxDecoration(
@@ -196,7 +250,7 @@ class SidebarWidget extends ConsumerWidget {
               ),
             ),
             child: Row(
-              mainAxisAlignment: controller.isExpanded
+              mainAxisAlignment: widget.controller.isExpanded
                   ? MainAxisAlignment.start
                   : MainAxisAlignment.center,
               children: [
@@ -207,7 +261,7 @@ class SidebarWidget extends ConsumerWidget {
                       : AppTheme.textPrimary,
                   size: 22,
                 ),
-                if (controller.isExpanded) ...[
+                if (widget.controller.isExpanded) ...[
                   const SizedBox(width: 12),
                   Flexible(
                     child: Text(
@@ -261,6 +315,22 @@ class SidebarWidget extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SidebarEntry {
+  final String routeName;
+  final bool visible;
+  final int order;
+
+  _SidebarEntry({required this.routeName, required this.visible, required this.order});
+
+  factory _SidebarEntry.fromJson(Map<String, dynamic> json) {
+    return _SidebarEntry(
+      routeName: json['routeName'] as String,
+      visible: json['visible'] as bool? ?? true,
+      order: json['order'] as int? ?? 0,
     );
   }
 }

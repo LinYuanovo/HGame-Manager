@@ -14,6 +14,7 @@ import '../../../scraper/html_parser.dart';
 import '../../theme/app_theme.dart';
 import '../../../core/utils/app_settings.dart';
 import 'context_menu_manager_dialog.dart';
+import 'sidebar_manager_dialog.dart';
 
 Future<void> showSettingsDialog(BuildContext context, WidgetRef ref) async {
   await showGlassDialog(
@@ -72,7 +73,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _SidebarCategory(
       label: '管理',
       icon: Icons.admin_panel_settings_outlined,
-      items: ['右键菜单管理', '黑名单管理'],
+      items: ['右键菜单管理', '侧边栏页面管理', '黑名单管理'],
     ),
     _SidebarCategory(
       label: '刮削',
@@ -360,6 +361,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         return _buildFontSection();
       case '右键菜单管理':
         return _buildContextMenuSection();
+      case '侧边栏页面管理':
+        return _buildSidebarManagerSection();
       case '黑名单管理':
         return _buildBlacklistSection();
       case '刮削后游戏文件夹重命名':
@@ -1929,6 +1932,38 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     showDialog(
       context: context,
       builder: (context) => const ContextMenuManagerDialog(),
+    );
+  }
+
+  Widget _buildSidebarManagerSection() {
+    return _buildSection(
+      title: '侧边栏页面管理',
+      icon: Icons.view_sidebar_outlined,
+      children: [
+        const Text('管理侧边栏中显示的页面及顺序，"游戏"页面不可隐藏', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _showSidebarManager,
+            icon: const Icon(Icons.settings, size: 18),
+            label: const Text('打开侧边栏管理'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+              foregroundColor: AppTheme.primaryColor,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showSidebarManager() {
+    showDialog(
+      context: context,
+      builder: (context) => const SidebarManagerDialog(),
     );
   }
 
