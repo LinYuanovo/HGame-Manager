@@ -14,6 +14,7 @@ import 'app_paths.dart';
 /// a type rename, not logic changes.
 class AppSettings {
   static const String autoRenameFoldersKey = 'auto_rename_folders';
+  static const String themeModeKey = 'theme_mode';
   static const String contextMenuGamesKey = 'context_menu_games';
   static const String contextMenuPlayedKey = 'context_menu_played';
   static const String noImageModeKey = 'no_image_mode';
