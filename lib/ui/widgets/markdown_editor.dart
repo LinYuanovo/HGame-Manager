@@ -23,10 +23,23 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
   bool _isPreview = false;
 
   String _toPreview(String text) {
-    return text.replaceAllMapped(
+    // 先处理图片
+    var result = text.replaceAllMapped(
       RegExp(r'\[图片:([^\]]+)\]'),
-      (m) => '![](${m[1]})',
+      (m) {
+        var imgPath = m[1]!;
+        // Windows 路径需要转换为 file:// URI
+        if (imgPath.contains(':\\') || imgPath.startsWith('\\\\')) {
+          imgPath = 'file:///${imgPath.replaceAll('\\', '/')}';
+        }
+        return '![]($imgPath)';
+      },
     );
+
+    // 处理换行：单个 \n 转换为两个空格 + \n（Markdown 强制换行）
+    result = result.replaceAll(RegExp(r'(?<!\n)\n(?!\n)'), '  \n');
+
+    return result;
   }
 
   void _insert(String prefix, {String suffix = ''}) {
@@ -206,15 +219,22 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
         listBullet: TextStyle(fontSize: widget.fontSize, color: AppTheme.textPrimary),
       ),
       imageBuilder: (uri, title, alt) {
-        final path = uri.toString();
-        if (path.startsWith('http')) {
-          return Image.network(path, fit: BoxFit.contain);
+        final uriStr = uri.toString();
+        if (uriStr.startsWith('file:///')) {
+          final filePath = uriStr.replaceFirst('file:///', '');
+          final file = File(filePath);
+          if (file.existsSync()) {
+            return Image.file(file, fit: BoxFit.contain);
+          }
+        } else if (uriStr.startsWith('http')) {
+          return Image.network(uriStr, fit: BoxFit.contain);
         }
-        final file = File(path);
+        // 也尝试直接作为本地路径
+        final file = File(uriStr);
         if (file.existsSync()) {
           return Image.file(file, fit: BoxFit.contain);
         }
-        return Text('[图片: $path]', style: const TextStyle(color: AppTheme.textSecondary));
+        return Text('[图片: $uriStr]', style: const TextStyle(color: AppTheme.textSecondary));
       },
     );
   }
