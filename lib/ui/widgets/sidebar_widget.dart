@@ -36,11 +36,6 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    ref.listen<int>(sidebarRefreshProvider, (prev, next) {
-      if (prev != null && prev != next) {
-        _loadSidebarConfig();
-      }
-    });
   }
 
   Future<void> _loadSidebarConfig() async {
@@ -88,6 +83,12 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
     final gamesAsync = ref.watch(allGamesProvider);
     final playedAsync = ref.watch(playedGamesProvider);
     final clearedAsync = ref.watch(clearedGamesProvider);
+
+    ref.listen<int>(sidebarRefreshProvider, (prev, next) {
+      if (prev != null && prev != next) {
+        _loadSidebarConfig();
+      }
+    });
 
     return MouseRegion(
       cursor: SystemMouseCursors.resizeColumn,
