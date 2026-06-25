@@ -1479,7 +1479,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                   hint: const Text('默认 (Microsoft YaHei)', style: TextStyle(fontSize: 14)),
                   isExpanded: true,
                   underline: const SizedBox.shrink(),
-                  dropdownColor: AppTheme.surfaceColor,
+                  dropdownColor: AppTheme.getSurfaceColor(context),
                   items: [
                     const DropdownMenuItem(value: '', child: Text('默认 (Microsoft YaHei)', style: TextStyle(fontSize: 14))),
                     const DropdownMenuItem(value: 'MapleMonoNL-NF-CN', child: Text('MapleMonoNL-NF-CN', style: TextStyle(fontSize: 14, fontFamily: 'MapleMonoNL-NF-CN'))),
@@ -2314,7 +2314,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surfaceColor,
+        backgroundColor: AppTheme.getSurfaceColor(context),
         title: Text('确认导入备份', style: TextStyle(color: AppTheme.getTextPrimary(context))),
         content: Text('导入备份将替换当前数据库和设置。导入后需要重启应用才能生效。', style: TextStyle(color: AppTheme.getTextSecondary(context))),
         actions: [
@@ -2415,11 +2415,11 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surfaceColor,
+        backgroundColor: AppTheme.getSurfaceColor(context),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusLarge)),
         title: Row(
           children: [
-            const Icon(Icons.cloud_queue, color: AppTheme.primaryColor, size: 22),
+            Icon(Icons.cloud_queue, color: AppTheme.getPrimaryColor(context), size: 22),
             const SizedBox(width: 8),
             Text('云端备份列表', style: TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 18)),
             const Spacer(),
@@ -2618,7 +2618,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surfaceColor,
+        backgroundColor: AppTheme.getSurfaceColor(context),
         title: Text('确认导入备份', style: TextStyle(color: AppTheme.getTextPrimary(context))),
         content: Text(
           '导入备份将替换当前数据库和设置。导入后需要重启应用才能生效。\n\n确定要导入 "$fileName" 吗？',
@@ -2713,7 +2713,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surfaceColor,
+        backgroundColor: AppTheme.getSurfaceColor(context),
         title: Text('确认删除', style: TextStyle(color: AppTheme.getTextPrimary(context))),
         content: Text('确定要删除云端备份 "$fileName" 吗？此操作不可撤销。', style: TextStyle(color: AppTheme.getTextSecondary(context))),
         actions: [
