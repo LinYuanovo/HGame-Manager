@@ -995,7 +995,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                               visualDensity: VisualDensity(horizontal: -4, vertical: -4),
                             ),
                             Container(
-                              width: 67,
+                              width: 80,
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 color: AppTheme.surfaceColor.withValues(alpha: 0.8),
