@@ -52,6 +52,24 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract Changelog
+        id: changelog
+        run: |
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          # 去掉 v 前缀
+          VERSION_NUM="${VERSION#v}"
+          # 提取当前版本到下一个版本之间的内容
+          NOTES=$(sed -n "/^## v${VERSION_NUM}/,/^## v/{/^## v${VERSION_NUM}/p;/^## v/!p;}" CHANGELOG.md | sed '$d' | tail -n +2)
+          # 如果没找到，使用默认内容
+          if [ -z "$NOTES" ]; then
+            NOTES="Release ${VERSION}"
+          fi
+          # 写入文件（处理多行内容）
+          echo "$NOTES" > release_notes.md
+          cat release_notes.md
+
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -61,7 +79,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: '*.zip'
-          generate_release_notes: true
+          body_path: release_notes.md
           draft: false
           prerelease: false
         env:
