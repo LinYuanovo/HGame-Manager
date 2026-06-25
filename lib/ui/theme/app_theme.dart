@@ -109,6 +109,18 @@ class AppTheme {
   static const Color warningColor = Color(0xFFF59E0B);
   static const Color errorColor = Color(0xFFEF4444);
 
+  // 工具颜色
+  static const Color toolGreen = Color(0xFF4CAF50);
+  static const Color toolBlue = Color(0xFF2196F3);
+  static const Color toolPurple = Color(0xFF9C27B0);
+  static const Color toolGrey = Color(0xFF607D8B);
+  static const Color toolRed = Color(0xFFF44336);
+  static const Color toolDarkBlue = Color(0xFF1976D2);
+  static const Color toolDarkGreen = Color(0xFF388E3C);
+  static const Color toolOrange = Color(0xFFFF9800);
+  static const Color toolCyan = Color(0xFF00BCD4);
+  static const Color toolPink = Color(0xFFE91E63);
+
   // 边框
   static const Color borderColor = Color(0xFFE5E7EB);
 

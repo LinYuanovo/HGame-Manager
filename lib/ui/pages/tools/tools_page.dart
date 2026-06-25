@@ -382,47 +382,47 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
   Color _getFileIconColor(String ext) {
     switch (ext) {
       case '.exe':
-        return const Color(0xFF4CAF50);
+        return AppTheme.toolGreen;
       case '.bat':
       case '.cmd':
       case '.ps1':
-        return const Color(0xFF2196F3);
+        return AppTheme.toolBlue;
       case '.lnk':
-        return const Color(0xFF9C27B0);
+        return AppTheme.toolPurple;
       case '.txt':
       case '.log':
-        return const Color(0xFF607D8B);
+        return AppTheme.toolGrey;
       case '.pdf':
-        return const Color(0xFFF44336);
+        return AppTheme.toolRed;
       case '.doc':
       case '.docx':
-        return const Color(0xFF1976D2);
+        return AppTheme.toolDarkBlue;
       case '.xls':
       case '.xlsx':
-        return const Color(0xFF388E3C);
+        return AppTheme.toolDarkGreen;
       case '.zip':
       case '.rar':
       case '.7z':
       case '.tar':
       case '.gz':
-        return const Color(0xFFFF9800);
+        return AppTheme.toolOrange;
       case '.jpg':
       case '.jpeg':
       case '.png':
       case '.gif':
       case '.bmp':
       case '.webp':
-        return const Color(0xFF00BCD4);
+        return AppTheme.toolCyan;
       case '.mp3':
       case '.wav':
       case '.flac':
       case '.aac':
-        return const Color(0xFFE91E63);
+        return AppTheme.toolPink;
       case '.mp4':
       case '.avi':
       case '.mkv':
       case '.mov':
-        return const Color(0xFF9C27B0);
+        return AppTheme.toolPurple;
       default:
         return AppTheme.textSecondary.withValues(alpha: 0.6);
     }
