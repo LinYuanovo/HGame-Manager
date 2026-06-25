@@ -15,6 +15,8 @@ import '../../theme/app_theme.dart';
 import '../../../core/utils/app_settings.dart';
 import 'context_menu_manager_dialog.dart';
 import 'sidebar_manager_dialog.dart';
+import '../../../core/providers/theme_provider.dart';
+import '../../../core/models/theme_mode.dart';
 
 Future<void> showSettingsDialog(BuildContext context, WidgetRef ref) async {
   await showGlassDialog(
@@ -68,7 +70,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _SidebarCategory(
       label: '通用',
       icon: Icons.tune,
-      items: ['游戏库设置', '忽略文件夹', '双击启动游戏', '已玩游戏保留库中', '无图模式', '字体设置'],
+      items: ['外观设置', '游戏库设置', '忽略文件夹', '双击启动游戏', '已玩游戏保留库中', '无图模式', '字体设置'],
     ),
     _SidebarCategory(
       label: '管理',
@@ -347,6 +349,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
 
   Widget _buildSectionForItem(String item) {
     switch (item) {
+      case '外观设置':
+        return _buildAppearanceSection();
       case '游戏库设置':
         return _buildLibrarySection();
       case '忽略文件夹':
@@ -1767,6 +1771,59 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAppearanceSection() {
+    final currentMode = ref.watch(themeModeProvider);
+
+    return _buildSection(
+      title: '外观设置',
+      icon: Icons.palette_outlined,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('主题模式', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.textPrimary)),
+                  const SizedBox(height: 4),
+                  Text(
+                    '选择应用的外观主题',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.7)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.2)),
+              ),
+              child: DropdownButton<AppThemeMode>(
+                value: currentMode,
+                underline: const SizedBox.shrink(),
+                dropdownColor: AppTheme.surfaceColor,
+                items: AppThemeMode.values.map((mode) {
+                  return DropdownMenuItem(
+                    value: mode,
+                    child: Text(mode.label, style: const TextStyle(fontSize: 14)),
+                  );
+                }).toList(),
+                onChanged: (mode) {
+                  if (mode != null) {
+                    ref.read(themeModeProvider.notifier).setMode(mode);
+                  }
+                },
+              ),
+            ),
+          ],
         ),
       ],
     );
