@@ -111,14 +111,20 @@ class WindowController extends ChangeNotifier with WindowListener {
     _lastNormalSize = await windowManager.getSize();
     _lastNormalPosition = await windowManager.getPosition();
     _saveWindowSettings();
-    notifyListeners();
+    // 延迟通知，避免在动画过程中调用 setState
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      notifyListeners();
+    });
   }
 
   @override
   void onWindowUnmaximize() async {
     _isMaximized = false;
     _saveWindowSettings();
-    notifyListeners();
+    // 延迟通知，避免在动画过程中调用 setState
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      notifyListeners();
+    });
   }
 
   @override
