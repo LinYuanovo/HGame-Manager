@@ -853,7 +853,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                               ),
                               const SizedBox(width: 8),
                               SizedBox(
-                                width: 180,
+                                width: 220,
                                 child: Text(
                                   name,
                                   style: TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
@@ -867,14 +867,14 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                                     Flexible(
                                       child: Text(
                                         item.status,
-                                        style: TextStyle(fontSize: 11, color: AppTheme.textSecondary, fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
+                                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                     if (item.progress > 0) ...[
                                       const SizedBox(width: 8),
                                       SizedBox(
-                                        width: 100,
+                                        width: 200,
                                         child: ClipRRect(
                                           borderRadius: BorderRadius.circular(3),
                                           child: LinearProgressIndicator(
@@ -907,6 +907,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                                       setState(() => item.selected = checked ?? false);
                                     },
                               activeColor: AppTheme.primaryColor,
+                              visualDensity: VisualDensity(horizontal: -4, vertical: -4),
                             ),
                             Container(
                               width: 100,
@@ -944,7 +945,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                             ),
                             const SizedBox(width: 8),
                             SizedBox(
-                              width: 180,
+                              width: 220,
                               child: Text(
                                 name,
                                 style: TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
