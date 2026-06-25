@@ -104,7 +104,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                 Expanded(
                   child: Text(
                     '云端备份 - ${widget.game.title ?? "未知游戏"}',
-                    style: TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 16),
+                    style: TextStyle(color: AppTheme.getDetailTextPrimary(context), fontSize: 16),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -143,11 +143,11 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                             columnSpacing: 32,
                             horizontalMargin: 12,
                             headingTextStyle: TextStyle(
-                              color: AppTheme.getTextPrimary(context),
+                              color: AppTheme.getDetailTextPrimary(context),
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                             ),
-                            dataTextStyle: TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 13),
+                            dataTextStyle: TextStyle(color: AppTheme.getDetailTextPrimary(context), fontSize: 13),
                             columns: const [
                               DataColumn(label: Text('名称')),
                               DataColumn(label: Text('大小'), numeric: true),
@@ -307,7 +307,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('删除云端备份', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+              Text('删除云端备份', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
               const SizedBox(height: 12),
               Text('确定要删除云端备份 "${file.name}" 吗？', style: TextStyle(color: AppTheme.getTextSecondary(context))),
               const SizedBox(height: 20),
