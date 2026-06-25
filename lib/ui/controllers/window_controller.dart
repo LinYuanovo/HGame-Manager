@@ -58,10 +58,18 @@ class WindowController extends ChangeNotifier with WindowListener {
     await windowManager.show();
     await windowManager.focus();
 
-    // 延迟一帧再最大化，确保窗口完全初始化
+    // 使用多重延迟确保窗口完全初始化
     if (_isMaximized) {
-      await Future.delayed(const Duration(milliseconds: 100));
+      // 第一次延迟：等待窗口显示完成
+      await Future.delayed(const Duration(milliseconds: 200));
       await windowManager.maximize();
+      // 第二次验证：确保最大化生效
+      await Future.delayed(const Duration(milliseconds: 100));
+      final isActuallyMaximized = await windowManager.isMaximized();
+      if (!isActuallyMaximized) {
+        // 如果还没生效，再试一次
+        await windowManager.maximize();
+      }
     }
   }
 
@@ -122,12 +130,14 @@ class WindowController extends ChangeNotifier with WindowListener {
   @override
   void onWindowMaximize() {
     _isMaximized = true;
+    _saveWindowSettings(); // 立即保存
     notifyListeners();
   }
 
   @override
   void onWindowUnmaximize() {
     _isMaximized = false;
+    _saveWindowSettings(); // 立即保存
     notifyListeners();
   }
 
