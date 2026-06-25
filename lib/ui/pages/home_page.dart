@@ -39,7 +39,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final selectedIndex = ref.watch(selectedNavIndexProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: AppTheme.getBackgroundColor(context),
       body: Column(
         children: [
           TitleBarWidget(windowController: _effectiveWindowController),
