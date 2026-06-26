@@ -79,8 +79,9 @@ class PlayTimeTracker {
         where: 'id = ?',
         whereArgs: [_currentGame!.id],
       );
+      if (rows.isEmpty) return;
       final currentDuration = (rows.first['play_duration'] as int?) ?? 0;
-      final newDuration = currentDuration + _sessionSeconds;
+      final newDuration = currentDuration + (_sessionSeconds - _lastSaveSeconds);
 
       await db.update(
         'games',
