@@ -21,9 +21,9 @@ class ContextMenuItemDef {
 
   factory ContextMenuItemDef.fromMap(Map<String, dynamic> map) =>
     ContextMenuItemDef(
-      id: map['id'] as String,
-      label: map['label'] as String,
-      icon: map['icon'] as String,
+      id: map['id'] as String? ?? '',
+      label: map['label'] as String? ?? '',
+      icon: map['icon'] as String? ?? '',
       defaultEnabled: map['defaultEnabled'] as bool? ?? true,
     );
 }
@@ -55,7 +55,7 @@ class ContextMenuItemState {
 
   factory ContextMenuItemState.fromMap(Map<String, dynamic> map) =>
     ContextMenuItemState(
-      id: map['id'] as String,
+      id: map['id'] as String? ?? '',
       enabled: map['enabled'] as bool? ?? true,
       order: map['order'] as int? ?? 0,
     );

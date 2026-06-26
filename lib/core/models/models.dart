@@ -78,7 +78,7 @@ class Game {
   factory Game.fromMap(Map<String, dynamic> map) {
     return Game(
       id: map['id'] as int?,
-      path: map['path'] as String,
+      path: map['path'] as String? ?? '',
       title: map['title'] as String?,
       version: map['version'] as String?,
       intro: map['intro'] as String?,
@@ -88,23 +88,23 @@ class Game {
       sourceUrl: map['source_url'] as String?,
       playCount: map['play_count'] as int? ?? 0,
       lastPlayedTime: map['last_played_time'] != null
-          ? DateTime.parse(map['last_played_time'] as String)
+          ? DateTime.tryParse(map['last_played_time'] as String)
           : null,
       addedTime: map['added_time'] != null
-          ? DateTime.parse(map['added_time'] as String)
+          ? DateTime.tryParse(map['added_time'] as String)
           : null,
       isFavorite: (map['is_favorite'] as int? ?? 0) == 1,
       isPlayed: (map['is_played'] as int? ?? 0) == 1,
       coverIndex: map['cover_index'] as int? ?? 0,
       rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
       review: map['review'] as String?,
-      savePath: map['save_path'] as String?,  // 新增
+      savePath: map['save_path'] as String?,
       playDuration: map['play_duration'] as int? ?? 0,
       maker: map['maker'] as String?,
       makerUrl: map['maker_url'] as String?,
       gameLauncher: map['game_launcher'] as String?,
-      launcherLocked: (map['launcher_locked'] as int?) == 1,
-      useLocaleEmulator: (map['use_locale_emulator'] as int?) == 1,
+      launcherLocked: (map['launcher_locked'] as int? ?? 0) == 1,
+      useLocaleEmulator: (map['use_locale_emulator'] as int? ?? 0) == 1,
     );
   }
 
@@ -221,12 +221,12 @@ class Tag {
   factory Tag.fromMap(Map<String, dynamic> map) {
     return Tag(
       id: map['id'] as int?,
-      name: map['name'] as String,
-      type: map['type'] as String,
+      name: map['name'] as String? ?? '',
+      type: map['type'] as String? ?? Tag.typeCustom,
       displayName: map['display_name'] as String?,
       isFavorite: (map['is_favorite'] as int? ?? 0) == 1,
       createdAt: map['created_at'] != null
-          ? DateTime.parse(map['created_at'] as String)
+          ? DateTime.tryParse(map['created_at'] as String)
           : null,
       gameCount: map['game_count'] as int? ?? 0,
     );
@@ -279,8 +279,8 @@ class GameImage {
   factory GameImage.fromMap(Map<String, dynamic> map) {
     return GameImage(
       id: map['id'] as int?,
-      gameId: map['game_id'] as int,
-      imagePath: map['image_path'] as String,
+      gameId: map['game_id'] as int? ?? 0,
+      imagePath: map['image_path'] as String? ?? '',
       sortOrder: map['sort_order'] as int? ?? 0,
     );
   }

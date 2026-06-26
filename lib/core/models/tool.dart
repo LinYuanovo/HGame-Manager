@@ -42,8 +42,8 @@ class Tool {
   factory Tool.fromMap(Map<String, dynamic> map) {
     return Tool(
       id: map['id'] as int?,
-      name: map['name'] as String,
-      path: map['path'] as String,
+      name: map['name'] as String? ?? '',
+      path: map['path'] as String? ?? '',
       sortOrder: (map['sort_order'] as int?) ?? 0,
       createdAt: map['created_at'] != null
           ? DateTime.tryParse(map['created_at'] as String)
