@@ -246,6 +246,16 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           if (a.lastPlayedTime == null) return 1;
           if (b.lastPlayedTime == null) return -1;
           return a.lastPlayedTime!.compareTo(b.lastPlayedTime!);
+        case SortMode.playDurationDesc:
+          if (a.playDuration == 0 && b.playDuration == 0) return 0;
+          if (a.playDuration == 0) return 1;
+          if (b.playDuration == 0) return -1;
+          return b.playDuration.compareTo(a.playDuration);
+        case SortMode.playDurationAsc:
+          if (a.playDuration == 0 && b.playDuration == 0) return 0;
+          if (a.playDuration == 0) return 1;
+          if (b.playDuration == 0) return -1;
+          return a.playDuration.compareTo(b.playDuration);
       }
     });
     return sorted;
@@ -613,10 +623,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         keepPlayedInGames) {
       sortOptions.add(SortMode.lastPlayedTimeDesc);
     }
+    sortOptions.add(SortMode.playDurationDesc);
     final sortLabels = {
       'titleAsc': '标题',
       'addedTimeDesc': '添加时间',
       'lastPlayedTime': '游玩时间',
+      'playDuration': '游玩时长',
     };
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -701,6 +713,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       case SortMode.lastPlayedTimeDesc:
       case SortMode.lastPlayedTimeAsc:
         return '游玩时间';
+      case SortMode.playDurationDesc:
+      case SortMode.playDurationAsc:
+        return '游玩时长';
     }
   }
 

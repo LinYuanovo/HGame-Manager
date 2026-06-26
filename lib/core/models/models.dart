@@ -14,6 +14,8 @@ enum SortMode {
   addedTimeDesc,
   lastPlayedTimeDesc,
   lastPlayedTimeAsc,
+  playDurationDesc,
+  playDurationAsc,
 }
 
 class Game {
