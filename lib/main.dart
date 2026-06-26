@@ -8,6 +8,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'core/utils/app_settings.dart';
 import 'core/providers/providers.dart';
 import 'core/services/app_logger.dart';
+import 'core/services/play_time_tracker.dart';
 import 'ui/controllers/window_controller.dart';
 import 'ui/pages/home_page.dart';
 import 'ui/theme/app_theme.dart';
@@ -167,7 +168,7 @@ class ErrorBoundary extends StatefulWidget {
   State<ErrorBoundary> createState() => _ErrorBoundaryState();
 }
 
-class _ErrorBoundaryState extends State<ErrorBoundary> {
+class _ErrorBoundaryState extends State<ErrorBoundary> with WidgetsBindingObserver {
   Object? _error;
   StackTrace? _stackTrace;
   bool _hasError = false;
@@ -175,6 +176,20 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached || state == AppLifecycleState.inactive) {
+      PlayTimeTracker.stopTracking();
+    }
   }
 
   @override

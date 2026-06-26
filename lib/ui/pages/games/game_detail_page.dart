@@ -17,6 +17,7 @@ import '../../../scraper/parse_utils.dart';
 import '../../theme/app_theme.dart';
 import '../../../core/services/version_check_service.dart';
 import '../../../core/services/folder_rename_service.dart';
+import '../../../core/services/play_time_tracker.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../widgets/image_manager_dialog.dart';
 import '../../widgets/markdown_editor.dart';
@@ -604,6 +605,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                         lastPlayedTime: DateTime.now(),
                       );
                     });
+                    // 开始追踪游玩时长
+                    PlayTimeTracker.startTracking(_currentGame);
                   } catch (e) {
                     debugPrint('markAsPlayed error: $e');
                   }
