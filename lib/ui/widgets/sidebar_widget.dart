@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../controllers/sidebar_controller.dart';
@@ -82,9 +81,9 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
   @override
   Widget build(BuildContext context) {
     final fontSize = ref.watch(fontSizeProvider);
-    final gamesAsync = ref.watch(allGamesProvider);
-    final playedAsync = ref.watch(playedGamesProvider);
-    final clearedAsync = ref.watch(clearedGamesProvider);
+    final gameCount = ref.watch(allGamesProvider.select((a) => a.valueOrNull?.length));
+    final playedCount = ref.watch(playedGamesProvider.select((a) => a.valueOrNull?.length));
+    final clearedCount = ref.watch(clearedGamesProvider.select((a) => a.valueOrNull?.length));
 
     ref.listen<int>(sidebarRefreshProvider, (prev, next) {
       if (prev != null && prev != next) {
@@ -101,35 +100,29 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
         child: ListenableBuilder(
           listenable: widget.controller,
           builder: (context, _) {
-            return ClipRRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: GlassConstants.blurMedium,
-                  sigmaY: GlassConstants.blurMedium,
-                ),
-                child: AnimatedContainer(
+            return AnimatedContainer(
                   duration: GlassConstants.animMedium,
                   curve: GlassConstants.animCurve,
                   width: widget.controller.width,
                   decoration: BoxDecoration(
-                    color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.6),
+                    color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.85),
                     border: Border(
                       right: BorderSide(
                         color: AppTheme.getBorderColor(context).withValues(alpha: 0.3),
                       ),
                     ),
                   ),
-                  child: Column(
+                   child: Column(
                     children: [
                       const SizedBox(height: 16),
                       ..._visibleRoutes.map((route) {
                         int? count;
                         if (route == NavRoute.games) {
-                          count = gamesAsync.valueOrNull?.length;
+                          count = gameCount;
                         } else if (route == NavRoute.played) {
-                          count = playedAsync.valueOrNull?.length;
+                          count = playedCount;
                         } else if (route == NavRoute.cleared) {
-                          count = clearedAsync.valueOrNull?.length;
+                          count = clearedCount;
                         }
                         return _buildNavItem(
                           context: context,
@@ -153,9 +146,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                       const SizedBox(height: 16),
                     ],
                   ),
-                ),
-              ),
-            );
+                );
           },
         ),
       ),
