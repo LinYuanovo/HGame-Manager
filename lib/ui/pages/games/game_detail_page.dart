@@ -3762,9 +3762,6 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
     final overlay = Overlay.maybeOf(context);
     if (overlay == null) return;
 
-    final screenHeight = MediaQuery.of(context).size.height;
-    final maxHeight = screenHeight * 0.6;
-
     _overlayEntry = OverlayEntry(
       builder: (context) => CompositedTransformFollower(
         link: _layerLink,
@@ -3774,38 +3771,22 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
           child: Material(
             color: Colors.transparent,
             child: Container(
-              width: 360,
-              constraints: BoxConstraints(maxHeight: maxHeight),
-              padding: const EdgeInsets.all(16),
+              width: 240,
+              constraints: const BoxConstraints(maxHeight: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: AppTheme.getSurfaceColor(context),
-                borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 24, offset: const Offset(0, 4)),
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, 2)),
                 ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.comment, size: 14, color: Colors.red),
-                      SizedBox(width: 6),
-                      Text('评论预览', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.getTextSecondary(context))),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Flexible(
-                    child: SingleChildScrollView(
-                      child: Text(
-                        widget.review,
-                        style: TextStyle(fontSize: 13, height: 1.5, color: AppTheme.getDetailTextPrimary(context)),
-                      ),
-                    ),
-                  ),
-                ],
+              child: Text(
+                widget.review,
+                style: TextStyle(fontSize: 12, height: 1.4, color: AppTheme.getDetailTextPrimary(context)),
+                maxLines: 6,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
