@@ -35,22 +35,47 @@ class DatabaseHelper {
     return db;
   }
 
+  static Future<bool> _columnExists(Database db, String table, String column) async {
+    final result = await db.rawQuery('PRAGMA table_info($table)');
+    return result.any((col) => col['name'] == column);
+  }
+
+  static Future<bool> _indexExists(Database db, String indexName) async {
+    final result = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='index' AND name=?",
+      [indexName],
+    );
+    return result.isNotEmpty;
+  }
+
   static Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      await db.execute('ALTER TABLE games ADD COLUMN cover_index INTEGER NOT NULL DEFAULT 0');
+      if (!await _columnExists(db, 'games', 'cover_index')) {
+        await db.execute('ALTER TABLE games ADD COLUMN cover_index INTEGER NOT NULL DEFAULT 0');
+      }
     }
     if (oldVersion < 3) {
-      await db.execute('ALTER TABLE games ADD COLUMN rating REAL DEFAULT 0');
-      await db.execute('ALTER TABLE games ADD COLUMN review TEXT');
+      if (!await _columnExists(db, 'games', 'rating')) {
+        await db.execute('ALTER TABLE games ADD COLUMN rating REAL DEFAULT 0');
+      }
+      if (!await _columnExists(db, 'games', 'review')) {
+        await db.execute('ALTER TABLE games ADD COLUMN review TEXT');
+      }
     }
     if (oldVersion < 4) {
-      await db.execute('ALTER TABLE games ADD COLUMN save_path TEXT');
+      if (!await _columnExists(db, 'games', 'save_path')) {
+        await db.execute('ALTER TABLE games ADD COLUMN save_path TEXT');
+      }
     }
     if (oldVersion < 5) {
-      await db.execute('ALTER TABLE games ADD COLUMN game_launcher TEXT');
-      await db.execute('ALTER TABLE games ADD COLUMN launcher_locked INTEGER NOT NULL DEFAULT 0');
+      if (!await _columnExists(db, 'games', 'game_launcher')) {
+        await db.execute('ALTER TABLE games ADD COLUMN game_launcher TEXT');
+      }
+      if (!await _columnExists(db, 'games', 'launcher_locked')) {
+        await db.execute('ALTER TABLE games ADD COLUMN launcher_locked INTEGER NOT NULL DEFAULT 0');
+      }
       await db.execute('''
-        CREATE TABLE tools (
+        CREATE TABLE IF NOT EXISTS tools (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT NOT NULL,
           path TEXT UNIQUE NOT NULL,
@@ -60,19 +85,33 @@ class DatabaseHelper {
       ''');
     }
     if (oldVersion < 6) {
-      await db.execute('ALTER TABLE games ADD COLUMN use_locale_emulator INTEGER NOT NULL DEFAULT 0');
+      if (!await _columnExists(db, 'games', 'use_locale_emulator')) {
+        await db.execute('ALTER TABLE games ADD COLUMN use_locale_emulator INTEGER NOT NULL DEFAULT 0');
+      }
     }
     if (oldVersion < 7) {
-      await db.execute('ALTER TABLE games ADD COLUMN maker TEXT');
-      await db.execute('ALTER TABLE games ADD COLUMN maker_url TEXT');
+      if (!await _columnExists(db, 'games', 'maker')) {
+        await db.execute('ALTER TABLE games ADD COLUMN maker TEXT');
+      }
+      if (!await _columnExists(db, 'games', 'maker_url')) {
+        await db.execute('ALTER TABLE games ADD COLUMN maker_url TEXT');
+      }
     }
     if (oldVersion < 8) {
-      await db.execute('ALTER TABLE games ADD COLUMN play_duration INTEGER DEFAULT 0');
+      if (!await _columnExists(db, 'games', 'play_duration')) {
+        await db.execute('ALTER TABLE games ADD COLUMN play_duration INTEGER DEFAULT 0');
+      }
     }
     if (oldVersion < 9) {
-      await db.execute('CREATE INDEX idx_games_is_played ON games(is_played)');
-      await db.execute('CREATE INDEX idx_games_is_favorite ON games(is_favorite)');
-      await db.execute('CREATE INDEX idx_game_tag_relation_tag_id ON game_tag_relation(tag_id)');
+      if (!await _indexExists(db, 'idx_games_is_played')) {
+        await db.execute('CREATE INDEX idx_games_is_played ON games(is_played)');
+      }
+      if (!await _indexExists(db, 'idx_games_is_favorite')) {
+        await db.execute('CREATE INDEX idx_games_is_favorite ON games(is_favorite)');
+      }
+      if (!await _indexExists(db, 'idx_game_tag_relation_tag_id')) {
+        await db.execute('CREATE INDEX idx_game_tag_relation_tag_id ON game_tag_relation(tag_id)');
+      }
     }
   }
 
