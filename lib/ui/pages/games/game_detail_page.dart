@@ -3755,37 +3755,36 @@ class _HoverReviewButton extends StatefulWidget {
 
 class _HoverReviewButtonState extends State<_HoverReviewButton> {
   OverlayEntry? _overlayEntry;
-  final LayerLink _layerLink = LayerLink();
 
   void _showOverlay() {
     if (_overlayEntry != null) return;
     final overlay = Overlay.maybeOf(context);
     if (overlay == null) return;
 
+    final screenWidth = MediaQuery.of(context).size.width;
+
     _overlayEntry = OverlayEntry(
-      builder: (context) => CompositedTransformFollower(
-        link: _layerLink,
-        showWhenUnlinked: false,
-        offset: const Offset(0, -8),
+      builder: (context) => Positioned(
+        top: 80,
+        left: (screenWidth - 320) / 2,
         child: IgnorePointer(
           child: Material(
             color: Colors.transparent,
             child: Container(
-              width: 240,
-              constraints: const BoxConstraints(maxHeight: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              width: 320,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: AppTheme.getSurfaceColor(context),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, 2)),
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 2)),
                 ],
               ),
               child: Text(
                 widget.review,
-                style: TextStyle(fontSize: 12, height: 1.4, color: AppTheme.getDetailTextPrimary(context)),
-                maxLines: 6,
+                style: TextStyle(fontSize: 13, height: 1.5, color: AppTheme.getDetailTextPrimary(context)),
+                maxLines: 8,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -3809,16 +3808,14 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
 
   @override
   Widget build(BuildContext context) {
-    return CompositedTransformTarget(
-      link: _layerLink,
-      child: MouseRegion(
-        onEnter: (_) {
-          if (mounted) _showOverlay();
-        },
-        onExit: (_) {
-          _removeOverlay();
-        },
-        child: GestureDetector(
+    return MouseRegion(
+      onEnter: (_) {
+        if (mounted) _showOverlay();
+      },
+      onExit: (_) {
+        _removeOverlay();
+      },
+      child: GestureDetector(
           onTap: widget.onTap,
           onDoubleTap: widget.onDoubleTap,
           child: Container(
@@ -3838,7 +3835,6 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
             ),
           ),
         ),
-      ),
     );
   }
 }
