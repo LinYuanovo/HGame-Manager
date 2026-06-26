@@ -1276,11 +1276,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final rows = (constraints.maxHeight / (itemHeight + 16)).floor().clamp(1, 10);
       final newItemsPerPage = (rows * crossAxisCount).clamp(1, 50);
       if (newItemsPerPage != _posterItemsPerPage) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() => _posterItemsPerPage = newItemsPerPage);
-          }
-        });
+        _posterItemsPerPage = newItemsPerPage;
       }
 
       return GridView.builder(
