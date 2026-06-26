@@ -50,6 +50,7 @@ flutter:
 
   assets:
     - app_icon.png
+    - app_icon_dark.png
 
   fonts:
     - family: MapleMonoNL-NF-CN
