@@ -11,6 +11,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/services/image_service.dart';
 import '../theme/app_theme.dart';
 import '../pages/games/game_detail_page.dart';
+import '../../../core/services/play_time_tracker.dart';
 import '../pages/games/save_management_dialog.dart';
 import '../../../core/utils/app_settings.dart';
 import 'multi_select_controller.dart';
@@ -1592,6 +1593,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         debugPrint('markAsPlayed error: $e');
       }
     }
+
+    PlayTimeTracker.startTracking(game);
 
     bool launched = false;
 
