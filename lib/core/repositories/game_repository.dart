@@ -372,12 +372,24 @@ class GameRepository {
 
   Future<void> deleteGame(int id) async {
     final db = await _db;
-    await db.delete('games', where: 'id = ?', whereArgs: [id]);
+    await db.transaction((txn) async {
+      await txn.delete('game_images', where: 'game_id = ?', whereArgs: [id]);
+      await txn.delete('game_tag_relation', where: 'game_id = ?', whereArgs: [id]);
+      await txn.delete('games', where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   Future<void> deleteGameByPath(String path) async {
     final db = await _db;
-    await db.delete('games', where: 'path = ?', whereArgs: [path]);
+    await db.transaction((txn) async {
+      final maps = await txn.query('games', columns: ['id'], where: 'path = ?', whereArgs: [path]);
+      if (maps.isNotEmpty) {
+        final id = maps.first['id'] as int;
+        await txn.delete('game_images', where: 'game_id = ?', whereArgs: [id]);
+        await txn.delete('game_tag_relation', where: 'game_id = ?', whereArgs: [id]);
+      }
+      await txn.delete('games', where: 'path = ?', whereArgs: [path]);
+    });
   }
 
   Future<void> incrementPlayCount(int id) async {
@@ -489,14 +501,16 @@ class GameRepository {
 
   Future<void> setGameImages(int gameId, List<GameImage> images) async {
     final db = await _db;
-    await db.delete('game_images', where: 'game_id = ?', whereArgs: [gameId]);
-    for (int i = 0; i < images.length; i++) {
-      await db.insert('game_images', {
-        'game_id': gameId,
-        'image_path': images[i].imagePath,
-        'sort_order': i,
-      });
-    }
+    await db.transaction((txn) async {
+      await txn.delete('game_images', where: 'game_id = ?', whereArgs: [gameId]);
+      for (int i = 0; i < images.length; i++) {
+        await txn.insert('game_images', {
+          'game_id': gameId,
+          'image_path': images[i].imagePath,
+          'sort_order': i,
+        });
+      }
+    });
   }
 
   Future<void> addGameImage(int gameId, String imagePath, int sortOrder) async {
@@ -530,14 +544,16 @@ class GameRepository {
 
   Future<void> updateGameImagesOrder(int gameId, List<int> imageIds) async {
     final db = await _db;
-    for (int i = 0; i < imageIds.length; i++) {
-      await db.update(
-        'game_images',
-        {'sort_order': i},
-        where: 'id = ? AND game_id = ?',
-        whereArgs: [imageIds[i], gameId],
-      );
-    }
+    await db.transaction((txn) async {
+      for (int i = 0; i < imageIds.length; i++) {
+        await txn.update(
+          'game_images',
+          {'sort_order': i},
+          where: 'id = ? AND game_id = ?',
+          whereArgs: [imageIds[i], gameId],
+        );
+      }
+    });
   }
 
   Future<void> updateCoverIndex(int gameId, int coverIndex) async {
@@ -622,21 +638,23 @@ class GameRepository {
   /// Used when a game folder is moved or renamed.
   Future<void> updateImagePaths(int gameId, String oldPrefix, String newPrefix) async {
     final db = await _db;
-    final images = await db.query(
-      'game_images',
-      where: 'game_id = ? AND image_path LIKE ?',
-      whereArgs: [gameId, '$oldPrefix%'],
-    );
-    for (final img in images) {
-      final oldImgPath = img['image_path'] as String;
-      final newImgPath = '$newPrefix${oldImgPath.substring(oldPrefix.length)}';
-      await db.update(
+    await db.transaction((txn) async {
+      final images = await txn.query(
         'game_images',
-        {'image_path': newImgPath},
-        where: 'id = ?',
-        whereArgs: [img['id']],
+        where: 'game_id = ? AND image_path LIKE ?',
+        whereArgs: [gameId, '$oldPrefix%'],
       );
-    }
+      for (final img in images) {
+        final oldImgPath = img['image_path'] as String;
+        final newImgPath = '$newPrefix${oldImgPath.substring(oldPrefix.length)}';
+        await txn.update(
+          'game_images',
+          {'image_path': newImgPath},
+          where: 'id = ?',
+          whereArgs: [img['id']],
+        );
+      }
+    });
   }
 
   Future<List<Game>> getPlayedAndClearedGames() async {
