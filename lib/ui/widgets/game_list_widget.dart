@@ -85,6 +85,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   int _posterItemsPerPage = 6; // 由 _buildPosterView 动态更新
 
+  List<Game>? _cachedSortedGames;
+  String _cachedSearchQuery = '';
+  SortMode? _cachedSortMode;
+  List<Game>? _cachedSourceGames;
+
   @override
   void initState() {
     super.initState();
@@ -150,26 +155,31 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   /// 刷新游戏列表（操作后调用）
   void _refreshGames() {
+    _invalidateCache();
     ref.invalidate(allGamesProvider);
   }
 
   /// 刷新已玩列表
   void _refreshPlayed() {
+    _invalidateCache();
     ref.invalidate(playedGamesProvider);
   }
 
   /// 刷新收藏列表
   void _refreshFavorites() {
+    _invalidateCache();
     ref.invalidate(favoriteGamesProvider);
   }
 
   /// 刷新通关列表
   void _refreshCleared() {
+    _invalidateCache();
     ref.invalidate(clearedGamesProvider);
   }
 
   /// 刷新所有游戏相关 provider（关闭详情页等场景使用）
   void _refreshAllProviders() {
+    _invalidateCache();
     _refreshGames();
     _refreshPlayed();
     _refreshFavorites();
@@ -265,8 +275,19 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     return sorted;
   }
 
+  void _invalidateCache() {
+    _cachedSortedGames = null;
+    _cachedSourceGames = null;
+  }
+
   List<Game> _getFilteredAndSortedGames() {
     final searchQuery = _searchController.text.trim();
+    if (_cachedSortedGames != null &&
+        _cachedSearchQuery == searchQuery &&
+        _cachedSortMode == _sortMode &&
+        identical(_cachedSourceGames, widget.games)) {
+      return _cachedSortedGames!;
+    }
     var filteredGames = widget.games;
     if (searchQuery.isNotEmpty) {
       filteredGames = filteredGames
@@ -282,7 +303,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   .contains(searchQuery.toLowerCase()))
           .toList();
     }
-    return _sortGames(filteredGames);
+    final result = _sortGames(filteredGames);
+    _cachedSortedGames = result;
+    _cachedSearchQuery = searchQuery;
+    _cachedSortMode = _sortMode;
+    _cachedSourceGames = widget.games;
+    return result;
   }
 
   @override
@@ -866,7 +892,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   Widget _buildMultiSelectActionBar() {
     // 计算当前页面的游戏列表（与 build 方法中的逻辑一致）
-    final sortedGames = _getFilteredAndSortedGames();
+    final sortedGames = _cachedSortedGames ?? _getFilteredAndSortedGames();
     final List<Game> currentPageGames;
     if (_paginationMode == PaginationMode.paginated) {
       final start = _currentPage * _itemsPerPage;
