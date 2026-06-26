@@ -124,7 +124,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       _viewMode = viewModeStr == 'poster' ? ViewMode.poster : ViewMode.list;
     }
     if (sortModeStr != null) {
-      try { _sortMode = SortMode.values.firstWhere((m) => m.name == sortModeStr); } catch (_) {}
+      try { _sortMode = SortMode.values.firstWhere((m) => m.name == sortModeStr); } catch (_) {
+        // 枚举解析失败时使用默认值
+      }
     }
     if (paginationModeStr != null) {
       _paginationMode = paginationModeStr == 'paginated' ? PaginationMode.paginated : PaginationMode.infiniteScroll;
@@ -290,17 +292,18 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     }
     var filteredGames = widget.games;
     if (searchQuery.isNotEmpty) {
+      final queryLower = searchQuery.toLowerCase();
       filteredGames = filteredGames
           .where((g) =>
               (g.title ?? '')
                   .toLowerCase()
-                  .contains(searchQuery.toLowerCase()) ||
+                  .contains(queryLower) ||
               g.path
                   .toLowerCase()
-                  .contains(searchQuery.toLowerCase()) ||
+                  .contains(queryLower) ||
               (g.intro ?? '')
                   .toLowerCase()
-                  .contains(searchQuery.toLowerCase()))
+                  .contains(queryLower))
           .toList();
     }
     final result = _sortGames(filteredGames);
@@ -1694,7 +1697,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       } else {
         try {
           await Process.run('explorer.exe', [game.path]);
-        } catch (_) {}
+        } catch (_) {
+          // 浏览器打开失败时静默处理
+        }
       }
     }
 
