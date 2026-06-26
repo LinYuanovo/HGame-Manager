@@ -2254,9 +2254,11 @@ if (_isEditing) ...[
 
       // Handle backup folder rename when title changes
       final titleChanged = newTitle != null && newTitle != _currentGame.title;
-      final isBackupGame = _currentGame.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}Backup${Platform.pathSeparator}') ||
+      final sep = Platform.pathSeparator;
+      final isInCleared = _currentGame.path.contains('${sep}Cleared$sep');
+      final isBackupGame = _currentGame.path.contains('${sep}Cleared${sep}Backup${sep}') ||
                           !await Directory(_currentGame.path).exists();
-      if (titleChanged && isBackupGame && gameId != null) {
+      if (titleChanged && isInCleared && gameId != null) {
         final prefs = ref.read(sharedPreferencesProvider);
         // 读取所有整理目录
         final sortedPathList = <String>[];
@@ -2322,6 +2324,62 @@ if (_isEditing) ...[
                 }
               }
             }
+          }
+        }
+      }
+
+      // Handle non-backup Cleared game: rename the corresponding backup folder
+      if (!isBackupGame && titleChanged) {
+        final prefs2 = ref.read(sharedPreferencesProvider);
+        final sortedPathList2 = <String>[];
+        final rawSorted2 = prefs2.getString('sorted_paths') ?? '';
+        if (rawSorted2.startsWith('{')) {
+          try {
+            final decoded2 = jsonDecode(rawSorted2) as Map<String, dynamic>;
+            for (final v in decoded2.values) {
+              final sp = v?.toString() ?? '';
+              if (sp.isNotEmpty) sortedPathList2.add(sp);
+            }
+          } catch (_) {}
+        }
+        if (sortedPathList2.isEmpty) {
+          final oldSorted2 = prefs2.getString('sorted_path') ?? '';
+          if (oldSorted2.isNotEmpty) sortedPathList2.add(oldSorted2);
+        }
+
+        for (final sp2 in sortedPathList2) {
+          final backupDirPath = '$sp2${sep}Cleared${sep}Backup';
+          final backupDir = Directory(backupDirPath);
+          if (!await backupDir.exists()) continue;
+
+          final oldBackupName = FolderRenameService.buildBackupFolderName(_currentGame);
+          if (oldBackupName == null) continue;
+          final oldSanitized = oldBackupName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+          final oldBackupDir = Directory('$backupDirPath$sep$oldSanitized');
+
+          if (await oldBackupDir.exists()) {
+            final newBackupName = FolderRenameService.buildBackupFolderName(
+              _currentGame.copyWith(title: newTitle),
+            );
+            if (newBackupName == null) continue;
+            final newSanitized = newBackupName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+            if (oldSanitized == newSanitized) continue;
+
+            final newBackupDir = Directory('$backupDirPath$sep$newSanitized');
+            if (await newBackupDir.exists()) continue;
+
+            await oldBackupDir.rename(newBackupDir.path);
+            final allGames = await repo.getAllGames();
+            for (final g in allGames) {
+              final normalizedGPath = g.path.replaceAll('\\', '/');
+              final normalizedOldPath = oldBackupDir.path.replaceAll('\\', '/');
+              if (normalizedGPath == normalizedOldPath && g.id != null) {
+                await repo.updateGamePath(g.id!, newBackupDir.path);
+                await repo.updateImagePaths(g.id!, oldBackupDir.path, newBackupDir.path);
+                break;
+              }
+            }
+            debugPrint('[Edit] Backup folder renamed: $oldSanitized -> $newSanitized');
           }
         }
       }
