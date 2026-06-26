@@ -242,6 +242,11 @@ class BackupService {
       // 解压到存档目录
       for (final file in archive) {
         final filePath = p.join(savePath, file.name);
+        // 防止路径遍历攻击
+        if (!_isPathSafe(savePath, filePath)) {
+          debugPrint('[BackupService] 跳过不安全的路径: ${file.name}');
+          continue;
+        }
         if (file.isFile) {
           final parentDir = Directory(p.dirname(filePath));
           if (!await parentDir.exists()) {
@@ -497,12 +502,27 @@ class BackupService {
   Future<void> _extractArchiveToPath(List<ArchiveFile> files, String targetPath) async {
     for (final file in files) {
       final filePath = p.join(targetPath, file.name);
+      // 防止路径遍历攻击
+      if (!_isPathSafe(targetPath, filePath)) {
+        debugPrint('[BackupService] 跳过不安全的路径: ${file.name}');
+        continue;
+      }
       final parentDir = Directory(p.dirname(filePath));
       if (!await parentDir.exists()) {
         await parentDir.create(recursive: true);
       }
       await File(filePath).writeAsBytes(file.content as List<int>);
     }
+  }
+
+  /// 验证解压路径是否安全（防止路径遍历攻击）
+  /// 检查解析后的路径是否以目标目录开头，防止通过 ../ 逃逸
+  bool _isPathSafe(String targetDir, String filePath) {
+    // 解析实际路径（解析 .. 和 .）
+    final resolvedTarget = p.normalize(targetDir);
+    final resolvedFile = p.normalize(filePath);
+    // 检查文件路径是否以目标目录开头
+    return resolvedFile.startsWith(resolvedTarget);
   }
 
   /// 递归将目录内容添加到压缩包
