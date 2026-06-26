@@ -4,7 +4,7 @@ import '../utils/app_paths.dart';
 class DatabaseHelper {
   static Database? _database;
   static Future<Database>? _databaseFuture;
-  static const int _databaseVersion = 7;
+  static const int _databaseVersion = 8;
 
   static Future<String> getDataDir() => AppPaths.rootDir;
 
@@ -63,6 +63,9 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE games ADD COLUMN maker TEXT');
       await db.execute('ALTER TABLE games ADD COLUMN maker_url TEXT');
     }
+    if (oldVersion < 8) {
+      await db.execute('ALTER TABLE games ADD COLUMN play_duration INTEGER DEFAULT 0');
+    }
   }
 
   static Future<void> _onCreate(Database db, int version) async {
@@ -90,7 +93,8 @@ class DatabaseHelper {
         launcher_locked INTEGER NOT NULL DEFAULT 0,
         use_locale_emulator INTEGER NOT NULL DEFAULT 0,
         maker TEXT,
-        maker_url TEXT
+        maker_url TEXT,
+        play_duration INTEGER DEFAULT 0
       )
     ''');
 
