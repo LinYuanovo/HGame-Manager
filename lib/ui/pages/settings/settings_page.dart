@@ -13,6 +13,7 @@ import '../../../core/services/webdav_service.dart';
 import '../../../scraper/html_parser.dart';
 import '../../theme/app_theme.dart';
 import '../../../core/utils/app_settings.dart';
+import '../../../core/models/models.dart';
 import 'context_menu_manager_dialog.dart';
 import 'sidebar_manager_dialog.dart';
 import '../../../core/providers/theme_provider.dart';
@@ -63,6 +64,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   bool _isRenamingFolders = false;
   bool _noImageMode = false;
   bool _keepPlayedInGames = false;
+  bool _favoriteFirst = false;
 
   int _selectedSidebarIndex = 0;
 
@@ -70,7 +72,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _SidebarCategory(
       label: '通用',
       icon: Icons.tune,
-      items: ['外观设置', '游戏库设置', '忽略文件夹', '双击启动游戏', '已玩游戏保留库中', '无图模式', '字体设置'],
+      items: ['外观设置', '游戏库设置', '忽略文件夹', '双击启动游戏', '已玩游戏保留库中', '收藏游戏优先排序', '无图模式', '字体设置'],
     ),
     _SidebarCategory(
       label: '管理',
@@ -166,6 +168,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _autoRenameFolders = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
     _noImageMode = prefs.getBool(AppSettings.noImageModeKey) ?? false;
     _keepPlayedInGames = prefs.getBool(AppSettings.keepPlayedInGamesKey) ?? false;
+    _favoriteFirst = prefs.getBool(AppSettings.favoriteFirstKey) ?? false;
 
     _loadXpathConfigs();
   }
@@ -359,6 +362,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         return _buildDoubleClickSection();
       case '已玩游戏保留库中':
         return _buildKeepPlayedSection();
+      case '收藏游戏优先排序':
+        return _buildFavoriteFirstSection();
       case '无图模式':
         return _buildNoImageModeSection();
       case '字体设置':
@@ -816,6 +821,59 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 final prefs = ref.read(sharedPreferencesProvider);
                 await prefs.setBool(AppSettings.keepPlayedInGamesKey, value);
                 ref.invalidate(allGamesProvider);
+                
+                // 如果关闭"已玩保留库中"，检查游戏页面的排序模式
+                if (!value) {
+                  final gameSortMode = prefs.getString('game_list_sort_mode_games');
+                  if (gameSortMode != null) {
+                    final sortMode = SortMode.values.firstWhere(
+                      (m) => m.name == gameSortMode,
+                      orElse: () => SortMode.addedTimeDesc,
+                    );
+                    // 如果当前排序是游玩时间或游玩时长，重置为添加时间
+                    if (sortMode == SortMode.lastPlayedTimeDesc || 
+                        sortMode == SortMode.lastPlayedTimeAsc ||
+                        sortMode == SortMode.playDurationDesc || 
+                        sortMode == SortMode.playDurationAsc) {
+                      await prefs.setString('game_list_sort_mode_games', SortMode.addedTimeDesc.name);
+                    }
+                  }
+                }
+              },
+              activeColor: AppTheme.primaryColor,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFavoriteFirstSection() {
+    return _buildSection(
+      title: '收藏游戏优先排序',
+      icon: Icons.favorite_border,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('收藏游戏优先显示', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.getTextPrimary(context))),
+                  const SizedBox(height: 4),
+                  Text(
+                    '开启后，收藏的游戏会优先排在列表顶部',
+                    style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.7)),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: _favoriteFirst,
+              onChanged: (value) async {
+                setState(() => _favoriteFirst = value);
+                final prefs = ref.read(sharedPreferencesProvider);
+                await prefs.setBool(AppSettings.favoriteFirstKey, value);
               },
               activeColor: AppTheme.primaryColor,
             ),

@@ -215,7 +215,8 @@ class _ErrorBoundaryState extends State<ErrorBoundary> with WidgetsBindingObserv
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.detached || state == AppLifecycleState.inactive) {
+    // 只在应用真正退出时停止追踪，inactive状态只是切换窗口
+    if (state == AppLifecycleState.detached) {
       PlayTimeTracker.stopTracking();
     }
   }

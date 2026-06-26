@@ -11,7 +11,7 @@ class PlayTimeTracker {
   static int _lastSaveSeconds = 0;
   static bool _isProcessing = false;
   static const int _saveInterval = 600; // 10分钟 = 600秒
-  static const int _checkInterval = 30; // 30秒检测一次
+  static const int _checkInterval = 60; // 60秒检测一次
 
   /// 开始追踪游戏游玩时长
   static void startTracking(Game game) {
@@ -44,27 +44,28 @@ class PlayTimeTracker {
   }
 
   /// 定时器回调
-  static void _onTick(Timer timer) async {
-    if (_currentGame == null || _isProcessing) return;
+  static void _onTick(Timer timer) {
+    if (_currentGame == null) return;
+    if (_isProcessing) return;
     _isProcessing = true;
-    try {
-      // 检测游戏进程是否运行
-      final isRunning = await _isGameRunning(_currentGame!);
 
-      if (isRunning) {
-        _sessionSeconds += _checkInterval;
+    Future.microtask(() async {
+      try {
+        final isRunning = await _isGameRunning(_currentGame!);
 
-        // 检查是否需要保存到数据库
-        if (_sessionSeconds - _lastSaveSeconds >= _saveInterval) {
-          await _saveProgress();
+        if (isRunning) {
+          _sessionSeconds += _checkInterval;
+
+          if (_sessionSeconds - _lastSaveSeconds >= _saveInterval) {
+            await _saveProgress();
+          }
+        } else {
+          await stopTracking();
         }
-      } else {
-        // 游戏已关闭，停止追踪
-        await stopTracking();
+      } finally {
+        _isProcessing = false;
       }
-    } finally {
-      _isProcessing = false;
-    }
+    });
   }
 
   /// 保存进度到数据库
@@ -81,7 +82,8 @@ class PlayTimeTracker {
       );
       if (rows.isEmpty) return;
       final currentDuration = (rows.first['play_duration'] as int?) ?? 0;
-      final newDuration = currentDuration + (_sessionSeconds - _lastSaveSeconds);
+      final delta = _sessionSeconds - _lastSaveSeconds;
+      final newDuration = currentDuration + delta;
 
       await db.update(
         'games',
@@ -93,7 +95,6 @@ class PlayTimeTracker {
       _lastSaveSeconds = _sessionSeconds;
     } catch (e) {
       // 记录错误但不中断
-      print('保存游玩时长失败: $e');
     }
   }
 
@@ -153,7 +154,6 @@ class PlayTimeTracker {
 
       return await _isProcessRunning(processName);
     } catch (e) {
-      // 检测失败视为游戏未运行
       return false;
     }
   }

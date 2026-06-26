@@ -229,10 +229,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   List<Game> _sortGames(List<Game> games) {
     final sorted = List<Game>.from(games);
+    final prefs = ref.read(sharedPreferencesProvider);
+    final favoriteFirst = prefs.getBool(AppSettings.favoriteFirstKey) ?? false;
     sorted.sort((a, b) {
-      // 收藏优先
-      final fav = (b.isFavorite ? 1 : 0).compareTo(a.isFavorite ? 1 : 0);
-      if (fav != 0) return fav;
+      // 收藏优先（仅在开启设置时生效）
+      if (favoriteFirst) {
+        final fav = (b.isFavorite ? 1 : 0).compareTo(a.isFavorite ? 1 : 0);
+        if (fav != 0) return fav;
+      }
       switch (_sortMode) {
         case SortMode.titleAsc:
           return (a.title ?? '').compareTo(b.title ?? '');
@@ -660,8 +664,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         widget.showPlayTimeSort ||
         keepPlayedInGames) {
       sortOptions.add(SortMode.lastPlayedTimeDesc);
+      sortOptions.add(SortMode.playDurationDesc);
     }
-    sortOptions.add(SortMode.playDurationDesc);
     final sortLabels = {
       'titleAsc': '标题',
       'addedTimeDesc': '添加时间',
@@ -1663,6 +1667,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         final leProcPath = await _findLeProcPath();
         if (leProcPath == null && game.id != null) {
           await repo.updateLocaleEmulator(game.id!, false);
+          // 更新本地game对象
+          game = game.copyWith(useLocaleEmulator: false);
           if (mounted) {
             AppTheme.showGlassToast(context, message: 'LEProc.exe 不存在，已回退为普通启动', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
           }

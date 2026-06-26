@@ -1436,7 +1436,7 @@ if (_isEditing) ...[
                                   height: 14,
                                   child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.getPrimaryColor(context)),
                                 )
-                              : Icon(Icons.system_update, size: 16, color: AppTheme.getPrimaryColor(context)),
+                              : Icon(Icons.browser_updated, size: 16, color: AppTheme.getPrimaryColor(context)),
                         ),
                       ],
                     ),
