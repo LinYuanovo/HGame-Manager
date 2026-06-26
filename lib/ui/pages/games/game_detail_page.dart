@@ -3697,59 +3697,62 @@ class _HoverReviewButton extends StatefulWidget {
 
 class _HoverReviewButtonState extends State<_HoverReviewButton> {
   OverlayEntry? _overlayEntry;
+  final LayerLink _layerLink = LayerLink();
 
   void _showOverlay() {
     if (_overlayEntry != null) return;
+    final overlay = Overlay.maybeOf(context);
+    if (overlay == null) return;
+
     final screenHeight = MediaQuery.of(context).size.height;
     final maxHeight = screenHeight * 0.6;
 
     _overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
-        top: 80,
-        left: MediaQuery.of(context).size.width / 2 - 180,
-        child: IgnorePointer(
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              width: 360,
-              constraints: BoxConstraints(maxHeight: maxHeight),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.getSurfaceColor(context),
-                borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 24, offset: const Offset(0, 4)),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.comment, size: 14, color: Colors.red),
-                      SizedBox(width: 6),
-                      Text('评论预览', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.getTextSecondary(context))),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Flexible(
-                    child: SingleChildScrollView(
-                      child: Text(
-                        widget.review,
-                        style: TextStyle(fontSize: 13, height: 1.5, color: AppTheme.getDetailTextPrimary(context)),
-                      ),
+      builder: (context) => CompositedTransformFollower(
+        link: _layerLink,
+        showWhenUnlinked: false,
+        offset: const Offset(0, -8),
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: 360,
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.getSurfaceColor(context),
+              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+              border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 24, offset: const Offset(0, 4)),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.comment, size: 14, color: Colors.red),
+                    SizedBox(width: 6),
+                    Text('评论预览', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.getTextSecondary(context))),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Text(
+                      widget.review,
+                      style: TextStyle(fontSize: 13, height: 1.5, color: AppTheme.getDetailTextPrimary(context)),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
-    Overlay.of(context).insert(_overlayEntry!);
+    overlay.insert(_overlayEntry!);
   }
 
   void _removeOverlay() {
@@ -3765,38 +3768,33 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            try { _showOverlay(); } catch (_) {
-              // UI overlay显示失败时静默处理
-            }
-          }
-        });
-      },
-      onExit: (_) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: MouseRegion(
+        onEnter: (_) {
+          if (mounted) _showOverlay();
+        },
+        onExit: (_) {
           _removeOverlay();
-        });
-      },
-      child: GestureDetector(
-        onTap: widget.onTap,
-        onDoubleTap: widget.onDoubleTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.red.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.comment, size: 14, color: Colors.red),
-              SizedBox(width: 4),
-              Text('评论', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w500)),
-            ],
+        },
+        child: GestureDetector(
+          onTap: widget.onTap,
+          onDoubleTap: widget.onDoubleTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.comment, size: 14, color: Colors.red),
+                SizedBox(width: 4),
+                Text('评论', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w500)),
+              ],
+            ),
           ),
         ),
       ),
