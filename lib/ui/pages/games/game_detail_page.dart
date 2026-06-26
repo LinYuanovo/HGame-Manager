@@ -3028,6 +3028,7 @@ if (_isEditing) ...[
             _downloadCurrent = 0;
             _downloadProgress = 0.0;
           });
+          await repo.deleteGameImagesByGameId(updated.id!);
           final urlToLocal = await _downloadImagesWithMapping(updated, gameInfo.screenshots, onProgress: (current, total) {
             if (mounted) {
               setState(() {
@@ -3248,6 +3249,7 @@ if (_isEditing) ...[
             _downloadCurrent = 0;
             _downloadProgress = 0.0;
           });
+          await repo.deleteGameImagesByGameId(_currentGame.id!);
           final urlToLocal = await _downloadImagesWithMapping(
             _currentGame.copyWith(id: _currentGame.id!),
             gameInfo.screenshots,
@@ -3485,6 +3487,9 @@ if (_isEditing) ...[
     };
 
     final repo = ref.read(gameRepositoryProvider);
+    final existingImages = await repo.getGameImages(game.id!);
+    final existingPaths = existingImages.map((img) => img.imagePath).toSet();
+
     for (int i = 0; i < imageUrls.length; i++) {
       try {
         final imageUrl = imageUrls[i];
@@ -3501,7 +3506,9 @@ if (_isEditing) ...[
             await file.writeAsBytes(response.bodyBytes, flush: true);
           }
         }
-        await repo.addGameImage(game.id!, filePath, i);
+        if (!existingPaths.contains(filePath)) {
+          await repo.addGameImage(game.id!, filePath, i);
+        }
         urlToLocal[imageUrl] = filePath;
         onProgress?.call(i + 1, imageUrls.length);
       } catch (e) {

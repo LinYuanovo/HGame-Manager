@@ -941,34 +941,75 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
   Future<Map<String, String>> _downloadImages(Game game, List<String> imageUrls, String sourceUrl, {Map<String, String>? headers}) async {
     final gameRepo = ref.read(gameRepositoryProvider);
-
-    // Clear existing image records to prevent duplicates on re-scrape
-    await gameRepo.deleteGameImagesByGameId(game.id!);
-
-    // 清理旧图片文件
     final imagesDir = Directory(path.join(game.path, 'images'));
+
+    // 1. 记录旧图片信息（按排序索引）
+    final oldImagePaths = <int, String>{};
     if (await imagesDir.exists()) {
       await for (final entity in imagesDir.list()) {
-        if (entity is File) await entity.delete();
+        if (entity is File && !entity.path.endsWith('.tmp')) {
+          final name = path.basenameWithoutExtension(entity.path);
+          final index = int.tryParse(name);
+          if (index != null) {
+            oldImagePaths[index] = entity.path;
+          }
+        }
       }
     }
 
+    // 2. 下载新图片到临时文件
     final urlToLocal = await ConcurrentImageDownloader.downloadAll(
       imageUrls: imageUrls,
       saveDir: game.path,
       headers: headers,
       maxConcurrency: _threadCount,
+      useTempFiles: true,
     );
 
-    // Save to database
+    // 3. 逐个处理：成功的重命名覆盖，失败的保留旧路径
+    final finalImages = <GameImage>[];
     for (int i = 0; i < imageUrls.length; i++) {
-      final localPath = urlToLocal[imageUrls[i]];
-      if (localPath != null) {
-        await gameRepo.addGameImage(game.id!, localPath, i);
+      final url = imageUrls[i];
+      final tmpPath = urlToLocal[url];
+
+      if (tmpPath != null && await File(tmpPath).exists()) {
+        // 下载成功：生成正式路径
+        final ext = path.extension(tmpPath).replaceAll('.tmp', '');
+        final finalPath = path.join(imagesDir.path, '${i + 1}$ext');
+
+        // 删除旧文件（如果存在且路径不同）
+        if (finalPath != tmpPath) {
+          final oldFile = File(finalPath);
+          if (await oldFile.exists()) {
+            await oldFile.delete();
+          }
+          await File(tmpPath).rename(finalPath);
+        }
+        urlToLocal[url] = finalPath;
+
+        finalImages.add(GameImage(gameId: game.id!, imagePath: finalPath, sortOrder: i));
+      } else {
+        // 下载失败：保留旧图片
+        final oldPath = oldImagePaths[i + 1];
+        if (oldPath != null) {
+          finalImages.add(GameImage(gameId: game.id!, imagePath: oldPath, sortOrder: i));
+        }
       }
     }
 
-    _addLog('  -> 配图处理完成: ${urlToLocal.length}/${imageUrls.length}');
+    // 4. 清理残留临时文件
+    if (await imagesDir.exists()) {
+      await for (final entity in imagesDir.list()) {
+        if (entity is File && entity.path.endsWith('.tmp')) {
+          await entity.delete();
+        }
+      }
+    }
+
+    // 5. 使用事务更新数据库
+    await gameRepo.setGameImages(game.id!, finalImages);
+
+    _addLog('  -> 配图处理完成: ${finalImages.length}/${imageUrls.length}');
     return urlToLocal;
   }
 

@@ -13,6 +13,7 @@ class ConcurrentImageDownloader {
     Map<String, String>? headers,
     int maxConcurrency = 3,
     int startIndex = 0,
+    bool useTempFiles = false,
   }) async {
     final urlToLocal = <String, String>{};
     if (imageUrls.isEmpty) return urlToLocal;
@@ -40,9 +41,11 @@ class ConcurrentImageDownloader {
 
       final idx = queue.removeAt(0);
       activeCount++;
+      final ext = _getExtensionFromUrl(imageUrls[idx]);
+      final suffix = useTempFiles ? '.tmp' : '';
       _downloadSingle(
         url: imageUrls[idx],
-        savePath: path.join(imagesDir.path, '${idx + 1 + startIndex}${_getExtensionFromUrl(imageUrls[idx])}'),
+        savePath: path.join(imagesDir.path, '${idx + 1 + startIndex}$suffix$ext'),
         headers: headers,
       ).then((success) {
         activeCount--;
