@@ -3781,11 +3781,25 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
                   BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 2)),
                 ],
               ),
-              child: Text(
-                widget.review,
-                style: TextStyle(fontSize: 13, height: 1.5, color: AppTheme.getDetailTextPrimary(context)),
-                maxLines: 8,
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.comment, size: 14, color: Colors.red),
+                      SizedBox(width: 6),
+                      Text('评论预览', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.getTextSecondary(context))),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.review,
+                    style: TextStyle(fontSize: 13, height: 1.5, color: AppTheme.getDetailTextPrimary(context)),
+                    maxLines: 8,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
           ),
