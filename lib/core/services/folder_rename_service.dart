@@ -19,7 +19,12 @@ class FolderRenameService {
         _dlsiteService = dlsiteService ?? DlsiteService(),
         _steamService = steamService ?? SteamService();
 
-  String? buildNewFolderName(Game game) {
+  /// 构建备份文件夹名称（静态版本，供外部直接调用）
+  /// 格式: [游戏ID] [游戏厂商] [系列标签] 游戏标题 游戏版本
+  static String? buildBackupFolderName(
+    Game game, {
+    String? Function(String)? dlsiteIdExtractor,
+  }) {
     final title = game.title;
     if (title == null || title.isEmpty) return null;
 
@@ -28,10 +33,12 @@ class FolderRenameService {
     String? maker;
 
     if (game.sourceUrl != null && game.sourceUrl!.isNotEmpty) {
-      final dlsiteId = _dlsiteService.normalizeId(game.sourceUrl!);
-      if (dlsiteId != null) {
-        id = dlsiteId;
+      if (dlsiteIdExtractor != null) {
+        id = dlsiteIdExtractor(game.sourceUrl!);
       } else {
+        id = DlsiteService().normalizeId(game.sourceUrl!);
+      }
+      if (id == null || id.isEmpty) {
         final steamMatch = RegExp(r'store\.steampowered\.com/app/(\d+)').firstMatch(game.sourceUrl!);
         if (steamMatch != null) {
           id = steamMatch.group(1);
@@ -56,6 +63,13 @@ class FolderRenameService {
     if (game.version != null && game.version!.isNotEmpty) parts.add(game.version!);
 
     return parts.join(' ');
+  }
+
+  String? buildNewFolderName(Game game) {
+    return buildBackupFolderName(
+      game,
+      dlsiteIdExtractor: (url) => _dlsiteService.normalizeId(url),
+    );
   }
 
   Future<String?> renameGameFolder(Game game) async {
