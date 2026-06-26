@@ -735,7 +735,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     _addLog('  解析器: ${parser?.runtimeType.toString().replaceAll("Parser", "") ?? "无匹配"}');
 
     try {
-      final client = await createProxyClientFromPrefs();
+      final client = await createProxyClientFromPrefs(domain: Uri.parse(game.sourceUrl!).host);
       http.Response response;
       try {
         final headers = await buildScrapeHeaders(game.sourceUrl!);

@@ -2870,7 +2870,7 @@ if (_isEditing) ...[
         final scraper = HtmlScraper();
         await scraper.ensureLoaded();
         final headers = await buildScrapeHeaders(sourceUrl);
-        final client = await createProxyClientFromPrefs();
+        final client = await createProxyClientFromPrefs(domain: Uri.parse(sourceUrl).host);
         http.Response response;
         try {
           response = await httpGetWithRetry(Uri.parse(sourceUrl), headers: headers, client: client);
@@ -3079,7 +3079,7 @@ if (_isEditing) ...[
         final scraper = HtmlScraper();
         await scraper.ensureLoaded();
         final headers = await buildScrapeHeaders(url);
-        final client = await createProxyClientFromPrefs();
+        final client = await createProxyClientFromPrefs(domain: Uri.parse(url).host);
         http.Response response;
         try {
           response = await httpGetWithRetry(Uri.parse(url), headers: headers, client: client);
@@ -3244,7 +3244,7 @@ if (_isEditing) ...[
   }
 
   Future<void> _downloadImages(Game game, List<String> imageUrls) async {
-    final client = await createProxyClientFromPrefs();
+    final client = await createProxyClientFromPrefs(domain: game.sourceUrl != null ? Uri.tryParse(game.sourceUrl!)?.host : null);
     try {
     final imageDir = Directory('${game.path}${Platform.pathSeparator}images');
     if (!await imageDir.exists()) {

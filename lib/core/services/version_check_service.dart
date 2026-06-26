@@ -100,7 +100,7 @@ class VersionCheckService {
 
     final url = 'https://$domain?s=$keyword';
     if (kDebugMode) debugPrint('[VersionCheck] 嘤嘤怪搜索: keyword=$keyword, url=$url');
-    final client = await createProxyClientFromPrefs();
+    final client = await createProxyClientFromPrefs(domain: domain);
     try {
       final headers = await buildScrapeHeaders(url);
       final response = await client.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 15));
@@ -155,7 +155,7 @@ class VersionCheckService {
     if (domain.isEmpty) return null;
 
     if (kDebugMode) debugPrint('[VersionCheck] 飞雪ACG搜索: keyword=$keyword');
-    final client = await createProxyClientFromPrefs();
+    final client = await createProxyClientFromPrefs(domain: domain);
     try {
       final headers = await buildScrapeHeaders('https://$domain/');
 
@@ -256,7 +256,7 @@ class VersionCheckService {
     if (domain.isEmpty) return null;
 
     if (kDebugMode) debugPrint('[VersionCheck] 维咔ACG搜索: keyword=$keyword');
-    final client = await createProxyClientFromPrefs();
+    final client = await createProxyClientFromPrefs(domain: domain);
     try {
       final headers = await buildScrapeHeaders('https://$domain/');
       headers['Content-Type'] = 'application/json';

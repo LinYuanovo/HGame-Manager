@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
@@ -6,8 +7,36 @@ import 'package:http/io_client.dart';
 import 'app_settings.dart';
 import '../services/app_logger.dart';
 
-http.Client? _sharedClient;
-String? _sharedClientKey;
+class _ClientEntry {
+  http.Client client;
+  int refCount;
+  Timer? idleTimer;
+
+  _ClientEntry(this.client) : refCount = 0;
+
+  void cancelIdleTimer() {
+    idleTimer?.cancel();
+    idleTimer = null;
+  }
+}
+
+final Map<String, _ClientEntry> _clientPool = {};
+String _proxyConfigKey = '';
+
+Future<void> _updatePoolProxyConfig() async {
+  final prefs = await AppSettings.load();
+  final proxyMode = prefs.getString('proxy_mode') ?? 'none';
+  final proxyUrl = prefs.getString('proxy_url') ?? '';
+  final newKey = '$proxyMode:$proxyUrl';
+  if (newKey != _proxyConfigKey) {
+    _proxyConfigKey = newKey;
+    for (final entry in _clientPool.values) {
+      entry.cancelIdleTimer();
+      entry.client.close();
+    }
+    _clientPool.clear();
+  }
+}
 
 Future<String?> readWindowsSystemProxy() async {
   try {
@@ -81,18 +110,73 @@ Future<http.Client> createProxyClient({String? proxyMode, String? proxyUrl}) asy
   return IOClient(httpClient);
 }
 
-Future<http.Client> createProxyClientFromPrefs() async {
+class _PooledClient extends http.BaseClient {
+  final http.Client _inner;
+  final String _domain;
+  bool _closed = false;
+
+  _PooledClient(this._inner, this._domain);
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    if (_closed) throw StateError('Client has been closed');
+    return _inner.send(request);
+  }
+
+  @override
+  void close() {
+    if (_closed) return;
+    _closed = true;
+    releaseClient(domain: _domain);
+  }
+}
+
+Future<http.Client> createProxyClientFromPrefs({String? domain}) async {
+  await _updatePoolProxyConfig();
+  final key = domain ?? '_default';
+
+  final existing = _clientPool[key];
+  if (existing != null) {
+    existing.cancelIdleTimer();
+    existing.refCount++;
+    return _PooledClient(existing.client, key);
+  }
+
   final prefs = await AppSettings.load();
   final proxyMode = prefs.getString('proxy_mode') ?? 'none';
   final proxyUrl = prefs.getString('proxy_url') ?? '';
-  final key = '$proxyMode:$proxyUrl';
-  if (_sharedClient != null && _sharedClientKey == key) {
-    return _sharedClient!;
+  final client = await createProxyClient(proxyMode: proxyMode, proxyUrl: proxyUrl);
+
+  final entry = _ClientEntry(client)..refCount = 1;
+  _clientPool[key] = entry;
+  return _PooledClient(client, key);
+}
+
+void releaseClient({String? domain}) {
+  final key = domain ?? '_default';
+  final entry = _clientPool[key];
+  if (entry == null) return;
+
+  entry.refCount--;
+  if (entry.refCount <= 0) {
+    entry.refCount = 0;
+    entry.cancelIdleTimer();
+    entry.idleTimer = Timer(const Duration(seconds: 60), () {
+      final e = _clientPool.remove(key);
+      if (e != null) {
+        e.cancelIdleTimer();
+        e.client.close();
+      }
+    });
   }
-  _sharedClient?.close();
-  _sharedClient = await createProxyClient(proxyMode: proxyMode, proxyUrl: proxyUrl);
-  _sharedClientKey = key;
-  return _sharedClient!;
+}
+
+void closeAllClients() {
+  for (final entry in _clientPool.values) {
+    entry.cancelIdleTimer();
+    entry.client.close();
+  }
+  _clientPool.clear();
 }
 
 Future<String> getEffectiveDomain(String siteKey) async {

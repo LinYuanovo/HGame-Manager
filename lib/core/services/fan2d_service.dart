@@ -55,7 +55,7 @@ class Fan2dService {
   /// 检测可用的 2DFan 域名并保存
   Future<String> detectAndSaveDomain() async {
     final prefs = await AppSettings.load();
-    final client = await createProxyClientFromPrefs();
+    final client = await createProxyClientFromPrefs(domain: _defaultDomain);
     try {
       final headers = await buildScrapeHeaders('https://$_defaultDomain/domain');
       final response = await client.get(
@@ -192,7 +192,7 @@ class Fan2dService {
     final url = 'https://$domain/subjects/search?keyword=${Uri.encodeComponent(keyword)}';
     if (kDebugMode) debugPrint('[Fan2d] 搜索: $url');
 
-    final client = await createProxyClientFromPrefs();
+    final client = await createProxyClientFromPrefs(domain: domain);
     try {
       final headers = await buildScrapeHeaders(url);
       final response = await client.get(
@@ -290,7 +290,7 @@ class Fan2dService {
     final rarPath = '${tempDir.path}${Platform.pathSeparator}download.rar';
 
     try {
-      final client = await createProxyClientFromPrefs();
+      final client = await createProxyClientFromPrefs(domain: Uri.parse(directUrl).host);
       try {
         final headers = await buildScrapeHeaders(directUrl);
         final response = await client.get(
@@ -331,7 +331,7 @@ class Fan2dService {
 
   /// 解析下载页面，获取直连下载地址或 kind 页面的存档列表
   Future<_ResolveResult?> _resolveDirectDownloadUrl(String pageUrl) async {
-    final client = await createProxyClientFromPrefs();
+    final client = await createProxyClientFromPrefs(domain: Uri.parse(pageUrl).host);
     try {
       final headers = await buildScrapeHeaders(pageUrl);
       final response = await client.get(

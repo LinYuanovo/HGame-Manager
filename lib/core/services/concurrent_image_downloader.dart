@@ -83,7 +83,9 @@ class ConcurrentImageDownloader {
     Map<String, String>? headers,
   }) async {
     try {
-      final client = await createProxyClientFromPrefs();
+      final uri = Uri.tryParse(url);
+      final domain = uri?.host;
+      final client = await createProxyClientFromPrefs(domain: domain);
       try {
         final response = await client.get(
           Uri.parse(url),

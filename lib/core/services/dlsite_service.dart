@@ -222,7 +222,7 @@ class DlsiteService {
     _log.info('DlsiteService', '[search] 搜索关键词: "$keyword"');
     _log.info('DlsiteService', '[search] 请求URL: $url');
 
-    final client = await createProxyClientFromPrefs();
+    final client = await createProxyClientFromPrefs(domain: 'www.dlsite.com');
     try {
       final headers = await _buildHeaders();
       var response = await client.get(Uri.parse(url), headers: headers)
@@ -364,7 +364,7 @@ class DlsiteService {
     _log.info('DlsiteService', '[fetchById] 获取游戏信息: $normalizedId');
     _log.info('DlsiteService', '[fetchById] 请求URL: $url');
 
-    final client = await createProxyClientFromPrefs();
+    final client = await createProxyClientFromPrefs(domain: 'www.dlsite.com');
     try {
       final headers = await _buildHeaders();
       final response = await client.get(Uri.parse(url), headers: headers)
@@ -415,7 +415,7 @@ class DlsiteService {
     if (normalizedId == null) return null;
 
     final url = buildUrl(normalizedId);
-    final client = await createProxyClientFromPrefs();
+    final client = await createProxyClientFromPrefs(domain: 'www.dlsite.com');
     try {
       final headers = await _buildHeaders();
       final response = await client.get(Uri.parse(url), headers: headers)

@@ -104,7 +104,7 @@ class SteamService {
 
     _log.info('SteamService', '[search] 搜索关键词: "$keyword"');
 
-    final client = await createProxyClientFromPrefs();
+    final client = await createProxyClientFromPrefs(domain: 'store.steampowered.com');
     try {
       final response = await client.get(Uri.parse(url), headers: {
         'Accept-Language': 'zh-CN,zh;q=0.9',
@@ -190,7 +190,7 @@ class SteamService {
 
     _log.info('SteamService', '[fetchById] 获取游戏信息: $id');
 
-    final client = await createProxyClientFromPrefs();
+    final client = await createProxyClientFromPrefs(domain: 'store.steampowered.com');
     try {
       final response = await client.get(Uri.parse(url), headers: {
         'Accept-Language': 'zh-CN,zh;q=0.9',
@@ -291,7 +291,7 @@ class SteamService {
     _log.info('SteamService',
         '[downloadVideos] 开始下载 ${videoUrls.length} 个视频');
 
-    final client = await createProxyClientFromPrefs();
+    final client = await createProxyClientFromPrefs(domain: 'store.steampowered.com');
     try {
       for (int i = 0; i < videoUrls.length; i++) {
         final videoUrl = videoUrls[i];
