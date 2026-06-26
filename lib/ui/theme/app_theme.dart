@@ -925,6 +925,7 @@ class _GlassCardState extends State<GlassCard>
   }
 
   void _setupBorderAnimation() {
+    _borderController?.removeListener(_onBorderTick);
     if (widget.enableBorderBreathing) {
       _borderController?.dispose();
       _borderController = AnimationController(
@@ -934,10 +935,15 @@ class _GlassCardState extends State<GlassCard>
       _borderAnimation = Tween<double>(begin: 0.15, end: 0.35).animate(
         CurvedAnimation(parent: _borderController!, curve: Curves.easeInOut),
       );
+      _borderController!.addListener(_onBorderTick);
     } else {
       _borderController?.stop();
       _borderAnimation = null;
     }
+  }
+
+  void _onBorderTick() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -948,6 +954,8 @@ class _GlassCardState extends State<GlassCard>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return MouseRegion(
       onEnter: widget.enableHoverEffect ? (_) => setState(() => _isHovered = true) : null,
       onExit: widget.enableHoverEffect ? (_) => setState(() { _isHovered = false; _isPressed = false; }) : null,
@@ -966,69 +974,47 @@ class _GlassCardState extends State<GlassCard>
             duration: GlassConstants.animFast,
             curve: GlassConstants.animCurve,
             margin: widget.margin,
-            child: ClipRRect(
+            padding: widget.padding,
+            decoration: BoxDecoration(
+              color: widget.color ??
+                  (isDark
+                      ? (_isHovered
+                          ? AppTheme.darkSurfaceColor.withValues(alpha: 0.88)
+                          : AppTheme.darkSurfaceColor.withValues(alpha: 0.65))
+                      : (_isHovered
+                          ? Colors.white.withValues(alpha: 0.88)
+                          : Colors.white.withValues(alpha: 0.65))),
               borderRadius: BorderRadius.circular(widget.borderRadius),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: GlassConstants.blurMedium,
-                  sigmaY: GlassConstants.blurMedium,
-                ),
-                child: AnimatedBuilder(
-                  animation: _borderController ?? const AlwaysStoppedAnimation(0),
-                  builder: (context, child) {
-                    final isDark = Theme.of(context).brightness == Brightness.dark;
-                    final borderOpacity = _borderAnimation?.value ?? 0.35;
-
-                    return AnimatedContainer(
-                      duration: GlassConstants.animFast,
-                      curve: GlassConstants.animCurve,
-                      padding: widget.padding,
-                      decoration: BoxDecoration(
-                        color: widget.color ??
-                            (isDark
-                                ? (_isHovered
-                                    ? AppTheme.darkSurfaceColor.withValues(alpha: 0.88)
-                                    : AppTheme.darkSurfaceColor.withValues(alpha: 0.65))
-                                : (_isHovered
-                                    ? Colors.white.withValues(alpha: 0.88)
-                                    : Colors.white.withValues(alpha: 0.65))),
-                        borderRadius: BorderRadius.circular(widget.borderRadius),
-                        border: Border.all(
-                          color: _isHovered
-                              ? AppTheme.primaryColor.withValues(alpha: 0.25)
-                              : widget.enableBorderBreathing
-                                  ? AppTheme.primaryColor.withValues(alpha: borderOpacity)
-                                  : (isDark
-                                      ? AppTheme.darkGlassBorderWhite.withValues(alpha: 0.35)
-                                      : Colors.white.withValues(alpha: 0.35)),
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _isHovered
-                                ? AppTheme.primaryColor.withValues(alpha: 0.12)
-                                : Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-                            blurRadius: _isHovered ? 28 : 16,
-                            spreadRadius: _isHovered ? 2 : 1,
-                            offset: Offset(0, _isHovered ? 6 : 4),
-                          ),
-                          BoxShadow(
-                            color: (_isHovered
-                                ? AppTheme.secondaryColor
-                                : AppTheme.primaryColor).withValues(alpha: _isHovered ? 0.06 : 0.03),
-                            blurRadius: _isHovered ? 50 : 40,
-                            spreadRadius: 0,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: child,
-                    );
-                  },
-                  child: widget.child,
-                ),
+              border: Border.all(
+                color: _isHovered
+                    ? AppTheme.primaryColor.withValues(alpha: 0.25)
+                    : widget.enableBorderBreathing
+                        ? AppTheme.primaryColor.withValues(alpha: _borderAnimation?.value ?? 0.35)
+                        : (isDark
+                            ? AppTheme.darkGlassBorderWhite.withValues(alpha: 0.35)
+                            : Colors.white.withValues(alpha: 0.35)),
+                width: 1,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: _isHovered
+                      ? AppTheme.primaryColor.withValues(alpha: 0.12)
+                      : Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                  blurRadius: _isHovered ? 28 : 16,
+                  spreadRadius: _isHovered ? 2 : 1,
+                  offset: Offset(0, _isHovered ? 6 : 4),
+                ),
+                BoxShadow(
+                  color: (_isHovered
+                      ? AppTheme.secondaryColor
+                      : AppTheme.primaryColor).withValues(alpha: _isHovered ? 0.06 : 0.03),
+                  blurRadius: _isHovered ? 50 : 40,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
+            child: widget.child,
           ),
         ),
       ),
@@ -1217,28 +1203,8 @@ class GradientBackground extends StatefulWidget {
   State<GradientBackground> createState() => _GradientBackgroundState();
 }
 
-class _GradientBackgroundState extends State<GradientBackground>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _glowAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(seconds: 5),
-      vsync: this,
-    )..repeat(reverse: true);
-    _glowAnimation = Tween<double>(begin: 0.03, end: 0.06).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+class _GradientBackgroundState extends State<GradientBackground> {
+  static const double _fixedGlowOpacity = 0.045;
 
   @override
   Widget build(BuildContext context) {
@@ -1255,49 +1221,39 @@ class _GradientBackgroundState extends State<GradientBackground>
       ),
       child: Stack(
         children: [
-          AnimatedBuilder(
-            animation: _glowAnimation,
-            builder: (context, child) {
-              return Positioned(
-                top: -100,
-                right: -100,
-                child: Container(
-                  width: 500,
-                  height: 500,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        Color(0xFF2563EB).withValues(alpha: isDark ? _glowAnimation.value * 0.5 : _glowAnimation.value),
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
+          Positioned(
+            top: -100,
+            right: -100,
+            child: Container(
+              width: 500,
+              height: 500,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Color(0xFF2563EB).withValues(alpha: isDark ? _fixedGlowOpacity * 0.5 : _fixedGlowOpacity),
+                    Colors.transparent,
+                  ],
                 ),
-              );
-            },
+              ),
+            ),
           ),
-          AnimatedBuilder(
-            animation: _glowAnimation,
-            builder: (context, child) {
-              return Positioned(
-                bottom: -150,
-                left: -100,
-                child: Container(
-                  width: 600,
-                  height: 600,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        Color(0xFF7C3AED).withValues(alpha: isDark ? _glowAnimation.value * 0.4 : _glowAnimation.value * 0.75),
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
+          Positioned(
+            bottom: -150,
+            left: -100,
+            child: Container(
+              width: 600,
+              height: 600,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Color(0xFF7C3AED).withValues(alpha: isDark ? _fixedGlowOpacity * 0.4 : _fixedGlowOpacity * 0.75),
+                    Colors.transparent,
+                  ],
                 ),
-              );
-            },
+              ),
+            ),
           ),
           widget.child,
         ],
@@ -1499,52 +1455,29 @@ class StaggeredItem extends StatefulWidget {
   State<StaggeredItem> createState() => _StaggeredItemState();
 }
 
-class _StaggeredItemState extends State<StaggeredItem>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
+class _StaggeredItemState extends State<StaggeredItem> {
+  bool _visible = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.05),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-
-    _controller.forward();  // Start IMMEDIATELY, no delay
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _visible = true);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Opacity(
-          opacity: _fadeAnimation.value,
-          child: Transform.translate(
-            offset: _slideAnimation.value,
-            child: child,
-          ),
-        );
-      },
-      child: widget.child,
+    return AnimatedOpacity(
+      opacity: _visible ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      child: AnimatedSlide(
+        offset: _visible ? Offset.zero : const Offset(0, 0.03),
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        child: widget.child,
+      ),
     );
   }
 }
