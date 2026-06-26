@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -128,10 +127,6 @@ void _setupErrorHandling() {
     log.error('PlatformError', error.toString(), error, stackTrace);
     return true;
   };
-
-  runZonedGuarded(() {}, (error, stackTrace) {
-    log.error('UnhandledError', error.toString(), error, stackTrace);
-  });
 }
 
 class HGameManagerApp extends ConsumerWidget {
