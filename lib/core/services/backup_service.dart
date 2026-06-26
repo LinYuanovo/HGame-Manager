@@ -518,11 +518,9 @@ class BackupService {
   /// 验证解压路径是否安全（防止路径遍历攻击）
   /// 检查解析后的路径是否以目标目录开头，防止通过 ../ 逃逸
   bool _isPathSafe(String targetDir, String filePath) {
-    // 解析实际路径（解析 .. 和 .）
     final resolvedTarget = p.normalize(targetDir);
     final resolvedFile = p.normalize(filePath);
-    // 检查文件路径是否以目标目录开头
-    return resolvedFile.startsWith(resolvedTarget);
+    return p.isWithin(resolvedTarget, resolvedFile) || resolvedFile == resolvedTarget;
   }
 
   /// 递归将目录内容添加到压缩包
