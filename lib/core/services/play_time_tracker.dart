@@ -9,6 +9,7 @@ class PlayTimeTracker {
   static Game? _currentGame;
   static int _sessionSeconds = 0;
   static int _lastSaveSeconds = 0;
+  static bool _isProcessing = false;
   static const int _saveInterval = 600; // 10分钟 = 600秒
   static const int _checkInterval = 30; // 30秒检测一次
 
@@ -44,21 +45,25 @@ class PlayTimeTracker {
 
   /// 定时器回调
   static void _onTick(Timer timer) async {
-    if (_currentGame == null) return;
+    if (_currentGame == null || _isProcessing) return;
+    _isProcessing = true;
+    try {
+      // 检测游戏进程是否运行
+      final isRunning = await _isGameRunning(_currentGame!);
 
-    // 检测游戏进程是否运行
-    final isRunning = await _isGameRunning(_currentGame!);
+      if (isRunning) {
+        _sessionSeconds += _checkInterval;
 
-    if (isRunning) {
-      _sessionSeconds += _checkInterval;
-
-      // 检查是否需要保存到数据库
-      if (_sessionSeconds - _lastSaveSeconds >= _saveInterval) {
-        await _saveProgress();
+        // 检查是否需要保存到数据库
+        if (_sessionSeconds - _lastSaveSeconds >= _saveInterval) {
+          await _saveProgress();
+        }
+      } else {
+        // 游戏已关闭，停止追踪
+        await stopTracking();
       }
-    } else {
-      // 游戏已关闭，停止追踪
-      await stopTracking();
+    } finally {
+      _isProcessing = false;
     }
   }
 
@@ -68,7 +73,14 @@ class PlayTimeTracker {
 
     try {
       final db = await DatabaseHelper.database;
-      final newDuration = _currentGame!.playDuration + _sessionSeconds;
+      final rows = await db.query(
+        'games',
+        columns: ['play_duration'],
+        where: 'id = ?',
+        whereArgs: [_currentGame!.id],
+      );
+      final currentDuration = (rows.first['play_duration'] as int?) ?? 0;
+      final newDuration = currentDuration + _sessionSeconds;
 
       await db.update(
         'games',
