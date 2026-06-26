@@ -1509,7 +1509,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   Widget _buildGameCover(Game game,
       {double? width, double? height, BoxFit fit = BoxFit.cover}) {
-    // 检查无图模式
     final noImageMode = ref.watch(noImageModeProvider);
     if (noImageMode) {
       return SizedBox.expand(
@@ -1528,31 +1527,57 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     final coverPath =
         game.images.isNotEmpty ? game.images[coverIndex].imagePath : null;
 
-    return coverPath != null
-        ? Image.file(
-            File(coverPath),
-            width: width,
-            height: height,
-            fit: fit,
-            errorBuilder: (_, __, ___) => Container(
-              width: width,
-              height: height,
-              color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
-              child: Center(
-                  child: Icon(Icons.videogame_asset,
-                      size: (width ?? 70) * 0.5,
-                      color: AppTheme.getTextSecondary(context).withValues(alpha: 0.25))),
-            ),
-          )
-        : Container(
-            width: width,
-            height: height,
-            color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
-            child: Center(
-                child: Icon(Icons.videogame_asset,
-                    size: (width ?? 70) * 0.5,
-                    color: AppTheme.getTextSecondary(context).withValues(alpha: 0.25))),
-          );
+    if (coverPath == null) {
+      return Container(
+        width: width,
+        height: height,
+        color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
+        child: Center(
+            child: Icon(Icons.videogame_asset,
+                size: (width ?? 70) * 0.5,
+                color: AppTheme.getTextSecondary(context).withValues(alpha: 0.25))),
+      );
+    }
+
+    final placeholder = Container(
+      width: width,
+      height: height,
+      color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
+      child: Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3),
+          ),
+        ),
+      ),
+    );
+
+    final image = Image.file(
+      File(coverPath),
+      width: width,
+      height: height,
+      fit: fit,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded || frame != null) return child;
+        return placeholder;
+      },
+      errorBuilder: (_, __, ___) => Container(
+        width: width,
+        height: height,
+        color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
+        child: Center(
+            child: Icon(Icons.videogame_asset,
+                size: (width ?? 70) * 0.5,
+                color: AppTheme.getTextSecondary(context).withValues(alpha: 0.25))),
+      ),
+    );
+
+    precacheImage(FileImage(File(coverPath)), context, onError: (_, __) {});
+
+    return image;
   }
 
   Widget _buildFavoriteButton(Game game) {
