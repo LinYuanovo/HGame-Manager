@@ -116,7 +116,15 @@ class _GamesPageState extends ConsumerState<GamesPage> with AutomaticKeepAliveCl
                             for (final v in decoded.values) {
                               final sp = v?.toString() ?? '';
                               if (sp.isNotEmpty && !libraryPaths.contains(sp)) {
-                                libraryPaths.add(sp);
+                                // 检查是否已被库路径覆盖（是某个库路径的子目录）
+                                final normalizedSp = sp.replaceAll('/', '\\').toLowerCase();
+                                final isCovered = libraryPaths.any((lib) {
+                                  final normalizedLib = lib.replaceAll('/', '\\').toLowerCase();
+                                  return normalizedSp.startsWith('$normalizedLib\\');
+                                });
+                                if (!isCovered) {
+                                  libraryPaths.add(sp);
+                                }
                               }
                             }
                            } catch (e) {
