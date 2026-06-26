@@ -130,13 +130,41 @@ void _setupErrorHandling() {
   };
 }
 
-class HGameManagerApp extends ConsumerWidget {
+class HGameManagerApp extends ConsumerStatefulWidget {
   final WindowController? windowController;
 
   const HGameManagerApp({super.key, this.windowController});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HGameManagerApp> createState() => _HGameManagerAppState();
+}
+
+class _HGameManagerAppState extends ConsumerState<HGameManagerApp> {
+  String _lastFontFamily = '';
+  ThemeData? _cachedLightTheme;
+  ThemeData? _cachedDarkTheme;
+
+  ThemeData _getLightTheme(String fontFamily) {
+    if (_cachedLightTheme == null || _lastFontFamily != fontFamily) {
+      _cachedLightTheme = AppTheme.lightTheme(
+        fontFamily: fontFamily.isEmpty ? null : fontFamily,
+      );
+      _lastFontFamily = fontFamily;
+    }
+    return _cachedLightTheme!;
+  }
+
+  ThemeData _getDarkTheme(String fontFamily) {
+    if (_cachedDarkTheme == null || _lastFontFamily != fontFamily) {
+      _cachedDarkTheme = AppTheme.darkTheme(
+        fontFamily: fontFamily.isEmpty ? null : fontFamily,
+      );
+    }
+    return _cachedDarkTheme!;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final prefs = ref.watch(sharedPreferencesProvider);
     final fontFamily = prefs.getString('font_family') ?? '';
     final themeMode = ref.watch(flutterThemeModeProvider);
@@ -144,8 +172,8 @@ class HGameManagerApp extends ConsumerWidget {
     return MaterialApp(
       title: 'HGame Manager',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme(fontFamily: fontFamily.isEmpty ? null : fontFamily),
-      darkTheme: AppTheme.darkTheme(fontFamily: fontFamily.isEmpty ? null : fontFamily),
+      theme: _getLightTheme(fontFamily),
+      darkTheme: _getDarkTheme(fontFamily),
       themeMode: themeMode,
       builder: (context, child) {
         return GradientBackground(
@@ -154,7 +182,7 @@ class HGameManagerApp extends ConsumerWidget {
           ),
         );
       },
-      home: HomePage(windowController: windowController),
+      home: HomePage(windowController: widget.windowController),
     );
   }
 }
