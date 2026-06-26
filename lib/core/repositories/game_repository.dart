@@ -62,7 +62,7 @@ class GameRepository {
       final gamePathExists = await _pathExists(game.path);
       
       // 如果游戏路径不存在且在 Cleared 目录下，尝试从 Backup 目录加载
-      if (!gamePathExists && game.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}')) {
+      if (!gamePathExists && game.path.contains('${path.separator}Cleared${path.separator}')) {
         // 尝试在 Backup 目录中模糊匹配
         final backupPath = await _findBackupPath(game.path, game.title);
         if (backupPath != null) {
@@ -70,7 +70,7 @@ class GameRepository {
         }
       }
       // 对于路径中直接包含 Backup 的游戏
-      else if (game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}') || game.path.contains('/Backup/')) {
+      else if (game.path.contains('${path.separator}Backup${path.separator}')) {
         // 检查数据库中的图片是否存在
         bool hasValidImages = false;
         if (images.isNotEmpty) {
@@ -97,7 +97,7 @@ class GameRepository {
   Future<String?> _findBackupPath(String gamePath, String? gameTitle) async {
     if (gameTitle == null || gameTitle.isEmpty) return null;
     
-    final sep = Platform.pathSeparator;
+    final sep = path.separator;
     
     // 查找 Cleared 目录的位置
     final clearedIndex = gamePath.indexOf('${sep}Cleared$sep');
@@ -172,7 +172,7 @@ class GameRepository {
   }
 
   Future<List<GameImage>> _loadImagesFromBackupDir(String gamePath) async {
-    final imageDir = Directory('$gamePath${Platform.pathSeparator}images');
+    final imageDir = Directory(path.join(gamePath, 'images'));
     final List<GameImage> images = [];
     if (await imageDir.exists()) {
       final List<String> imagePaths = [];
@@ -215,7 +215,7 @@ class GameRepository {
 
   Future<List<Game>> getUnplayedUnclearedGames() async {
     final db = await _db;
-    final sep = Platform.pathSeparator;
+    final sep = path.separator;
     final clearedPattern = '%${sep}Cleared$sep%';
     final List<Map<String, dynamic>> maps = await db.query(
       'games',
@@ -229,7 +229,7 @@ class GameRepository {
 
   Future<List<Game>> getNonClearedGames() async {
     final db = await _db;
-    final sep = Platform.pathSeparator;
+    final sep = path.separator;
     final clearedPattern = '%${sep}Cleared$sep%';
     final List<Map<String, dynamic>> maps = await db.query(
       'games',

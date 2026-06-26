@@ -1,8 +1,8 @@
 // lib/ui/pages/games/cloud_backup_dialog.dart
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/services/webdav_service.dart';
@@ -213,7 +213,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
       await backupDir.create(recursive: true);
     }
 
-    final localPath = '${backupDir.path}\\${file.name}';
+    final localPath = p.join(backupDir.path, file.name);
 
     if (mounted) {
       AppTheme.showGlassToast(context, message: '正在下载...', icon: Icons.cloud_download, iconColor: AppTheme.primaryColor);
@@ -256,7 +256,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
       await backupDir.create(recursive: true);
     }
 
-    final localPath = '${backupDir.path}\\${file.name}';
+    final localPath = p.join(backupDir.path, file.name);
 
     if (mounted) {
       AppTheme.showGlassToast(context, message: '正在下载并恢复...', icon: Icons.hourglass_empty, iconColor: AppTheme.primaryColor);

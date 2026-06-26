@@ -88,13 +88,13 @@ class FolderRenameService {
 
       if (game.gameLauncher != null && game.gameLauncher!.startsWith(oldPath)) {
         final relative = game.gameLauncher!.substring(oldPath.length);
-        final newLauncher = '$newPath$relative';
+        final newLauncher = path.join(newPath, relative);
         await _gameRepository.updateGameLauncher(game.id!, newLauncher, game.launcherLocked);
       }
 
       if (game.savePath != null && game.savePath!.startsWith(oldPath)) {
         final relative = game.savePath!.substring(oldPath.length);
-        final newSavePath = '$newPath$relative';
+        final newSavePath = path.join(newPath, relative);
         await _gameRepository.updateGame(game.copyWith(savePath: newSavePath));
       }
 
@@ -108,7 +108,7 @@ class FolderRenameService {
       }
 
       try {
-        final metadataFile = File('$newPath${path.separator}metadata.json');
+        final metadataFile = File(path.join(newPath, 'metadata.json'));
         if (await metadataFile.exists()) {
           final content = await metadataFile.readAsString();
           if (content.contains(oldPath)) {

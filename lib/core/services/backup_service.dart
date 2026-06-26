@@ -28,13 +28,15 @@ class BackupService {
   /// [gamePath] 游戏根目录
   /// 返回带 %USERPROFILE% 或 %GameDir% 标识的路径字符串
   String encodeSavePath(String savePath, String gamePath) {
-    final normalizedSave = savePath.replaceAll('/', '\\');
-    final normalizedGame = gamePath.replaceAll('/', '\\');
+    final normalizedSave = p.normalize(savePath);
+    final normalizedGame = p.normalize(gamePath);
 
     // 检查是否在 USERPROFILE 目录下
-    final userProfile = Platform.environment['USERPROFILE'] ?? '';
+    final userProfile = Platform.environment['USERPROFILE'] ??
+        Platform.environment['HOME'] ??
+        '';
     if (userProfile.isNotEmpty) {
-      final normalizedUP = userProfile.replaceAll('/', '\\');
+      final normalizedUP = p.normalize(userProfile);
       if (normalizedSave.toLowerCase().startsWith(normalizedUP.toLowerCase())) {
         final relative = normalizedSave.substring(normalizedUP.length);
         return '%USERPROFILE%${relative.startsWith('\\') ? relative : '\\$relative'}';
@@ -56,7 +58,9 @@ class BackupService {
   /// [gamePath] 当前游戏根目录
   String decodeSavePath(String portablePath, String gamePath) {
     if (portablePath.startsWith('%USERPROFILE%')) {
-      final userProfile = Platform.environment['USERPROFILE'] ?? '';
+      final userProfile = Platform.environment['USERPROFILE'] ??
+          Platform.environment['HOME'] ??
+          '';
       final relative = portablePath.substring('%USERPROFILE%'.length);
       return p.join(userProfile, relative.replaceAll('\\', p.separator));
     }
