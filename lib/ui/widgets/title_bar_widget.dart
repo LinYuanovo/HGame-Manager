@@ -42,7 +42,9 @@ class TitleBarWidget extends StatelessWidget {
                 children: [
                   const SizedBox(width: 16),
                   Image.asset(
-                    'app_icon.png',
+                    Theme.of(context).brightness == Brightness.dark
+                        ? 'app_icon_dark.png'
+                        : 'app_icon.png',
                     width: 28,
                     height: 28,
                   ),
