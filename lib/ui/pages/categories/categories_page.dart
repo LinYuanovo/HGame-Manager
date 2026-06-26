@@ -389,50 +389,61 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
   }
 
   void _showEditTagDialog(Tag tag) {
-    final controller = TextEditingController(text: tag.displayName ?? tag.name);
     showGlassDialog(
       context: context,
-      child: SizedBox(
-        width: GlassConstants.dialogWidth,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(tag.type == Tag.typeCustom ? '修改标签' : '修改系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                decoration: const InputDecoration(hintText: '输入名称'),
-                autofocus: true,
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+      child: StatefulBuilder(
+        builder: (context, setDialogState) {
+          final controller = TextEditingController(text: tag.displayName ?? tag.name);
+          return SizedBox(
+            width: GlassConstants.dialogWidth,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final name = controller.text.trim();
-                      if (name.isNotEmpty) {
-                        await ref.read(tagRepositoryProvider).updateTag(tag.copyWith(
-                          name: name,
-                          displayName: name,
-                        ));
-                        ref.invalidate(allTagsProvider);
-                        ref.invalidate(allSeriesProvider);
-                      }
-                      Navigator.pop(context);
-                    },
-                    child: const Text('保存'),
+                  Text(tag.type == Tag.typeCustom ? '修改标签' : '修改系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    decoration: const InputDecoration(hintText: '输入名称'),
+                    autofocus: true,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          controller.dispose();
+                          Navigator.pop(context);
+                        },
+                        child: const Text('取消'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () async {
+                          final name = controller.text.trim();
+                          controller.dispose();
+                          if (name.isNotEmpty) {
+                            await ref.read(tagRepositoryProvider).updateTag(tag.copyWith(
+                              name: name,
+                              displayName: name,
+                            ));
+                            ref.invalidate(allTagsProvider);
+                            ref.invalidate(allSeriesProvider);
+                          }
+                          Navigator.pop(context);
+                        },
+                        child: const Text('保存'),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -478,47 +489,58 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
   }
 
   void _showAddTagDialog(String type) {
-    final controller = TextEditingController();
     showGlassDialog(
       context: context,
-      child: SizedBox(
-        width: GlassConstants.dialogWidth,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(type == Tag.typeCustom ? '添加标签' : '添加系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                decoration: InputDecoration(hintText: type == Tag.typeCustom ? '输入标签名称' : '输入系列名称'),
-                autofocus: true,
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+      child: StatefulBuilder(
+        builder: (context, setDialogState) {
+          final controller = TextEditingController();
+          return SizedBox(
+            width: GlassConstants.dialogWidth,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final name = controller.text.trim();
-                      if (name.isNotEmpty) {
-                        await ref.read(tagRepositoryProvider).insertOrGetTag(name, type);
-                        ref.invalidate(allTagsProvider);
-                        ref.invalidate(allSeriesProvider);
-                      }
-                      Navigator.pop(context);
-                    },
-                    child: const Text('添加'),
+                  Text(type == Tag.typeCustom ? '添加标签' : '添加系列', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    decoration: InputDecoration(hintText: type == Tag.typeCustom ? '输入标签名称' : '输入系列名称'),
+                    autofocus: true,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          controller.dispose();
+                          Navigator.pop(context);
+                        },
+                        child: const Text('取消'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () async {
+                          final name = controller.text.trim();
+                          controller.dispose();
+                          if (name.isNotEmpty) {
+                            await ref.read(tagRepositoryProvider).insertOrGetTag(name, type);
+                            ref.invalidate(allTagsProvider);
+                            ref.invalidate(allSeriesProvider);
+                          }
+                          Navigator.pop(context);
+                        },
+                        child: const Text('添加'),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

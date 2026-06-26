@@ -1051,8 +1051,8 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: TextField(
-                                controller: TextEditingController(text: item.keyword),
+                              child: TextFormField(
+                                initialValue: item.keyword,
                                 style: TextStyle(fontSize: 13, fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
                                 decoration: InputDecoration(
                                   hintText: '搜索关键词',

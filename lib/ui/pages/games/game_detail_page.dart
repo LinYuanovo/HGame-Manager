@@ -46,6 +46,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   late TextEditingController _sourceUrlController;
   late TextEditingController _gameLauncherController;
   late TextEditingController _pathController;
+  late TextEditingController _makerController;
   bool _pathChanged = false;
   List<Tag> _editedTags = [];
   late Game _currentGame;
@@ -204,6 +205,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _sourceUrlController = TextEditingController(text: _currentGame.sourceUrl ?? '');
     _gameLauncherController = TextEditingController(text: _currentGame.gameLauncher ?? '');
     _pathController = TextEditingController(text: _currentGame.path);
+    _makerController = TextEditingController(text: _currentGame.maker ?? '');
     _editedTags = List.from(_currentGame.tags);
     _checkIsLocal();
     _preloadMediaFiles();
@@ -275,6 +277,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _sourceUrlController.dispose();
     _gameLauncherController.dispose();
     _pathController.dispose();
+    _makerController.dispose();
     super.dispose();
   }
 
@@ -1007,7 +1010,7 @@ if (_isEditing) ...[
                 const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
-                    controller: TextEditingController(text: _currentGame.maker ?? ''),
+                    controller: _makerController,
                     style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context)),
                     decoration: InputDecoration(
                       filled: true,
@@ -1277,50 +1280,58 @@ if (_isEditing) ...[
   }
 
   void _showAddTagDialog() {
-    final controller = TextEditingController();
     showGlassDialog(
       context: context,
-      child: SizedBox(
-        width: GlassConstants.dialogWidth,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('添加标签', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                decoration: const InputDecoration(hintText: '输入标签名称'),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+      child: StatefulBuilder(
+        builder: (context, setDialogState) {
+          final controller = TextEditingController();
+          return SizedBox(
+            width: GlassConstants.dialogWidth,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('取消'),
+                  Text('添加标签', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    decoration: const InputDecoration(hintText: '输入标签名称'),
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () {
-                      final name = controller.text.trim();
-                      if (name.isNotEmpty) {
-                        setState(() {
-                          _editedTags.add(Tag(name: name, type: Tag.typeCustom));
-                        });
-                      }
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text('添加'),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          controller.dispose();
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text('取消'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          final name = controller.text.trim();
+                          controller.dispose();
+                          if (name.isNotEmpty) {
+                            setState(() {
+                              _editedTags.add(Tag(name: name, type: Tag.typeCustom));
+                            });
+                          }
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text('添加'),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -2655,151 +2666,168 @@ if (_isEditing) ...[
   }
 
   void _showEditSavePathDialog() {
-    final controller = TextEditingController(text: _currentGame.savePath ?? '');
     showGlassDialog(
       context: context,
-      child: SizedBox(
-        width: GlassConstants.dialogWidth,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('编辑存档路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                decoration: const InputDecoration(
-                  hintText: '输入存档文件夹路径',
-                  labelText: '存档路径',
-                ),
-                autofocus: true,
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+      child: StatefulBuilder(
+        builder: (context, setDialogState) {
+          final controller = TextEditingController(text: _currentGame.savePath ?? '');
+          return SizedBox(
+            width: GlassConstants.dialogWidth,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('取消'),
+                  Text('编辑存档路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    decoration: const InputDecoration(
+                      hintText: '输入存档文件夹路径',
+                      labelText: '存档路径',
+                    ),
+                    autofocus: true,
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final newPath = controller.text.trim();
-                      final repo = ref.read(gameRepositoryProvider);
-                      var gameId = _currentGame.id;
-                      if (gameId == null) {
-                        gameId = await repo.insertGame(_currentGame);
-                        _currentGame = _currentGame.copyWith(id: gameId);
-                      }
-                      await repo.updateSavePath(gameId, newPath.isEmpty ? null : newPath);
-                      final freshGame = await repo.getGameById(gameId);
-                      if (freshGame != null && mounted) {
-                        setState(() => _currentGame = freshGame);
-                      }
-                      if (mounted) {
-                        _refreshAllProviders();
-                        Navigator.pop(context);
-                        AppTheme.showGlassToast(context, message: '存档路径已更新');
-                      }
-                    },
-                    child: const Text('保存'),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          controller.dispose();
+                          Navigator.pop(context);
+                        },
+                        child: const Text('取消'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () async {
+                          final newPath = controller.text.trim();
+                          controller.dispose();
+                          final repo = ref.read(gameRepositoryProvider);
+                          var gameId = _currentGame.id;
+                          if (gameId == null) {
+                            gameId = await repo.insertGame(_currentGame);
+                            _currentGame = _currentGame.copyWith(id: gameId);
+                          }
+                          await repo.updateSavePath(gameId, newPath.isEmpty ? null : newPath);
+                          final freshGame = await repo.getGameById(gameId);
+                          if (freshGame != null && mounted) {
+                            setState(() => _currentGame = freshGame);
+                          }
+                          if (mounted) {
+                            _refreshAllProviders();
+                            Navigator.pop(context);
+                            AppTheme.showGlassToast(context, message: '存档路径已更新');
+                          }
+                        },
+                        child: const Text('保存'),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 
   void _showEditPlayDurationDialog() {
-    final hoursController = TextEditingController(
-      text: (_currentGame.playDuration ~/ 3600).toString(),
-    );
-    final minutesController = TextEditingController(
-      text: ((_currentGame.playDuration % 3600) ~/ 60).toString(),
-    );
-
     showGlassDialog(
       context: context,
-      child: SizedBox(
-        width: GlassConstants.dialogWidth,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('编辑游玩时长', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
-              const SizedBox(height: 16),
-              Row(
+      child: StatefulBuilder(
+        builder: (context, setDialogState) {
+          final hoursController = TextEditingController(
+            text: (_currentGame.playDuration ~/ 3600).toString(),
+          );
+          final minutesController = TextEditingController(
+            text: ((_currentGame.playDuration % 3600) ~/ 60).toString(),
+          );
+          return SizedBox(
+            width: GlassConstants.dialogWidth,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: hoursController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: '小时',
-                        border: OutlineInputBorder(),
+                  Text('编辑游玩时长', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: hoursController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: '小时',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: TextField(
-                      controller: minutesController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: '分钟',
-                        border: OutlineInputBorder(),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextField(
+                          controller: minutesController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: '分钟',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('取消'),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final hours = int.tryParse(hoursController.text) ?? 0;
-                      final minutes = int.tryParse(minutesController.text) ?? 0;
-                      final totalSeconds = hours * 3600 + minutes * 60;
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          hoursController.dispose();
+                          minutesController.dispose();
+                          Navigator.pop(context);
+                        },
+                        child: const Text('取消'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () async {
+                          final hours = int.tryParse(hoursController.text) ?? 0;
+                          final minutes = int.tryParse(minutesController.text) ?? 0;
+                          hoursController.dispose();
+                          minutesController.dispose();
+                          final totalSeconds = hours * 3600 + minutes * 60;
 
-                      final repo = ref.read(gameRepositoryProvider);
-                      var gameId = _currentGame.id;
-                      if (gameId == null) {
-                        gameId = await repo.insertGame(_currentGame);
-                        _currentGame = _currentGame.copyWith(id: gameId);
-                      }
-                      await repo.updateGame(_currentGame.copyWith(playDuration: totalSeconds));
-                      final freshGame = await repo.getGameById(gameId);
-                      if (freshGame != null && mounted) {
-                        setState(() => _currentGame = freshGame);
-                      }
-                      if (mounted) {
-                        _refreshAllProviders();
-                        Navigator.pop(context);
-                        AppTheme.showGlassToast(context, message: '游玩时长已更新');
-                      }
-                    },
-                    child: const Text('保存'),
+                          final repo = ref.read(gameRepositoryProvider);
+                          var gameId = _currentGame.id;
+                          if (gameId == null) {
+                            gameId = await repo.insertGame(_currentGame);
+                            _currentGame = _currentGame.copyWith(id: gameId);
+                          }
+                          await repo.updateGame(_currentGame.copyWith(playDuration: totalSeconds));
+                          final freshGame = await repo.getGameById(gameId);
+                          if (freshGame != null && mounted) {
+                            setState(() => _currentGame = freshGame);
+                          }
+                          if (mounted) {
+                            _refreshAllProviders();
+                            Navigator.pop(context);
+                            AppTheme.showGlassToast(context, message: '游玩时长已更新');
+                          }
+                        },
+                        child: const Text('保存'),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

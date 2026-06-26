@@ -1044,42 +1044,53 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   }
 
   Future<void> _editSourceUrl(_GameScrapeItem item) async {
-    final controller = TextEditingController(text: item.game.sourceUrl ?? '');
     final newUrl = await showGlassDialog<String>(
       context: context,
-      child: SizedBox(
-        width: GlassConstants.dialogWidth,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('编辑来源链接', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                decoration: const InputDecoration(hintText: '输入来源URL'),
-                autofocus: true,
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+      child: StatefulBuilder(
+        builder: (context, setDialogState) {
+          final controller = TextEditingController(text: item.game.sourceUrl ?? '');
+          return SizedBox(
+            width: GlassConstants.dialogWidth,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('取消'),
+                  Text('编辑来源链接', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    decoration: const InputDecoration(hintText: '输入来源URL'),
+                    autofocus: true,
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context, controller.text.trim()),
-                    child: const Text('保存'),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          controller.dispose();
+                          Navigator.pop(context);
+                        },
+                        child: const Text('取消'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          final result = controller.text.trim();
+                          controller.dispose();
+                          Navigator.pop(context, result);
+                        },
+                        child: const Text('保存'),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
 
