@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -73,6 +74,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   final TextEditingController _columnCountController = TextEditingController();
   final TextEditingController _pageJumpController = TextEditingController();
   int _listItemsPerPage = 5;  // 列表视图每页显示数量
+  Timer? _searchDebounce;
 
   int get _itemsPerPage {
     if (_viewMode == ViewMode.list) return _listItemsPerPage;
@@ -198,6 +200,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     _pageJumpController.dispose();
     _columnCountController.dispose();
     _multiSelectController.removeListener(_onSelectionChanged);
+    _searchDebounce?.cancel();
     _multiSelectController.dispose();
     super.dispose();
   }
@@ -343,7 +346,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                           GlassSearchBar(
                             controller: _searchController,
                             hintText: '搜索游戏（标题/路径/简介）...',
-                            onChanged: (_) => setState(() {}),
+                            onChanged: (value) {
+                              _searchDebounce?.cancel();
+                              _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+                                if (mounted) setState(() {});
+                              });
+                            },
                           ),
                           if (_searchController.text.isNotEmpty)
                             GestureDetector(
