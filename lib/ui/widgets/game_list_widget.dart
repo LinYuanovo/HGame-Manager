@@ -86,7 +86,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   int _posterItemsPerPage = 6; // 由 _buildPosterView 动态更新
-  final ImagePreloader _preloader = ImagePreloader();
 
   List<Game>? _cachedSortedGames;
   String _cachedSearchQuery = '';
@@ -218,7 +217,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     _multiSelectController.removeListener(_onSelectionChanged);
     _searchDebounce?.cancel();
     _multiSelectController.dispose();
-    _preloader.dispose();
     super.dispose();
   }
 
@@ -229,6 +227,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       setState(() {
         _infiniteScrollCount += _itemsPerPage;
       });
+      _preloadRange();
     }
   }
 
@@ -292,36 +291,41 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   void _preloadRange() {
-    if (_paginationMode != PaginationMode.paginated) return;
+    final preloader = ref.read(imagePreloaderProvider);
     final sortedGames = _getFilteredAndSortedGames();
     if (sortedGames.isEmpty) return;
-    final totalPages = (sortedGames.length / _itemsPerPage).ceil();
-    if (totalPages <= 1) return;
 
-    final startPage = (_currentPage - 2).clamp(0, totalPages - 1);
-    final endPage = (_currentPage + 2).clamp(0, totalPages - 1);
+    int firstVisibleIndex;
+    int visibleCount;
+
+    if (_paginationMode == PaginationMode.paginated) {
+      firstVisibleIndex = _currentPage * _itemsPerPage;
+      visibleCount = _itemsPerPage;
+    } else {
+      firstVisibleIndex = 0;
+      visibleCount = _infiniteScrollCount;
+    }
+
+    final preloadStart = (firstVisibleIndex - _itemsPerPage * 2).clamp(0, sortedGames.length - 1);
+    final preloadEnd = (firstVisibleIndex + visibleCount + _itemsPerPage * 2 - 1).clamp(0, sortedGames.length - 1);
 
     final pathsToPreload = <String>[];
     final activePaths = <String>{};
-    for (var p = startPage; p <= endPage; p++) {
-      final pageStart = p * _itemsPerPage;
-      final pageEnd = (pageStart + _itemsPerPage).clamp(0, sortedGames.length);
-      for (var i = pageStart; i < pageEnd; i++) {
-        final game = sortedGames[i];
-        final coverIndex = game.coverIndex.clamp(0, game.images.length > 0 ? game.images.length - 1 : 0);
-        if (game.images.isNotEmpty) {
-          final imgPath = game.images[coverIndex].imagePath;
-          activePaths.add(imgPath);
-          if (!_preloader.cache.containsKey(imgPath)) {
-            pathsToPreload.add(imgPath);
-          }
+    for (var i = preloadStart; i <= preloadEnd; i++) {
+      final game = sortedGames[i];
+      final coverIndex = game.coverIndex.clamp(0, game.images.length > 0 ? game.images.length - 1 : 0);
+      if (game.images.isNotEmpty) {
+        final imgPath = game.images[coverIndex].imagePath;
+        activePaths.add(imgPath);
+        if (!preloader.cache.containsKey(imgPath)) {
+          pathsToPreload.add(imgPath);
         }
       }
     }
 
-    _preloader.evictOutside(activePaths);
+    preloader.evictOutside(activePaths);
     if (pathsToPreload.isNotEmpty) {
-      _preloader.preload(pathsToPreload);
+      preloader.preload(pathsToPreload);
     }
   }
 
@@ -1578,7 +1582,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       return _buildCoverPlaceholder(width, height);
     }
 
-    final cachedImage = _preloader.cache[coverPath];
+    final cachedImage = ref.read(imagePreloaderProvider).cache[coverPath];
     if (cachedImage != null) {
       return RawImage(
         image: cachedImage,
