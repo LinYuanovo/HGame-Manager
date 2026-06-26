@@ -6,6 +6,9 @@ import 'package:http/io_client.dart';
 import 'app_settings.dart';
 import '../services/app_logger.dart';
 
+http.Client? _sharedClient;
+String? _sharedClientKey;
+
 Future<String?> readWindowsSystemProxy() async {
   try {
     final result = await Process.run(
@@ -82,7 +85,14 @@ Future<http.Client> createProxyClientFromPrefs() async {
   final prefs = await AppSettings.load();
   final proxyMode = prefs.getString('proxy_mode') ?? 'none';
   final proxyUrl = prefs.getString('proxy_url') ?? '';
-  return await createProxyClient(proxyMode: proxyMode, proxyUrl: proxyUrl);
+  final key = '$proxyMode:$proxyUrl';
+  if (_sharedClient != null && _sharedClientKey == key) {
+    return _sharedClient!;
+  }
+  _sharedClient?.close();
+  _sharedClient = await createProxyClient(proxyMode: proxyMode, proxyUrl: proxyUrl);
+  _sharedClientKey = key;
+  return _sharedClient!;
 }
 
 Future<String> getEffectiveDomain(String siteKey) async {
@@ -176,14 +186,13 @@ Future<Map<String, String>> buildScrapeHeaders(String url) async {
 }
 
 Future<bool> testProxyConnection(String testUrl) async {
+  final client = await createProxyClientFromPrefs();
   try {
     AppLogger.instance.info('Proxy', 'Testing connection to: $testUrl');
-    final client = await createProxyClientFromPrefs();
     final response = await client.get(
       Uri.parse(testUrl),
       headers: {'User-Agent': 'HGame-Manager/1.0'},
     ).timeout(const Duration(seconds: 10));
-    client.close();
 
     if (response.statusCode == 200) {
       AppLogger.instance.info('Proxy', 'Connection test SUCCESS (${response.statusCode}) for: $testUrl');
@@ -194,6 +203,8 @@ Future<bool> testProxyConnection(String testUrl) async {
   } catch (e) {
     AppLogger.instance.error('Proxy', 'Connection test FAILED for: $testUrl', e);
     return false;
+  } finally {
+    client.close();
   }
 }
 
