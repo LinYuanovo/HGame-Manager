@@ -105,6 +105,13 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         _currentPage = savedPage;
       }
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(imagePreloaderProvider).addListener(_onImagesLoaded);
+    });
+  }
+
+  void _onImagesLoaded() {
+    if (mounted) setState(() {});
   }
 
   String get _sortModeKey {
@@ -210,6 +217,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   @override
   void dispose() {
+    ref.read(imagePreloaderProvider).removeListener(_onImagesLoaded);
     _scrollController.dispose();
     _searchController.dispose();
     _pageJumpController.dispose();

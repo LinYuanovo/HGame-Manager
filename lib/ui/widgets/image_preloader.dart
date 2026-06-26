@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
-import 'package:flutter/painting.dart';
+import 'package:flutter/foundation.dart';
 
-class ImagePreloader {
+class ImagePreloader extends ChangeNotifier {
   final Map<String, ui.Image> _cache = {};
   final Set<String> _loadingPaths = {};
   bool _disposed = false;
@@ -16,6 +16,7 @@ class ImagePreloader {
     if (toLoad.isEmpty) return;
 
     await Future.wait(toLoad.map((path) => _loadSingle(path)), eagerError: false);
+    if (!_disposed) notifyListeners();
   }
 
   Future<void> _loadSingle(String path) async {
@@ -51,6 +52,7 @@ class ImagePreloader {
     }
   }
 
+  @override
   void dispose() {
     _disposed = true;
     for (final image in _cache.values) {
@@ -58,5 +60,6 @@ class ImagePreloader {
     }
     _cache.clear();
     _loadingPaths.clear();
+    super.dispose();
   }
 }
