@@ -1546,31 +1546,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       );
     }
 
-    final placeholder = Container(
-      width: width,
-      height: height,
-      color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
-      child: Center(
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3),
-          ),
-        ),
-      ),
-    );
-
-    final image = Image.file(
+    return Image.file(
       File(coverPath),
       width: width,
       height: height,
       fit: fit,
-      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-        if (wasSynchronouslyLoaded || frame != null) return child;
-        return placeholder;
-      },
       errorBuilder: (_, __, ___) => Container(
         width: width,
         height: height,
@@ -1581,10 +1561,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 color: AppTheme.getTextSecondary(context).withValues(alpha: 0.25))),
       ),
     );
-
-    precacheImage(FileImage(File(coverPath)), context, onError: (_, __) {});
-
-    return image;
   }
 
   Widget _buildFavoriteButton(Game game) {
