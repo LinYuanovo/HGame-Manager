@@ -1169,6 +1169,27 @@ if (_isEditing) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Icon(Icons.timer, size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                const SizedBox(width: 8),
+                Text('游玩时长:', style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context))),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: _showEditPlayDurationDialog,
+                    child: Text(
+                      formatDuration(_currentGame.playDuration),
+                      style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (_isEditing) ...[
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Icon(Icons.download, size: 15, color: AppTheme.getDetailTextPrimary(context)),
                 const SizedBox(width: 8),
                 Text('下载:', style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context))),
@@ -1391,6 +1412,25 @@ if (_isEditing) ...[
                                   child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.getPrimaryColor(context)),
                                 )
                               : Icon(Icons.system_update, size: 16, color: AppTheme.getPrimaryColor(context)),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (_currentGame.playDuration > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.timer, size: 14, color: AppTheme.getPrimaryColor(context)),
+                        const SizedBox(width: 4),
+                        Text(
+                          formatDuration(_currentGame.playDuration),
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.getPrimaryColor(context)),
                         ),
                       ],
                     ),
@@ -2647,6 +2687,94 @@ if (_isEditing) ...[
                         _refreshAllProviders();
                         Navigator.pop(context);
                         AppTheme.showGlassToast(context, message: '存档路径已更新');
+                      }
+                    },
+                    child: const Text('保存'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showEditPlayDurationDialog() {
+    final hoursController = TextEditingController(
+      text: (_currentGame.playDuration ~/ 3600).toString(),
+    );
+    final minutesController = TextEditingController(
+      text: ((_currentGame.playDuration % 3600) ~/ 60).toString(),
+    );
+
+    showGlassDialog(
+      context: context,
+      child: SizedBox(
+        width: GlassConstants.dialogWidth,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('编辑游玩时长', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: hoursController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: '小时',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextField(
+                      controller: minutesController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: '分钟',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('取消'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final hours = int.tryParse(hoursController.text) ?? 0;
+                      final minutes = int.tryParse(minutesController.text) ?? 0;
+                      final totalSeconds = hours * 3600 + minutes * 60;
+
+                      final repo = ref.read(gameRepositoryProvider);
+                      var gameId = _currentGame.id;
+                      if (gameId == null) {
+                        gameId = await repo.insertGame(_currentGame);
+                        _currentGame = _currentGame.copyWith(id: gameId);
+                      }
+                      await repo.updateGame(_currentGame.copyWith(playDuration: totalSeconds));
+                      final freshGame = await repo.getGameById(gameId);
+                      if (freshGame != null && mounted) {
+                        setState(() => _currentGame = freshGame);
+                      }
+                      if (mounted) {
+                        _refreshAllProviders();
+                        Navigator.pop(context);
+                        AppTheme.showGlassToast(context, message: '游玩时长已更新');
                       }
                     },
                     child: const Text('保存'),
