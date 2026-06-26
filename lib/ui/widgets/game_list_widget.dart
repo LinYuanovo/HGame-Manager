@@ -106,12 +106,17 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       }
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(imagePreloaderProvider).addListener(_onImagesLoaded);
+      if (mounted) {
+        ref.read(imagePreloaderProvider).addListener(_onImagesLoaded);
+      }
     });
   }
 
   void _onImagesLoaded() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   String get _sortModeKey {
