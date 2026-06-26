@@ -18,57 +18,60 @@ class TitleBarWidget extends StatelessWidget {
       child: GestureDetector(
         onPanStart: (_) => windowController.startDragging(),
         onDoubleTap: () => windowController.toggleMaximize(),
-        child: ClipRRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(
-              sigmaX: GlassConstants.blurMedium,
-              sigmaY: GlassConstants.blurMedium,
-            ),
-            child: Container(
-              height: LayoutConstants.titleBarHeight,
-              decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? AppTheme.darkSurfaceColor.withValues(alpha: 0.8)
-                    : AppTheme.getSurfaceColor(context).withValues(alpha: 0.7),
-                border: Border(
-                  bottom: BorderSide(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? AppTheme.darkBorderColor.withValues(alpha: 0.3)
-                        : AppTheme.getSurfaceColor(context).withValues(alpha: 0.3),
-                  ),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 16),
-                  Image.asset(
-                    Theme.of(context).brightness == Brightness.dark
-                        ? 'app_icon_dark.png'
-                        : 'app_icon.png',
-                    width: 28,
-                    height: 28,
-                  ),
-                  const SizedBox(width: 12),
-                  ShaderMask(
-                    shaderCallback: (bounds) =>
-                        AppTheme.getPrimaryGradient(context).createShader(bounds),
-                    child: const Text(
-                      'HGame Manager',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  _buildWindowButtons(),
-                ],
-              ),
-            ),
+        child: _buildBlurredChild(context),
+      ),
+    );
+  }
+
+  Widget _buildBlurredChild(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final container = Container(
+      height: LayoutConstants.titleBarHeight,
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppTheme.darkSurfaceColor.withValues(alpha: 0.8)
+            : AppTheme.getSurfaceColor(context).withValues(alpha: 0.7),
+        border: Border(
+          bottom: BorderSide(
+            color: isDark
+                ? AppTheme.darkBorderColor.withValues(alpha: 0.3)
+                : AppTheme.getSurfaceColor(context).withValues(alpha: 0.3),
           ),
         ),
       ),
+      child: Row(
+        children: [
+          const SizedBox(width: 16),
+          Image.asset(
+            isDark ? 'app_icon_dark.png' : 'app_icon.png',
+            width: 28,
+            height: 28,
+          ),
+          const SizedBox(width: 12),
+          ShaderMask(
+            shaderCallback: (bounds) =>
+                AppTheme.getPrimaryGradient(context).createShader(bounds),
+            child: const Text(
+              'HGame Manager',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const Spacer(),
+          _buildWindowButtons(),
+        ],
+      ),
+    );
+    if (isDark) return container;
+    return BackdropFilter(
+      filter: ImageFilter.blur(
+        sigmaX: GlassConstants.blurMedium,
+        sigmaY: GlassConstants.blurMedium,
+      ),
+      child: container,
     );
   }
 

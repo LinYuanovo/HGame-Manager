@@ -559,6 +559,15 @@ class AppTheme {
     );
   }
 
+  static Widget _buildToastBlur({required BuildContext context, required Widget child}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (isDark) return child;
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+      child: child,
+    );
+  }
+
   static void showGlassToast(
     BuildContext context, {
     required String message,
@@ -580,8 +589,8 @@ class AppTheme {
             child: Center(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                child: _buildToastBlur(
+                  context: context,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     decoration: BoxDecoration(
@@ -830,47 +839,44 @@ class GlassContainer extends StatelessWidget {
     final fillColor = color ?? (isDark ? AppTheme.darkGlassFillColor : AppTheme.glassFillColor);
     final borderColor = isDark ? AppTheme.darkGlassBorderWhite : AppTheme.glassBorderWhite;
 
-    return Container(
+    final innerContainer = Container(
       width: width,
       height: height,
       margin: margin,
-      child: ClipRRect(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: fillColor,
         borderRadius: BorderRadius.circular(borderRadius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: enableBlur ? blur : 0,
-            sigmaY: enableBlur ? blur : 0,
-          ),
-          child: Container(
-            padding: padding,
-            decoration: BoxDecoration(
-              color: fillColor,
-              borderRadius: BorderRadius.circular(borderRadius),
-              border: border ??
-                  Border.all(
-                    color: borderColor,
-                    width: 1,
-                  ),
-              boxShadow: boxShadow ??
-                  [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
-                      blurRadius: 20,
-                      spreadRadius: 2,
-                      offset: const Offset(0, 4),
-                    ),
-                    BoxShadow(
-                      color: AppTheme.primaryColor.withValues(alpha: isDark ? 0.05 : 0.03),
-                      blurRadius: 40,
-                      spreadRadius: 0,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-              gradient: gradient,
+        border: border ??
+            Border.all(
+              color: borderColor,
+              width: 1,
             ),
-            child: child,
-          ),
-        ),
+        boxShadow: boxShadow ??
+            [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
+                blurRadius: 20,
+                spreadRadius: 2,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: AppTheme.primaryColor.withValues(alpha: isDark ? 0.05 : 0.03),
+                blurRadius: 40,
+                spreadRadius: 0,
+                offset: const Offset(0, 8),
+              ),
+            ],
+        gradient: gradient,
+      ),
+      child: child,
+    );
+    if (isDark || !enableBlur) return innerContainer;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+        child: innerContainer,
       ),
     );
   }
@@ -1280,36 +1286,39 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final appBar = Container(
+      height: preferredSize.height,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppTheme.darkSurfaceColor.withValues(alpha: 0.7)
+            : Colors.white.withValues(alpha: 0.7),
+        border: Border(
+          bottom: BorderSide(
+            color: isDark
+                ? AppTheme.darkGlassBorderWhite.withValues(alpha: 0.3)
+                : Colors.white.withValues(alpha: 0.3),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          if (leading != null) leading!,
+          title,
+          const Spacer(),
+          if (actions != null) ...actions!,
+        ],
+      ),
+    );
+    if (isDark) return appBar;
     return ClipRRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(
           sigmaX: GlassConstants.blurLarge,
           sigmaY: GlassConstants.blurLarge,
         ),
-        child: Container(
-          height: preferredSize.height,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? AppTheme.darkSurfaceColor.withValues(alpha: 0.7)
-                : Colors.white.withValues(alpha: 0.7),
-            border: Border(
-              bottom: BorderSide(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? AppTheme.darkGlassBorderWhite.withValues(alpha: 0.3)
-                    : Colors.white.withValues(alpha: 0.3),
-              ),
-            ),
-          ),
-          child: Row(
-            children: [
-              if (leading != null) leading!,
-              title,
-              const Spacer(),
-              if (actions != null) ...actions!,
-            ],
-          ),
-        ),
+        child: appBar,
       ),
     );
   }
@@ -1498,11 +1507,8 @@ void showCopyToast(BuildContext context, String text) {
           child: Center(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: GlassConstants.blurSmall,
-                  sigmaY: GlassConstants.blurSmall,
-                ),
+              child: AppTheme._buildToastBlur(
+                context: context,
                 child: _CopyToastContent(
                   text: text,
                   onRemove: () => overlayEntry.remove(),
