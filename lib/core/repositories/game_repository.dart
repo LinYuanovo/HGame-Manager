@@ -7,6 +7,21 @@ import '../models/models.dart';
 class GameRepository {
   Future<Database> get _db => DatabaseHelper.database;
 
+  final Map<String, bool> _pathExistsCache = {};
+  DateTime? _pathCacheTime;
+
+  Future<bool> _pathExists(String path) async {
+    if (_pathCacheTime != null &&
+        DateTime.now().difference(_pathCacheTime!) < const Duration(seconds: 30)) {
+      return _pathExistsCache[path] ?? false;
+    }
+    _pathExistsCache.clear();
+    _pathCacheTime = DateTime.now();
+    final exists = await Directory(path).exists();
+    _pathExistsCache[path] = exists;
+    return exists;
+  }
+
   Future<List<Game>> _fillGameRelations(List<Game> games) async {
     if (games.isEmpty) return games;
 
@@ -44,8 +59,7 @@ class GameRepository {
 
     return Future.wait(games.map((game) async {
       var images = imagesByGameId[game.id!] ?? [];
-      final gameDir = Directory(game.path);
-      final gamePathExists = await gameDir.exists();
+      final gamePathExists = await _pathExists(game.path);
       
       // 如果游戏路径不存在且在 Cleared 目录下，尝试从 Backup 目录加载
       if (!gamePathExists && game.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}')) {
