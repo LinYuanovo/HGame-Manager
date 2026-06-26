@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
-import '../../ui/widgets/image_preloader.dart';
 import '../utils/app_settings.dart';
 import '../repositories/game_repository.dart';
 import '../repositories/tag_repository.dart';
@@ -554,9 +553,3 @@ final noImageModeProvider = StateProvider<bool>((ref) {
 });
 
 final sidebarRefreshProvider = StateProvider<int>((ref) => 0);
-
-final imagePreloaderProvider = Provider<ImagePreloader>((ref) {
-  final preloader = ImagePreloader();
-  ref.onDispose(() => preloader.dispose());
-  return preloader;
-});

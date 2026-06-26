@@ -77,7 +77,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   final TextEditingController _pageJumpController = TextEditingController();
   int _listItemsPerPage = 5;  // 列表视图每页显示数量
   Timer? _searchDebounce;
-  ImagePreloader? _preloader;
+  final ImagePreloader _preloader = ImagePreloader();
 
   int get _itemsPerPage {
     if (_viewMode == ViewMode.list) return _listItemsPerPage;
@@ -96,7 +96,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   @override
   void initState() {
     super.initState();
-    _preloader = ref.read(imagePreloaderProvider);
     _scrollController.addListener(_onScroll);
     _multiSelectController.addListener(_onSelectionChanged);
     _loadSettings();
@@ -107,16 +106,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         _currentPage = savedPage;
       }
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _preloader?.addListener(_onImagesLoaded);
-    });
-  }
-
-  void _onImagesLoaded() {
-    if (!mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() {});
-    });
   }
 
   String get _sortModeKey {
@@ -162,7 +151,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         ? (int.tryParse(rawItemsPerPage) ?? 5)
         : (prefs.getInt('game_list_items_per_page') ?? 5);
 
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+      _preloadRange();
+    }
   }
 
   void _saveSetting(String key, String value) {
@@ -222,7 +214,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   @override
   void dispose() {
-    _preloader?.removeListener(_onImagesLoaded);
+    _preloader.dispose();
     _scrollController.dispose();
     _searchController.dispose();
     _pageJumpController.dispose();
@@ -304,7 +296,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   void _preloadRange() {
-    if (_preloader == null) return;
     final sortedGames = _getFilteredAndSortedGames();
     if (sortedGames.isEmpty) return;
 
@@ -330,15 +321,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       if (game.images.isNotEmpty) {
         final imgPath = game.images[coverIndex].imagePath;
         activePaths.add(imgPath);
-        if (!_preloader!.cache.containsKey(imgPath)) {
+        if (!_preloader.cache.containsKey(imgPath)) {
           pathsToPreload.add(imgPath);
         }
       }
     }
 
-    _preloader!.evictOutside(activePaths);
+    _preloader.evictOutside(activePaths);
     if (pathsToPreload.isNotEmpty) {
-      _preloader!.preload(pathsToPreload);
+      _preloader.preload(pathsToPreload);
     }
   }
 
@@ -1595,7 +1586,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       return _buildCoverPlaceholder(width, height);
     }
 
-    final cachedImage = _preloader?.cache[coverPath];
+    final cachedImage = _preloader.cache[coverPath];
     if (cachedImage != null) {
       return RawImage(
         image: cachedImage,

@@ -1,9 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
-import 'package:flutter/foundation.dart';
 
-class ImagePreloader extends ChangeNotifier {
+class ImagePreloader {
   final Map<String, ui.Image> _cache = {};
   final Set<String> _loadingPaths = {};
   bool _disposed = false;
@@ -16,7 +15,6 @@ class ImagePreloader extends ChangeNotifier {
     if (toLoad.isEmpty) return;
 
     await Future.wait(toLoad.map((path) => _loadSingle(path)), eagerError: false);
-    if (!_disposed) notifyListeners();
   }
 
   Future<void> _loadSingle(String path) async {
@@ -52,7 +50,6 @@ class ImagePreloader extends ChangeNotifier {
     }
   }
 
-  @override
   void dispose() {
     _disposed = true;
     for (final image in _cache.values) {
@@ -60,6 +57,5 @@ class ImagePreloader extends ChangeNotifier {
     }
     _cache.clear();
     _loadingPaths.clear();
-    super.dispose();
   }
 }
