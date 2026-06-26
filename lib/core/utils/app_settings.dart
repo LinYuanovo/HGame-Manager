@@ -24,6 +24,7 @@ class AppSettings {
   Map<String, dynamic> _data = {};
   final String _filePath;
   bool _dirty = false;
+  final Debouncer _saveDebouncer = Debouncer(delay: const Duration(milliseconds: 500));
 
   static AppSettings? _cachedInstance;
 
@@ -92,7 +93,9 @@ class AppSettings {
         final backupFile = File('$_filePath.bak');
         try {
           await file.copy(backupFile.path);
-        } catch (_) {}
+        } catch (_) {
+          // 备份创建失败时继续保存
+        }
       }
       
       final tempFile = File('$_filePath.tmp');
@@ -100,7 +103,9 @@ class AppSettings {
       if (await tempFile.exists()) {
         try {
           await tempFile.delete();
-        } catch (_) {}
+        } catch (_) {
+          // 旧临时文件清理失败时继续
+        }
       }
       await tempFile.writeAsString(jsonEncode(_data), flush: true);
       
@@ -118,7 +123,9 @@ class AppSettings {
           await file.writeAsString(jsonEncode(_data), flush: true);
           try {
             await tempFile.delete();
-          } catch (_) {}
+          } catch (_) {
+            // 临时文件清理失败时忽略
+          }
         }
       }
       _dirty = false;
@@ -152,54 +159,57 @@ class AppSettings {
   Future<bool> setString(String key, String value) async {
     _data[key] = value;
     _dirty = true;
-    await _saveToFile();
+    _saveDebouncer.run(() => _saveToFile());
     return true;
   }
 
   Future<bool> setInt(String key, int value) async {
     _data[key] = value;
     _dirty = true;
-    await _saveToFile();
+    _saveDebouncer.run(() => _saveToFile());
     return true;
   }
 
   Future<bool> setDouble(String key, double value) async {
     _data[key] = value;
     _dirty = true;
-    await _saveToFile();
+    _saveDebouncer.run(() => _saveToFile());
     return true;
   }
 
   Future<bool> setBool(String key, bool value) async {
     _data[key] = value;
     _dirty = true;
-    await _saveToFile();
+    _saveDebouncer.run(() => _saveToFile());
     return true;
   }
 
   Future<bool> setStringList(String key, List<String> value) async {
     _data[key] = value;
     _dirty = true;
-    await _saveToFile();
+    _saveDebouncer.run(() => _saveToFile());
     return true;
   }
 
   Future<bool> remove(String key) async {
     _data.remove(key);
     _dirty = true;
-    await _saveToFile();
+    _saveDebouncer.run(() => _saveToFile());
     return true;
   }
 
   Future<bool> clear() async {
     _data.clear();
     _dirty = true;
-    await _saveToFile();
+    _saveDebouncer.run(() => _saveToFile());
     return true;
   }
 
   /// Force a save to disk (called on app exit / critical moments).
-  Future<void> flush() async => _saveToFile();
+  Future<void> flush() async {
+    _saveDebouncer.dispose();
+    await _saveToFile();
+  }
 
   /// Batch update multiple key-value pairs and save once.
   /// This avoids multiple file writes when setting several values at once.
@@ -208,7 +218,7 @@ class AppSettings {
       _data[entry.key] = entry.value;
     }
     _dirty = true;
-    await _saveToFile();
+    _saveDebouncer.run(() => _saveToFile());
   }
 
   /// Synchronous version for use in window close handlers.
