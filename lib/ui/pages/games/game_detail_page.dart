@@ -1383,7 +1383,7 @@ if (_isEditing) ...[
               ],
             ),
           ],
-          if (_currentGame.version != null || _currentGame.rating > 0) ...[
+          if (_currentGame.version != null || _currentGame.rating > 0 || _currentGame.playDuration > 0) ...[
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
