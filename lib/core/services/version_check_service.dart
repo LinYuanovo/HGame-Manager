@@ -100,11 +100,10 @@ class VersionCheckService {
 
     final url = 'https://$domain?s=$keyword';
     if (kDebugMode) debugPrint('[VersionCheck] 嘤嘤怪搜索: keyword=$keyword, url=$url');
+    final client = await createProxyClientFromPrefs();
     try {
-      final client = await createProxyClientFromPrefs();
       final headers = await buildScrapeHeaders(url);
       final response = await client.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 15));
-      client.close();
 
       if (response.statusCode != 200) {
         if (kDebugMode) debugPrint('[VersionCheck] 嘤嘤怪 HTTP ${response.statusCode}');
@@ -145,6 +144,8 @@ class VersionCheckService {
       }
     } catch (e) {
       if (kDebugMode) debugPrint('[VersionCheck] 嘤嘤怪 异常: $e');
+    } finally {
+      client.close();
     }
     return null;
   }
@@ -154,8 +155,8 @@ class VersionCheckService {
     if (domain.isEmpty) return null;
 
     if (kDebugMode) debugPrint('[VersionCheck] 飞雪ACG搜索: keyword=$keyword');
+    final client = await createProxyClientFromPrefs();
     try {
-      final client = await createProxyClientFromPrefs();
       final headers = await buildScrapeHeaders('https://$domain/');
 
       final forumResponse = await client.get(
@@ -164,7 +165,6 @@ class VersionCheckService {
       ).timeout(const Duration(seconds: 15));
 
       if (forumResponse.statusCode != 200) {
-        client.close();
         if (kDebugMode) debugPrint('[VersionCheck] 飞雪ACG 论坛页面 HTTP ${forumResponse.statusCode}');
         return null;
       }
@@ -175,7 +175,6 @@ class VersionCheckService {
         formhash = formhashMatch.group(1);
       }
       if (formhash == null) {
-        client.close();
         if (kDebugMode) debugPrint('[VersionCheck] 飞雪ACG 未找到formhash');
         return null;
       }
@@ -197,7 +196,6 @@ class VersionCheckService {
       }
 
       if (redirectUrl == null) {
-        client.close();
         return null;
       }
 
@@ -209,8 +207,6 @@ class VersionCheckService {
         Uri.parse(fullRedirectUrl),
         headers: headers,
       ).timeout(const Duration(seconds: 15));
-
-      client.close();
 
       if (resultsResponse.statusCode != 200) return null;
 
@@ -249,6 +245,8 @@ class VersionCheckService {
       }
     } catch (e) {
       if (kDebugMode) debugPrint('[VersionCheck] 飞雪ACG 异常: $e');
+    } finally {
+      client.close();
     }
     return null;
   }
@@ -258,8 +256,8 @@ class VersionCheckService {
     if (domain.isEmpty) return null;
 
     if (kDebugMode) debugPrint('[VersionCheck] 维咔ACG搜索: keyword=$keyword');
+    final client = await createProxyClientFromPrefs();
     try {
-      final client = await createProxyClientFromPrefs();
       final headers = await buildScrapeHeaders('https://$domain/');
       headers['Content-Type'] = 'application/json';
 
@@ -276,8 +274,6 @@ class VersionCheckService {
           'rating': null,
         }),
       ).timeout(const Duration(seconds: 15));
-
-      client.close();
 
       if (response.statusCode != 200) {
         if (kDebugMode) debugPrint('[VersionCheck] 维咔ACG HTTP ${response.statusCode}');
@@ -320,6 +316,8 @@ class VersionCheckService {
       }
     } catch (e) {
       if (kDebugMode) debugPrint('[VersionCheck] 维咔ACG 异常: $e');
+    } finally {
+      client.close();
     }
     return null;
   }

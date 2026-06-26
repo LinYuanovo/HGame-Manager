@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -2862,8 +2863,12 @@ if (_isEditing) ...[
         await scraper.ensureLoaded();
         final headers = await buildScrapeHeaders(sourceUrl);
         final client = await createProxyClientFromPrefs();
-        final response = await httpGetWithRetry(Uri.parse(sourceUrl), headers: headers, client: client);
-        client.close();
+        http.Response response;
+        try {
+          response = await httpGetWithRetry(Uri.parse(sourceUrl), headers: headers, client: client);
+        } finally {
+          client.close();
+        }
         if (response.statusCode == 200) {
           gameInfo = scraper.scrapeGameInfo(response.body, sourceUrl);
         } else {
@@ -3067,8 +3072,12 @@ if (_isEditing) ...[
         await scraper.ensureLoaded();
         final headers = await buildScrapeHeaders(url);
         final client = await createProxyClientFromPrefs();
-        final response = await httpGetWithRetry(Uri.parse(url), headers: headers, client: client);
-        client.close();
+        http.Response response;
+        try {
+          response = await httpGetWithRetry(Uri.parse(url), headers: headers, client: client);
+        } finally {
+          client.close();
+        }
         if (response.statusCode == 200) {
           gameInfo = scraper.scrapeGameInfo(response.body, url);
         } else {
@@ -3226,6 +3235,7 @@ if (_isEditing) ...[
 
   Future<void> _downloadImages(Game game, List<String> imageUrls) async {
     final client = await createProxyClientFromPrefs();
+    try {
     final imageDir = Directory('${game.path}${Platform.pathSeparator}images');
     if (!await imageDir.exists()) {
       await imageDir.create(recursive: true);
@@ -3268,7 +3278,9 @@ if (_isEditing) ...[
         await repo.addGameImage(game.id!, filePath, i);
       } catch (_) {}
     }
-    client.close();
+    } finally {
+      client.close();
+    }
   }
 
   Future<void> _fixImageUrlsInMetadata(Game game) async {

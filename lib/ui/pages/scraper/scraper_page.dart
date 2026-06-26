@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
@@ -735,9 +736,13 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
     try {
       final client = await createProxyClientFromPrefs();
-      final headers = await buildScrapeHeaders(game.sourceUrl!);
-      final response = await client.get(Uri.parse(game.sourceUrl!), headers: headers);
-      client.close();
+      http.Response response;
+      try {
+        final headers = await buildScrapeHeaders(game.sourceUrl!);
+        response = await client.get(Uri.parse(game.sourceUrl!), headers: headers);
+      } finally {
+        client.close();
+      }
 
       if (response.statusCode == 200) {
         GameInfo? gameInfo;
