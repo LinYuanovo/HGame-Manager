@@ -292,3 +292,14 @@ class GameImage {
     };
   }
 }
+
+/// 格式化游玩时长
+/// 总秒数转换为 xx小时xx分钟 格式
+String formatDuration(int totalSeconds) {
+  final hours = totalSeconds ~/ 3600;
+  final minutes = (totalSeconds % 3600) ~/ 60;
+  if (hours > 0) {
+    return '$hours小时$minutes分钟';
+  }
+  return '$minutes分钟';
+}
