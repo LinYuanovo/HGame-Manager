@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,7 @@ import '../../../core/services/play_time_tracker.dart';
 import '../pages/games/save_management_dialog.dart';
 import '../../../core/utils/app_settings.dart';
 import 'multi_select_controller.dart';
+import 'image_preloader.dart';
 
 enum PaginationMode { paginated, infiniteScroll }
 enum ContextMenuMode { games, played }
@@ -84,6 +86,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   int _posterItemsPerPage = 6; // 由 _buildPosterView 动态更新
+  final ImagePreloader _preloader = ImagePreloader();
 
   List<Game>? _cachedSortedGames;
   String _cachedSearchQuery = '';
@@ -191,6 +194,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   void _updateCurrentPage(int page) {
     _currentPage = page;
     _persistCurrentPage();
+    _preloadRange();
     if (mounted) setState(() {});
   }
 
@@ -214,6 +218,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     _multiSelectController.removeListener(_onSelectionChanged);
     _searchDebounce?.cancel();
     _multiSelectController.dispose();
+    _preloader.dispose();
     super.dispose();
   }
 
@@ -286,6 +291,40 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     _cachedSourceGames = null;
   }
 
+  void _preloadRange() {
+    if (_paginationMode != PaginationMode.paginated) return;
+    final sortedGames = _getFilteredAndSortedGames();
+    if (sortedGames.isEmpty) return;
+    final totalPages = (sortedGames.length / _itemsPerPage).ceil();
+    if (totalPages <= 1) return;
+
+    final startPage = (_currentPage - 2).clamp(0, totalPages - 1);
+    final endPage = (_currentPage + 2).clamp(0, totalPages - 1);
+
+    final pathsToPreload = <String>[];
+    final activePaths = <String>{};
+    for (var p = startPage; p <= endPage; p++) {
+      final pageStart = p * _itemsPerPage;
+      final pageEnd = (pageStart + _itemsPerPage).clamp(0, sortedGames.length);
+      for (var i = pageStart; i < pageEnd; i++) {
+        final game = sortedGames[i];
+        final coverIndex = game.coverIndex.clamp(0, game.images.length > 0 ? game.images.length - 1 : 0);
+        if (game.images.isNotEmpty) {
+          final imgPath = game.images[coverIndex].imagePath;
+          activePaths.add(imgPath);
+          if (!_preloader.cache.containsKey(imgPath)) {
+            pathsToPreload.add(imgPath);
+          }
+        }
+      }
+    }
+
+    _preloader.evictOutside(activePaths);
+    if (pathsToPreload.isNotEmpty) {
+      _preloader.preload(pathsToPreload);
+    }
+  }
+
   List<Game> _getFilteredAndSortedGames() {
     final searchQuery = _searchController.text.trim();
     if (_cachedSortedGames != null &&
@@ -343,6 +382,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         }
         
         final sortedGames = _getFilteredAndSortedGames();
+        _preloadRange();
 
         // 确保当前页不超过总页数
         final totalPages = (sortedGames.length / _itemsPerPage).ceil();
@@ -1535,31 +1575,31 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         game.images.isNotEmpty ? game.images[coverIndex].imagePath : null;
 
     if (coverPath == null) {
-      return Container(
+      return _buildCoverPlaceholder(width, height);
+    }
+
+    final cachedImage = _preloader.cache[coverPath];
+    if (cachedImage != null) {
+      return RawImage(
+        image: cachedImage,
         width: width,
         height: height,
-        color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
-        child: Center(
-            child: Icon(Icons.videogame_asset,
-                size: (width ?? 70) * 0.5,
-                color: AppTheme.getTextSecondary(context).withValues(alpha: 0.25))),
+        fit: fit,
       );
     }
 
-    return Image.file(
-      File(coverPath),
+    return _buildCoverPlaceholder(width, height);
+  }
+
+  Widget _buildCoverPlaceholder(double? width, double? height) {
+    return Container(
       width: width,
       height: height,
-      fit: fit,
-      errorBuilder: (_, __, ___) => Container(
-        width: width,
-        height: height,
-        color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
-        child: Center(
-            child: Icon(Icons.videogame_asset,
-                size: (width ?? 70) * 0.5,
-                color: AppTheme.getTextSecondary(context).withValues(alpha: 0.25))),
-      ),
+      color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
+      child: Center(
+          child: Icon(Icons.videogame_asset,
+              size: (width ?? 70) * 0.5,
+              color: AppTheme.getTextSecondary(context).withValues(alpha: 0.25))),
     );
   }
 
