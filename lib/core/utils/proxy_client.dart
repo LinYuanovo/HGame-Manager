@@ -307,7 +307,8 @@ Future<Map<String, String>> buildScrapeHeaders(String url) async {
 }
 
 Future<bool> testProxyConnection(String testUrl) async {
-  final client = await createProxyClientFromPrefs();
+  final uri = Uri.tryParse(testUrl);
+  final client = await createProxyClientFromPrefs(domain: uri?.host);
   try {
     AppLogger.instance.info('Proxy', 'Testing connection to: $testUrl');
     final response = await client.get(
