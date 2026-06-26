@@ -11,6 +11,7 @@ import '../../../core/models/models.dart';
 import '../../../core/models/context_menu_config.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/services/image_service.dart';
+import '../../../core/services/folder_rename_service.dart';
 import '../theme/app_theme.dart';
 import '../pages/games/game_detail_page.dart';
 import '../../../core/services/play_time_tracker.dart';
@@ -2429,8 +2430,9 @@ _refreshAllProviders();
         await backupDir.create(recursive: true);
       }
 
-      // 创建游戏备份目录（使用游戏标题作为文件夹名）
-      final gameTitle = game.title ?? path.basename(game.path);
+      // 创建游戏备份目录（使用 buildBackupFolderName 生成文件夹名）
+      final backupFolderName = FolderRenameService.buildBackupFolderName(game);
+      final gameTitle = backupFolderName ?? game.title ?? path.basename(game.path);
       final sanitizedTitle = gameTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
       final backupGameDir = Directory('${backupDir.path}${Platform.pathSeparator}$sanitizedTitle');
       if (!await backupGameDir.exists()) {
@@ -2776,7 +2778,8 @@ _refreshAllProviders();
       // 删除对应的 Backup 目录
       final backupDir = Directory('$sortedPath${Platform.pathSeparator}Cleared${Platform.pathSeparator}Backup');
       if (await backupDir.exists()) {
-        final gameTitle = game.title ?? path.basename(game.path);
+        final backupFolderName = FolderRenameService.buildBackupFolderName(game);
+        final gameTitle = backupFolderName ?? game.title ?? path.basename(game.path);
         final sanitizedTitle = gameTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
         final backupGameDir = Directory('${backupDir.path}${Platform.pathSeparator}$sanitizedTitle');
         if (await backupGameDir.exists()) {
