@@ -525,6 +525,28 @@ class ContextMenuConfigNotifier extends StateNotifier<ContextMenuConfig> {
     } else {
       state = ContextMenuConfig.defaults(PresetMenuItems.getDefs(_mode));
     }
+    _migrate();
+  }
+
+  /// 迁移旧配置：补入新增的预设菜单项
+  void _migrate() {
+    final presetDefs = PresetMenuItems.getDefs(_mode);
+    final existingIds = state.items.map((i) => i.id).toSet();
+    final missing = presetDefs.where((d) => !existingIds.contains(d.id));
+    if (missing.isEmpty) return;
+
+    final updated = List<ContextMenuItemState>.from(state.items);
+    for (final def in missing) {
+      // 查找预设中的位置，插入到相邻项附近
+      final presetIndex = presetDefs.indexOf(def);
+      int insertAt = updated.length;
+      for (int i = presetIndex + 1; i < presetDefs.length; i++) {
+        final neighborIdx = updated.indexWhere((e) => e.id == presetDefs[i].id);
+        if (neighborIdx >= 0) { insertAt = neighborIdx; break; }
+      }
+      updated.insert(insertAt, ContextMenuItemState(id: def.id, enabled: def.defaultEnabled, order: insertAt));
+    }
+    state = ContextMenuConfig(items: updated);
   }
 
   Future<void> save() async {

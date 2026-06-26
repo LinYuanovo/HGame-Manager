@@ -134,6 +134,7 @@ class PresetMenuItems {
     ContextMenuItemDef(id: 'move_to_series', label: '移入自定义系列', icon: 'playlist_add'),
     ContextMenuItemDef(id: 'cover', label: '选择封面', icon: 'image'),
     ContextMenuItemDef(id: 'review', label: '评论', icon: 'rate_review_outlined'),
+    ContextMenuItemDef(id: 'cleared', label: '标记已通关', icon: 'emoji_events'),
     ContextMenuItemDef(id: 'uncleared', label: '取消标记已通关', icon: 'emoji_events_outlined'),
     ContextMenuItemDef(id: 'blacklist', label: '删除记录', icon: 'block'),
     ContextMenuItemDef(id: 'delete_folder', label: '删除本地文件夹', icon: 'folder_delete_outlined'),
