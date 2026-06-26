@@ -578,6 +578,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       debugPrint('[LE] Toggling locale emulator for ${_currentGame.title}: $newValue');
                       final repo = ref.read(gameRepositoryProvider);
                       await repo.updateLocaleEmulator(_currentGame.id!, newValue);
+                      if (!mounted) return;
                       setState(() {
                         _currentGame = _currentGame.copyWith(useLocaleEmulator: newValue);
                       });
@@ -601,6 +602,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   final repo = ref.read(gameRepositoryProvider);
                   try {
                     await repo.markAsPlayed(_currentGame.id!);
+                    if (!mounted) return;
                     setState(() {
                       _currentGame = _currentGame.copyWith(
                         isPlayed: true,
@@ -626,6 +628,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       final leProcPath = await _findLeProcPath();
                       if (leProcPath == null) {
                         await repo.updateLocaleEmulator(_currentGame.id!, false);
+                        if (!mounted) return;
                         setState(() {
                           _currentGame = _currentGame.copyWith(useLocaleEmulator: false);
                         });
@@ -654,6 +657,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                         launcherLocked: true,
                       );
                       await repo.updateGame(updated);
+                      if (!mounted) return;
                       setState(() {
                         _currentGame = updated;
                       });
@@ -2932,18 +2936,22 @@ if (_isEditing) ...[
         }
 
         if (gameInfo.screenshots.isNotEmpty) {
+          if (!mounted) return;
           setState(() {
             _downloadTotal = gameInfo!.screenshots.length;
             _downloadCurrent = 0;
             _downloadProgress = 0.0;
           });
           final urlToLocal = await _downloadImagesWithMapping(updated, gameInfo.screenshots, onProgress: (current, total) {
-            setState(() {
-              _downloadCurrent = current;
-              _downloadTotal = total;
-              _downloadProgress = current / total;
-            });
+            if (mounted) {
+              setState(() {
+                _downloadCurrent = current;
+                _downloadTotal = total;
+                _downloadProgress = current / total;
+              });
+            }
           });
+          if (!mounted) return;
           setState(() {
             _downloadTotal = 0;
             _downloadCurrent = 0;
@@ -2998,6 +3006,7 @@ if (_isEditing) ...[
         }
 
         await _moveToSorted(updated);
+        if (!mounted) return;
         setState(() { _currentGame = updated; });
         await _loadMetadataHtml();
         await _preloadMediaFiles();
@@ -3147,6 +3156,7 @@ if (_isEditing) ...[
         }
 
         if (gameInfo.screenshots.isNotEmpty) {
+          if (!mounted) return;
           setState(() {
             _downloadTotal = gameInfo!.screenshots.length;
             _downloadCurrent = 0;
@@ -3156,13 +3166,16 @@ if (_isEditing) ...[
             _currentGame.copyWith(id: _currentGame.id!),
             gameInfo.screenshots,
             onProgress: (current, total) {
-              setState(() {
-                _downloadCurrent = current;
-                _downloadTotal = total;
-                _downloadProgress = current / total;
-              });
+              if (mounted) {
+                setState(() {
+                  _downloadCurrent = current;
+                  _downloadTotal = total;
+                  _downloadProgress = current / total;
+                });
+              }
             },
           );
+          if (!mounted) return;
           setState(() {
             _downloadTotal = 0;
             _downloadCurrent = 0;

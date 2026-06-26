@@ -258,6 +258,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
   Future<void> _pickFolder() async {
     final result = await FilePicker.getDirectoryPath(dialogTitle: '选择游戏父目录');
     if (result == null) return;
+    if (!mounted) return;
     setState(() {
       _parentPath = result;
       _items = [];
@@ -1217,7 +1218,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
 
   Future<void> _pickFolder() async {
     final result = await FilePicker.getDirectoryPath(dialogTitle: '选择游戏文件夹');
-    if (result != null) {
+    if (result != null && mounted) {
       setState(() {
         _folderPath = result;
         _searchResults = [];
@@ -1257,7 +1258,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         await _searchSteam();
       }
     } catch (e) {
-      setState(() => _statusText = '搜索失败: $e');
+      if (mounted) setState(() => _statusText = '搜索失败: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -1339,7 +1340,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         );
       }
     } catch (e) {
-      setState(() => _statusText = '导入失败: $e');
+      if (mounted) setState(() => _statusText = '导入失败: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -1365,6 +1366,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       results = await _dlsiteService.searchWithFallback(_folderPath!);
     }
 
+    if (!mounted) return;
     setState(() {
       _searchResults = results;
       _showSearchResults = true;
@@ -1382,7 +1384,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     if (rawInput.isNotEmpty) {
       final parsedId = _parseSteamId(rawInput);
       if (parsedId == null) {
-        setState(() => _statusText = '无效的Steam App ID');
+        if (mounted) setState(() => _statusText = '无效的Steam App ID');
         return;
       }
       results = [SteamSearchResult(id: parsedId, name: 'ID: $parsedId')];
@@ -1390,6 +1392,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       results = await _steamService.searchWithFallback(_folderPath!);
     }
 
+    if (!mounted) return;
     setState(() {
       _searchResults = results;
       _showSearchResults = true;
@@ -1434,7 +1437,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         await _importSteam();
       }
     } catch (e) {
-      setState(() => _statusText = '导入失败: $e');
+      if (mounted) setState(() => _statusText = '导入失败: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -1447,9 +1450,11 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     final tagRepo = TagRepository();
     final existingGame = await repo.getGameByPath(_folderPath!);
 
+    if (!mounted) return;
     setState(() => _statusText = '正在通过ID获取: ${_selectedResult.id}');
     final gameInfo = await _dlsiteService.fetchById(_selectedResult.id);
 
+    if (!mounted) return;
     if (gameInfo == null) {
       setState(() => _statusText = '获取游戏信息失败');
       return;
@@ -1466,6 +1471,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       description = _dlsiteService.replaceImageUrlsInDescription(description, urlToLocal);
     }
 
+    if (!mounted) return;
     setState(() => _statusText = '正在保存数据...');
 
     final game = Game(
@@ -1509,9 +1515,11 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     final tagRepo = TagRepository();
     final existingGame = await repo.getGameByPath(_folderPath!);
 
+    if (!mounted) return;
     setState(() => _statusText = '正在通过ID获取: ${_selectedResult.id}');
     final gameInfo = await _steamService.fetchById(_selectedResult.id);
 
+    if (!mounted) return;
     if (gameInfo == null) {
       setState(() => _statusText = '获取游戏信息失败');
       return;
@@ -1532,6 +1540,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
 
     // Download videos embedded in description
     if (description != null && description.contains('[视频:')) {
+      if (!mounted) return;
       setState(() => _statusText = '正在下载视频...');
       final videoMap = await _steamService.downloadVideosFromDescription(
         description,
@@ -1542,6 +1551,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       }
     }
 
+    if (!mounted) return;
     setState(() => _statusText = '正在保存数据...');
 
     final developers = gameInfo.developers;

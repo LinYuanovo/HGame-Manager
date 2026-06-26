@@ -31,9 +31,11 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
   }
 
   Future<void> _addLocalImage() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final imagePaths = await _imageService.pickAndCopyImagesToGameDir(widget.game.path);
+      if (!mounted) return;
       if (imagePaths.isNotEmpty) {
         setState(() {
           for (final path in imagePaths) {
@@ -46,7 +48,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
         });
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -79,11 +81,13 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
 
     if (url == null || url.isEmpty) return;
 
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final sourceUrl = widget.game.sourceUrl ?? '';
       final headers = sourceUrl.isNotEmpty ? await buildScrapeHeaders(sourceUrl) : <String, String>{};
       final imagePath = await _imageService.downloadImageFromUrl(url, headers: headers);
+      if (!mounted) return;
       if (imagePath != null) {
         final newImage = GameImage(
           gameId: widget.game.id!,
@@ -97,7 +101,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
         }
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -113,6 +117,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
     if (image.imagePath.startsWith(gameImagesDir)) {
       await _imageService.deleteImageFile(image.imagePath);
     }
+    if (!mounted) return;
     setState(() => _images.removeAt(index));
   }
 

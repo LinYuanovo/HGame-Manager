@@ -30,7 +30,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
         final List<dynamic> list = jsonDecode(raw);
         _items = list.map((m) => _SidebarItemConfig.fromJson(m as Map<String, dynamic>)).toList();
         _loading = false;
-        setState(() {});
+        if (mounted) setState(() {});
         return;
       } catch (_) {
         // JSON解析失败时使用默认配置
@@ -49,7 +49,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
             ))
         .toList();
     _loading = false;
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   Future<void> _saveConfig() async {

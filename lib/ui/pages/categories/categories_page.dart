@@ -340,6 +340,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
       ref.invalidate(allTagsProvider);
       ref.invalidate(allSeriesProvider);
       ref.invalidate(favoriteTagsProvider);
+      if (!mounted) return;
       setState(() {
         _isMultiSelectMode = false;
         _selectedTagIds.clear();

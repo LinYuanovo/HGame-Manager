@@ -630,7 +630,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
 
   Future<void> _addLibraryPath() async {
     final result = await FilePicker.getDirectoryPath(dialogTitle: '选择游戏库目录');
-    if (result != null && !_libraryPaths.contains(result)) {
+    if (result != null && !_libraryPaths.contains(result) && mounted) {
       setState(() => _libraryPaths.add(result));
     }
   }
@@ -643,7 +643,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
 
   Future<void> _selectSortedPath(int libIdx) async {
     final result = await FilePicker.getDirectoryPath(dialogTitle: '选择整理目录');
-    if (result != null) {
+    if (result != null && mounted) {
       setState(() => _sortedPaths[_libraryPaths[libIdx]] = result);
     }
   }
@@ -734,7 +734,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     final result = await FilePicker.getDirectoryPath(
       dialogTitle: key == 'scan_ignore_folders' ? '选择扫描忽略的文件夹' : '选择刮削忽略的文件夹',
     );
-    if (result != null) {
+    if (result != null && mounted) {
       final folderName = result.split(RegExp(r'[/\\]')).last;
       final folders = _getIgnoreFolders(key);
       if (!folders.contains(folderName)) {
@@ -1723,6 +1723,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       await prefs.setString('custom_fonts', fonts.join(','));
     }
 
+    if (!mounted) return;
     setState(() {
       _selectedFont = fontName;
     });

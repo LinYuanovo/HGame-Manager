@@ -597,6 +597,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       _addLog('========== 扫描完成 ==========');
       _addLog('共发现 ${gamesToScrape.length} 个有源URL的游戏可刮削');
 
+      if (!mounted) return;
       setState(() {
         _gameItems.addAll(gamesToScrape.map((g) => _GameScrapeItem(game: g)));
         _stats.total = gamesToScrape.length;
@@ -606,10 +607,12 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       });
     } catch (e) {
       _addLog('扫描失败: $e');
-      setState(() {
-        _isProcessing = false;
-        _processStatus = '空闲';
-      });
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+          _processStatus = '空闲';
+        });
+      }
     }
   }
 
@@ -712,10 +715,12 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     } catch (e) {
       _addLog('刮削出错: $e');
     } finally {
-      setState(() {
-        _isProcessing = false;
-        _processStatus = '空闲';
-      });
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+          _processStatus = '空闲';
+        });
+      }
     }
   }
 
@@ -888,41 +893,49 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             _addLog('  -> 重命名失败: $e');
           }
 
-          setState(() {
-            item.progress = 1.0;
-            item.status = '成功';
-            _stats.success++;
-            _stats.pending--;
-          });
+          if (mounted) {
+            setState(() {
+              item.progress = 1.0;
+              item.status = '成功';
+              _stats.success++;
+              _stats.pending--;
+            });
+          }
 
           await _moveToSorted(item.game);
         } else {
           _addLog('  -> 无匹配的解析器 (HTML已获取但无法解析)');
+          if (mounted) {
+            setState(() {
+              item.progress = 1.0;
+              item.status = '无解析器';
+              _stats.failed++;
+              _stats.pending--;
+            });
+          }
+        }
+      } else {
+        _addLog('  -> HTTP ${response.statusCode}');
+        if (mounted) {
           setState(() {
             item.progress = 1.0;
-            item.status = '无解析器';
+            item.status = 'HTTP${response.statusCode}';
             _stats.failed++;
             _stats.pending--;
           });
         }
-      } else {
-        _addLog('  -> HTTP ${response.statusCode}');
+      }
+    } catch (e) {
+      _addLog('  -> 失败: $e');
+      if (mounted) {
         setState(() {
           item.progress = 1.0;
-          item.status = 'HTTP${response.statusCode}';
+          item.status = '失败';
+          item.error = e.toString();
           _stats.failed++;
           _stats.pending--;
         });
       }
-    } catch (e) {
-      _addLog('  -> 失败: $e');
-      setState(() {
-        item.progress = 1.0;
-        item.status = '失败';
-        item.error = e.toString();
-        _stats.failed++;
-        _stats.pending--;
-      });
     }
   }
 
@@ -1071,6 +1084,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     );
 
     if (newUrl != null && newUrl.isNotEmpty) {
+      if (!mounted) return;
       setState(() {
         item.game = item.game.copyWith(sourceUrl: newUrl);
       });
