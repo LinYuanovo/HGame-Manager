@@ -329,7 +329,13 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
     _preloader.evictOutside(activePaths);
     if (pathsToPreload.isNotEmpty) {
-      _preloader.preload(pathsToPreload);
+      _preloader.preload(pathsToPreload, onComplete: () {
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() {});
+          });
+        }
+      });
     }
   }
 

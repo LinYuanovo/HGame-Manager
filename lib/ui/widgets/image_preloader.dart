@@ -9,12 +9,13 @@ class ImagePreloader {
 
   Map<String, ui.Image> get cache => _cache;
 
-  Future<void> preload(List<String> paths) async {
+  Future<void> preload(List<String> paths, {Function()? onComplete}) async {
     if (_disposed) return;
     final toLoad = paths.where((p) => !_cache.containsKey(p) && !_loadingPaths.contains(p)).toList();
     if (toLoad.isEmpty) return;
 
     await Future.wait(toLoad.map((path) => _loadSingle(path)), eagerError: false);
+    onComplete?.call();
   }
 
   Future<void> _loadSingle(String path) async {
