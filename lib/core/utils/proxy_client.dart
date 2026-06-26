@@ -8,11 +8,12 @@ import 'app_settings.dart';
 import '../services/app_logger.dart';
 
 class _ClientEntry {
-  http.Client client;
+  final http.Client client;
   int refCount;
   Timer? idleTimer;
+  bool inUse;
 
-  _ClientEntry(this.client) : refCount = 0;
+  _ClientEntry(this.client) : refCount = 0, inUse = false;
 
   void cancelIdleTimer() {
     idleTimer?.cancel();
@@ -20,7 +21,13 @@ class _ClientEntry {
   }
 }
 
-final Map<String, _ClientEntry> _clientPool = {};
+class _DomainPool {
+  final List<_ClientEntry> connections = [];
+  int nextIndex = 0;
+  static const int maxSize = 3;
+}
+
+final Map<String, _DomainPool> _clientPool = {};
 String _proxyConfigKey = '';
 
 Future<void> _updatePoolProxyConfig() async {
@@ -30,9 +37,11 @@ Future<void> _updatePoolProxyConfig() async {
   final newKey = '$proxyMode:$proxyUrl';
   if (newKey != _proxyConfigKey) {
     _proxyConfigKey = newKey;
-    for (final entry in _clientPool.values) {
-      entry.cancelIdleTimer();
-      entry.client.close();
+    for (final pool in _clientPool.values) {
+      for (final entry in pool.connections) {
+        entry.cancelIdleTimer();
+        entry.client.close();
+      }
     }
     _clientPool.clear();
   }
@@ -113,9 +122,10 @@ Future<http.Client> createProxyClient({String? proxyMode, String? proxyUrl}) asy
 class _PooledClient extends http.BaseClient {
   final http.Client _inner;
   final String _domain;
+  final _ClientEntry _entry;
   bool _closed = false;
 
-  _PooledClient(this._inner, this._domain);
+  _PooledClient(this._inner, this._domain, this._entry);
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) {
@@ -127,7 +137,7 @@ class _PooledClient extends http.BaseClient {
   void close() {
     if (_closed) return;
     _closed = true;
-    releaseClient(domain: _domain);
+    releaseClient(domain: _domain, entry: _entry);
   }
 }
 
@@ -135,46 +145,71 @@ Future<http.Client> createProxyClientFromPrefs({String? domain}) async {
   await _updatePoolProxyConfig();
   final key = domain ?? '_default';
 
-  final existing = _clientPool[key];
-  if (existing != null) {
-    existing.cancelIdleTimer();
-    existing.refCount++;
-    return _PooledClient(existing.client, key);
+  var pool = _clientPool[key];
+  if (pool == null) {
+    pool = _DomainPool();
+    _clientPool[key] = pool;
   }
 
-  final prefs = await AppSettings.load();
-  final proxyMode = prefs.getString('proxy_mode') ?? 'none';
-  final proxyUrl = prefs.getString('proxy_url') ?? '';
-  final client = await createProxyClient(proxyMode: proxyMode, proxyUrl: proxyUrl);
+  // 尝试找到一个空闲连接
+  _ClientEntry? idleEntry;
+  for (final entry in pool.connections) {
+    if (!entry.inUse) {
+      idleEntry = entry;
+      break;
+    }
+  }
 
-  final entry = _ClientEntry(client)..refCount = 1;
-  _clientPool[key] = entry;
-  return _PooledClient(client, key);
+  // 没有空闲连接且池未满 → 创建新连接
+  if (idleEntry == null && pool.connections.length < _DomainPool.maxSize) {
+    final prefs = await AppSettings.load();
+    final proxyMode = prefs.getString('proxy_mode') ?? 'none';
+    final proxyUrl = prefs.getString('proxy_url') ?? '';
+    final client = await createProxyClient(proxyMode: proxyMode, proxyUrl: proxyUrl);
+    idleEntry = _ClientEntry(client);
+    pool.connections.add(idleEntry);
+  }
+
+  // 如果所有连接都在用（池已满）→ round-robin 复用
+  if (idleEntry == null) {
+    idleEntry = pool.connections[pool.nextIndex];
+    pool.nextIndex = (pool.nextIndex + 1) % pool.connections.length;
+  }
+
+  idleEntry.cancelIdleTimer();
+  idleEntry.refCount++;
+  idleEntry.inUse = true;
+
+  return _PooledClient(idleEntry.client, key, idleEntry);
 }
 
-void releaseClient({String? domain}) {
+void releaseClient({String? domain, _ClientEntry? entry}) {
   final key = domain ?? '_default';
-  final entry = _clientPool[key];
-  if (entry == null) return;
+  final pool = _clientPool[key];
+  if (pool == null || entry == null) return;
 
   entry.refCount--;
   if (entry.refCount <= 0) {
     entry.refCount = 0;
+    entry.inUse = false;
     entry.cancelIdleTimer();
     entry.idleTimer = Timer(const Duration(seconds: 60), () {
-      final e = _clientPool.remove(key);
-      if (e != null) {
-        e.cancelIdleTimer();
-        e.client.close();
+      pool.connections.remove(entry);
+      entry.cancelIdleTimer();
+      entry.client.close();
+      if (pool.connections.isEmpty) {
+        _clientPool.remove(key);
       }
     });
   }
 }
 
 void closeAllClients() {
-  for (final entry in _clientPool.values) {
-    entry.cancelIdleTimer();
-    entry.client.close();
+  for (final pool in _clientPool.values) {
+    for (final entry in pool.connections) {
+      entry.cancelIdleTimer();
+      entry.client.close();
+    }
   }
   _clientPool.clear();
 }
