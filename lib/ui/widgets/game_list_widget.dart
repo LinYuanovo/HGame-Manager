@@ -77,7 +77,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   final TextEditingController _pageJumpController = TextEditingController();
   int _listItemsPerPage = 5;  // 列表视图每页显示数量
   Timer? _searchDebounce;
-  late final ImagePreloader _preloader;
+  ImagePreloader? _preloader;
 
   int get _itemsPerPage {
     if (_viewMode == ViewMode.list) return _listItemsPerPage;
@@ -108,7 +108,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       }
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _preloader.addListener(_onImagesLoaded);
+      if (mounted) _preloader?.addListener(_onImagesLoaded);
     });
   }
 
@@ -222,7 +222,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   @override
   void dispose() {
-    _preloader.removeListener(_onImagesLoaded);
+    _preloader?.removeListener(_onImagesLoaded);
     _scrollController.dispose();
     _searchController.dispose();
     _pageJumpController.dispose();
@@ -304,6 +304,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   void _preloadRange() {
+    if (_preloader == null) return;
     final sortedGames = _getFilteredAndSortedGames();
     if (sortedGames.isEmpty) return;
 
@@ -329,15 +330,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       if (game.images.isNotEmpty) {
         final imgPath = game.images[coverIndex].imagePath;
         activePaths.add(imgPath);
-        if (!_preloader.cache.containsKey(imgPath)) {
+        if (!_preloader!.cache.containsKey(imgPath)) {
           pathsToPreload.add(imgPath);
         }
       }
     }
 
-    _preloader.evictOutside(activePaths);
+    _preloader!.evictOutside(activePaths);
     if (pathsToPreload.isNotEmpty) {
-      _preloader.preload(pathsToPreload);
+      _preloader!.preload(pathsToPreload);
     }
   }
 
@@ -1594,7 +1595,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       return _buildCoverPlaceholder(width, height);
     }
 
-    final cachedImage = _preloader.cache[coverPath];
+    final cachedImage = _preloader?.cache[coverPath];
     if (cachedImage != null) {
       return RawImage(
         image: cachedImage,
