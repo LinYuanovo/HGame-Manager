@@ -14,13 +14,17 @@ class ClearedPage extends ConsumerStatefulWidget {
   ConsumerState<ClearedPage> createState() => _ClearedPageState();
 }
 
-class _ClearedPageState extends ConsumerState<ClearedPage> {
+class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   bool _isScanning = false;
   String _scanProgress = '';
   List<Game> _selectedGames = [];
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final gamesAsync = ref.watch(clearedGamesProvider);
     return Column(
       children: [

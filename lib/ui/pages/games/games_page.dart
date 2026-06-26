@@ -24,12 +24,16 @@ class GamesPage extends ConsumerStatefulWidget {
   ConsumerState<GamesPage> createState() => _GamesPageState();
 }
 
-class _GamesPageState extends ConsumerState<GamesPage> {
+class _GamesPageState extends ConsumerState<GamesPage> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   bool _isRefreshing = false;
   String _refreshProgress = '';
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final gamesAsync = ref.watch(allGamesProvider);
     return Column(
       children: [
@@ -115,7 +119,9 @@ class _GamesPageState extends ConsumerState<GamesPage> {
                                 libraryPaths.add(sp);
                               }
                             }
-                          } catch (_) {}
+                           } catch (e) {
+                            debugPrint('[GamesPage] 解析整理目录配置失败: $e');
+                          }
                         }
 
                         if (libraryPaths.isEmpty) {
@@ -404,7 +410,9 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
         version = map['version'] as String?;
         intro = map['intro'] as String?;
         sourceUrl = map['source_url'] as String?;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[GamesPage] 读取metadata.json失败: $e');
+      }
     }
 
     final sourceUrlFile = File(path.join(folderPath, 'source_url.txt'));
@@ -412,7 +420,9 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
       try {
         sourceUrl = (await sourceUrlFile.readAsString()).trim();
         if (sourceUrl.isEmpty) sourceUrl = null;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[GamesPage] 读取source_url.txt失败: $e');
+      }
     }
 
     final game = Game(
@@ -1289,7 +1299,9 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           version = map['version'] as String?;
           intro = map['intro'] as String?;
           sourceUrl = map['source_url'] as String?;
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[GamesPage] 读取metadata.json失败: $e');
+        }
       }
 
       final sourceUrlFile = File(path.join(_folderPath!, 'source_url.txt'));
@@ -1297,7 +1309,9 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         try {
           sourceUrl = (await sourceUrlFile.readAsString()).trim();
           if (sourceUrl.isEmpty) sourceUrl = null;
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[GamesPage] 读取source_url.txt失败: $e');
+        }
       }
 
       final game = Game(

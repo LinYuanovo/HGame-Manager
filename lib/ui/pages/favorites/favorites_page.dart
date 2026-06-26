@@ -14,7 +14,9 @@ class FavoritesPage extends ConsumerStatefulWidget {
 }
 
 class _FavoritesPageState extends ConsumerState<FavoritesPage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   late TabController _tabController;
 
   @override
@@ -31,6 +33,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Column(
       children: [
         GlassAppBar(

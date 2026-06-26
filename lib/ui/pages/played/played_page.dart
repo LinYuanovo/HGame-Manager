@@ -14,13 +14,17 @@ class PlayedPage extends ConsumerStatefulWidget {
   ConsumerState<PlayedPage> createState() => _PlayedPageState();
 }
 
-class _PlayedPageState extends ConsumerState<PlayedPage> {
+class _PlayedPageState extends ConsumerState<PlayedPage> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   bool _isScanning = false;
   String _scanProgress = '';
   List<Game> _selectedGames = [];
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final gamesAsync = ref.watch(playedGamesProvider);
 
     return Column(
