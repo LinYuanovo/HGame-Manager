@@ -32,7 +32,9 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
         _loading = false;
         setState(() {});
         return;
-      } catch (_) {}
+      } catch (_) {
+        // JSON解析失败时使用默认配置
+      }
     }
 
     _items = NavRoute.values

@@ -105,7 +105,9 @@ class BackupService {
               int.parse(timeParts[0]), int.parse(timeParts[1]),
             );
           }
-        } catch (_) {}
+        } catch (_) {
+          // 日期解析失败时回退到文件修改时间
+        }
         // 回退到文件修改时间
         date ??= stat.modified;
 
@@ -494,7 +496,9 @@ class BackupService {
           return entity.path;
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[BackupService] 搜索文件失败: $fileName, $e');
+    }
     return null;
   }
 

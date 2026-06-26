@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
 import '../core/services/app_logger.dart';
@@ -147,7 +148,9 @@ class HtmlScraper {
         if (domain.isEmpty) continue;
         ParserRegistry.unregister(domain);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Scraper] 重新加载XPath解析器失败: $e');
+    }
     _xpathLoaded = false;
   }
 

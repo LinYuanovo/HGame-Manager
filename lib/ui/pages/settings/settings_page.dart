@@ -2696,7 +2696,9 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         try {
           final tempFile = File(tempPath);
           if (await tempFile.exists()) await tempFile.delete();
-        } catch (_) {}
+        } catch (_) {
+          // 临时文件清理失败时忽略
+        }
       }
     }
 

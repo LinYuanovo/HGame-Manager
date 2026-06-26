@@ -1876,7 +1876,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       ),
     ).then((tag) {
       // 关闭详情页后刷新列表
-_refreshAllProviders();
+      _refreshGames();
+      _refreshPlayed();
+      _refreshFavorites();
       if (tag != null && widget.onTagTap != null) {
         widget.onTagTap!(tag);
       }

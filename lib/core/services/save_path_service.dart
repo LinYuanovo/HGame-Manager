@@ -190,7 +190,9 @@ class SavePathService {
                 }
               }
             }
-          } catch (_) {}
+          } catch (_) {
+            // 单个目录访问失败时继续搜索
+          }
         }
       } catch (e) {
         debugPrint('[SavePath] 搜索目录出错: $basePath, 错误: $e');
@@ -245,7 +247,9 @@ class SavePathService {
       }
 
       score += children.length.clamp(0, 5).toDouble();
-    } catch (_) {}
+    } catch (_) {
+      // 目录置信度计算失败时返回默认分数
+    }
 
     return score;
   }
@@ -288,7 +292,9 @@ class SavePathService {
           }
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      // 目录遍历失败时返回null
+    }
     return null;
   }
   
@@ -307,7 +313,9 @@ class SavePathService {
           }
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      // 文件遍历失败时返回false
+    }
     
     return false;
   }

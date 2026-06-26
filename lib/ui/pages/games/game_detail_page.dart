@@ -258,7 +258,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         final json = jsonDecode(await metadataFile.readAsString());
         _introHtml = json['intro_html'] as String?;
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[GameDetail] 加载metadata HTML失败: $e');
+    }
   }
 
   @override
@@ -665,7 +667,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     } else {
                       try {
                         await Process.run('explorer.exe', [_currentGame.path]);
-    } catch (_) {}
+    } catch (_) {
+      // 浏览器打开失败时静默处理
+    }
   }
                   }
 
@@ -1068,7 +1072,9 @@ if (_isEditing) ...[
                   onPressed: () async {
                     try {
                       await launchUrl(Uri.parse(_currentGame.sourceUrl!));
-                    } catch (_) {}
+                    } catch (_) {
+                      // 外部浏览器打开失败时静默处理
+                    }
                   },
                   icon: const Icon(Icons.open_in_new, size: 12),
                   label: const Text('来源', style: TextStyle(fontSize: 11)),
@@ -2247,7 +2253,9 @@ if (_isEditing) ...[
               final sp = v?.toString() ?? '';
               if (sp.isNotEmpty) sortedPathList.add(sp);
             }
-          } catch (_) {}
+          } catch (e) {
+            debugPrint('[GameDetail] 解析整理目录配置失败: $e');
+          }
         }
         if (sortedPathList.isEmpty) {
           final oldSorted = prefs.getString('sorted_path') ?? '';
@@ -3183,7 +3191,9 @@ if (_isEditing) ...[
             try {
               final metadataFile = File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
               await metadataFile.writeAsString(jsonEncode(metaJson), flush: true);
-            } catch (_) {}
+            } catch (e) {
+              debugPrint('[GameDetail] 写入metadata.json失败: $e');
+            }
           }
         }
 
@@ -3276,7 +3286,9 @@ if (_isEditing) ...[
           }
         }
         await repo.addGameImage(game.id!, filePath, i);
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[GameDetail] 下载图片失败: $e');
+      }
     }
     } finally {
       client.close();
@@ -3393,7 +3405,9 @@ if (_isEditing) ...[
         await repo.addGameImage(game.id!, filePath, i);
         urlToLocal[imageUrl] = filePath;
         onProgress?.call(i + 1, imageUrls.length);
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[GameDetail] 下载截图失败: $e');
+      }
     }
 
     return urlToLocal;
@@ -3462,7 +3476,9 @@ if (_isEditing) ...[
           await metadataFile.writeAsString(updatedContent, flush: true);
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[GameDetail] 更新metadata路径失败: $e');
+    }
 
     final updatedGame = await repo.getGameById(game.id!);
     if (updatedGame != null) {
@@ -3534,7 +3550,9 @@ if (_isEditing) ...[
                             Navigator.of(context).pop();
                             try {
                               await launchUrl(Uri.parse(result.downloadUrl!));
-                            } catch (_) {}
+                            } catch (_) {
+                              // 外部浏览器打开失败时静默处理
+                            }
                           },
                     icon: const Icon(Icons.open_in_new, size: 16),
                     label: const Text('前往下载'),
@@ -3710,7 +3728,9 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
       onEnter: (_) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            try { _showOverlay(); } catch (_) {}
+            try { _showOverlay(); } catch (_) {
+              // UI overlay显示失败时静默处理
+            }
           }
         });
       },
@@ -3772,7 +3792,9 @@ class _InfoRow extends StatelessWidget {
         Expanded(
           child: isLink
               ? InkWell(
-                  onTap: () async { try { await launchUrl(Uri.parse(value)); } catch (_) {} },
+                  onTap: () async { try { await launchUrl(Uri.parse(value)); } catch (_) {
+                    // 外部浏览器打开失败时静默处理
+                  } },
                   child: Text(value, style: TextStyle(fontSize: 12, color: AppTheme.getPrimaryColor(context), decoration: TextDecoration.underline), maxLines: 2, overflow: TextOverflow.ellipsis),
                 )
               : SelectableText(

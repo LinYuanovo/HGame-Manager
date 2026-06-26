@@ -126,7 +126,9 @@ Future<String> getCookieForSite(String url) async {
           return cookie;
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Proxy] 解析Cookie配置失败: $e');
+    }
   }
 
   final domainAcgying = prefs.getString('domain_acgying') ?? '';

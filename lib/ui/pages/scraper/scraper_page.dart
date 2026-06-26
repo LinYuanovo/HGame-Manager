@@ -1077,7 +1077,9 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       try {
         final sourceUrlFile = File(path.join(item.game.path, 'source_url.txt'));
         await sourceUrlFile.writeAsString(newUrl, flush: true);
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Scraper] 写入source_url.txt失败: $e');
+      }
     }
   }
 

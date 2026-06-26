@@ -116,7 +116,9 @@ class FolderRenameService {
             await metadataFile.writeAsString(updatedContent, flush: true);
           }
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[FolderRename] 更新metadata.json路径失败: $e');
+      }
 
       debugPrint('[FolderRename] Success: $newPath');
       return newPath;

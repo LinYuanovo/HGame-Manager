@@ -82,7 +82,9 @@ class Fan2dService {
               await prefs.setString('domain_2dfan', domain);
               return domain;
             }
-          } catch (_) {}
+          } catch (e) {
+            if (kDebugMode) debugPrint('[Fan2d] 域名测试失败: $domain, $e');
+          }
         }
       }
 
@@ -98,7 +100,9 @@ class Fan2dService {
           await prefs.setString('domain_2dfan', _fallbackDomain);
           return _fallbackDomain;
         }
-      } catch (_) {}
+      } catch (e) {
+        if (kDebugMode) debugPrint('[Fan2d] 回退域名测试失败: $_fallbackDomain, $e');
+      }
     } finally {
       client.close();
     }
@@ -319,7 +323,9 @@ class Fan2dService {
     } finally {
       try {
         await tempDir.delete(recursive: true);
-      } catch (_) {}
+      } catch (_) {
+        // 临时目录清理失败时忽略
+      }
     }
   }
 

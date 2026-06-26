@@ -75,7 +75,9 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
           _visibleRoutes = visible;
         });
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Sidebar] 加载侧边栏配置失败: $e');
+    }
   }
 
   @override

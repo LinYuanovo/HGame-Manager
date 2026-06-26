@@ -51,7 +51,9 @@ class AppLogger {
     if (_logFile != null) {
       try {
         _logFile!.writeAsStringSync('$line\n', mode: FileMode.append, flush: true);
-      } catch (_) {}
+      } catch (_) {
+        // 日志写入失败时忽略，避免递归
+      }
     }
   }
 
@@ -81,7 +83,9 @@ class AppLogger {
               entity.deleteSync();
               deletedCount++;
             }
-          } catch (_) {}
+          } catch (_) {
+            // 单个日志文件删除失败时继续处理其他文件
+          }
         }
       }
       if (deletedCount > 0) {

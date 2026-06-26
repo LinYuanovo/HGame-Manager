@@ -121,7 +121,9 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
           final sp = v?.toString() ?? '';
           if (sp.isNotEmpty) sortedPathList.add(sp);
         }
-      } catch (_) {}
+      } catch (_) {
+        // JSON解析失败时使用空列表
+      }
     }
     // Backward compatibility
     if (sortedPathList.isEmpty) {
@@ -457,7 +459,9 @@ final currentPageProvider = StateProvider<Map<int, int>>((ref) {
     try {
       final Map<String, dynamic> decoded = jsonDecode(jsonStr);
       return decoded.map((k, v) => MapEntry(int.parse(k), v as int));
-    } catch (_) {}
+    } catch (_) {
+      // JSON解析失败时返回空Map
+    }
   }
   return {};
 });
