@@ -4,7 +4,7 @@ import '../utils/app_paths.dart';
 class DatabaseHelper {
   static Database? _database;
   static Future<Database>? _databaseFuture;
-  static const int _databaseVersion = 8;
+  static const int _databaseVersion = 9;
 
   static Future<String> getDataDir() => AppPaths.rootDir;
 
@@ -68,6 +68,11 @@ class DatabaseHelper {
     }
     if (oldVersion < 8) {
       await db.execute('ALTER TABLE games ADD COLUMN play_duration INTEGER DEFAULT 0');
+    }
+    if (oldVersion < 9) {
+      await db.execute('CREATE INDEX idx_games_is_played ON games(is_played)');
+      await db.execute('CREATE INDEX idx_games_is_favorite ON games(is_favorite)');
+      await db.execute('CREATE INDEX idx_game_tag_relation_tag_id ON game_tag_relation(tag_id)');
     }
   }
 
@@ -155,8 +160,11 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_games_play_count ON games(play_count)');
     await db.execute('CREATE INDEX idx_games_last_played ON games(last_played_time)');
     await db.execute('CREATE INDEX idx_games_added_time ON games(added_time)');
+    await db.execute('CREATE INDEX idx_games_is_played ON games(is_played)');
+    await db.execute('CREATE INDEX idx_games_is_favorite ON games(is_favorite)');
     await db.execute('CREATE INDEX idx_tags_type ON tags(type)');
     await db.execute('CREATE INDEX idx_game_images_game_id ON game_images(game_id)');
+    await db.execute('CREATE INDEX idx_game_tag_relation_tag_id ON game_tag_relation(tag_id)');
 
     // Insert default series tags
     final defaultSeries = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS'];
