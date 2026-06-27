@@ -230,23 +230,88 @@ class PilipiliService {
   String _deltaToMarkdown(String deltaStr) {
     try {
       final delta = jsonDecode(deltaStr) as Map<String, dynamic>;
-      final ops = delta['ops'] as List<dynamic>? ?? [];
-      final buffer = StringBuffer();
-      for (final op in ops) {
-        final insert = op['insert'];
-        if (insert is String) {
-          buffer.write(insert);
-        } else if (insert is Map) {
-          if (insert.containsKey('native-image')) {
-            final img = insert['native-image'] as Map<String, dynamic>;
-            final url = img['url'] as String? ?? '';
-            buffer.write('\n![图片]($url)\n');
+
+      // 处理 paragraphs 格式（opus.content.paragraphs）
+      if (delta.containsKey('paragraphs')) {
+        return _paragraphsToMarkdown(delta['paragraphs'] as List<dynamic>? ?? []);
+      }
+
+      // 处理 ops 格式（Quill Delta）
+      if (delta.containsKey('ops')) {
+        return _opsToMarkdown(delta['ops'] as List<dynamic>? ?? []);
+      }
+
+      return deltaStr;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Pilipili] 解析Delta失败: $e');
+      return deltaStr;
+    }
+  }
+
+  String _paragraphsToMarkdown(List<dynamic> paragraphs) {
+    final buffer = StringBuffer();
+    for (final para in paragraphs) {
+      final paraType = para['para_type'] as int? ?? 1;
+
+      if (paraType == 2) {
+        // 图片类型
+        final pic = para['pic'] as Map<String, dynamic>?;
+        if (pic != null) {
+          final pics = pic['pics'] as List<dynamic>? ?? [];
+          for (final p in pics) {
+            final url = p['url'] as String? ?? '';
+            if (url.isNotEmpty) {
+              buffer.write('\n![图片]($url)\n');
+            }
+          }
+        }
+      } else if (paraType == 1 || paraType == 9) {
+        // 文本类型（1=普通文本，9=标题）
+        final textObj = para['text'] as Map<String, dynamic>?;
+        if (textObj != null) {
+          final nodes = textObj['nodes'] as List<dynamic>? ?? [];
+          final textBuffer = StringBuffer();
+          for (final node in nodes) {
+            final word = node['word'] as Map<String, dynamic>?;
+            if (word != null) {
+              textBuffer.write(word['words'] as String? ?? '');
+            }
+          }
+          final text = textBuffer.toString();
+          if (text.trim().isNotEmpty) {
+            // 标题类型
+            if (paraType == 9) {
+              final format = para['format'] as Map<String, dynamic>?;
+              final headingType = format?['heading_type'] as int? ?? 1;
+              final prefix = '#' * headingType;
+              buffer.write('\n$prefix $text\n');
+            } else {
+              buffer.write('$text\n');
+            }
           }
         }
       }
-      return buffer.toString().trim();
-    } catch (_) {
-      return deltaStr;
     }
+    return buffer.toString().trim();
+  }
+
+  String _opsToMarkdown(List<dynamic> ops) {
+    final buffer = StringBuffer();
+    for (final op in ops) {
+      final insert = op['insert'];
+      if (insert is String) {
+        buffer.write(insert);
+      } else if (insert is Map) {
+        if (insert.containsKey('native-image')) {
+          final img = insert['native-image'] as Map<String, dynamic>;
+          final url = img['url'] as String? ?? '';
+          if (url.isNotEmpty) buffer.write('\n![图片]($url)\n');
+        } else if (insert.containsKey('image')) {
+          final url = insert['image'] as String? ?? '';
+          if (url.isNotEmpty) buffer.write('\n![图片]($url)\n');
+        }
+      }
+    }
+    return buffer.toString().trim();
   }
 }
