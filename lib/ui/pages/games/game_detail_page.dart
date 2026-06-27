@@ -1605,8 +1605,6 @@ if (_isEditing) ...[
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildRichIntro(guide, ref.watch(detailFontSizeProvider)),
-        const SizedBox(height: 12),
         Row(
           children: [
             OutlinedButton.icon(
@@ -1632,6 +1630,8 @@ if (_isEditing) ...[
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        _buildRichIntro(guide, ref.watch(detailFontSizeProvider)),
       ],
     );
   }

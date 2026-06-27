@@ -75,9 +75,9 @@ class PilipiliService {
   String _getErrorMessage(int code, String message) {
     switch (code) {
       case -352:
-        return '可能是未填写cookie(设置中填写), 如已填写请重新获取cookie或换号尝试';
+        return '可能是未填写cookie(设置中填写)，如已填写请重新获取cookie或换号尝试';
       case -509:
-        return '请求过于频繁，请稍后再试';
+        return '可能是未填写cookie(设置中填写) 请求过于频繁，请稍后再试';
       case -400:
         return '请求错误';
       case -404:
@@ -189,10 +189,24 @@ class PilipiliService {
 
   String _htmlToMarkdown(String html) {
     var text = html;
-    text = text.replaceAllMapped(RegExp(r'<figure[^>]*><img[^>]*src="([^"]+)"[^>]*/>.*?</figure>'),
-      (m) => '\n![图片](${m[1]!.startsWith('//') ? 'https:${m[1]}' : m[1]})\n');
-    text = text.replaceAllMapped(RegExp(r'<img[^>]*src="([^"]+)"[^>]*/>'),
-      (m) => '\n![图片](${m[1]!.startsWith('//') ? 'https:${m[1]}' : m[1]})\n');
+    // 处理 figure > img 结构（支持多种src属性）
+    text = text.replaceAllMapped(
+      RegExp(r'<figure[^>]*>.*?<img[^>]*(?:data-original|data-src|src)="([^"]+)"[^>]*/?>.*?</figure>', dotAll: true),
+      (m) {
+        var url = m[1] ?? '';
+        if (url.startsWith('//')) url = 'https:$url';
+        return '\n![图片]($url)\n';
+      },
+    );
+    // 处理独立的 img 标签
+    text = text.replaceAllMapped(
+      RegExp(r'<img[^>]*(?:data-original|data-src|src)="([^"]+)"[^>]*/?>'),
+      (m) {
+        var url = m[1] ?? '';
+        if (url.startsWith('//')) url = 'https:$url';
+        return '\n![图片]($url)\n';
+      },
+    );
     text = text.replaceAllMapped(RegExp(r'<h1[^>]*>(.*?)</h1>'), (m) => '\n# ${m[1]}\n');
     text = text.replaceAllMapped(RegExp(r'<h2[^>]*>(.*?)</h2>'), (m) => '\n## ${m[1]}\n');
     text = text.replaceAllMapped(RegExp(r'<h3[^>]*>(.*?)</h3>'), (m) => '\n### ${m[1]}\n');
@@ -204,6 +218,11 @@ class PilipiliService {
     text = text.replaceAll(RegExp(r'<p[^>]*>'), '\n');
     text = text.replaceAll(RegExp(r'</p>'), '\n');
     text = text.replaceAll(RegExp(r'<[^>]+>'), '');
+    text = text.replaceAll(RegExp(r'&nbsp;'), ' ');
+    text = text.replaceAll(RegExp(r'&lt;'), '<');
+    text = text.replaceAll(RegExp(r'&gt;'), '>');
+    text = text.replaceAll(RegExp(r'&amp;'), '&');
+    text = text.replaceAll(RegExp(r'&#39;'), "'");
     text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
     return text.trim();
   }
