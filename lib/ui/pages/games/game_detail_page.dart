@@ -3092,7 +3092,11 @@ if (_isEditing) ...[
           debugPrint('[Rescrape] Auto-rename failed: $e');
         }
 
-        await _moveToSorted(updated);
+        final prefs = ref.read(sharedPreferencesProvider);
+        final autoMove = prefs.getBool(AppSettings.autoMoveToSortedKey) ?? false;
+        if (autoMove) {
+          await _moveToSorted(updated);
+        }
         if (!mounted) return;
         setState(() { _currentGame = updated; });
         await _loadMetadataHtml();
@@ -3520,6 +3524,10 @@ if (_isEditing) ...[
   }
 
   Future<void> _moveToSorted(Game game) async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final autoMove = prefs.getBool(AppSettings.autoMoveToSortedKey) ?? false;
+    if (!autoMove) return;
+
     final sortedPath = await AppSettings.getSortedPathForGame(game.path);
     if (sortedPath.isEmpty) return;
 
