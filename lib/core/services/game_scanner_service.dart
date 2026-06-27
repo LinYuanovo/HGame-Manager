@@ -28,6 +28,7 @@ class _ParsedGameData {
   final DateTime? addedTime;
   final bool isFavorite;
   final bool isPlayed;
+  final String? guide;
 
   _ParsedGameData({
     required this.folderPath,
@@ -47,6 +48,7 @@ class _ParsedGameData {
     this.addedTime,
     this.isFavorite = false,
     this.isPlayed = false,
+    this.guide,
   });
 }
 
@@ -282,6 +284,7 @@ class GameScannerService {
         addedTime: existingGame?.addedTime,
         isFavorite: existingGame?.isFavorite ?? false,
         isPlayed: existingGame?.isPlayed ?? false,
+        guide: metadata?['guide'] as String?,
       );
     } catch (e) {
       if (kDebugMode) debugPrint('[Scan] Error parsing $folderPath: $e');
@@ -339,6 +342,7 @@ class GameScannerService {
           'last_played_time': data.lastPlayedTime?.toIso8601String(),
           'is_favorite': data.isFavorite ? 1 : 0,
           'is_played': data.isPlayed ? 1 : 0,
+          'guide': data.guide,
         };
 
         int gameId;
