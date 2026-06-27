@@ -109,13 +109,20 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
 
   /// 下载攻略中的图片并替换为本地路径
   Future<String> _downloadGuideImages(String content) async {
-    // 提取所有图片URL
-    final imagePattern = RegExp(r'!\[图片\]\(([^)]+)\)');
+    // 提取所有图片URL - 支持 ![图片](url) 和 [图片:url] 两种格式
+    final imagePattern = RegExp(r'!\[图片\]\(([^)]+)\)|\[图片:([^\]]+)\]');
     final matches = imagePattern.allMatches(content).toList();
 
     if (matches.isEmpty) return content;
 
-    final imageUrls = matches.map((m) => m.group(1)!).toList();
+    final imageUrls = <String>[];
+    for (final match in matches) {
+      final url = match.group(1) ?? match.group(2) ?? '';
+      if (url.isNotEmpty && url.startsWith('http')) {
+        imageUrls.add(url);
+      }
+    }
+
     if (imageUrls.isEmpty) return content;
 
     if (mounted) {
@@ -163,15 +170,17 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
       }
     }
 
-    // 替换内容中的URL为本地路径
+    // 替换内容中的URL为本地路径 - 使用 [图片:path] 格式
     String result = content;
-    for (int i = 0; i < matches.length && i < localPaths.length; i++) {
-      final oldUrl = matches[i].group(1)!;
-      final localPath = localPaths[i];
-      if (localPath != oldUrl) {
-        result = result.replaceAll(oldUrl, localPath);
+    int urlIndex = 0;
+    result = result.replaceAllMapped(imagePattern, (match) {
+      if (urlIndex < localPaths.length) {
+        final localPath = localPaths[urlIndex];
+        urlIndex++;
+        return '[图片:$localPath]';
       }
-    }
+      return match.group(0)!;
+    });
 
     return result;
   }
