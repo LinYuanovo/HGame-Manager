@@ -571,10 +571,20 @@ class Fan2dService {
 
       final cellTexts = <String>[];
       for (final cell in cells) {
-        // 递归提取单元格内容
-        final cellBuffer = StringBuffer();
-        _extractElement(cell, cellBuffer);
-        cellTexts.add(cellBuffer.toString().trim());
+        // 直接提取单元格文本，保留换行
+        var text = cell.innerHtml;
+        // 将 <br> 转换为换行
+        text = text.replaceAll(RegExp(r'<br\s*/?>'), '\n');
+        // 移除其他HTML标签
+        text = text.replaceAll(RegExp(r'<[^>]+>'), '');
+        // 解码HTML实体
+        text = text.replaceAll('&nbsp;', ' ');
+        text = text.replaceAll('&lt;', '<');
+        text = text.replaceAll('&gt;', '>');
+        text = text.replaceAll('&amp;', '&');
+        // 清理多余空行
+        text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+        cellTexts.add(text.trim());
       }
       allRows.add(cellTexts);
     }
@@ -595,7 +605,6 @@ class Fan2dService {
     }
 
     // 转换为分栏格式显示
-    // 每列用分割线分隔，适合移动端阅读
     for (int col = 0; col < maxCols; col++) {
       for (final row in allRows) {
         final cellContent = row[col];
