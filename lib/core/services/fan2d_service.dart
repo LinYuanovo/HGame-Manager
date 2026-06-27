@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:html/parser.dart' as html_parser;
-import '../../scraper/xpath_evaluator.dart';
 import '../models/backup_entry.dart';
 import '../services/backup_service.dart';
 import '../utils/proxy_client.dart';
@@ -29,6 +28,24 @@ class Fan2dGuideResult {
   final String guideUrl;
 
   Fan2dGuideResult({required this.title, required this.guideUrl});
+}
+
+/// 2DFan walkthrough结果
+class Fan2dWalkthrough {
+  final String title;
+  final String url;
+
+  Fan2dWalkthrough({required this.title, required this.url});
+}
+
+/// 2DFan攻略刮削结果
+class Fan2dGuideScrapeResult {
+  final String? content;
+  final List<Fan2dWalkthrough> walkthroughs;
+
+  Fan2dGuideScrapeResult({this.content, this.walkthroughs = const []});
+
+  bool get hasWalkthroughs => walkthroughs.length > 1;
 }
 
 /// downloadAndImport 的返回结果
@@ -310,96 +327,77 @@ class Fan2dService {
       }
 
       final document = html_parser.parse(response.body);
-      
-      // XPath: /html/body/div[5]/div/div[1]/div/div/div[2]/ul/li[i]/div/p[4]/span[2]/a
-      // 先获取所有帖子 li[i]
-      // 帖子的xpath: /html/body/div[5]/div/div[1]/div/div/div[2]/ul/li
-      final postXpath = '/html/body/div[5]/div/div[1]/div/div/div[2]/ul/li';
-      final posts = XPathEvaluator.queryAll(document, postXpath);
-      if (kDebugMode) debugPrint('[Fan2d] 攻略搜索找到 ${posts.length} 个帖子');
-      
-      if (posts.isEmpty) {
-        // 回退：尝试其他选择器
-        final items = document.querySelectorAll('li.media');
-        if (kDebugMode) debugPrint('[Fan2d] 回退到 li.media，找到 ${items.length} 个');
-        return _doGuideSearchFallback(domain, items);
-      }
+      final items = document.querySelectorAll('li.media');
+      if (kDebugMode) debugPrint('[Fan2d] 攻略搜索找到 ${items.length} 个结果');
 
       final results = <Fan2dGuideResult>[];
-      
-      for (int i = 0; i < posts.length; i++) {
-        final postIndex = i + 1; // XPath 索引从1开始
-        
-        // 获取帖子标题
-        final titleXpath = '/html/body/div[5]/div/div[1]/div/div/div[2]/ul/li[$postIndex]/div/h4/a';
-        final titleElements = XPathEvaluator.queryAll(document, titleXpath);
-        final title = titleElements.isNotEmpty ? titleElements.first.text.trim() : '';
+      for (final item in items) {
+        final titleEl = item.querySelector('h4.media-heading a');
+        final title = titleEl?.text.trim() ?? '';
         if (title.isEmpty) continue;
-        if (kDebugMode) debugPrint('[Fan2d] 帖子 $postIndex: $title');
-        
-        // 攻略按钮的xpath: /html/body/div[5]/div/div[1]/div/div/div[2]/ul/li[$postIndex]/div/p[4]/span[2]/a
-        final guideXpath = '/html/body/div[5]/div/div[1]/div/div/div[2]/ul/li[$postIndex]/div/p[4]/span[2]/a';
-        final guideElements = XPathEvaluator.queryAll(document, guideXpath);
-        
-        if (guideElements.isNotEmpty) {
-          var guideUrl = guideElements.first.attributes['href'] ?? '';
-          if (guideUrl.isNotEmpty) {
-            if (!guideUrl.startsWith('http')) {
-              guideUrl = 'https://$domain$guideUrl';
+
+        // 参考下载存档的实现：在 p#resources 中查找攻略按钮
+        // XPath: /html/body/div[5]/div/div[1]/div/div/div[2]/ul/li[i]/div/p[4]/span[2]/a
+        String? guideUrl;
+        final resourcesEl = item.querySelector('p#resources');
+        if (resourcesEl != null) {
+          final spans = resourcesEl.querySelectorAll('span');
+          for (final span in spans) {
+            final text = span.text.trim();
+            if (text.contains('攻略')) {
+              guideUrl ??= span.querySelector('a')?.attributes['href'];
+              if (kDebugMode) debugPrint('[Fan2d] 找到攻略按钮: $text -> $guideUrl');
+              break;
             }
-            if (kDebugMode) debugPrint('[Fan2d] 攻略按钮URL: $guideUrl');
-            results.add(Fan2dGuideResult(title: title, guideUrl: guideUrl));
           }
-        } else {
-          if (kDebugMode) debugPrint('[Fan2d] 帖子 $postIndex 未找到攻略按钮');
+          final links = resourcesEl.querySelectorAll('a');
+          for (final link in links) {
+            final text = link.text.trim();
+            if (kDebugMode) debugPrint('[Fan2d] : $text');
+            if (text.contains('攻略')) {
+              guideUrl = link.attributes['href'];
+              if (kDebugMode) debugPrint('[Fan2d] 找到攻略按钮: $text -> $guideUrl');
+              break;
+            }
+          }
+        }
+
+        // 如果 p#resources 中没找到，遍历所有 p 标签查找
+        if (guideUrl == null || guideUrl.isEmpty) {
+          final pTags = item.querySelectorAll('p');
+          for (final p in pTags) {
+            final links = p.querySelectorAll('a');
+            for (final link in links) {
+              final text = link.text.trim();
+              final href = link.attributes['href'] ?? '';
+              if (text.contains('攻略') || href.contains('/topics/')) {
+                guideUrl = href;
+                if (kDebugMode) debugPrint('[Fan2d] 从其他p标签找到攻略: $text -> $guideUrl');
+                break;
+              }
+            }
+            if (guideUrl != null && guideUrl.isNotEmpty) break;
+          }
+        }
+
+        if (guideUrl != null && guideUrl.isNotEmpty) {
+          if (!guideUrl.startsWith('http')) {
+            guideUrl = 'https://$domain$guideUrl';
+          }
+          if (kDebugMode) debugPrint('[Fan2d] 攻略URL: $guideUrl');
+          results.add(Fan2dGuideResult(title: title, guideUrl: guideUrl));
         }
       }
-      
       if (kDebugMode) debugPrint('[Fan2d] 攻略搜索完成，共 ${results.length} 个结果');
       return results;
-    } catch (e) {
-      if (kDebugMode) debugPrint('[Fan2d] 攻略搜索异常: $e');
-      return [];
     } finally {
       client.close();
     }
   }
 
-  /// XPath未命中时的回退方案：在li.media中查找攻略链接
-  List<Fan2dGuideResult> _doGuideSearchFallback(String domain, List<dynamic> items) {
-    final results = <Fan2dGuideResult>[];
-    for (final item in items) {
-      final titleEl = item.querySelector('h4.media-heading a');
-      final title = titleEl?.text.trim() ?? '';
-      if (title.isEmpty) continue;
-
-      String? guideUrl;
-      final resourcesEl = item.querySelector('p#resources');
-      if (resourcesEl != null) {
-        final links = resourcesEl.querySelectorAll('a');
-        for (final link in links) {
-          final text = link.text.trim();
-          final href = link.attributes['href'] ?? '';
-          if (text.contains('攻略') || href.contains('/topics/')) {
-            guideUrl = href;
-            break;
-          }
-        }
-      }
-
-      if (guideUrl != null && guideUrl.isNotEmpty) {
-        if (!guideUrl.startsWith('http')) {
-          guideUrl = 'https://$domain$guideUrl';
-        }
-        if (kDebugMode) debugPrint('[Fan2d] 回退找到攻略: $guideUrl');
-        results.add(Fan2dGuideResult(title: title, guideUrl: guideUrl));
-      }
-    }
-    return results;
-  }
-
   /// 获取2DFan攻略内容并转为Markdown
-  Future<String?> scrapeGuideContent(String guideUrl) async {
+  /// 如果有多个walkthrough，返回列表让用户选择
+  Future<Fan2dGuideScrapeResult> scrapeGuideContent(String guideUrl) async {
     if (kDebugMode) debugPrint('[Fan2d] 刮削攻略: $guideUrl');
     final client = await createProxyClientFromPrefs(domain: Uri.parse(guideUrl).host);
     try {
@@ -408,7 +406,7 @@ class Fan2dService {
           .timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) {
         if (kDebugMode) debugPrint('[Fan2d] 攻略页面 HTTP ${response.statusCode}');
-        return null;
+        return Fan2dGuideScrapeResult();
       }
 
       final document = html_parser.parse(response.body);
@@ -416,29 +414,55 @@ class Fan2dService {
       // 检查是否有 walkthroughs（多个攻略子页面）
       // XPath: /html/body/div[5]/div/div[1]/div/div/div[2]/div
       final contentDiv = document.querySelector('div.block-content') ?? document.querySelector('.topic-content');
+      final walkthroughs = <Fan2dWalkthrough>[];
+
       if (contentDiv != null) {
-        // 查找 walkthrough 链接
-        final walkthroughLinks = <String>[];
         final links = contentDiv.querySelectorAll('a');
         for (final link in links) {
           final href = link.attributes['href'] ?? '';
           final text = link.text.trim();
           if (href.contains('/topics/') && !href.endsWith(guideUrl.split('/').last)) {
-            walkthroughLinks.add(href.startsWith('http') ? href : 'https://${Uri.parse(guideUrl).host}$href');
+            final fullUrl = href.startsWith('http') ? href : 'https://${Uri.parse(guideUrl).host}$href';
+            walkthroughs.add(Fan2dWalkthrough(title: text.isNotEmpty ? text : '攻略 ${walkthroughs.length + 1}', url: fullUrl));
             if (kDebugMode) debugPrint('[Fan2d] 找到walkthrough: $text -> $href');
           }
         }
-
-        // 如果有多个walkthrough，返回第一个的内容（或让用户选择）
-        if (walkthroughLinks.length > 1) {
-          if (kDebugMode) debugPrint('[Fan2d] 有 ${walkthroughLinks.length} 个walkthrough，先返回第一个');
-          // TODO: 可以让用户选择具体walkthrough
-        }
       }
 
-      return _extractGuideMarkdown(document, guideUrl);
+      // 如果有多个walkthrough，返回列表让用户选择
+      if (walkthroughs.length > 1) {
+        if (kDebugMode) debugPrint('[Fan2d] 有 ${walkthroughs.length} 个walkthrough，返回列表');
+        return Fan2dGuideScrapeResult(walkthroughs: walkthroughs);
+      }
+
+      // 如果只有一个或没有walkthrough，直接刮削当前页面
+      final content = _extractGuideMarkdown(document, guideUrl);
+      return Fan2dGuideScrapeResult(content: content);
     } catch (e) {
       if (kDebugMode) debugPrint('[Fan2d] 攻略刮削异常: $e');
+      return Fan2dGuideScrapeResult();
+    } finally {
+      client.close();
+    }
+  }
+
+  /// 刮削指定的walkthrough页面
+  Future<String?> scrapeWalkthrough(String walkthroughUrl) async {
+    if (kDebugMode) debugPrint('[Fan2d] 刮削walkthrough: $walkthroughUrl');
+    final client = await createProxyClientFromPrefs(domain: Uri.parse(walkthroughUrl).host);
+    try {
+      final headers = await buildScrapeHeaders(walkthroughUrl);
+      final response = await client.get(Uri.parse(walkthroughUrl), headers: headers)
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200) {
+        if (kDebugMode) debugPrint('[Fan2d] walkthrough页面 HTTP ${response.statusCode}');
+        return null;
+      }
+
+      final document = html_parser.parse(response.body);
+      return _extractGuideMarkdown(document, walkthroughUrl);
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Fan2d] walkthrough刮削异常: $e');
       return null;
     } finally {
       client.close();

@@ -65,13 +65,98 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
       content = await service.getArticleContent(result.articleId);
     } else if (result is Fan2dGuideResult) {
       final service = ref.read(fan2dServiceProvider);
-      content = await service.scrapeGuideContent(result.guideUrl);
+      final scrapeResult = await service.scrapeGuideContent(result.guideUrl);
+
+      // 如果有多个walkthrough，让用户选择
+      if (scrapeResult.hasWalkthroughs) {
+        if (!mounted) return;
+        final selectedWalkthrough = await _showWalkthroughDialog(scrapeResult.walkthroughs);
+        if (selectedWalkthrough == null) {
+          if (mounted) {
+            AppTheme.showGlassToast(context, message: '未选择攻略', icon: Icons.info_outline, iconColor: AppTheme.getTextSecondary(context));
+          }
+          return;
+        }
+        if (!mounted) return;
+        content = await service.scrapeWalkthrough(selectedWalkthrough.url);
+      } else {
+        content = scrapeResult.content;
+      }
     }
+
     if (content != null && mounted) {
       Navigator.of(context).pop(content);
     } else if (mounted) {
       AppTheme.showGlassToast(context, message: '获取攻略内容失败', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
     }
+  }
+
+  Future<Fan2dWalkthrough?> _showWalkthroughDialog(List<Fan2dWalkthrough> walkthroughs) async {
+    return showGlassDialog<Fan2dWalkthrough>(
+      context: context,
+      child: SizedBox(
+        width: GlassConstants.dialogWidth,
+        height: 500,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.menu_book, color: AppTheme.primaryColor, size: 22),
+                  const SizedBox(width: 10),
+                  Text('选择攻略', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text('找到 ${walkthroughs.length} 个攻略，请选择：', style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 13)),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: walkthroughs.length,
+                  itemBuilder: (context, index) {
+                    final wt = walkthroughs[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                          onTap: () => Navigator.pop(context, wt),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                              border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.5)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.article_outlined, size: 18, color: AppTheme.primaryColor),
+                                const SizedBox(width: 12),
+                                Expanded(child: Text(wt.title, style: TextStyle(fontSize: 14, color: AppTheme.getDetailTextPrimary(context)), overflow: TextOverflow.ellipsis)),
+                                Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.getTextSecondary(context)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消'))],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
