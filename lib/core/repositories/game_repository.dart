@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../database/database_helper.dart';
 import '../models/models.dart';
+import '../utils/app_settings.dart';
 
 class GameRepository {
   Future<Database> get _db => DatabaseHelper.database;
@@ -99,15 +101,47 @@ class GameRepository {
     
     final sep = path.separator;
     
-    // 查找 Cleared 目录的位置
+    // 旧格式：查找 Cleared 目录的位置
     final clearedIndex = gamePath.indexOf('${sep}Cleared$sep');
-    if (clearedIndex == -1) return null;
+    if (clearedIndex != -1) {
+      // 构建 Backup 目录路径
+      final basePath = gamePath.substring(0, clearedIndex);
+      final backupDir = Directory('$basePath${sep}Cleared${sep}Backup');
+      
+      if (await backupDir.exists()) {
+        final result = await _searchBackupDir(backupDir.path, gameTitle);
+        if (result != null) return result;
+      }
+    }
     
-    // 构建 Backup 目录路径
-    final basePath = gamePath.substring(0, clearedIndex);
-    final backupDir = Directory('$basePath${sep}Cleared${sep}Backup');
+    // 新格式：检查 cleared_paths 配置
+    final prefs = await AppSettings.load();
+    final rawCleared = prefs.getString('cleared_paths') ?? '';
+    if (rawCleared.startsWith('{')) {
+      try {
+        final decoded = jsonDecode(rawCleared) as Map<String, dynamic>;
+        final normalizedGamePath = gamePath.replaceAll('\\', '/').toLowerCase();
+        for (final v in decoded.values) {
+          final cp = v?.toString() ?? '';
+          if (cp.isEmpty) continue;
+          final normalizedCleared = cp.replaceAll('\\', '/').toLowerCase();
+          if (normalizedGamePath.startsWith(normalizedCleared)) {
+            final backupDir = Directory('$cp${sep}Backup');
+            if (await backupDir.exists()) {
+              final result = await _searchBackupDir(backupDir.path, gameTitle);
+              if (result != null) return result;
+            }
+          }
+        }
+      } catch (_) {}
+    }
     
-    if (!await backupDir.exists()) return null;
+    return null;
+  }
+
+  Future<String?> _searchBackupDir(String backupBasePath, String gameTitle) async {
+    final sep = path.separator;
+    final backupDir = Directory(backupBasePath);
     
     // 清理游戏title中的特殊字符
     final sanitizedTitle = gameTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');

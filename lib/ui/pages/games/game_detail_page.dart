@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,6 +54,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   bool _isImageViewerOpen = false;
   int _currentImageIndex = 0;
+  int _imageVersion = 0;
   bool _isCheckingUpdate = false;
   bool _isRescraping = false;
   bool _isLocal = false;
@@ -208,8 +210,14 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _makerController = TextEditingController(text: _currentGame.maker ?? '');
     _editedTags = List.from(_currentGame.tags);
     _checkIsLocal();
+    _forceReloadImages();
     _preloadMediaFiles();
     _loadMetadataHtml();
+  }
+
+  void _forceReloadImages() {
+    imageCache.clear();
+    if (mounted) setState(() => _imageVersion++);
   }
 
   Future<void> _checkIsLocal() async {
@@ -763,6 +771,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     borderRadius: BorderRadius.circular(GlassConstants.radiusMedium - 1),
                     child: Image.file(
                       File(images[_currentImageIndex].imagePath),
+                      key: ValueKey('img_${_imageVersion}_${images[_currentImageIndex].imagePath}'),
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
                         color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
@@ -821,6 +830,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         setState(() {
           _currentGame = freshGame;
           _currentImageIndex = 0;
+          _imageVersion++;
         });
       }
     }
@@ -1779,6 +1789,7 @@ if (_isEditing) ...[
           onTap: () => _openImageViewer(imageUrl),
           child: Image.file(
             File(imageUrl),
+            key: ValueKey('img_${_imageVersion}_$imageUrl'),
             fit: BoxFit.contain,
             errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           ),
@@ -1923,6 +1934,7 @@ if (_isEditing) ...[
                     constraints: const BoxConstraints(maxWidth: 800),
                     child: Image.file(
                       File(imagePath),
+                      key: ValueKey('img_${_imageVersion}_$imagePath'),
                       fit: BoxFit.contain,
                       errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                     ),
@@ -2120,6 +2132,7 @@ if (_isEditing) ...[
           constraints: const BoxConstraints(maxWidth: 800),
           child: Image.file(
             File(image.imagePath!),
+            key: ValueKey('img_${_imageVersion}_${image.imagePath}'),
             fit: BoxFit.contain,
             errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           ),
@@ -2256,9 +2269,29 @@ if (_isEditing) ...[
       final titleChanged = newTitle != null && newTitle != _currentGame.title;
       final sep = Platform.pathSeparator;
       final isInCleared = _currentGame.path.contains('${sep}Cleared$sep');
+      // 检查是否在 cleared_paths 目录下
+      bool isInNewClearedPath = false;
+      final prefs0 = ref.read(sharedPreferencesProvider);
+      final rawCleared0 = prefs0.getString('cleared_paths') ?? '';
+      if (rawCleared0.startsWith('{')) {
+        try {
+          final decodedCleared0 = jsonDecode(rawCleared0) as Map<String, dynamic>;
+          final normalizedGamePath0 = _currentGame.path.replaceAll('\\', '/').toLowerCase();
+          for (final v in decodedCleared0.values) {
+            final cp = v?.toString() ?? '';
+            if (cp.isNotEmpty) {
+              final normalizedCleared = cp.replaceAll('\\', '/').toLowerCase();
+              if (normalizedGamePath0.startsWith(normalizedCleared)) {
+                isInNewClearedPath = true;
+                break;
+              }
+            }
+          }
+        } catch (_) {}
+      }
       final isBackupGame = _currentGame.path.contains('${sep}Cleared${sep}Backup${sep}') ||
                           !await Directory(_currentGame.path).exists();
-      if (titleChanged && isInCleared && gameId != null) {
+      if (titleChanged && (isInCleared || isInNewClearedPath) && gameId != null) {
         final prefs = ref.read(sharedPreferencesProvider);
         // 读取所有整理目录
         final sortedPathList = <String>[];
@@ -2326,6 +2359,56 @@ if (_isEditing) ...[
             }
           }
         }
+
+        // 也检查 cleared_paths 的备份目录
+        final rawCleared2 = prefs.getString('cleared_paths') ?? '';
+        if (rawCleared2.startsWith('{')) {
+          try {
+            final decodedCleared2 = jsonDecode(rawCleared2) as Map<String, dynamic>;
+            for (final v in decodedCleared2.values) {
+              final cp = v?.toString() ?? '';
+              if (cp.isEmpty) continue;
+              final backupDirPath2 = '$cp${sep}Backup';
+              final backupDir2 = Directory(backupDirPath2);
+              if (!await backupDir2.exists()) continue;
+
+              String? actualBackupPath2;
+              await for (final entity in backupDir2.list()) {
+                if (entity is Directory) {
+                  final metadataFile = File('${entity.path}${sep}metadata.json');
+                  if (await metadataFile.exists()) {
+                    try {
+                      final content = await metadataFile.readAsString();
+                      final metadata = jsonDecode(content) as Map<String, dynamic>;
+                      final backupTitle = metadata['title'] as String?;
+                      if (backupTitle == _currentGame.title) {
+                        actualBackupPath2 = entity.path;
+                        break;
+                      }
+                    } catch (_) {}
+                  }
+                }
+              }
+
+              if (actualBackupPath2 != null) {
+                final oldSanitizedTitle2 = actualBackupPath2.split(Platform.pathSeparator).last;
+                final newSanitizedTitle2 = newTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+                final oldBackupDir2 = Directory(actualBackupPath2);
+                final newBackupDir2 = Directory('$backupDirPath2$sep$newSanitizedTitle2');
+                if (oldSanitizedTitle2 != newSanitizedTitle2) {
+                  if (!await newBackupDir2.exists()) {
+                    await oldBackupDir2.rename(newBackupDir2.path);
+                    await repo.updateGamePath(gameId, newBackupDir2.path);
+                    await repo.updateImagePaths(gameId, oldBackupDir2.path, newBackupDir2.path);
+                    _currentGame = _currentGame.copyWith(path: newBackupDir2.path);
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            debugPrint('[GameDetail] 解析通关目录配置失败: $e');
+          }
+        }
       }
 
       // Handle non-backup Cleared game: rename the corresponding backup folder
@@ -2380,6 +2463,53 @@ if (_isEditing) ...[
               }
             }
             debugPrint('[Edit] Backup folder renamed: $oldSanitized -> $newSanitized');
+          }
+        }
+
+        // 也检查 cleared_paths 的备份目录
+        final rawCleared3 = prefs2.getString('cleared_paths') ?? '';
+        if (rawCleared3.startsWith('{')) {
+          try {
+            final decodedCleared3 = jsonDecode(rawCleared3) as Map<String, dynamic>;
+            for (final v in decodedCleared3.values) {
+              final cp = v?.toString() ?? '';
+              if (cp.isEmpty) continue;
+              final backupDirPath3 = '$cp${sep}Backup';
+              final backupDir3 = Directory(backupDirPath3);
+              if (!await backupDir3.exists()) continue;
+
+              final oldBackupName3 = FolderRenameService.buildBackupFolderName(_currentGame);
+              if (oldBackupName3 == null) continue;
+              final oldSanitized3 = oldBackupName3.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+              final oldBackupDir3 = Directory('$backupDirPath3$sep$oldSanitized3');
+
+              if (await oldBackupDir3.exists()) {
+                final newBackupName3 = FolderRenameService.buildBackupFolderName(
+                  _currentGame.copyWith(title: newTitle),
+                );
+                if (newBackupName3 == null) continue;
+                final newSanitized3 = newBackupName3.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+                if (oldSanitized3 == newSanitized3) continue;
+
+                final newBackupDir3 = Directory('$backupDirPath3$sep$newSanitized3');
+                if (await newBackupDir3.exists()) continue;
+
+                await oldBackupDir3.rename(newBackupDir3.path);
+                final allGames3 = await repo.getAllGames();
+                for (final g in allGames3) {
+                  final normalizedGPath = g.path.replaceAll('\\', '/');
+                  final normalizedOldPath = oldBackupDir3.path.replaceAll('\\', '/');
+                  if (normalizedGPath == normalizedOldPath && g.id != null) {
+                    await repo.updateGamePath(g.id!, newBackupDir3.path);
+                    await repo.updateImagePaths(g.id!, oldBackupDir3.path, newBackupDir3.path);
+                    break;
+                  }
+                }
+                debugPrint('[Edit] Backup folder renamed (cleared): $oldSanitized3 -> $newSanitized3');
+              }
+            }
+          } catch (e) {
+            debugPrint('[GameDetail] 解析通关目录配置失败: $e');
           }
         }
       }
@@ -2980,7 +3110,7 @@ if (_isEditing) ...[
         final repo = ref.read(gameRepositoryProvider);
         final tagRepo = ref.read(tagRepositoryProvider);
         final displayTitle = gameInfo.title != null ? _stripVersionFromTitle(gameInfo.title!, gameInfo.version) : null;
-        final updated = _currentGame.copyWith(
+        var updated = _currentGame.copyWith(
           title: displayTitle ?? _currentGame.title,
           version: gameInfo.version ?? _currentGame.version,
           intro: gameInfo.description ?? _currentGame.intro,
@@ -3078,27 +3208,29 @@ if (_isEditing) ...[
         await _fixImageUrlsInMetadata(updated);
 
         try {
-          final prefs = await AppSettings.load();
-          final autoRename = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
-          if (autoRename) {
+          final configs = ref.read(scrapeModeConfigsProvider);
+          if (configs.shouldRename(ScrapeMode.rescrape)) {
             final gameForRename = await repo.getGameById(_currentGame.id!);
             if (gameForRename != null) {
               final renameService = FolderRenameService(gameRepository: repo);
               final newPath = await renameService.renameGameFolder(gameForRename);
-              if (newPath != null) debugPrint('[Rescrape] Folder renamed: $newPath');
+              if (newPath != null) {
+                debugPrint('[Rescrape] Folder renamed: $newPath');
+                final refreshed = await repo.getGameById(_currentGame.id!);
+                if (refreshed != null) updated = refreshed;
+              }
             }
           }
         } catch (e) {
           debugPrint('[Rescrape] Auto-rename failed: $e');
         }
 
-        final prefs = ref.read(sharedPreferencesProvider);
-        final autoMove = prefs.getBool(AppSettings.autoMoveToSortedKey) ?? false;
-        if (autoMove) {
+        final configs = ref.read(scrapeModeConfigsProvider);
+        if (configs.shouldMove(ScrapeMode.rescrape)) {
           await _moveToSorted(updated);
         }
         if (!mounted) return;
-        setState(() { _currentGame = updated; });
+        setState(() { _currentGame = updated; _imageVersion++; });
         await _loadMetadataHtml();
         await _preloadMediaFiles();
         if (mounted) {
@@ -3205,7 +3337,7 @@ if (_isEditing) ...[
 
       final repo = ref.read(gameRepositoryProvider);
       final tagRepo = ref.read(tagRepositoryProvider);
-      final updatedGame = _currentGame.copyWith(
+      var updatedGame = _currentGame.copyWith(
         title: gameInfo.title ?? _currentGame.title,
         version: gameInfo.version ?? _currentGame.version,
         intro: gameInfo.description ?? _currentGame.intro,
@@ -3305,18 +3437,26 @@ if (_isEditing) ...[
         await _fixImageUrlsInMetadata(updatedGame);
 
         try {
-          final prefs = await AppSettings.load();
-          final autoRename = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
-          if (autoRename) {
+          final configs = ref.read(scrapeModeConfigsProvider);
+          if (configs.shouldRename(ScrapeMode.quickScrape)) {
             final gameForRename = await repo.getGameById(_currentGame.id!);
             if (gameForRename != null) {
               final renameService = FolderRenameService(gameRepository: repo);
               final newPath = await renameService.renameGameFolder(gameForRename);
-              if (newPath != null) debugPrint('[QuickScrape] Folder renamed: $newPath');
+              if (newPath != null) {
+                debugPrint('[QuickScrape] Folder renamed: $newPath');
+                final refreshed = await repo.getGameById(_currentGame.id!);
+                if (refreshed != null) updatedGame = refreshed;
+              }
             }
           }
         } catch (e) {
           debugPrint('[QuickScrape] Auto-rename failed: $e');
+        }
+
+        final configsMove = ref.read(scrapeModeConfigsProvider);
+        if (configsMove.shouldMove(ScrapeMode.quickScrape)) {
+          await _moveToSorted(updatedGame);
         }
       }
 
@@ -3326,6 +3466,7 @@ if (_isEditing) ...[
         await _preloadMediaFiles();
         setState(() {
           _currentGame = freshGame;
+          _imageVersion++;
           _titleController.text = freshGame.title ?? '';
           _versionController.text = freshGame.version ?? '';
           _introController.text = freshGame.intro ?? '';
@@ -3503,12 +3644,12 @@ if (_isEditing) ...[
         final fileName = '${i + 1}$validExt';
         final filePath = '${imageDir.path}${Platform.pathSeparator}$fileName';
         final file = File(filePath);
+        final tmpFile = File('$filePath.tmp');
 
-        if (!await file.exists()) {
-          final response = await httpGetWithRetry(uri, headers: imgHeaders);
-          if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-            await file.writeAsBytes(response.bodyBytes, flush: true);
-          }
+        final response = await httpGetWithRetry(uri, headers: imgHeaders);
+        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+          await tmpFile.writeAsBytes(response.bodyBytes, flush: true);
+          await tmpFile.rename(filePath);
         }
         if (!existingPaths.contains(filePath)) {
           await repo.addGameImage(game.id!, filePath, i);
@@ -3524,10 +3665,6 @@ if (_isEditing) ...[
   }
 
   Future<void> _moveToSorted(Game game) async {
-    final prefs = ref.read(sharedPreferencesProvider);
-    final autoMove = prefs.getBool(AppSettings.autoMoveToSortedKey) ?? false;
-    if (!autoMove) return;
-
     final sortedPath = await AppSettings.getSortedPathForGame(game.path);
     if (sortedPath.isEmpty) return;
 

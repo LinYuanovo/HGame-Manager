@@ -7,7 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 import '../../../core/models/models.dart';
+import '../../../core/models/scrape_mode_config.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/utils/app_settings.dart';
+import '../../../core/services/folder_rename_service.dart';
 import '../../../core/repositories/game_repository.dart';
 import '../../../core/repositories/tag_repository.dart';
 import '../../../core/services/dlsite_service.dart';
@@ -384,11 +387,87 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
         } else {
           await _importDlsite(repo, tagRepo, dlsiteService, item);
         }
+        await _postImportProcess(repo, item);
         onSuccess();
       } catch (e) {
         item.status = '失败: $e';
         if (mounted) setState(() {});
         onFail();
+      }
+    }
+  }
+
+  Future<void> _postImportProcess(GameRepository repo, _BatchGameItem item) async {
+    if (item.status != '导入完成') return;
+    final initialGame = await repo.getGameByPath(item.folder.path);
+    if (initialGame == null) return;
+    var game = initialGame;
+
+    final settings = await AppSettings.load();
+    final jsonStr = settings.getString(AppSettings.scrapeModeConfigsKey);
+    if (jsonStr == null || jsonStr.isEmpty) return;
+
+    ScrapeModeConfigs configs;
+    try {
+      final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+      configs = ScrapeModeConfigs.fromMap(map);
+    } catch (_) {
+      return;
+    }
+
+    if (configs.shouldRename(ScrapeMode.batchAdd) && game.id != null) {
+      try {
+        final renameService = FolderRenameService(gameRepository: repo);
+        final newPath = await renameService.renameGameFolder(game);
+        if (newPath != null) {
+          debugPrint('[BatchImport] Folder renamed: $newPath');
+          final refreshed = await repo.getGameById(game.id!);
+          if (refreshed != null) game = refreshed;
+        }
+      } catch (e) {
+        debugPrint('[BatchImport] Auto-rename failed: $e');
+      }
+    }
+
+    if (configs.shouldMove(ScrapeMode.batchAdd) && game.id != null) {
+      try {
+        final sortedPath = await AppSettings.getSortedPathForGame(game.path);
+        if (sortedPath.isNotEmpty) {
+          final sourceDir = Directory(game.path);
+          if (await sourceDir.exists()) {
+            final tags = await repo.getGameTags(game.id!);
+            const categoryOrder = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS', '3D'];
+            String categoryName = 'Unclassified';
+            final allNames = tags.map((t) => t.name.toUpperCase()).toList();
+            for (final cat in categoryOrder) {
+              if (allNames.any((name) => name.contains(cat))) {
+                categoryName = cat;
+                break;
+              }
+            }
+            final folderName = path.basename(game.path);
+            final targetDir = Directory(path.join(sortedPath, categoryName, folderName));
+            if (!await targetDir.exists()) {
+              final catDir = Directory(path.join(sortedPath, categoryName));
+              if (!await catDir.exists()) await catDir.create(recursive: true);
+              await sourceDir.rename(targetDir.path);
+              await repo.updateGamePath(game.id!, targetDir.path);
+              final images = await repo.getGameImages(game.id!);
+              if (images.isNotEmpty) {
+                final updatedImages = images.map((img) => GameImage(
+                  id: img.id,
+                  gameId: img.gameId,
+                  imagePath: img.imagePath.replaceFirst(game.path, targetDir.path),
+                  sortOrder: img.sortOrder,
+                )).toList();
+                await repo.setGameImages(game.id!, updatedImages);
+              }
+              debugPrint('[BatchImport] Folder moved: ${targetDir.path}');
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('[BatchImport] Auto-move failed: $e');
       }
     }
   }
@@ -1236,6 +1315,77 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     }
   }
 
+  Future<void> _postImportProcess(GameRepository repo, Game game) async {
+    if (game.id == null) return;
+    final settings = await AppSettings.load();
+    final jsonStr = settings.getString(AppSettings.scrapeModeConfigsKey);
+    if (jsonStr == null || jsonStr.isEmpty) return;
+
+    ScrapeModeConfigs configs;
+    try {
+      final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+      configs = ScrapeModeConfigs.fromMap(map);
+    } catch (_) {
+      return;
+    }
+
+    if (configs.shouldRename(ScrapeMode.singleAdd)) {
+      try {
+        final renameService = FolderRenameService(gameRepository: repo);
+        final newPath = await renameService.renameGameFolder(game);
+        if (newPath != null) {
+          debugPrint('[SingleImport] Folder renamed: $newPath');
+          final refreshed = await repo.getGameById(game.id!);
+          if (refreshed != null) game = refreshed;
+        }
+      } catch (e) {
+        debugPrint('[SingleImport] Auto-rename failed: $e');
+      }
+    }
+
+    if (configs.shouldMove(ScrapeMode.singleAdd)) {
+      try {
+        final sortedPath = await AppSettings.getSortedPathForGame(game.path);
+        if (sortedPath.isNotEmpty) {
+          final sourceDir = Directory(game.path);
+          if (await sourceDir.exists()) {
+            final tags = await repo.getGameTags(game.id!);
+            const categoryOrder = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS', '3D'];
+            String categoryName = 'Unclassified';
+            final allNames = tags.map((t) => t.name.toUpperCase()).toList();
+            for (final cat in categoryOrder) {
+              if (allNames.any((name) => name.contains(cat))) {
+                categoryName = cat;
+                break;
+              }
+            }
+            final folderName = path.basename(game.path);
+            final targetDir = Directory(path.join(sortedPath, categoryName, folderName));
+            if (!await targetDir.exists()) {
+              final catDir = Directory(path.join(sortedPath, categoryName));
+              if (!await catDir.exists()) await catDir.create(recursive: true);
+              await sourceDir.rename(targetDir.path);
+              await repo.updateGamePath(game.id!, targetDir.path);
+              final images = await repo.getGameImages(game.id!);
+              if (images.isNotEmpty) {
+                final updatedImages = images.map((img) => GameImage(
+                  id: img.id,
+                  gameId: img.gameId,
+                  imagePath: img.imagePath.replaceFirst(game.path, targetDir.path),
+                  sortOrder: img.sortOrder,
+                )).toList();
+                await repo.setGameImages(game.id!, updatedImages);
+              }
+              debugPrint('[SingleImport] Folder moved: ${targetDir.path}');
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('[SingleImport] Auto-move failed: $e');
+      }
+    }
+  }
+
   Future<void> _searchGame() async {
     if (_folderPath == null) {
       AppTheme.showGlassToast(
@@ -1335,6 +1485,11 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         await repo.updateGame(game.copyWith(id: existingGame.id));
       } else {
         await repo.insertGame(game);
+      }
+
+      final savedGame = await repo.getGameByPath(_folderPath!);
+      if (savedGame != null) {
+        await _postImportProcess(repo, savedGame);
       }
 
       if (mounted) {
@@ -1506,6 +1661,11 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
 
     await _saveImagesAndMetadata(gameId, gameInfo.sourceUrl, gameInfo.toJson());
 
+    final savedGame = await repo.getGameByPath(_folderPath!);
+    if (savedGame != null) {
+      await _postImportProcess(repo, savedGame);
+    }
+
     if (mounted) {
       Navigator.of(context).pop();
       widget.onImportComplete();
@@ -1592,6 +1752,11 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       if (gameInfo.screenshots.isNotEmpty) 'image_urls': gameInfo.screenshots,
     };
     await _saveImagesAndMetadata(gameId, gameInfo.sourceUrl, metadata);
+
+    final savedGame = await repo.getGameByPath(_folderPath!);
+    if (savedGame != null) {
+      await _postImportProcess(repo, savedGame);
+    }
 
     if (mounted) {
       Navigator.of(context).pop();

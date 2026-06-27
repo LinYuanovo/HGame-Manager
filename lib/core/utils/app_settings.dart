@@ -22,6 +22,7 @@ class AppSettings {
   static const String favoriteFirstKey = 'favorite_first';
   static const String sidebarConfigKey = 'sidebar_config';
   static const String autoMoveToSortedKey = 'auto_move_to_sorted';
+  static const String scrapeModeConfigsKey = 'scrape_mode_configs';
 
   Map<String, dynamic> _data = {};
   final String _filePath;
@@ -277,6 +278,51 @@ class AppSettings {
       if (sortedPath.isEmpty) continue;
       if (normalizedGamePath.startsWith(libPath)) {
         return entry.value;
+      }
+    }
+    // 游戏可能已被移到整理目录，检查是否在某个 sorted_path 下
+    for (final entry in mapping.entries) {
+      final sortedPath = entry.value;
+      if (sortedPath.isEmpty) continue;
+      final normalizedSorted = sortedPath.replaceAll('/', '\\').toLowerCase();
+      if (normalizedGamePath.startsWith(normalizedSorted)) {
+        return sortedPath;
+      }
+    }
+    return '';
+  }
+
+  /// 根据游戏路径查找对应的通关目录
+  /// 返回空字符串表示该游戏库未配置通关目录
+  static Future<String> getClearedPathForGame(String gamePath) async {
+    final prefs = await AppSettings.load();
+    final raw = prefs.getString('cleared_paths') ?? '';
+    if (raw.isEmpty) return '';
+
+    Map<String, String> mapping;
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      mapping = decoded.map((k, v) => MapEntry(k, v?.toString() ?? ''));
+    } catch (_) {
+      return '';
+    }
+
+    final normalizedGamePath = gamePath.replaceAll('/', '\\').toLowerCase();
+    for (final entry in mapping.entries) {
+      final libPath = entry.key.replaceAll('/', '\\').toLowerCase();
+      final clearedPath = entry.value;
+      if (clearedPath.isEmpty) continue;
+      if (normalizedGamePath.startsWith(libPath)) {
+        return entry.value;
+      }
+    }
+    // 游戏可能已在通关目录下，检查是否在某个 cleared_path 下
+    for (final entry in mapping.entries) {
+      final clearedPath = entry.value;
+      if (clearedPath.isEmpty) continue;
+      final normalizedCleared = clearedPath.replaceAll('/', '\\').toLowerCase();
+      if (normalizedGamePath.startsWith(normalizedCleared)) {
+        return clearedPath;
       }
     }
     return '';

@@ -77,13 +77,18 @@ class ParserRegistry {
     if (uri == null) return null;
 
     final host = uri.host.toLowerCase();
+    SiteParser? xpathFallback;
     for (final parser in _parsers) {
       if (parser.domain.isEmpty) continue;
       if (host.contains(parser.domain) || host == parser.domain) {
+        if (parser is XpathParser) {
+          xpathFallback ??= parser;
+          continue;
+        }
         return parser;
       }
     }
-    return null;
+    return xpathFallback;
   }
 
   static List<SiteParser> get allParsers => List.unmodifiable(_parsers);

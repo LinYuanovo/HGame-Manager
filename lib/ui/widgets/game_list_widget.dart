@@ -2365,11 +2365,11 @@ _refreshAllProviders();
     if (confirm != true) return;
 
     try {
-      final sortedPath = await AppSettings.getSortedPathForGame(game.path);
+      final clearedPath = await AppSettings.getClearedPathForGame(game.path);
 
-      if (sortedPath.isEmpty) {
+      if (clearedPath.isEmpty) {
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '该游戏库未配置整理目录', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          AppTheme.showGlassToast(context, message: '该游戏库未配置通关目录，请在设置中配置', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
         return;
       }
@@ -2418,14 +2418,14 @@ _refreshAllProviders();
         return;
       }
 
-      // 创建Cleared目录
-      final clearedDir = Directory('$sortedPath${Platform.pathSeparator}Cleared');
+      // 创建通关目录
+      final clearedDir = Directory(clearedPath);
       if (!await clearedDir.exists()) {
         await clearedDir.create(recursive: true);
       }
 
       // 创建Backup目录
-      final backupDir = Directory('$sortedPath${Platform.pathSeparator}Cleared${Platform.pathSeparator}Backup');
+      final backupDir = Directory('$clearedPath${Platform.pathSeparator}Backup');
       if (!await backupDir.exists()) {
         await backupDir.create(recursive: true);
       }
@@ -2666,11 +2666,20 @@ _refreshAllProviders();
     if (confirm != true) return;
 
     try {
-      final sortedPath = await AppSettings.getSortedPathForGame(game.path);
+      final clearedPath = await AppSettings.getClearedPathForGame(game.path);
 
+      if (clearedPath.isEmpty) {
+        if (mounted) {
+          AppTheme.showGlassToast(context, message: '该游戏库未配置通关目录', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        }
+        return;
+      }
+
+      // 获取整理目录用于移回
+      final sortedPath = await AppSettings.getSortedPathForGame(game.path);
       if (sortedPath.isEmpty) {
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '该游戏库未配置整理目录', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          AppTheme.showGlassToast(context, message: '该游戏库未配置整理目录，无法移回', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
         }
         return;
       }
@@ -2776,7 +2785,7 @@ _refreshAllProviders();
       }
 
       // 删除对应的 Backup 目录
-      final backupDir = Directory('$sortedPath${Platform.pathSeparator}Cleared${Platform.pathSeparator}Backup');
+      final backupDir = Directory('$clearedPath${Platform.pathSeparator}Backup');
       if (await backupDir.exists()) {
         final backupFolderName = FolderRenameService.buildBackupFolderName(game);
         final gameTitle = backupFolderName ?? game.title ?? path.basename(game.path);

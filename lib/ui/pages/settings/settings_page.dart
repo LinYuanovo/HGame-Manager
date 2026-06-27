@@ -16,6 +16,7 @@ import '../../../core/utils/app_settings.dart';
 import '../../../core/models/models.dart';
 import 'context_menu_manager_dialog.dart';
 import 'sidebar_manager_dialog.dart';
+import 'scrape_mode_config_dialog.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/models/theme_mode.dart';
 
@@ -36,6 +37,7 @@ class SettingsDialogContent extends ConsumerStatefulWidget {
 class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   List<String> _libraryPaths = [];
   Map<String, String> _sortedPaths = {};
+  Map<String, String> _clearedPaths = {};
   late TextEditingController _proxyUrlController;
   late TextEditingController _proxyTestUrlController;
   late TextEditingController _cookieAcgyingController;
@@ -60,13 +62,9 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   bool _isLoadingBackups = false;
   List<WebDavFile>? _backupFiles;
   List<Map<String, String>> _xpathConfigs = [];
-  bool _autoRenameFolders = false;
-  bool _isRenamingFolders = false;
   bool _noImageMode = false;
   bool _keepPlayedInGames = false;
   bool _favoriteFirst = false;
-  bool _autoMoveToSorted = false;
-
   int _selectedSidebarIndex = 0;
 
   static const List<_SidebarCategory> _categories = [
@@ -78,12 +76,12 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _SidebarCategory(
       label: '管理',
       icon: Icons.admin_panel_settings_outlined,
-      items: ['黑名单管理', '右键菜单管理', '侧边栏页面管理'],
+      items: ['黑名单管理', '右键菜单管理', '侧边栏页面管理', '刮削移动与重命名管理'],
     ),
     _SidebarCategory(
       label: '刮削',
       icon: Icons.description_outlined,
-      items: ['刮削后游戏文件夹重命名', '自动移动到整理目录', '论坛自定义域名', 'Cookie设置', '自定义解析器'],
+      items: ['论坛自定义域名', 'Cookie设置', '自定义解析器'],
     ),
     _SidebarCategory(
       label: '网络',
@@ -149,6 +147,17 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       }
     }
 
+    // Cleared paths
+    final rawCleared = prefs.getString('cleared_paths') ?? '';
+    if (rawCleared.startsWith('{')) {
+      try {
+        final decodedCleared = jsonDecode(rawCleared) as Map<String, dynamic>;
+        _clearedPaths = decodedCleared.map((k, v) => MapEntry(k, v?.toString() ?? ''));
+      } catch (_) {
+        _clearedPaths = {};
+      }
+    }
+
     _proxyUrlController = TextEditingController(text: proxyUrl);
     _proxyTestUrlController = TextEditingController(text: prefs.getString('proxy_test_url') ?? '');
     _cookieAcgyingController = TextEditingController(text: cookieAcgying);
@@ -166,11 +175,9 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _fontSize = fontSize;
     _detailFontSize = detailFontSize;
 
-    _autoRenameFolders = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
     _noImageMode = prefs.getBool(AppSettings.noImageModeKey) ?? false;
     _keepPlayedInGames = prefs.getBool(AppSettings.keepPlayedInGamesKey) ?? false;
     _favoriteFirst = prefs.getBool(AppSettings.favoriteFirstKey) ?? false;
-    _autoMoveToSorted = prefs.getBool(AppSettings.autoMoveToSortedKey) ?? false;
 
     _loadXpathConfigs();
   }
@@ -376,10 +383,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         return _buildSidebarManagerSection();
       case '黑名单管理':
         return _buildBlacklistSection();
-      case '刮削后游戏文件夹重命名':
-        return _buildFolderRenameSection();
-      case '自动移动到整理目录':
-        return _buildAutoMoveToSortedSection();
+      case '刮削移动与重命名管理':
+        return _buildScrapeModeConfigSection();
       case '论坛自定义域名':
         return _buildForumDomainSection();
       case 'Cookie设置':
@@ -501,6 +506,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
           final idx = entry.key;
           final libPath = entry.value;
           final sortedPath = _sortedPaths[libPath] ?? '';
+          final clearedPath = _clearedPaths[libPath] ?? '';
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Column(
@@ -599,6 +605,73 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                     ],
                   ),
                 ),
+                // 通关目录行
+                const SizedBox(height: 4),
+                Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: Row(
+                    children: [
+                      Icon(Icons.subdirectory_arrow_right, size: 16, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: clearedPath.isNotEmpty
+                            ? Row(
+                                children: [
+                                  Icon(Icons.check_circle, size: 14, color: AppTheme.successColor),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      clearedPath,
+                                      style: TextStyle(color: AppTheme.successColor.withValues(alpha: 0.8), fontSize: 12),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Text(
+                                '未设置通关目录（标记通关后不移动）',
+                                style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.4), fontSize: 12),
+                              ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        height: 28,
+                        child: OutlinedButton(
+                          onPressed: () => _selectClearedPath(idx),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primaryColor,
+                            side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text('选择', style: TextStyle(fontSize: 11)),
+                        ),
+                      ),
+                      if (clearedPath.isNotEmpty) ...[
+                        const SizedBox(width: 4),
+                        SizedBox(
+                          height: 28,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              setState(() => _clearedPaths.remove(libPath));
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.errorColor,
+                              side: BorderSide(color: AppTheme.errorColor.withValues(alpha: 0.3)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text('清除', style: TextStyle(fontSize: 11)),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ],
             ),
           );
@@ -616,6 +689,35 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               padding: const EdgeInsets.symmetric(vertical: 8),
             ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        // 文字提示
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
+            border: Border.all(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.15)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.info_outline, size: 14, color: AppTheme.getPrimaryColor(context)),
+                  const SizedBox(width: 6),
+                  Text('目录说明', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context), fontFamily: _selectedFont.isEmpty ? null : _selectedFont)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _buildHintRow(Icons.folder_outlined, '游戏库目录', '游戏下载和扫描的源目录'),
+              const SizedBox(height: 4),
+              _buildHintRow(Icons.sort, '整理目录', '刮削完成后游戏移动到此目录（按分类归档）'),
+              const SizedBox(height: 4),
+              _buildHintRow(Icons.emoji_events_outlined, '通关目录', '标记通关后游戏移动到此目录，并自动备份简介图片等信息'),
+            ],
           ),
         ),
         const SizedBox(height: 12),
@@ -647,6 +749,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   void _removeLibraryPath(int idx) {
     final removed = _libraryPaths.removeAt(idx);
     _sortedPaths.remove(removed);
+    _clearedPaths.remove(removed);
     setState(() {});
   }
 
@@ -655,6 +758,34 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     if (result != null && mounted) {
       setState(() => _sortedPaths[_libraryPaths[libIdx]] = result);
     }
+  }
+
+  Future<void> _selectClearedPath(int libIdx) async {
+    final result = await FilePicker.getDirectoryPath(dialogTitle: '选择通关目录');
+    if (result != null && mounted) {
+      setState(() => _clearedPaths[_libraryPaths[libIdx]] = result);
+    }
+  }
+
+  Widget _buildHintRow(IconData icon, String label, String description) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 13, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: TextStyle(fontSize: 11, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.7), fontFamily: _selectedFont.isEmpty ? null : _selectedFont),
+              children: [
+                TextSpan(text: '$label: ', style: const TextStyle(fontWeight: FontWeight.w600)),
+                TextSpan(text: description),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildIgnoreFoldersSection() {
@@ -887,54 +1018,26 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     );
   }
 
-  Widget _buildFolderRenameSection() {
+  Widget _buildScrapeModeConfigSection() {
     return _buildSection(
-      title: '游戏文件夹重命名',
-      icon: Icons.drive_file_rename_outline,
+      title: '刮削移动与重命名管理',
+      icon: Icons.description_outlined,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('自动重命名文件夹', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.getTextPrimary(context))),
-                  const SizedBox(height: 4),
-                  Text(
-                    '开启后后续刮削会将游戏文件夹名修改为: [游戏ID] [游戏厂商/社团] [游戏类型] 游戏标题 游戏版本',
-                    style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.7)),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '提示：由于可能存在中文路径问题，请谨慎开启',
-                    style: TextStyle(fontSize: 12, color: Colors.orange.withValues(alpha: 0.8)),
-                  ),
-                ],
-              ),
-            ),
-            Switch(
-              value: _autoRenameFolders,
-              onChanged: (value) async {
-                setState(() => _autoRenameFolders = value);
-                final prefs = ref.read(sharedPreferencesProvider);
-                await prefs.setBool(AppSettings.autoRenameFoldersKey, value);
-              },
-              activeColor: AppTheme.primaryColor,
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
+        Text('为每种刮削模式独立设置重命名和移动行为', style: TextStyle(fontSize: 13, color: AppTheme.getTextSecondary(context))),
+        const SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: _isRenamingFolders ? null : _renameAllFolders,
-            icon: _isRenamingFolders
-                ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.getTextColorOnPrimary(context)))
-                : const Icon(Icons.drive_file_rename_outline, size: 18),
-            label: Text(_isRenamingFolders ? '重命名中...' : '立即重命名所有游戏文件夹'),
+            onPressed: () => showDialog(
+              context: context,
+              builder: (_) => const ScrapeModeConfigDialog(),
+            ),
+            icon: const Icon(Icons.settings, size: 18),
+            label: const Text('打开刮削行为管理'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
+              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+              foregroundColor: AppTheme.primaryColor,
+              side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
             ),
@@ -942,117 +1045,6 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         ),
       ],
     );
-  }
-
-  Widget _buildAutoMoveToSortedSection() {
-    return _buildSection(
-      title: '自动移动到整理目录',
-      icon: Icons.move_to_inbox,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('刮削后自动移动游戏到整理目录', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.getTextPrimary(context))),
-                  const SizedBox(height: 4),
-                  Text(
-                    '开启后，刮削完成的游戏将自动移动到对应游戏库的整理目录中',
-                    style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.7)),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '提示：需要先在"游戏库设置"中为对应库设置整理目录，否则不会移动',
-                    style: TextStyle(fontSize: 12, color: AppTheme.warningOrange.withValues(alpha: 0.8)),
-                  ),
-                ],
-              ),
-            ),
-            Switch(
-              value: _autoMoveToSorted,
-              onChanged: (value) async {
-                setState(() => _autoMoveToSorted = value);
-                final prefs = ref.read(sharedPreferencesProvider);
-                await prefs.setBool(AppSettings.autoMoveToSortedKey, value);
-              },
-              activeColor: AppTheme.primaryColor,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Future<void> _renameAllFolders() async {
-    final renameService = ref.read(folderRenameServiceProvider);
-    final renamableCount = await renameService.countRenamableGames();
-
-    if (renamableCount == 0) {
-      if (mounted) {
-        AppTheme.showGlassToast(context, message: '没有需要重命名的游戏');
-      }
-      return;
-    }
-
-    final confirmed = await showGlassDialog<bool>(
-      context: context,
-      child: SizedBox(
-        width: GlassConstants.dialogWidth,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('确认重命名', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
-              const SizedBox(height: 12),
-              Text('预计将重命名 $renamableCount 个游戏文件夹为:\n[游戏ID] [游戏类型] 游戏标题 游戏版本\n\n此操作不可撤销，是否继续？',
-                  style: TextStyle(color: AppTheme.getTextSecondary(context))),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('取消'),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('确认重命名'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    setState(() => _isRenamingFolders = true);
-    try {
-      final count = await renameService.renameAllGameFolders();
-      if (mounted) {
-        AppTheme.showGlassToast(context, message: '重命名完成，共处理 $count 个游戏');
-        ref.invalidate(allGamesProvider);
-        ref.invalidate(playedGamesProvider);
-        ref.invalidate(favoriteGamesProvider);
-        ref.invalidate(clearedGamesProvider);
-      }
-    } catch (e) {
-      if (mounted) {
-        AppTheme.showGlassToast(context, message: '重命名失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-      }
-    } finally {
-      if (mounted) setState(() => _isRenamingFolders = false);
-    }
   }
 
   Widget _buildProxySection() {
@@ -1851,6 +1843,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
               foregroundColor: AppTheme.primaryColor,
+              side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
             ),
@@ -1876,6 +1869,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.warningOrange.withValues(alpha: 0.15),
               foregroundColor: AppTheme.warningOrange,
+              side: BorderSide(color: AppTheme.warningOrange.withValues(alpha: 0.3)),
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
             ),
@@ -2071,6 +2065,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
 
     await prefs.setString('library_path', jsonEncode(_libraryPaths));
     await prefs.setString('sorted_paths', jsonEncode(_sortedPaths));
+    await prefs.setString('cleared_paths', jsonEncode(_clearedPaths));
     await prefs.setString('proxy_mode', _proxyMode);
     await prefs.setString('proxy_url', _proxyUrlController.text);
     await prefs.setString('proxy_test_url', _proxyTestUrlController.text.trim());
@@ -2089,7 +2084,6 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     await prefs.setDouble('detail_font_size', _detailFontSize);
     await prefs.setBool(AppSettings.noImageModeKey, _noImageMode);
     await prefs.setBool(AppSettings.keepPlayedInGamesKey, _keepPlayedInGames);
-    await prefs.setBool(AppSettings.autoMoveToSortedKey, _autoMoveToSorted);
 
     if (!mounted) return;
 
@@ -2139,6 +2133,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
               foregroundColor: AppTheme.primaryColor,
+              side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
             ),

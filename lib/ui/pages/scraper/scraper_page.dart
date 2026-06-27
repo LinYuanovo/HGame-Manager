@@ -792,6 +792,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             features: gameInfo.features.isNotEmpty ? gameInfo.features.join('\n') : game.features,
             changelog: gameInfo.changelog ?? game.changelog,
             downloadUrl: gameInfo.downloadUrl.isNotEmpty ? gameInfo.downloadUrl : game.downloadUrl,
+            maker: gameInfo.maker,
+            makerUrl: gameInfo.makerUrl,
           );
 
           final metadataFile = File(path.join(game.path, 'metadata.json'));
@@ -876,9 +878,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           }
 
           try {
-            final prefs = await AppSettings.load();
-            final autoRename = prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
-            if (autoRename && item.game.id != null) {
+            final configs = ref.read(scrapeModeConfigsProvider);
+            if (configs.shouldRename(ScrapeMode.scraperCenter) && item.game.id != null) {
               final renameService = FolderRenameService(gameRepository: gameRepo);
               final newPath = await renameService.renameGameFolder(item.game);
               if (newPath != null) {
@@ -902,9 +903,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             });
           }
 
-          final prefs = ref.read(sharedPreferencesProvider);
-          final autoMove = prefs.getBool(AppSettings.autoMoveToSortedKey) ?? false;
-          if (autoMove) {
+          final configs = ref.read(scrapeModeConfigsProvider);
+          if (configs.shouldMove(ScrapeMode.scraperCenter)) {
             await _moveToSorted(item.game);
           }
         } else {
@@ -1030,10 +1030,6 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   }
 
   Future<void> _moveToSorted(Game game) async {
-    final prefs = ref.read(sharedPreferencesProvider);
-    final autoMove = prefs.getBool(AppSettings.autoMoveToSortedKey) ?? false;
-    if (!autoMove) return;
-
     final sortedPath = await AppSettings.getSortedPathForGame(game.path);
     if (sortedPath.isEmpty) return;
 

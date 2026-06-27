@@ -7,6 +7,7 @@ import '../database/database_helper.dart';
 import '../models/models.dart';
 import '../repositories/game_repository.dart';
 import '../repositories/tag_repository.dart';
+import '../utils/app_settings.dart';
 import 'app_logger.dart';
 
 class _ParsedGameData {
@@ -411,13 +412,39 @@ class GameScannerService {
   }
 
   Future<void> _removeStaleEntries(List<Game> existingGames) async {
+    final prefs = await AppSettings.load();
+    final rawCleared = prefs.getString('cleared_paths') ?? '';
+    final clearedPathList = <String>[];
+    if (rawCleared.startsWith('{')) {
+      try {
+        final decoded = jsonDecode(rawCleared) as Map<String, dynamic>;
+        for (final v in decoded.values) {
+          final cp = v?.toString() ?? '';
+          if (cp.isNotEmpty) clearedPathList.add(cp);
+        }
+      } catch (_) {}
+    }
+
     for (final game in existingGames) {
       try {
         final sep = Platform.pathSeparator;
+        // 旧格式：路径包含 /Cleared/ 的游戏
         if (game.path.contains('${sep}Cleared$sep') &&
             !game.path.contains('${sep}Backup$sep')) {
           continue;
         }
+        // 新格式：路径在 cleared_paths 目录下的游戏
+        bool isInClearedPath = false;
+        final normalizedGamePath = game.path.replaceAll('\\', '/').toLowerCase();
+        for (final cp in clearedPathList) {
+          final normalizedCleared = cp.replaceAll('\\', '/').toLowerCase();
+          if (normalizedGamePath.startsWith(normalizedCleared) && !game.path.contains('${sep}Backup$sep')) {
+            isInClearedPath = true;
+            break;
+          }
+        }
+        if (isInClearedPath) continue;
+
         final dir = Directory(game.path);
         if (!await dir.exists()) {
           await _gameRepository.deleteGame(game.id!);

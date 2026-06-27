@@ -307,6 +307,8 @@ class _MenuItemsList extends ConsumerWidget {
               value: item.enabled,
               onChanged: (_) => ref.read(provider.notifier).toggleItem(item.id),
               activeThumbColor: AppTheme.getPrimaryColor(context),
+              inactiveThumbColor: AppTheme.getTextSecondary(context),
+              inactiveTrackColor: AppTheme.getBorderColor(context),
             ),
           ),
         );

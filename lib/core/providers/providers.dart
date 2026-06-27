@@ -131,16 +131,44 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
       if (oldSorted.isNotEmpty) sortedPathList.add(oldSorted);
     }
 
+    // Read all cleared paths
+    final rawCleared = prefs.getString('cleared_paths') ?? '';
+    final clearedPathList = <String>[];
+    if (rawCleared.startsWith('{')) {
+      try {
+        final decodedCleared = jsonDecode(rawCleared) as Map<String, dynamic>;
+        for (final v in decodedCleared.values) {
+          final cp = v?.toString() ?? '';
+          if (cp.isNotEmpty) clearedPathList.add(cp);
+        }
+      } catch (_) {
+        // JSON解析失败时使用空列表
+      }
+    }
+
     final sep = Platform.pathSeparator;
+    // 旧格式：路径包含 /Cleared/ 的游戏
     final dbClearedGames = allGames.where((g) =>
       g.path.contains('${sep}Cleared$sep') &&
       !g.path.contains('${sep}Backup$sep')
     ).toList();
+    // 新格式：路径在 cleared_paths 目录下的游戏
+    final dbNewClearedGames = allGames.where((g) {
+      final normalizedGamePath = g.path.replaceAll('\\', '/').toLowerCase();
+      for (final cp in clearedPathList) {
+        final normalizedCleared = cp.replaceAll('\\', '/').toLowerCase();
+        if (normalizedGamePath.startsWith(normalizedCleared) && !g.path.contains('${sep}Backup$sep')) {
+          return true;
+        }
+      }
+      return false;
+    }).toList();
+    final allClearedGames = [...dbClearedGames, ...dbNewClearedGames];
 
     final result = <String, Game>{};
 
     // 先处理本地游戏，用 metadata title 作为 key（去除版本号后比较）
-    for (final game in dbClearedGames) {
+    for (final game in allClearedGames) {
       final dir = Directory(game.path);
       if (await dir.exists()) {
         String title = game.title ?? path.basename(game.path);
@@ -162,12 +190,76 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
       }
     }
 
-    // 再处理 Backup 目录，跳过本地已存在的游戏（去除版本号后比较）
+    // 再处理 Backup 目录（旧格式：sortedPath/Cleared/Backup）
     for (final sortedPath in sortedPathList) {
       final backupDir = Directory('$sortedPath${sep}Cleared${sep}Backup');
       if (await backupDir.exists()) {
         // 先处理有 DB 记录但本地文件夹不存在的游戏
-        for (final game in dbClearedGames) {
+        for (final game in allClearedGames) {
+          final dir = Directory(game.path);
+          if (!await dir.exists()) {
+            // 优先用 buildBackupFolderName 匹配新格式备份
+            final backupName = FolderRenameService.buildBackupFolderName(game);
+            Game? backupGame;
+            if (backupName != null) {
+              backupGame = await _loadGameFromBackup(
+                backupDir.path, backupName, game,
+              );
+            }
+            // 回退到用 game.title 匹配旧格式备份
+            backupGame ??= await _loadGameFromBackup(
+              backupDir.path, game.title, game,
+            );
+            if (backupGame != null) {
+              final normalizedTitle = removeVersionFromTitle(backupGame.title ?? '');
+              final key = normalizedTitle.toLowerCase();
+              if (!result.containsKey(key)) {
+                result[key] = backupGame.copyWith(title: normalizedTitle);
+              }
+            }
+          }
+        }
+
+        // 扫描 Backup 目录中的游戏
+        await for (final entity in backupDir.list()) {
+          if (entity is Directory) {
+            final folderName = path.basename(entity.path);
+            final backupPath = entity.path;
+
+            // 先检查是否有 DB 记录（通过 path 匹配，规范化路径格式）
+            Game? existingDbGame;
+            final normalizedBackupPath = backupPath.replaceAll('\\', '/');
+            for (final game in allGames) {
+              final normalizedGamePath = game.path.replaceAll('\\', '/');
+              if (normalizedGamePath == normalizedBackupPath) {
+                existingDbGame = game;
+                break;
+              }
+            }
+            // 路径匹配失败时，尝试通过 buildBackupFolderName 匹配
+            existingDbGame ??= _findDbGameByBackupName(allGames, folderName);
+
+            final backupGame = await _loadGameFromBackup(
+              backupDir.path, folderName, existingDbGame,
+            );
+            if (backupGame != null) {
+              final normalizedTitle = removeVersionFromTitle(backupGame.title ?? '');
+              final key = normalizedTitle.toLowerCase();
+              if (!result.containsKey(key)) {
+                result[key] = backupGame.copyWith(title: normalizedTitle);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 处理 cleared_paths 的 Backup 目录
+    for (final clearedPath in clearedPathList) {
+      final backupDir = Directory('$clearedPath${sep}Backup');
+      if (await backupDir.exists()) {
+        // 先处理有 DB 记录但本地文件夹不存在的游戏
+        for (final game in allClearedGames) {
           final dir = Directory(game.path);
           if (!await dir.exists()) {
             // 优先用 buildBackupFolderName 匹配新格式备份
@@ -591,6 +683,58 @@ class ContextMenuConfigNotifier extends StateNotifier<ContextMenuConfig> {
 
   void resetToDefaults() {
     state = ContextMenuConfig.defaults(PresetMenuItems.getDefs(_mode));
+  }
+}
+
+/// 刮削模式配置 Provider
+final scrapeModeConfigsProvider = StateNotifierProvider<ScrapeModeConfigsNotifier, ScrapeModeConfigs>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return ScrapeModeConfigsNotifier(prefs);
+});
+
+class ScrapeModeConfigsNotifier extends StateNotifier<ScrapeModeConfigs> {
+  final AppSettings _prefs;
+
+  ScrapeModeConfigsNotifier(this._prefs) : super(ScrapeModeConfigs.defaults()) {
+    _load();
+  }
+
+  void _load() {
+    final jsonStr = _prefs.getString(AppSettings.scrapeModeConfigsKey);
+    if (jsonStr != null && jsonStr.isNotEmpty) {
+      try {
+        final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+        state = ScrapeModeConfigs.fromMap(map);
+      } catch (e) {
+        state = _migrateFromGlobal();
+      }
+    } else {
+      state = _migrateFromGlobal();
+    }
+  }
+
+  ScrapeModeConfigs _migrateFromGlobal() {
+    final autoRename = _prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
+    final autoMove = _prefs.getBool(AppSettings.autoMoveToSortedKey) ?? false;
+    return ScrapeModeConfigs(configs: {
+      ScrapeMode.quickScrape: const ScrapeModeConfig(),
+      ScrapeMode.rescrape: ScrapeModeConfig(renameFolder: autoRename, moveToSorted: autoMove),
+      ScrapeMode.scraperCenter: ScrapeModeConfig(renameFolder: autoRename, moveToSorted: autoMove),
+      ScrapeMode.singleAdd: const ScrapeModeConfig(),
+      ScrapeMode.batchAdd: const ScrapeModeConfig(),
+    });
+  }
+
+  Future<void> save() async {
+    await _prefs.setString(AppSettings.scrapeModeConfigsKey, jsonEncode(state.toMap()));
+  }
+
+  void updateConfig(ScrapeMode mode, ScrapeModeConfig config) {
+    state = ScrapeModeConfigs(configs: {...state.configs, mode: config});
+  }
+
+  void resetToDefaults() {
+    state = ScrapeModeConfigs.defaults();
   }
 }
 
