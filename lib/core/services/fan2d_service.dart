@@ -532,25 +532,54 @@ class Fan2dService {
           if (src.startsWith('//')) src = 'https:$src';
           if (src.isNotEmpty) buffer.write('\n![图片]($src)\n');
         } else {
-          final text = child.text.trim();
+          final text = _cleanText(child.text);
           if (text.isNotEmpty) buffer.write('$text\n\n');
         }
       } else if (tag == 'h1' || tag == 'h2' || tag == 'h3' || tag == 'h4') {
         final level = tag.substring(1);
-        buffer.write('\n${'#' * int.parse(level)} ${child.text.trim()}\n\n');
+        buffer.write('\n${'#' * int.parse(level)} ${_cleanText(child.text)}\n\n');
       } else if (tag == 'ul' || tag == 'ol') {
         for (final li in child.querySelectorAll('li')) {
-          buffer.write('- ${li.text.trim()}\n');
+          buffer.write('- ${_cleanText(li.text)}\n');
         }
         buffer.write('\n');
-      } else if (tag == 'div' || tag == 'section' || tag == 'article') {
+      } else if (tag == 'table') {
+        _extractTable(child, buffer);
+      } else if (tag == 'div' || tag == 'section' || tag == 'article' || tag == 'td') {
         _extractElement(child, buffer);
       } else if (tag == 'img') {
         var src = child.attributes['data-original'] ?? child.attributes['data-src'] ?? child.attributes['src'] ?? '';
         if (src.startsWith('//')) src = 'https:$src';
         if (src.isNotEmpty) buffer.write('\n![图片]($src)\n');
+      } else if (tag == 'br') {
+        buffer.write('\n');
       }
     }
+  }
+
+  void _extractTable(dynamic table, StringBuffer buffer) {
+    final rows = table.querySelectorAll('tr');
+    if (rows.isEmpty) return;
+
+    buffer.write('\n');
+    for (final row in rows) {
+      final cells = row.querySelectorAll('td, th');
+      if (cells.isEmpty) continue;
+
+      final cellTexts = <String>[];
+      for (final cell in cells) {
+        cellTexts.add(_cleanText(cell.text));
+      }
+      buffer.write('${cellTexts.join(" | ")}\n');
+    }
+    buffer.write('\n');
+  }
+
+  String _cleanText(String text) {
+    return text
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'&nbsp;'), ' ')
+        .trim();
   }
 
   /// 下载存档并导入到游戏的备份目录
