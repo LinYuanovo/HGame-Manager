@@ -1,11 +1,12 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/services/pilipili_service.dart';
 import '../../../core/services/fan2d_service.dart';
-import '../../../core/services/concurrent_image_downloader.dart';
+import '../../../core/utils/proxy_client.dart';
 import '../../theme/app_theme.dart';
 
 enum GuideSource { pilipili, fan2d }
@@ -136,38 +137,48 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
       await imagesDir.create(recursive: true);
     }
 
-    // 下载图片
-    final headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      'Referer': 'https://www.bilibili.com/',
-    };
-
-    final urlToLocal = await ConcurrentImageDownloader.downloadAll(
-      imageUrls: imageUrls,
-      saveDir: gamePath,
-      headers: headers,
-      maxConcurrency: 3,
-      startIndex: 0,
-    );
-
-    // 重命名为 guide_xx.xx 格式
+    // 下载图片并保存为 guide_xx.xx 格式
     final localPaths = <String>[];
-    int guideIndex = 1;
-    for (final url in imageUrls) {
-      final localPath = urlToLocal[url];
-      if (localPath != null) {
-        final ext = localPath.split('.').last;
-        final newPath = '$gamePath${Platform.pathSeparator}images${Platform.pathSeparator}guide_${guideIndex.toString().padLeft(2, '0')}.$ext';
+    final client = await createProxyClientFromPrefs(domain: 'i0.hdslb.com');
+    try {
+      for (int i = 0; i < imageUrls.length; i++) {
+        final url = imageUrls[i];
         try {
-          await File(localPath).rename(newPath);
-          localPaths.add(newPath);
-        } catch (_) {
-          localPaths.add(localPath);
+          final response = await client.get(
+            Uri.parse(url),
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Referer': 'https://www.bilibili.com/',
+            },
+          ).timeout(const Duration(seconds: 30));
+
+          if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+            // 从URL获取扩展名
+            final uri = Uri.parse(url);
+            final pathSegments = uri.pathSegments;
+            var ext = '.jpg';
+            if (pathSegments.isNotEmpty) {
+              final lastSegment = pathSegments.last;
+              if (lastSegment.contains('.')) {
+                ext = '.${lastSegment.split('.').last}';
+              }
+            }
+
+            final fileName = 'guide_${(i + 1).toString().padLeft(2, '0')}$ext';
+            final filePath = '$gamePath${Platform.pathSeparator}images${Platform.pathSeparator}$fileName';
+            await File(filePath).writeAsBytes(response.bodyBytes, flush: true);
+            localPaths.add(filePath);
+            if (kDebugMode) debugPrint('[Guide] 下载图片: $fileName');
+          } else {
+            localPaths.add(url);
+          }
+        } catch (e) {
+          if (kDebugMode) debugPrint('[Guide] 下载图片失败: $url, $e');
+          localPaths.add(url);
         }
-        guideIndex++;
-      } else {
-        localPaths.add(url);
       }
+    } finally {
+      client.close();
     }
 
     // 替换内容中的URL为本地路径 - 使用 [图片:path] 格式
