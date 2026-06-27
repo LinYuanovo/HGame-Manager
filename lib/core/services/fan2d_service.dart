@@ -562,6 +562,9 @@ class Fan2dService {
     if (rows.isEmpty) return;
 
     buffer.write('\n');
+
+    // 收集所有行的数据
+    final allRows = <List<String>>[];
     for (final row in rows) {
       final cells = row.querySelectorAll('td, th');
       if (cells.isEmpty) continue;
@@ -570,8 +573,39 @@ class Fan2dService {
       for (final cell in cells) {
         cellTexts.add(_cleanText(cell.text));
       }
-      buffer.write('${cellTexts.join(" | ")}\n');
+      allRows.add(cellTexts);
     }
+
+    if (allRows.isEmpty) return;
+
+    // 找出最大列数
+    int maxCols = 0;
+    for (final row in allRows) {
+      if (row.length > maxCols) maxCols = row.length;
+    }
+
+    // 补齐列数
+    for (final row in allRows) {
+      while (row.length < maxCols) {
+        row.add('');
+      }
+    }
+
+    // 输出表格（使用markdown格式，需要分隔行）
+    if (allRows.length > 1) {
+      // 第一行作为表头
+      buffer.write('| ${allRows[0].join(" | ")} |\n');
+      // 分隔行
+      buffer.write('| ${List.filled(maxCols, '---').join(" | ")} |\n');
+      // 剩余行
+      for (int i = 1; i < allRows.length; i++) {
+        buffer.write('| ${allRows[i].join(" | ")} |\n');
+      }
+    } else if (allRows.length == 1) {
+      // 只有一行，直接输出
+      buffer.write('${allRows[0].join(" | ")}\n');
+    }
+
     buffer.write('\n');
   }
 
