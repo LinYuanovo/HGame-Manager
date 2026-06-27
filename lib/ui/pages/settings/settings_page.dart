@@ -65,6 +65,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   bool _noImageMode = false;
   bool _keepPlayedInGames = false;
   bool _favoriteFirst = false;
+  bool _autoMoveToSorted = false;
 
   int _selectedSidebarIndex = 0;
 
@@ -82,7 +83,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _SidebarCategory(
       label: '刮削',
       icon: Icons.description_outlined,
-      items: ['刮削后游戏文件夹重命名', '论坛自定义域名', 'Cookie设置', '自定义解析器'],
+      items: ['刮削后游戏文件夹重命名', '自动移动到整理目录', '论坛自定义域名', 'Cookie设置', '自定义解析器'],
     ),
     _SidebarCategory(
       label: '网络',
@@ -169,6 +170,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _noImageMode = prefs.getBool(AppSettings.noImageModeKey) ?? false;
     _keepPlayedInGames = prefs.getBool(AppSettings.keepPlayedInGamesKey) ?? false;
     _favoriteFirst = prefs.getBool(AppSettings.favoriteFirstKey) ?? false;
+    _autoMoveToSorted = prefs.getBool(AppSettings.autoMoveToSortedKey) ?? false;
 
     _loadXpathConfigs();
   }
@@ -376,6 +378,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         return _buildBlacklistSection();
       case '刮削后游戏文件夹重命名':
         return _buildFolderRenameSection();
+      case '自动移动到整理目录':
+        return _buildAutoMoveToSortedSection();
       case '论坛自定义域名':
         return _buildForumDomainSection();
       case 'Cookie设置':
@@ -935,6 +939,46 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAutoMoveToSortedSection() {
+    return _buildSection(
+      title: '自动移动到整理目录',
+      icon: Icons.move_to_inbox,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('刮削后自动移动游戏到整理目录', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.getTextPrimary(context))),
+                  const SizedBox(height: 4),
+                  Text(
+                    '开启后，刮削完成的游戏将自动移动到对应游戏库的整理目录中',
+                    style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.7)),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '提示：需要先在"游戏库设置"中为对应库设置整理目录，否则不会移动',
+                    style: TextStyle(fontSize: 12, color: AppTheme.warningOrange.withValues(alpha: 0.8)),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: _autoMoveToSorted,
+              onChanged: (value) async {
+                setState(() => _autoMoveToSorted = value);
+                final prefs = ref.read(sharedPreferencesProvider);
+                await prefs.setBool(AppSettings.autoMoveToSortedKey, value);
+              },
+              activeColor: AppTheme.primaryColor,
+            ),
+          ],
         ),
       ],
     );
@@ -2045,6 +2089,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     await prefs.setDouble('detail_font_size', _detailFontSize);
     await prefs.setBool(AppSettings.noImageModeKey, _noImageMode);
     await prefs.setBool(AppSettings.keepPlayedInGamesKey, _keepPlayedInGames);
+    await prefs.setBool(AppSettings.autoMoveToSortedKey, _autoMoveToSorted);
 
     if (!mounted) return;
 
