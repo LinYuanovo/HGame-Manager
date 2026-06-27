@@ -503,6 +503,17 @@ class Fan2dService {
       return '';
     }
 
+    // 打印找到的容器HTML帮助调试
+    if (kDebugMode) {
+      final html = contentDiv.outerHtml;
+      debugPrint('[Fan2d] 容器HTML长度: ${html.length}');
+      debugPrint('[Fan2d] 容器HTML前2000字符:\n$html');
+      debugPrint('[Fan2d] 容器子元素数量: ${contentDiv.children.length}');
+      for (final child in contentDiv.children) {
+        debugPrint('[Fan2d]   子元素: <${child.localName}> class="${child.className}" text="${child.text.substring(0, child.text.length > 50 ? 50 : child.text.length)}..."');
+      }
+    }
+
     // 递归提取所有文本内容
     _extractElement(contentDiv, buffer);
 
