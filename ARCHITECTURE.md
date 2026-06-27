@@ -4,7 +4,7 @@
 
 **黄油仓库** - 基于 Flutter 开发的 Windows 本地 HGame 管理器
 
-- **版本**: 1.4.2
+- **版本**: 1.4.3
 - **平台**: Windows 10/11 (64位)
 - **Flutter SDK**: >= 3.41.9
 - **Dart SDK**: >= 3.11.5
@@ -142,6 +142,7 @@ class Game {
   final int? rating;           // 评分 (1-10)
   final String? review;        // 评论内容
   final String? savePath;      // 存档路径
+  final String? guide;         // 攻略内容（Markdown格式）
 }
 ```
 
@@ -202,7 +203,8 @@ CREATE TABLE games (
   cover_index INTEGER DEFAULT 0,
   rating REAL DEFAULT 0,
   review TEXT,
-  save_path TEXT
+  save_path TEXT,
+  guide TEXT
 );
 ```
 
@@ -343,6 +345,16 @@ enum NavRoute {
 - 在维咔/飞雪/嘤嘤怪三个站点搜索
 - 版本号对比取最大值
 - 支持自定义域名
+
+### PilipiliService
+- pilipili专栏文章搜索（WBI签名）
+- 文章内容刮削（HTML/JSON转Markdown）
+- 关键词智能提取（过滤版本号、官中等）
+
+### Fan2dService (扩展)
+- 2DFan攻略搜索和刮削
+- XPath + CSS备选选择器
+- 支持多walkthrough页面
 
 ## UI 组件
 
