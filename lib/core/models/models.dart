@@ -46,6 +46,7 @@ class Game {
   final String? gameLauncher;
   final bool launcherLocked;
   final bool useLocaleEmulator;
+  final String? guide;       // 攻略内容（Markdown格式）
 
   Game({
     this.id,
@@ -74,6 +75,7 @@ class Game {
     this.gameLauncher,
     this.launcherLocked = false,
     this.useLocaleEmulator = false,
+    this.guide,
   });
 
   factory Game.fromMap(Map<String, dynamic> map) {
@@ -106,6 +108,7 @@ class Game {
       gameLauncher: map['game_launcher'] as String?,
       launcherLocked: (map['launcher_locked'] as int? ?? 0) == 1,
       useLocaleEmulator: (map['use_locale_emulator'] as int? ?? 0) == 1,
+      guide: map['guide'] as String?,
     );
   }
 
@@ -135,6 +138,7 @@ class Game {
       'game_launcher': gameLauncher,
       'launcher_locked': launcherLocked ? 1 : 0,
       'use_locale_emulator': useLocaleEmulator ? 1 : 0,
+      if (guide != null) 'guide': guide,
     };
   }
 
@@ -165,6 +169,7 @@ class Game {
     Object? gameLauncher = _undefined,
     Object? launcherLocked = _undefined,
     Object? useLocaleEmulator = _undefined,
+    Object? guide = _undefined,
   }) {
     return Game(
       id: id ?? this.id,
@@ -193,6 +198,7 @@ class Game {
       gameLauncher: identical(gameLauncher, _undefined) ? this.gameLauncher : gameLauncher as String?,
       launcherLocked: identical(launcherLocked, _undefined) ? this.launcherLocked : launcherLocked as bool,
       useLocaleEmulator: identical(useLocaleEmulator, _undefined) ? this.useLocaleEmulator : useLocaleEmulator as bool,
+      guide: identical(guide, _undefined) ? this.guide : guide as String?,
     );
   }
 }

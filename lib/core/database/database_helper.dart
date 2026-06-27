@@ -4,7 +4,7 @@ import '../utils/app_paths.dart';
 class DatabaseHelper {
   static Database? _database;
   static Future<Database>? _databaseFuture;
-  static const int _databaseVersion = 9;
+  static const int _databaseVersion = 10;
 
   static Future<String> getDataDir() => AppPaths.rootDir;
 
@@ -141,7 +141,8 @@ class DatabaseHelper {
         use_locale_emulator INTEGER NOT NULL DEFAULT 0,
         maker TEXT,
         maker_url TEXT,
-        play_duration INTEGER DEFAULT 0
+        play_duration INTEGER DEFAULT 0,
+        guide TEXT
       )
     ''');
 
@@ -224,5 +225,10 @@ class DatabaseHelper {
       _database = null;
       _databaseFuture = null;
     }
+    }
+    if (oldVersion < 10) {
+      if (!await _columnExists(db, 'games', 'guide')) {
+        await db.execute('ALTER TABLE games ADD COLUMN guide TEXT');
+      }
+    }
   }
-}
