@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:html/parser.dart' as html_parser;
-import 'package:html/dom.dart' as dom;
 import '../models/backup_entry.dart';
 import '../services/backup_service.dart';
 import '../utils/proxy_client.dart';
@@ -260,113 +259,109 @@ class Fan2dService {
     return _doGuideSearch(domain, keyword);
   }
 
+  /// 带回退的攻略搜索：优先用启动器名搜索，无结果再用 title 分词逐个尝试
+  Future<List<Fan2dGuideResult>> searchGuidesWithFallback({
+    required String gamePath,
+    String? gameLauncher,
+    required String gameTitle,
+  }) async {
+    if (gameLauncher != null && gameLauncher.isNotEmpty) {
+      final launcherName = gameLauncher.replaceAll('\\', '/').split('/').last;
+      final nameWithoutExt = launcherName.contains('.')
+          ? launcherName.substring(0, launcherName.lastIndexOf('.'))
+          : launcherName;
+
+      final lowerName = nameWithoutExt.toLowerCase();
+      final isGeneric = kGenericGameNames.any((w) => lowerName == w || lowerName.contains(w));
+
+      if (nameWithoutExt.isNotEmpty && !isGeneric) {
+        if (kDebugMode) debugPrint('[Fan2d] 尝试启动器名搜索攻略: $nameWithoutExt');
+        final results = await searchGuides(nameWithoutExt);
+        if (results.isNotEmpty) return results;
+      }
+    }
+
+    final keywords = _extractKeywords(gameTitle);
+    for (final keyword in keywords) {
+      if (kDebugMode) debugPrint('[Fan2d] 尝试关键词搜索攻略: $keyword');
+      final results = await searchGuides(keyword);
+      if (results.isNotEmpty) return results;
+    }
+
+    return [];
+  }
+
   Future<List<Fan2dGuideResult>> _doGuideSearch(String domain, String keyword) async {
     final url = 'https://$domain/subjects/search?keyword=${Uri.encodeComponent(keyword)}';
     if (kDebugMode) debugPrint('[Fan2d] 攻略搜索: $url');
+
     final client = await createProxyClientFromPrefs(domain: domain);
     try {
       final headers = await buildScrapeHeaders(url);
-      final response = await client.get(Uri.parse(url), headers: headers)
-          .timeout(const Duration(seconds: 15));
+      final response = await client.get(
+        Uri.parse(url),
+        headers: headers,
+      ).timeout(const Duration(seconds: 15));
+
       if (response.statusCode != 200) {
         if (kDebugMode) debugPrint('[Fan2d] 攻略搜索 HTTP ${response.statusCode}');
         return [];
       }
 
       final document = html_parser.parse(response.body);
-      
-      // XPath: /html/body/div[5]/div/div[1]/div/div/div[2]/ul/li[i]/div/p[4]/span[2]/a
-      // CSS equivalent: div:nth-of-type(5) > div > div:nth-of-type(1) > div > div > div:nth-of-type(2) > ul > li > div > p:nth-of-type(4) > span:nth-of-type(2) > a
-      // Simplified: look for li.media items, then find guide links in p#resources
-      
-      var items = document.querySelectorAll('li.media');
-      if (kDebugMode) debugPrint('[Fan2d] li.media 找到 ${items.length} 个结果');
-      
-      // Also try broader selectors if nothing found
-      if (items.isEmpty) {
-        items = document.querySelectorAll('#subjects li');
-        if (kDebugMode) debugPrint('[Fan2d] #subjects li 找到 ${items.length} 个结果');
-      }
-      if (items.isEmpty) {
-        items = document.querySelectorAll('ul.media-list li');
-        if (kDebugMode) debugPrint('[Fan2d] ul.media-list li 找到 ${items.length} 个结果');
-      }
-      
-      final results = <Fan2dGuideResult>[];
+      final items = document.querySelectorAll('li.media');
+      if (kDebugMode) debugPrint('[Fan2d] 攻略搜索找到 ${items.length} 个结果');
 
+      final results = <Fan2dGuideResult>[];
       for (final item in items) {
-        final titleEl = item.querySelector('h4.media-heading a') ?? item.querySelector('a[href*="/subjects/"]');
+        final titleEl = item.querySelector('h4.media-heading a');
         final title = titleEl?.text.trim() ?? '';
         if (title.isEmpty) continue;
-        if (kDebugMode) debugPrint('[Fan2d] 检查: $title');
 
-        // 根据用户指定的XPath结构:
-        // /html/body/div[5]/div/div[1]/div/div/div[2]/ul/li[i]/div/p[4]/span[2]/a
-        // 实际HTML结构: li > div.media-body > p#resources > span > a
-        
-        dom.Element? guideLink;
-        
-        // 遍历所有p标签找攻略链接（XPath p[4] 对应第4个p标签）
-        final pTags = item.querySelectorAll('p');
-        if (kDebugMode) debugPrint('[Fan2d]   找到 ${pTags.length} 个p标签');
-        
-        for (final p in pTags) {
-          final pId = p.id;
-          final pClass = p.className;
-          if (kDebugMode) debugPrint('[Fan2d]   p标签: id=$pId, class=$pClass');
-          
-          // 在每个p标签中查找攻略链接
-          final links = p.querySelectorAll('a');
+        // 参考下载存档的实现：在 p#resources 中查找攻略按钮
+        // XPath: /html/body/div[5]/div/div[1]/div/div/div[2]/ul/li[i]/div/p[4]/span[2]/a
+        String? guideUrl;
+        final resourcesEl = item.querySelector('p#resources');
+        if (resourcesEl != null) {
+          final links = resourcesEl.querySelectorAll('a');
           for (final link in links) {
-            final href = link.attributes['href'] ?? '';
             final text = link.text.trim();
-            if (kDebugMode) debugPrint('[Fan2d]     链接: text="$text", href="$href"');
-            
-            if (text.contains('攻略') || href.contains('/topics/')) {
-              guideLink = link;
-              if (kDebugMode) debugPrint('[Fan2d]   >>> 找到攻略链接!');
+            if (text.contains('攻略')) {
+              guideUrl = link.attributes['href'];
+              if (kDebugMode) debugPrint('[Fan2d] 找到攻略按钮: $text -> $guideUrl');
               break;
             }
           }
-          if (guideLink != null) break;
         }
-        
-        // 如果没找到，尝试在span中找
-        if (guideLink == null) {
-          final spans = item.querySelectorAll('span');
-          for (final span in spans) {
-            final links = span.querySelectorAll('a');
+
+        // 如果 p#resources 中没找到，遍历所有 p 标签查找
+        if (guideUrl == null || guideUrl.isEmpty) {
+          final pTags = item.querySelectorAll('p');
+          for (final p in pTags) {
+            final links = p.querySelectorAll('a');
             for (final link in links) {
-              final href = link.attributes['href'] ?? '';
               final text = link.text.trim();
+              final href = link.attributes['href'] ?? '';
               if (text.contains('攻略') || href.contains('/topics/')) {
-                guideLink = link;
-                if (kDebugMode) debugPrint('[Fan2d]   >>> 从span中找到攻略链接!');
+                guideUrl = href;
+                if (kDebugMode) debugPrint('[Fan2d] 从其他p标签找到攻略: $text -> $guideUrl');
                 break;
               }
             }
-            if (guideLink != null) break;
+            if (guideUrl != null && guideUrl.isNotEmpty) break;
           }
         }
 
-        if (guideLink != null) {
-          var guideUrl = guideLink.attributes['href'] ?? '';
-          if (guideUrl.isNotEmpty) {
-            if (!guideUrl.startsWith('http')) {
-              guideUrl = 'https://$domain$guideUrl';
-            }
-            if (kDebugMode) debugPrint('[Fan2d] 最终攻略URL: $guideUrl');
-            results.add(Fan2dGuideResult(title: title, guideUrl: guideUrl));
+        if (guideUrl != null && guideUrl.isNotEmpty) {
+          if (!guideUrl.startsWith('http')) {
+            guideUrl = 'https://$domain$guideUrl';
           }
-        } else {
-          if (kDebugMode) debugPrint('[Fan2d]   未找到攻略链接');
+          if (kDebugMode) debugPrint('[Fan2d] 攻略URL: $guideUrl');
+          results.add(Fan2dGuideResult(title: title, guideUrl: guideUrl));
         }
       }
       if (kDebugMode) debugPrint('[Fan2d] 攻略搜索完成，共 ${results.length} 个结果');
       return results;
-    } catch (e) {
-      if (kDebugMode) debugPrint('[Fan2d] 攻略搜索异常: $e');
-      return [];
     } finally {
       client.close();
     }
@@ -374,14 +369,42 @@ class Fan2dService {
 
   /// 获取2DFan攻略内容并转为Markdown
   Future<String?> scrapeGuideContent(String guideUrl) async {
+    if (kDebugMode) debugPrint('[Fan2d] 刮削攻略: $guideUrl');
     final client = await createProxyClientFromPrefs(domain: Uri.parse(guideUrl).host);
     try {
       final headers = await buildScrapeHeaders(guideUrl);
       final response = await client.get(Uri.parse(guideUrl), headers: headers)
           .timeout(const Duration(seconds: 15));
-      if (response.statusCode != 200) return null;
+      if (response.statusCode != 200) {
+        if (kDebugMode) debugPrint('[Fan2d] 攻略页面 HTTP ${response.statusCode}');
+        return null;
+      }
 
       final document = html_parser.parse(response.body);
+
+      // 检查是否有 walkthroughs（多个攻略子页面）
+      // XPath: /html/body/div[5]/div/div[1]/div/div/div[2]/div
+      final contentDiv = document.querySelector('div.block-content') ?? document.querySelector('.topic-content');
+      if (contentDiv != null) {
+        // 查找 walkthrough 链接
+        final walkthroughLinks = <String>[];
+        final links = contentDiv.querySelectorAll('a');
+        for (final link in links) {
+          final href = link.attributes['href'] ?? '';
+          final text = link.text.trim();
+          if (href.contains('/topics/') && !href.endsWith(guideUrl.split('/').last)) {
+            walkthroughLinks.add(href.startsWith('http') ? href : 'https://${Uri.parse(guideUrl).host}$href');
+            if (kDebugMode) debugPrint('[Fan2d] 找到walkthrough: $text -> $href');
+          }
+        }
+
+        // 如果有多个walkthrough，返回第一个的内容（或让用户选择）
+        if (walkthroughLinks.length > 1) {
+          if (kDebugMode) debugPrint('[Fan2d] 有 ${walkthroughLinks.length} 个walkthrough，先返回第一个');
+          // TODO: 可以让用户选择具体walkthrough
+        }
+      }
+
       return _extractGuideMarkdown(document, guideUrl);
     } catch (e) {
       if (kDebugMode) debugPrint('[Fan2d] 攻略刮削异常: $e');
@@ -393,8 +416,13 @@ class Fan2dService {
 
   String _extractGuideMarkdown(dynamic document, String baseUrl) {
     final buffer = StringBuffer();
-    final contentDiv = document.querySelector('.topic-content, .block-content .control-group');
-    if (contentDiv == null) return '';
+    // 帖子的xpath: /html/body/div[5]/div/div[1]/div/div/div[2]
+    // 攻略的xpath: /html/body/div[5]/div/div[1]/div/div/div[2]/div
+    final contentDiv = document.querySelector('.topic-content') ?? document.querySelector('.block-content .control-group');
+    if (contentDiv == null) {
+      if (kDebugMode) debugPrint('[Fan2d] 未找到攻略内容容器');
+      return '';
+    }
 
     for (final element in contentDiv.children) {
       final tag = element.localName;
@@ -410,6 +438,14 @@ class Fan2dService {
         }
       } else if (tag == 'h3' || tag == 'h4') {
         buffer.write('\n### ${element.text.trim()}\n\n');
+      } else if (tag == 'div') {
+        // 递归处理div中的内容
+        for (final child in element.children) {
+          if (child.localName == 'p') {
+            final text = child.text.trim();
+            if (text.isNotEmpty) buffer.write('$text\n\n');
+          }
+        }
       }
     }
 
