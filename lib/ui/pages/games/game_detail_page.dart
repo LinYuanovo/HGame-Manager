@@ -1616,6 +1616,7 @@ if (_isEditing) ...[
             const SizedBox(width: 8),
             OutlinedButton.icon(
               onPressed: () async {
+                await _deleteGuideImages();
                 setState(() {
                   _guideController.clear();
                   _currentGame = _currentGame.copyWith(guide: null);
@@ -1639,13 +1640,15 @@ if (_isEditing) ...[
   void _openGuideSearch() async {
     final title = _currentGame.title ?? '';
     final keyword = _extractSearchKeyword(title);
-    
+
     final content = await showDialog<String>(
       context: context,
       builder: (context) => GuideSearchDialog(game: _currentGame, initialKeyword: keyword),
     );
-    
+
     if (content != null && mounted) {
+      // 先删除旧的攻略图片
+      await _deleteGuideImages();
       setState(() {
         _guideController.text = content;
         _currentGame = _currentGame.copyWith(guide: content);
@@ -1653,6 +1656,24 @@ if (_isEditing) ...[
       final repo = ref.read(gameRepositoryProvider);
       await repo.updateGuide(_currentGame.id!, content);
       _syncGuideToMetadata(content);
+    }
+  }
+
+  /// 删除攻略相关的图片文件
+  Future<void> _deleteGuideImages() async {
+    final imagesDir = Directory('${_currentGame.path}${Platform.pathSeparator}images');
+    if (!await imagesDir.exists()) return;
+
+    await for (final entity in imagesDir.list()) {
+      if (entity is File) {
+        final fileName = entity.path.split(Platform.pathSeparator).last;
+        // 只删除 guide_ 开头的图片
+        if (fileName.startsWith('guide_')) {
+          try {
+            await entity.delete();
+          } catch (_) {}
+        }
+      }
     }
   }
 
