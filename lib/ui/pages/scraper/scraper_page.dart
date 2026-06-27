@@ -1059,13 +1059,13 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       // Check if target path already exists in database
       final existingGame = await gameRepo.getGameByPath(targetDir.path);
       if (existingGame != null) {
-        // Delete the existing game record to avoid UNIQUE constraint
         await gameRepo.deleteGame(existingGame.id!);
         _addLog('  -> 已删除目标路径的旧记录');
       }
 
       await sourceDir.rename(targetDir.path);
       await gameRepo.updateGamePath(game.id!, targetDir.path);
+
       // Update image paths in database after moving the directory
       final images = await gameRepo.getGameImages(game.id!);
       if (images.isNotEmpty) {
@@ -1077,6 +1077,46 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         )).toList();
         await gameRepo.setGameImages(game.id!, updatedImages);
       }
+
+      // Update intro text paths
+      final currentGame = await gameRepo.getGameById(game.id!);
+      if (currentGame != null && currentGame.intro != null) {
+        var updatedIntro = currentGame.intro!;
+        if (updatedIntro.contains(game.path)) {
+          updatedIntro = updatedIntro.replaceAll(game.path, targetDir.path);
+          await gameRepo.updateGame(currentGame.copyWith(intro: updatedIntro));
+        }
+      }
+
+      // Update metadata.json paths
+      try {
+        final metadataFile = File('${targetDir.path}${Platform.pathSeparator}metadata.json');
+        if (await metadataFile.exists()) {
+          final content = await metadataFile.readAsString();
+          if (content.contains(game.path)) {
+            final updatedContent = content.replaceAll(game.path, targetDir.path);
+            await metadataFile.writeAsString(updatedContent, flush: true);
+          }
+        }
+      } catch (e) {
+        _addLog('  -> 更新metadata路径失败: $e');
+      }
+
+      // Update gameLauncher and savePath
+      final updatedGame = await gameRepo.getGameById(game.id!);
+      if (updatedGame != null) {
+        if (updatedGame.gameLauncher != null && updatedGame.gameLauncher!.startsWith(game.path)) {
+          final relative = updatedGame.gameLauncher!.substring(game.path.length);
+          final newLauncher = '${targetDir.path}$relative';
+          await gameRepo.updateGameLauncher(game.id!, newLauncher, updatedGame.launcherLocked);
+        }
+        if (updatedGame.savePath != null && updatedGame.savePath!.startsWith(game.path)) {
+          final relative = updatedGame.savePath!.substring(game.path.length);
+          final newSavePath = '${targetDir.path}$relative';
+          await gameRepo.updateGame(updatedGame.copyWith(savePath: newSavePath));
+        }
+      }
+
       _addLog('  -> 已移动到: ${targetDir.path}');
     } catch (e) {
       _addLog('  -> 移动失败: $e');
