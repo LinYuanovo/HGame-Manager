@@ -22,6 +22,14 @@ class Fan2dSaveFile {
   Fan2dSaveFile({required this.title, required this.downloadUrl});
 }
 
+/// 2DFan攻略搜索结果
+class Fan2dGuideResult {
+  final String title;
+  final String guideUrl;
+
+  Fan2dGuideResult({required this.title, required this.guideUrl});
+}
+
 /// downloadAndImport 的返回结果
 class Fan2dDownloadResult {
   final BackupEntry? entry;
@@ -239,6 +247,102 @@ class Fan2dService {
     } finally {
       client.close();
     }
+  }
+
+  /// 搜索2DFan攻略
+  Future<List<Fan2dGuideResult>> searchGuides(String keyword) async {
+    final domain = await _getDomain();
+    if (domain.isEmpty) {
+      final detected = await detectAndSaveDomain();
+      return _doGuideSearch(detected, keyword);
+    }
+    return _doGuideSearch(domain, keyword);
+  }
+
+  Future<List<Fan2dGuideResult>> _doGuideSearch(String domain, String keyword) async {
+    final url = 'https://$domain/subjects/search?keyword=${Uri.encodeComponent(keyword)}';
+    final client = await createProxyClientFromPrefs(domain: domain);
+    try {
+      final headers = await buildScrapeHeaders(url);
+      final response = await client.get(Uri.parse(url), headers: headers)
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200) return [];
+
+      final document = html_parser.parse(response.body);
+      final items = document.querySelectorAll('li.media');
+      final results = <Fan2dGuideResult>[];
+
+      for (final item in items) {
+        final titleEl = item.querySelector('h4.media-heading a');
+        final title = titleEl?.text.trim() ?? '';
+        if (title.isEmpty) continue;
+
+        final resourcesEl = item.querySelector('p#resources');
+        if (resourcesEl != null) {
+          final links = resourcesEl.querySelectorAll('a');
+          for (final link in links) {
+            final text = link.text.trim();
+            if (text.contains('攻略')) {
+              var guideUrl = link.attributes['href'] ?? '';
+              if (guideUrl.isNotEmpty) {
+                if (!guideUrl.startsWith('http')) {
+                  guideUrl = 'https://$domain$guideUrl';
+                }
+                results.add(Fan2dGuideResult(title: title, guideUrl: guideUrl));
+              }
+              break;
+            }
+          }
+        }
+      }
+      return results;
+    } finally {
+      client.close();
+    }
+  }
+
+  /// 获取2DFan攻略内容并转为Markdown
+  Future<String?> scrapeGuideContent(String guideUrl) async {
+    final client = await createProxyClientFromPrefs(domain: Uri.parse(guideUrl).host);
+    try {
+      final headers = await buildScrapeHeaders(guideUrl);
+      final response = await client.get(Uri.parse(guideUrl), headers: headers)
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200) return null;
+
+      final document = html_parser.parse(response.body);
+      return _extractGuideMarkdown(document, guideUrl);
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Fan2d] 攻略刮削异常: $e');
+      return null;
+    } finally {
+      client.close();
+    }
+  }
+
+  String _extractGuideMarkdown(dynamic document, String baseUrl) {
+    final buffer = StringBuffer();
+    final contentDiv = document.querySelector('.topic-content, .block-content .control-group');
+    if (contentDiv == null) return '';
+
+    for (final element in contentDiv.children) {
+      final tag = element.localName;
+      if (tag == 'p') {
+        final img = element.querySelector('img');
+        if (img != null) {
+          var src = img.attributes['data-original'] ?? img.attributes['src'] ?? '';
+          if (src.startsWith('//')) src = 'https:$src';
+          if (src.isNotEmpty) buffer.write('\n![图片]($src)\n');
+        } else {
+          final text = element.text.trim();
+          if (text.isNotEmpty) buffer.write('$text\n\n');
+        }
+      } else if (tag == 'h3' || tag == 'h4') {
+        buffer.write('\n### ${element.text.trim()}\n\n');
+      }
+    }
+
+    return buffer.toString().trim();
   }
 
   /// 下载存档并导入到游戏的备份目录
