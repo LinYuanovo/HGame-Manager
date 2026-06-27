@@ -51,42 +51,51 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
         if (mounted) setState(() { _results = results; _isSearching = false; });
       }
     } catch (e) {
+      final errorMsg = e.toString().replaceFirst('Exception: ', '');
       if (mounted) {
         setState(() => _isSearching = false);
-        AppTheme.showGlassToast(context, message: '搜索失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        AppTheme.showGlassToast(context, message: errorMsg, icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
     }
   }
 
   Future<void> _selectResult(dynamic result) async {
     String? content;
-    if (result is PilipiliSearchResult) {
-      final service = PilipiliService();
-      content = await service.getArticleContent(result.articleId);
-    } else if (result is Fan2dGuideResult) {
-      final service = ref.read(fan2dServiceProvider);
-      final scrapeResult = await service.scrapeGuideContent(result.guideUrl);
+    try {
+      if (result is PilipiliSearchResult) {
+        final service = PilipiliService();
+        content = await service.getArticleContent(result.articleId);
+      } else if (result is Fan2dGuideResult) {
+        final service = ref.read(fan2dServiceProvider);
+        final scrapeResult = await service.scrapeGuideContent(result.guideUrl);
 
-      // 如果有多个walkthrough，让用户选择
-      if (scrapeResult.hasWalkthroughs) {
-        if (!mounted) return;
-        final selectedWalkthrough = await _showWalkthroughDialog(scrapeResult.walkthroughs);
-        if (selectedWalkthrough == null) {
-          if (mounted) {
-            AppTheme.showGlassToast(context, message: '未选择攻略', icon: Icons.info_outline, iconColor: AppTheme.getTextSecondary(context));
+        // 如果有多个walkthrough，让用户选择
+        if (scrapeResult.hasWalkthroughs) {
+          if (!mounted) return;
+          final selectedWalkthrough = await _showWalkthroughDialog(scrapeResult.walkthroughs);
+          if (selectedWalkthrough == null) {
+            if (mounted) {
+              AppTheme.showGlassToast(context, message: '未选择攻略', icon: Icons.info_outline, iconColor: AppTheme.getTextSecondary(context));
+            }
+            return;
           }
-          return;
+          if (!mounted) return;
+          content = await service.scrapeWalkthrough(selectedWalkthrough.url);
+        } else {
+          content = scrapeResult.content;
         }
-        if (!mounted) return;
-        content = await service.scrapeWalkthrough(selectedWalkthrough.url);
-      } else {
-        content = scrapeResult.content;
       }
+    } catch (e) {
+      final errorMsg = e.toString().replaceFirst('Exception: ', '');
+      if (mounted) {
+        AppTheme.showGlassToast(context, message: errorMsg, icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+      }
+      return;
     }
 
     if (content != null && mounted) {
       Navigator.of(context).pop(content);
-    } else if (mounted) {
+    } else if (mounted && content == null) {
       AppTheme.showGlassToast(context, message: '获取攻略内容失败', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
     }
   }

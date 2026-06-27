@@ -71,6 +71,22 @@ class PilipiliService {
     }
   }
 
+  /// 获取API错误信息
+  String _getErrorMessage(int code, String message) {
+    switch (code) {
+      case -352:
+        return '可能是未填写cookie(设置中填写), 如已填写请重新获取cookie或换号尝试';
+      case -509:
+        return '请求过于频繁，请稍后再试';
+      case -400:
+        return '请求错误';
+      case -404:
+        return '啥都木有';
+      default:
+        return message.isNotEmpty ? message : '未知错误 ($code)';
+    }
+  }
+
   Future<List<PilipiliSearchResult>> searchArticles(String keyword, {int page = 1}) async {
     final wbiKeys = await _getWbiKeys();
     final cookie = await _getCookie();
@@ -88,11 +104,15 @@ class PilipiliService {
         uri,
         headers: {'User-Agent': _userAgent, 'Cookie': cookie},
       ).timeout(const Duration(seconds: 15));
-      if (response.statusCode != 200) return [];
+      if (response.statusCode != 200) {
+        throw Exception('HTTP ${response.statusCode}');
+      }
       final json = jsonDecode(response.body);
-      if (json['code'] != 0) {
-        if (kDebugMode) debugPrint('[Pilipili] 搜索失败: ${json['message']}');
-        return [];
+      final code = json['code'] as int;
+      if (code != 0) {
+        final errorMsg = _getErrorMessage(code, json['message'] as String? ?? '');
+        if (kDebugMode) debugPrint('[Pilipili] 搜索失败: code=$code, $errorMsg');
+        throw Exception(errorMsg);
       }
       final articles = json['data']['result'] as List<dynamic>? ?? [];
       if (kDebugMode) debugPrint('[Pilipili] 搜索到 ${articles.length} 篇文章');
@@ -127,13 +147,15 @@ class PilipiliService {
       if (kDebugMode) debugPrint('[Pilipili] 文章API响应: ${response.statusCode}');
       if (response.statusCode != 200) {
         if (kDebugMode) debugPrint('[Pilipili] 文章请求失败: HTTP ${response.statusCode}');
-        return null;
+        throw Exception('HTTP ${response.statusCode}');
       }
       final json = jsonDecode(response.body);
-      if (kDebugMode) debugPrint('[Pilipili] 文章API code: ${json['code']}, message: ${json['message']}');
-      if (json['code'] != 0) {
-        if (kDebugMode) debugPrint('[Pilipili] 文章API错误: ${json['message']}');
-        return null;
+      final code = json['code'] as int;
+      if (kDebugMode) debugPrint('[Pilipili] 文章API code: $code, message: ${json['message']}');
+      if (code != 0) {
+        final errorMsg = _getErrorMessage(code, json['message'] as String? ?? '');
+        if (kDebugMode) debugPrint('[Pilipili] 文章API错误: $errorMsg');
+        throw Exception(errorMsg);
       }
       final data = json['data'];
       if (data == null) {
@@ -159,7 +181,7 @@ class PilipiliService {
       return content;
     } catch (e) {
       if (kDebugMode) debugPrint('[Pilipili] 获取文章内容异常: $e');
-      return null;
+      rethrow;
     } finally {
       client.close();
     }
