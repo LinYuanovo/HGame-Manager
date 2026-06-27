@@ -571,7 +571,10 @@ class Fan2dService {
 
       final cellTexts = <String>[];
       for (final cell in cells) {
-        cellTexts.add(_cleanText(cell.text));
+        // 递归提取单元格内容
+        final cellBuffer = StringBuffer();
+        _extractElement(cell, cellBuffer);
+        cellTexts.add(cellBuffer.toString().trim());
       }
       allRows.add(cellTexts);
     }
@@ -591,22 +594,19 @@ class Fan2dService {
       }
     }
 
-    // 输出表格（使用markdown格式，需要分隔行）
-    if (allRows.length > 1) {
-      // 第一行作为表头
-      buffer.write('| ${allRows[0].join(" | ")} |\n');
-      // 分隔行
-      buffer.write('| ${List.filled(maxCols, '---').join(" | ")} |\n');
-      // 剩余行
-      for (int i = 1; i < allRows.length; i++) {
-        buffer.write('| ${allRows[i].join(" | ")} |\n');
+    // 转换为分栏格式显示
+    // 每列用分割线分隔，适合移动端阅读
+    for (int col = 0; col < maxCols; col++) {
+      for (final row in allRows) {
+        final cellContent = row[col];
+        if (cellContent.isNotEmpty) {
+          buffer.write('$cellContent\n\n');
+        }
       }
-    } else if (allRows.length == 1) {
-      // 只有一行，直接输出
-      buffer.write('${allRows[0].join(" | ")}\n');
+      if (col < maxCols - 1) {
+        buffer.write('---\n\n');
+      }
     }
-
-    buffer.write('\n');
   }
 
   String _cleanText(String text) {
