@@ -25,6 +25,7 @@ import '../../widgets/image_manager_dialog.dart';
 import '../../widgets/markdown_editor.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'save_management_dialog.dart';
+import 'guide_search_dialog.dart';
 
 class GameDetailDialog extends ConsumerStatefulWidget {
   final Game game;
@@ -61,6 +62,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   Set<String> _existingMediaFiles = {};
 
   String? _introHtml;
+  bool _showGuide = false;
+  late TextEditingController _guideController;
 
   double _downloadProgress = 0.0;
   int _downloadTotal = 0;
@@ -209,6 +212,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _pathController = TextEditingController(text: _currentGame.path);
     _makerController = TextEditingController(text: _currentGame.maker ?? '');
     _editedTags = List.from(_currentGame.tags);
+    _guideController = TextEditingController(text: _currentGame.guide);
     _checkIsLocal();
     _forceReloadImages();
     _preloadMediaFiles();
@@ -286,6 +290,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _gameLauncherController.dispose();
     _pathController.dispose();
     _makerController.dispose();
+    _guideController.dispose();
     super.dispose();
   }
 
@@ -1505,8 +1510,20 @@ if (_isEditing) ...[
           ),
           const SizedBox(height: 16),
 
-          // Insert images between sections, matching original article layout
-          _buildSectionWithImages(title: '简介', icon: Icons.description_outlined, content: _currentGame.intro, images: images, sectionIndex: 0),
+          // Tab切换：简介/攻略
+          Row(
+            children: [
+              _buildTabButton('简介', !_showGuide, () => setState(() => _showGuide = false)),
+              const SizedBox(width: 8),
+              _buildTabButton('攻略', _showGuide, () => setState(() => _showGuide = true)),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          if (!_showGuide)
+            _buildSectionWithImages(title: '简介', icon: Icons.description_outlined, content: _currentGame.intro, images: images, sectionIndex: 0)
+          else
+            _buildGuideSection(),
 
           if (_currentGame.features != null && _currentGame.features!.isNotEmpty) ...[
             const SizedBox(height: 32),
@@ -1533,6 +1550,138 @@ if (_isEditing) ...[
         ],
       ),
     );
+  }
+
+  Widget _buildTabButton(String label, bool isActive, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: isActive ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.3) : AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+        ),
+        child: Text(label, style: TextStyle(fontSize: 14, fontWeight: isActive ? FontWeight.w600 : FontWeight.normal, color: isActive ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context))),
+      ),
+    );
+  }
+
+  Widget _buildGuideSection() {
+    if (_isEditing) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 200, maxHeight: 500),
+        child: MarkdownEditor(
+          controller: _guideController,
+          imagePaths: _currentGame.images.map((img) => img.imagePath).toList(),
+          fontSize: ref.watch(detailFontSizeProvider),
+        ),
+      );
+    }
+    
+    final guide = _currentGame.guide;
+    if (guide == null || guide.isEmpty) {
+      return GestureDetector(
+        onTap: _openGuideSearch,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+            border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3), style: BorderStyle.solid),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.menu_book, size: 24, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
+              const SizedBox(width: 12),
+              Text('暂无攻略，点击搜索', style: TextStyle(fontSize: 14, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.7))),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildRichIntro(guide, ref.watch(detailFontSizeProvider)),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            OutlinedButton.icon(
+              onPressed: _openGuideSearch,
+              icon: const Icon(Icons.search, size: 16),
+              label: const Text('重新搜索'),
+              style: OutlinedButton.styleFrom(foregroundColor: AppTheme.getPrimaryColor(context)),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: () async {
+                setState(() {
+                  _guideController.clear();
+                  _currentGame = _currentGame.copyWith(guide: null);
+                });
+                final repo = ref.read(gameRepositoryProvider);
+                await repo.updateGuide(_currentGame.id!, null);
+                _syncGuideToMetadata(null);
+              },
+              icon: const Icon(Icons.delete_outline, size: 16),
+              label: const Text('清除攻略'),
+              style: OutlinedButton.styleFrom(foregroundColor: AppTheme.errorColor),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _openGuideSearch() async {
+    final title = _currentGame.title ?? '';
+    final keyword = _extractSearchKeyword(title);
+    
+    final content = await showDialog<String>(
+      context: context,
+      builder: (context) => GuideSearchDialog(game: _currentGame, initialKeyword: keyword),
+    );
+    
+    if (content != null && mounted) {
+      setState(() {
+        _guideController.text = content;
+        _currentGame = _currentGame.copyWith(guide: content);
+      });
+      final repo = ref.read(gameRepositoryProvider);
+      await repo.updateGuide(_currentGame.id!, content);
+      _syncGuideToMetadata(content);
+    }
+  }
+
+  String _extractSearchKeyword(String title) {
+    var keyword = title;
+    keyword = keyword.replaceAll(RegExp(r'[Vv]er?\.?\s*\d+[\.\d]*[a-zA-Z]*'), '');
+    keyword = keyword.replaceAll(RegExp(r'[(\（]官中[)\）]|[(\（]汉化[)\）]|官中|汉化'), '');
+    keyword = keyword.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return keyword;
+  }
+
+  void _syncGuideToMetadata(String? guide) async {
+    try {
+      final metadataFile = File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
+      Map<String, dynamic> metadata;
+      if (await metadataFile.exists()) {
+        metadata = jsonDecode(await metadataFile.readAsString()) as Map<String, dynamic>;
+      } else {
+        metadata = <String, dynamic>{};
+      }
+      if (guide != null) {
+        metadata['guide'] = guide;
+      } else {
+        metadata.remove('guide');
+      }
+      await metadataFile.writeAsString(jsonEncode(metadata), flush: true);
+    } catch (e) {
+      debugPrint('[Edit] Failed to sync guide to metadata.json: $e');
+    }
   }
 
   Widget _buildSectionWithImages({
@@ -2261,6 +2410,7 @@ if (_isEditing) ...[
       final newIntro = _introController.text.trim().isEmpty ? null : _introController.text.trim();
       final newFeatures = _featuresController.text.trim().isEmpty ? null : _featuresController.text.trim();
       final newChangelog = _changelogController.text.trim().isEmpty ? null : _changelogController.text.trim();
+      final newGuide = _guideController.text.trim().isEmpty ? null : _guideController.text.trim();
       final newDownloadUrl = _downloadUrlController.text.trim().isEmpty ? null : _downloadUrlController.text.trim();
       final newSourceUrl = _sourceUrlController.text.trim().isEmpty ? null : _sourceUrlController.text.trim();
       final launcherText = _gameLauncherController.text.trim();
@@ -2592,6 +2742,7 @@ if (_isEditing) ...[
         intro: newIntro,
         features: newFeatures,
         changelog: newChangelog,
+        guide: newGuide,
         downloadUrl: newDownloadUrl,
         sourceUrl: newSourceUrl,
         gameLauncher: launcherText.isNotEmpty ? launcherText : null,
@@ -2639,6 +2790,7 @@ if (_isEditing) ...[
         }
         if (newFeatures != null) metadata['features'] = newFeatures;
         if (newChangelog != null) metadata['changelog'] = newChangelog;
+        if (newGuide != null) metadata['guide'] = newGuide;
         if (newDownloadUrl != null) metadata['download_url'] = newDownloadUrl;
         if (newSourceUrl != null) metadata['source_url'] = newSourceUrl;
         
@@ -2679,6 +2831,7 @@ if (_isEditing) ...[
           _gameLauncherController.text = freshGame.gameLauncher ?? '';
           _pathController.text = freshGame.path;
           _editedTags = List.from(freshGame.tags);
+          _guideController.text = freshGame.guide ?? '';
         });
 
         await _loadMetadataHtml();
