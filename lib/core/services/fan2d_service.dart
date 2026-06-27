@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:html/parser.dart' as html_parser;
+import '../../scraper/xpath_evaluator.dart';
 import '../models/backup_entry.dart';
 import '../services/backup_service.dart';
 import '../utils/proxy_client.dart';
@@ -309,62 +310,92 @@ class Fan2dService {
       }
 
       final document = html_parser.parse(response.body);
-      final items = document.querySelectorAll('li.media');
-      if (kDebugMode) debugPrint('[Fan2d] 攻略搜索找到 ${items.length} 个结果');
+      
+      // XPath: /html/body/div[5]/div/div[1]/div/div/div[2]/ul/li[i]/div/p[4]/span[2]/a
+      // 先获取所有帖子 li[i]
+      // 帖子的xpath: /html/body/div[5]/div/div[1]/div/div/div[2]/ul/li
+      final postXpath = '/html/body/div[5]/div/div[1]/div/div/div[2]/ul/li';
+      final posts = XPathEvaluator.queryAll(document, postXpath);
+      if (kDebugMode) debugPrint('[Fan2d] 攻略搜索找到 ${posts.length} 个帖子');
+      
+      if (posts.isEmpty) {
+        // 回退：尝试其他选择器
+        final items = document.querySelectorAll('li.media');
+        if (kDebugMode) debugPrint('[Fan2d] 回退到 li.media，找到 ${items.length} 个');
+        return _doGuideSearchFallback(domain, items);
+      }
 
       final results = <Fan2dGuideResult>[];
-      for (final item in items) {
-        final titleEl = item.querySelector('h4.media-heading a');
-        final title = titleEl?.text.trim() ?? '';
+      
+      for (int i = 0; i < posts.length; i++) {
+        final postIndex = i + 1; // XPath 索引从1开始
+        
+        // 获取帖子标题
+        final titleXpath = '/html/body/div[5]/div/div[1]/div/div/div[2]/ul/li[$postIndex]/div/h4/a';
+        final titleElements = XPathEvaluator.queryAll(document, titleXpath);
+        final title = titleElements.isNotEmpty ? titleElements.first.text.trim() : '';
         if (title.isEmpty) continue;
-
-        // 参考下载存档的实现：在 p#resources 中查找攻略按钮
-        // XPath: /html/body/div[5]/div/div[1]/div/div/div[2]/ul/li[i]/div/p[4]/span[2]/a
-        String? guideUrl;
-        final resourcesEl = item.querySelector('p#resources');
-        if (resourcesEl != null) {
-          final links = resourcesEl.querySelectorAll('a');
-          for (final link in links) {
-            final text = link.text.trim();
-            if (text.contains('攻略')) {
-              guideUrl = link.attributes['href'];
-              if (kDebugMode) debugPrint('[Fan2d] 找到攻略按钮: $text -> $guideUrl');
-              break;
+        if (kDebugMode) debugPrint('[Fan2d] 帖子 $postIndex: $title');
+        
+        // 攻略按钮的xpath: /html/body/div[5]/div/div[1]/div/div/div[2]/ul/li[$postIndex]/div/p[4]/span[2]/a
+        final guideXpath = '/html/body/div[5]/div/div[1]/div/div/div[2]/ul/li[$postIndex]/div/p[4]/span[2]/a';
+        final guideElements = XPathEvaluator.queryAll(document, guideXpath);
+        
+        if (guideElements.isNotEmpty) {
+          var guideUrl = guideElements.first.attributes['href'] ?? '';
+          if (guideUrl.isNotEmpty) {
+            if (!guideUrl.startsWith('http')) {
+              guideUrl = 'https://$domain$guideUrl';
             }
+            if (kDebugMode) debugPrint('[Fan2d] 攻略按钮URL: $guideUrl');
+            results.add(Fan2dGuideResult(title: title, guideUrl: guideUrl));
           }
-        }
-
-        // 如果 p#resources 中没找到，遍历所有 p 标签查找
-        if (guideUrl == null || guideUrl.isEmpty) {
-          final pTags = item.querySelectorAll('p');
-          for (final p in pTags) {
-            final links = p.querySelectorAll('a');
-            for (final link in links) {
-              final text = link.text.trim();
-              final href = link.attributes['href'] ?? '';
-              if (text.contains('攻略') || href.contains('/topics/')) {
-                guideUrl = href;
-                if (kDebugMode) debugPrint('[Fan2d] 从其他p标签找到攻略: $text -> $guideUrl');
-                break;
-              }
-            }
-            if (guideUrl != null && guideUrl.isNotEmpty) break;
-          }
-        }
-
-        if (guideUrl != null && guideUrl.isNotEmpty) {
-          if (!guideUrl.startsWith('http')) {
-            guideUrl = 'https://$domain$guideUrl';
-          }
-          if (kDebugMode) debugPrint('[Fan2d] 攻略URL: $guideUrl');
-          results.add(Fan2dGuideResult(title: title, guideUrl: guideUrl));
+        } else {
+          if (kDebugMode) debugPrint('[Fan2d] 帖子 $postIndex 未找到攻略按钮');
         }
       }
+      
       if (kDebugMode) debugPrint('[Fan2d] 攻略搜索完成，共 ${results.length} 个结果');
       return results;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Fan2d] 攻略搜索异常: $e');
+      return [];
     } finally {
       client.close();
     }
+  }
+
+  /// XPath未命中时的回退方案：在li.media中查找攻略链接
+  List<Fan2dGuideResult> _doGuideSearchFallback(String domain, List<dynamic> items) {
+    final results = <Fan2dGuideResult>[];
+    for (final item in items) {
+      final titleEl = item.querySelector('h4.media-heading a');
+      final title = titleEl?.text.trim() ?? '';
+      if (title.isEmpty) continue;
+
+      String? guideUrl;
+      final resourcesEl = item.querySelector('p#resources');
+      if (resourcesEl != null) {
+        final links = resourcesEl.querySelectorAll('a');
+        for (final link in links) {
+          final text = link.text.trim();
+          final href = link.attributes['href'] ?? '';
+          if (text.contains('攻略') || href.contains('/topics/')) {
+            guideUrl = href;
+            break;
+          }
+        }
+      }
+
+      if (guideUrl != null && guideUrl.isNotEmpty) {
+        if (!guideUrl.startsWith('http')) {
+          guideUrl = 'https://$domain$guideUrl';
+        }
+        if (kDebugMode) debugPrint('[Fan2d] 回退找到攻略: $guideUrl');
+        results.add(Fan2dGuideResult(title: title, guideUrl: guideUrl));
+      }
+    }
+    return results;
   }
 
   /// 获取2DFan攻略内容并转为Markdown
