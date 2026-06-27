@@ -902,7 +902,11 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             });
           }
 
-          await _moveToSorted(item.game);
+          final prefs = ref.read(sharedPreferencesProvider);
+          final autoMove = prefs.getBool(AppSettings.autoMoveToSortedKey) ?? false;
+          if (autoMove) {
+            await _moveToSorted(item.game);
+          }
         } else {
           _addLog('  -> 无匹配的解析器 (HTML已获取但无法解析)');
           if (mounted) {
@@ -1026,6 +1030,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   }
 
   Future<void> _moveToSorted(Game game) async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final autoMove = prefs.getBool(AppSettings.autoMoveToSortedKey) ?? false;
+    if (!autoMove) return;
+
     final sortedPath = await AppSettings.getSortedPathForGame(game.path);
     if (sortedPath.isEmpty) return;
 
