@@ -471,40 +471,75 @@ class Fan2dService {
 
   String _extractGuideMarkdown(dynamic document, String baseUrl) {
     final buffer = StringBuffer();
-    // 帖子的xpath: /html/body/div[5]/div/div[1]/div/div/div[2]
-    // 攻略的xpath: /html/body/div[5]/div/div[1]/div/div/div[2]/div
-    final contentDiv = document.querySelector('.topic-content') ?? document.querySelector('.block-content .control-group');
-    if (contentDiv == null) {
-      if (kDebugMode) debugPrint('[Fan2d] 未找到攻略内容容器');
-      return '';
-    }
 
-    for (final element in contentDiv.children) {
-      final tag = element.localName;
-      if (tag == 'p') {
-        final img = element.querySelector('img');
-        if (img != null) {
-          var src = img.attributes['data-original'] ?? img.attributes['src'] ?? '';
-          if (src.startsWith('//')) src = 'https:$src';
-          if (src.isNotEmpty) buffer.write('\n![图片]($src)\n');
-        } else {
-          final text = element.text.trim();
-          if (text.isNotEmpty) buffer.write('$text\n\n');
-        }
-      } else if (tag == 'h3' || tag == 'h4') {
-        buffer.write('\n### ${element.text.trim()}\n\n');
-      } else if (tag == 'div') {
-        // 递归处理div中的内容
-        for (final child in element.children) {
-          if (child.localName == 'p') {
-            final text = child.text.trim();
-            if (text.isNotEmpty) buffer.write('$text\n\n');
-          }
-        }
+    // 尝试多种选择器找到攻略内容容器
+    dynamic contentDiv;
+    final selectors = [
+      '#topic-content',
+      '.topic-content',
+      '.control-group.topic-content',
+      '.block-content .control-group',
+      '.block-content',
+    ];
+
+    for (final selector in selectors) {
+      contentDiv = document.querySelector(selector);
+      if (contentDiv != null) {
+        if (kDebugMode) debugPrint('[Fan2d] 使用选择器 "$selector" 找到内容容器');
+        break;
       }
     }
 
-    return buffer.toString().trim();
+    if (contentDiv == null) {
+      if (kDebugMode) {
+        debugPrint('[Fan2d] 未找到攻略内容容器，尝试所有div');
+        // 打印页面结构帮助调试
+        final allDivs = document.querySelectorAll('div');
+        debugPrint('[Fan2d] 页面共有 ${allDivs.length} 个div');
+        for (final div in allDivs.take(20)) {
+          debugPrint('[Fan2d]   div class="${div.className}" id="${div.id}"');
+        }
+      }
+      return '';
+    }
+
+    // 递归提取所有文本内容
+    _extractElement(contentDiv, buffer);
+
+    final result = buffer.toString().trim();
+    if (kDebugMode) debugPrint('[Fan2d] 提取到 ${result.length} 字符内容');
+    return result;
+  }
+
+  void _extractElement(dynamic element, StringBuffer buffer) {
+    for (final child in element.children) {
+      final tag = child.localName;
+      if (tag == 'p') {
+        final img = child.querySelector('img');
+        if (img != null) {
+          var src = img.attributes['data-original'] ?? img.attributes['data-src'] ?? img.attributes['src'] ?? '';
+          if (src.startsWith('//')) src = 'https:$src';
+          if (src.isNotEmpty) buffer.write('\n![图片]($src)\n');
+        } else {
+          final text = child.text.trim();
+          if (text.isNotEmpty) buffer.write('$text\n\n');
+        }
+      } else if (tag == 'h1' || tag == 'h2' || tag == 'h3' || tag == 'h4') {
+        final level = tag.substring(1);
+        buffer.write('\n${'#' * int.parse(level)} ${child.text.trim()}\n\n');
+      } else if (tag == 'ul' || tag == 'ol') {
+        for (final li in child.querySelectorAll('li')) {
+          buffer.write('- ${li.text.trim()}\n');
+        }
+        buffer.write('\n');
+      } else if (tag == 'div' || tag == 'section' || tag == 'article') {
+        _extractElement(child, buffer);
+      } else if (tag == 'img') {
+        var src = child.attributes['data-original'] ?? child.attributes['data-src'] ?? child.attributes['src'] ?? '';
+        if (src.startsWith('//')) src = 'https:$src';
+        if (src.isNotEmpty) buffer.write('\n![图片]($src)\n');
+      }
+    }
   }
 
   /// 下载存档并导入到游戏的备份目录
