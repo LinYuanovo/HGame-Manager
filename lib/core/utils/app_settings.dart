@@ -21,6 +21,7 @@ class AppSettings {
   static const String keepPlayedInGamesKey = 'keep_played_in_games';
   static const String favoriteFirstKey = 'favorite_first';
   static const String sidebarConfigKey = 'sidebar_config';
+  static const String autoMoveToSortedKey = 'auto_move_to_sorted';
 
   Map<String, dynamic> _data = {};
   final String _filePath;
