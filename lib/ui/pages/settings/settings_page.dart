@@ -43,6 +43,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   late TextEditingController _cookieAcgyingController;
   late TextEditingController _cookieFeixueController;
   late TextEditingController _cookieVikacgController;
+  late TextEditingController _cookiePilipiliController;
   late TextEditingController _domainAcgyingController;
   late TextEditingController _domainFeixueController;
   late TextEditingController _domainVikacgController;
@@ -117,6 +118,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     final cookieAcgying = prefs.getString('cookie_acgying') ?? '';
     final cookieFeixue = prefs.getString('cookie_feixue') ?? '';
     final cookieVikacg = prefs.getString('cookie_vikacg') ?? '';
+    final cookiePilipili = prefs.getString('cookie_pilipili') ?? '';
 
     // Library path migration
     final rawLib = prefs.getString('library_path') ?? '';
@@ -163,6 +165,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _cookieAcgyingController = TextEditingController(text: cookieAcgying);
     _cookieFeixueController = TextEditingController(text: cookieFeixue);
     _cookieVikacgController = TextEditingController(text: cookieVikacg);
+    _cookiePilipiliController = TextEditingController(text: cookiePilipili);
     _domainAcgyingController = TextEditingController(text: prefs.getString('domain_acgying') ?? '');
     _domainFeixueController = TextEditingController(text: prefs.getString('domain_feixue') ?? '');
     _domainVikacgController = TextEditingController(text: prefs.getString('domain_vikacg') ?? '');
@@ -212,6 +215,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _cookieAcgyingController.dispose();
     _cookieFeixueController.dispose();
     _cookieVikacgController.dispose();
+    _cookiePilipiliController.dispose();
     _domainAcgyingController.dispose();
     _domainFeixueController.dispose();
     _domainVikacgController.dispose();
@@ -1295,6 +1299,12 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
           controller: _cookieVikacgController,
           hint: '输入 Authorization Token（如 Bearer xxx）',
         ),
+        const SizedBox(height: 12),
+        _buildCookieInput(
+          label: 'pilipili',
+          controller: _cookiePilipiliController,
+          hint: '登录 pilipili.com 后复制 Cookie',
+        ),
         const SizedBox(height: 8),
         Text(
           'ACG嘤嘤怪/飞雪ACG 获取方法：浏览器按F12 → Network → 刷新页面 → 点击第一个请求 → 复制Request Headers中的Cookie值',
@@ -1303,6 +1313,11 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         const SizedBox(height: 4),
         Text(
           '维咔ACG 获取方法：浏览器按F12 → Network → 点击任意请求 → 复制Request Headers中的Authorization值',
+          style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5), fontSize: 11),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'pilipili 获取方法：浏览器按F12 → Network → 刷新页面 → 点击第一个请求 → 复制Request Headers中的Cookie值',
           style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5), fontSize: 11),
         ),
       ],
@@ -1949,7 +1964,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   Widget _buildAboutSection() {
-    const currentVersion = '1.4.2';
+    const currentVersion = '1.4.3';
 
     return _buildSection(
       title: '关于',
@@ -2072,6 +2087,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     await prefs.setString('cookie_acgying', _cookieAcgyingController.text.trim());
     await prefs.setString('cookie_feixue', _cookieFeixueController.text.trim());
     await prefs.setString('cookie_vikacg', _cookieVikacgController.text.trim());
+    await prefs.setString('cookie_pilipili', _cookiePilipiliController.text.trim());
     await prefs.setString('domain_acgying', _domainAcgyingController.text.trim());
     await prefs.setString('domain_feixue', _domainFeixueController.text.trim());
     await prefs.setString('domain_vikacg', _domainVikacgController.text.trim());
