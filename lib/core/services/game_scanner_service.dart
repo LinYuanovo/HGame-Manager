@@ -372,14 +372,36 @@ class GameScannerService {
         }
 
         // Batch insert game images
+        // 保留外部图片（URL图片/应用存储目录图片，非游戏目录下的图片）
+        final sep = Platform.pathSeparator;
+        final gameImagesDir1 = '${data.folderPath}${sep}images$sep';
+        final gameImagesDir2 = '${data.folderPath}${sep}image$sep';
+        final externalImages = await txn.query(
+          'game_images',
+          where: 'game_id = ? AND image_path NOT LIKE ? AND image_path NOT LIKE ?',
+          whereArgs: [gameId, '$gameImagesDir1%', '$gameImagesDir2%'],
+        );
+
+        // 删除所有图片
         await txn.delete('game_images', where: 'game_id = ?', whereArgs: [gameId]);
-        if (data.imagePaths.isNotEmpty) {
+
+        // 合并本地图片和外部图片，按原有 sort_order 排序后插入
+        final allImages = <Map<String, dynamic>>[];
+        for (int i = 0; i < data.imagePaths.length; i++) {
+          allImages.add({'image_path': data.imagePaths[i], 'sort_order': i});
+        }
+        for (final img in externalImages) {
+          allImages.add({'image_path': img['image_path'], 'sort_order': img['sort_order']});
+        }
+        allImages.sort((a, b) => (a['sort_order'] as int).compareTo(b['sort_order'] as int));
+
+        if (allImages.isNotEmpty) {
           final batch = txn.batch();
-          for (int i = 0; i < data.imagePaths.length; i++) {
+          for (final img in allImages) {
             batch.insert('game_images', {
               'game_id': gameId,
-              'image_path': data.imagePaths[i],
-              'sort_order': i,
+              'image_path': img['image_path'],
+              'sort_order': img['sort_order'],
             });
           }
           await batch.commit(noResult: true);
