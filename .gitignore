@@ -83,6 +83,7 @@ QUICK_START.md
 .metadata
 jav_manager.iml
 .uploads/
+.mimocode/
 
 # Logs and sensitive data
 *.log
