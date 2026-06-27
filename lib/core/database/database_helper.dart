@@ -113,6 +113,11 @@ class DatabaseHelper {
         await db.execute('CREATE INDEX idx_game_tag_relation_tag_id ON game_tag_relation(tag_id)');
       }
     }
+    if (oldVersion < 10) {
+      if (!await _columnExists(db, 'games', 'guide')) {
+        await db.execute('ALTER TABLE games ADD COLUMN guide TEXT');
+      }
+    }
   }
 
   static Future<void> _onCreate(Database db, int version) async {
@@ -225,10 +230,5 @@ class DatabaseHelper {
       _database = null;
       _databaseFuture = null;
     }
-    }
-    if (oldVersion < 10) {
-      if (!await _columnExists(db, 'games', 'guide')) {
-        await db.execute('ALTER TABLE games ADD COLUMN guide TEXT');
-      }
-    }
   }
+}
