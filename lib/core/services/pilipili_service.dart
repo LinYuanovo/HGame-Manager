@@ -41,13 +41,15 @@ class PilipiliService {
   Map<String, String> _encWbi(Map<String, dynamic> params, String imgKey, String subKey) {
     final mixinKey = _getMixinKey(imgKey + subKey);
     final currTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    params['wts'] = currTime;
-    final sortedParams = Map.fromEntries(params.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
-    final filteredParams = sortedParams.map((k, v) => MapEntry(k, v.toString().replaceAll(RegExp(r"!'()*"), '')));
+    params['wts'] = currTime.toString();
+    // Ensure all values are strings
+    final stringParams = params.map((k, v) => MapEntry(k, v.toString()));
+    final sortedParams = Map.fromEntries(stringParams.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
+    final filteredParams = sortedParams.map((k, v) => MapEntry(k, v.replaceAll(RegExp(r"!'()*"), '')));
     final query = Uri(queryParameters: filteredParams).query;
     final wbiSign = md5.convert(utf8.encode(query + mixinKey)).toString();
     filteredParams['w_rid'] = wbiSign;
-    return filteredParams.map((k, v) => MapEntry(k, v));
+    return filteredParams;
   }
 
   Future<Map<String, String>> _getWbiKeys() async {
@@ -79,10 +81,11 @@ class PilipiliService {
       'order': 'totalrank',
     };
     final signedParams = _encWbi(params, wbiKeys['imgKey']!, wbiKeys['subKey']!);
+    final uri = Uri.https('api.bilibili.com', '/x/web-interface/wbi/search/type', signedParams);
     final client = await createProxyClientFromPrefs(domain: 'api.bilibili.com');
     try {
       final response = await client.get(
-        Uri.parse('https://api.bilibili.com/x/web-interface/wbi/search/type'),
+        uri,
         headers: {'User-Agent': _userAgent, 'Cookie': cookie},
       ).timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) return [];
@@ -92,6 +95,7 @@ class PilipiliService {
         return [];
       }
       final articles = json['data']['result'] as List<dynamic>? ?? [];
+      if (kDebugMode) debugPrint('[Pilipili] 搜索到 ${articles.length} 篇文章');
       return articles.map((a) => PilipiliSearchResult(
         title: (a['title'] as String).replaceAll(RegExp(r'<[^>]+>'), ''),
         articleId: a['id'] as int,
@@ -112,10 +116,11 @@ class PilipiliService {
       'gaia_source': 'main_web',
     };
     final signedParams = _encWbi(params, wbiKeys['imgKey']!, wbiKeys['subKey']!);
+    final uri = Uri.https('api.bilibili.com', '/x/article/view', signedParams);
     final client = await createProxyClientFromPrefs(domain: 'api.bilibili.com');
     try {
       final response = await client.get(
-        Uri.parse('https://api.bilibili.com/x/article/view'),
+        uri,
         headers: {'User-Agent': _userAgent, 'Cookie': cookie},
       ).timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) return null;

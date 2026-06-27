@@ -122,45 +122,55 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
       child: Row(
         children: [
           Container(
+            height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
               color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
             ),
-            child: DropdownButton<GuideSource>(
-              value: _selectedSource,
-              underline: const SizedBox(),
-              isDense: true,
-              items: const [
-                DropdownMenuItem(value: GuideSource.pilipili, child: Text('pilipili', style: TextStyle(fontSize: 13))),
-                DropdownMenuItem(value: GuideSource.fan2d, child: Text('2DFan', style: TextStyle(fontSize: 13))),
-              ],
-              onChanged: (v) => setState(() => _selectedSource = v ?? GuideSource.pilipili),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<GuideSource>(
+                value: _selectedSource,
+                isDense: true,
+                dropdownColor: AppTheme.getSurfaceColor(context),
+                borderRadius: BorderRadius.circular(8),
+                items: const [
+                  DropdownMenuItem(value: GuideSource.pilipili, child: Text('pilipili', style: TextStyle(fontSize: 13))),
+                  DropdownMenuItem(value: GuideSource.fan2d, child: Text('2DFan', style: TextStyle(fontSize: 13))),
+                ],
+                onChanged: (v) => setState(() => _selectedSource = v ?? GuideSource.pilipili),
+              ),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: TextField(
-              controller: _searchController,
-              style: TextStyle(fontSize: 14, color: AppTheme.getDetailTextPrimary(context)),
-              decoration: InputDecoration(
-                hintText: '输入游戏名搜索攻略...',
-                hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3))),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3))),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.5))),
+            child: SizedBox(
+              height: 40,
+              child: TextField(
+                controller: _searchController,
+                style: TextStyle(fontSize: 14, color: AppTheme.getDetailTextPrimary(context)),
+                decoration: InputDecoration(
+                  hintText: '输入游戏名搜索攻略...',
+                  hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3))),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.5))),
+                ),
+                onSubmitted: (_) => _search(),
               ),
-              onSubmitted: (_) => _search(),
             ),
           ),
           const SizedBox(width: 12),
-          ElevatedButton.icon(
-            onPressed: _isSearching ? null : _search,
-            icon: _isSearching ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.search, size: 18),
-            label: const Text('搜索'),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.getPrimaryColor(context), foregroundColor: Colors.white),
+          SizedBox(
+            height: 40,
+            child: ElevatedButton.icon(
+              onPressed: _isSearching ? null : _search,
+              icon: _isSearching ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.search, size: 18),
+              label: const Text('搜索'),
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.getPrimaryColor(context), foregroundColor: Colors.white),
+            ),
           ),
         ],
       ),
