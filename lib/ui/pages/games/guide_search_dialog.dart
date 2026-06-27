@@ -186,7 +186,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
       itemBuilder: (context, index) {
         final result = _results[index];
         final title = result is PilipiliSearchResult ? result.title : (result as Fan2dGuideResult).title;
-        final subtitle = result is PilipiliSearchResult ? '作者: ${result.author} | 阅读: ${result.viewCount}' : '2DFan攻略';
+        final subtitle = result is PilipiliSearchResult ? result.summary : '2DFan攻略';
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           child: Material(
@@ -211,7 +211,11 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(title, style: TextStyle(fontSize: 14, color: AppTheme.getDetailTextPrimary(context)), overflow: TextOverflow.ellipsis),
-                          Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context))),
+                          if (subtitle.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)), maxLines: 2, overflow: TextOverflow.ellipsis),
+                            ),
                         ],
                       ),
                     ),

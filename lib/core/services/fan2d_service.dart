@@ -274,17 +274,24 @@ class Fan2dService {
       }
 
       final document = html_parser.parse(response.body);
-      // Try multiple selectors for search results
+      
+      // XPath: /html/body/div[5]/div/div[1]/div/div/div[2]/ul/li[i]/div/p[4]/span[2]/a
+      // CSS equivalent: div:nth-of-type(5) > div > div:nth-of-type(1) > div > div > div:nth-of-type(2) > ul > li > div > p:nth-of-type(4) > span:nth-of-type(2) > a
+      // Simplified: look for li.media items, then find guide links in p#resources
+      
       var items = document.querySelectorAll('li.media');
       if (kDebugMode) debugPrint('[Fan2d] li.media 找到 ${items.length} 个结果');
+      
+      // Also try broader selectors if nothing found
       if (items.isEmpty) {
-        items = document.querySelectorAll('.media');
-        if (kDebugMode) debugPrint('[Fan2d] .media 找到 ${items.length} 个结果');
+        items = document.querySelectorAll('#subjects li');
+        if (kDebugMode) debugPrint('[Fan2d] #subjects li 找到 ${items.length} 个结果');
       }
       if (items.isEmpty) {
-        items = document.querySelectorAll('li');
-        if (kDebugMode) debugPrint('[Fan2d] li 找到 ${items.length} 个结果');
+        items = document.querySelectorAll('ul.media-list li');
+        if (kDebugMode) debugPrint('[Fan2d] ul.media-list li 找到 ${items.length} 个结果');
       }
+      
       final results = <Fan2dGuideResult>[];
 
       for (final item in items) {
@@ -293,46 +300,52 @@ class Fan2dService {
         if (title.isEmpty) continue;
         if (kDebugMode) debugPrint('[Fan2d] 检查: $title');
 
-        // Try multiple selectors for guide link
+        // 根据用户指定的XPath结构:
+        // /html/body/div[5]/div/div[1]/div/div/div[2]/ul/li[i]/div/p[4]/span[2]/a
+        // 实际HTML结构: li > div.media-body > p#resources > span > a
+        
         dom.Element? guideLink;
         
-        // Method 1: p#resources
-        final resourcesEl = item.querySelector('p#resources');
-        if (resourcesEl != null) {
-          if (kDebugMode) debugPrint('[Fan2d] 找到 p#resources');
-          final links = resourcesEl.querySelectorAll('a');
+        // 遍历所有p标签找攻略链接（XPath p[4] 对应第4个p标签）
+        final pTags = item.querySelectorAll('p');
+        if (kDebugMode) debugPrint('[Fan2d]   找到 ${pTags.length} 个p标签');
+        
+        for (final p in pTags) {
+          final pId = p.id;
+          final pClass = p.className;
+          if (kDebugMode) debugPrint('[Fan2d]   p标签: id=$pId, class=$pClass');
+          
+          // 在每个p标签中查找攻略链接
+          final links = p.querySelectorAll('a');
           for (final link in links) {
+            final href = link.attributes['href'] ?? '';
             final text = link.text.trim();
-            if (kDebugMode) debugPrint('[Fan2d]   链接: $text -> ${link.attributes['href']}');
-            if (text.contains('攻略')) {
+            if (kDebugMode) debugPrint('[Fan2d]     链接: text="$text", href="$href"');
+            
+            if (text.contains('攻略') || href.contains('/topics/')) {
               guideLink = link;
+              if (kDebugMode) debugPrint('[Fan2d]   >>> 找到攻略链接!');
               break;
             }
           }
+          if (guideLink != null) break;
         }
         
-        // Method 2: look for any link containing /topics/ with 攻略 text
+        // 如果没找到，尝试在span中找
         if (guideLink == null) {
-          final allLinks = item.querySelectorAll('a');
-          for (final link in allLinks) {
-            final href = link.attributes['href'] ?? '';
-            final text = link.text.trim();
-            if (href.contains('/topics/') && (text.contains('攻略') || text.contains('guide'))) {
-              guideLink = link;
-              break;
+          final spans = item.querySelectorAll('span');
+          for (final span in spans) {
+            final links = span.querySelectorAll('a');
+            for (final link in links) {
+              final href = link.attributes['href'] ?? '';
+              final text = link.text.trim();
+              if (text.contains('攻略') || href.contains('/topics/')) {
+                guideLink = link;
+                if (kDebugMode) debugPrint('[Fan2d]   >>> 从span中找到攻略链接!');
+                break;
+              }
             }
-          }
-        }
-        
-        // Method 3: look for any link containing /topics/
-        if (guideLink == null) {
-          final allLinks = item.querySelectorAll('a');
-          for (final link in allLinks) {
-            final href = link.attributes['href'] ?? '';
-            if (href.contains('/topics/')) {
-              guideLink = link;
-              break;
-            }
+            if (guideLink != null) break;
           }
         }
 
@@ -342,7 +355,7 @@ class Fan2dService {
             if (!guideUrl.startsWith('http')) {
               guideUrl = 'https://$domain$guideUrl';
             }
-            if (kDebugMode) debugPrint('[Fan2d] 找到攻略: $guideUrl');
+            if (kDebugMode) debugPrint('[Fan2d] 最终攻略URL: $guideUrl');
             results.add(Fan2dGuideResult(title: title, guideUrl: guideUrl));
           }
         } else {

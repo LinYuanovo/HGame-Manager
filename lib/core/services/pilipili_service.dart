@@ -109,6 +109,7 @@ class PilipiliService {
   }
 
   Future<String?> getArticleContent(int articleId) async {
+    if (kDebugMode) debugPrint('[Pilipili] 获取文章内容: cv$articleId');
     final wbiKeys = await _getWbiKeys();
     final cookie = await _getCookie();
     final params = {
@@ -123,15 +124,42 @@ class PilipiliService {
         uri,
         headers: {'User-Agent': _userAgent, 'Cookie': cookie},
       ).timeout(const Duration(seconds: 15));
-      if (response.statusCode != 200) return null;
+      if (kDebugMode) debugPrint('[Pilipili] 文章API响应: ${response.statusCode}');
+      if (response.statusCode != 200) {
+        if (kDebugMode) debugPrint('[Pilipili] 文章请求失败: HTTP ${response.statusCode}');
+        return null;
+      }
       final json = jsonDecode(response.body);
-      if (json['code'] != 0) return null;
+      if (kDebugMode) debugPrint('[Pilipili] 文章API code: ${json['code']}, message: ${json['message']}');
+      if (json['code'] != 0) {
+        if (kDebugMode) debugPrint('[Pilipili] 文章API错误: ${json['message']}');
+        return null;
+      }
       final data = json['data'];
+      if (data == null) {
+        if (kDebugMode) debugPrint('[Pilipili] 文章数据为空');
+        return null;
+      }
       final contentType = data['type'] as int? ?? 0;
       final content = data['content'] as String? ?? '';
-      if (contentType == 0) return _htmlToMarkdown(content);
-      if (contentType == 3) return _deltaToMarkdown(content);
+      if (kDebugMode) debugPrint('[Pilipili] 文章类型: $contentType, 内容长度: ${content.length}');
+      if (content.isEmpty) {
+        if (kDebugMode) debugPrint('[Pilipili] 文章内容为空');
+        return null;
+      }
+      if (contentType == 0) {
+        if (kDebugMode) debugPrint('[Pilipili] 解析HTML格式内容');
+        return _htmlToMarkdown(content);
+      }
+      if (contentType == 3) {
+        if (kDebugMode) debugPrint('[Pilipili] 解析Delta格式内容');
+        return _deltaToMarkdown(content);
+      }
+      if (kDebugMode) debugPrint('[Pilipili] 未知内容类型: $contentType, 返回原始内容');
       return content;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Pilipili] 获取文章内容异常: $e');
+      return null;
     } finally {
       client.close();
     }
