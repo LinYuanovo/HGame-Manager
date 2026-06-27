@@ -668,6 +668,16 @@ class GameRepository {
     );
   }
 
+  Future<void> updateGuide(int gameId, String? guide) async {
+    final db = await _db;
+    await db.update(
+      'games',
+      {'guide': guide},
+      where: 'id = ?',
+      whereArgs: [gameId],
+    );
+  }
+
   /// Update all image paths that start with [oldPrefix] to start with [newPrefix].
   /// Used when a game folder is moved or renamed.
   Future<void> updateImagePaths(int gameId, String oldPrefix, String newPrefix) async {
