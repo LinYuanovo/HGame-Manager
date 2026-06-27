@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/services/pilipili_service.dart';
 import '../../../core/services/fan2d_service.dart';
+import '../../../core/services/concurrent_image_downloader.dart';
 import '../../theme/app_theme.dart';
 
 enum GuideSource { pilipili, fan2d }
@@ -85,6 +87,11 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
           content = scrapeResult.content;
         }
       }
+
+      // 下载图片并替换URL为本地路径
+      if (content != null && content.isNotEmpty) {
+        content = await _downloadGuideImages(content);
+      }
     } catch (e) {
       final errorMsg = e.toString().replaceFirst('Exception: ', '');
       if (mounted) {
@@ -98,6 +105,75 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
     } else if (mounted && content == null) {
       AppTheme.showGlassToast(context, message: '获取攻略内容失败', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
     }
+  }
+
+  /// 下载攻略中的图片并替换为本地路径
+  Future<String> _downloadGuideImages(String content) async {
+    // 提取所有图片URL
+    final imagePattern = RegExp(r'!\[图片\]\(([^)]+)\)');
+    final matches = imagePattern.allMatches(content).toList();
+
+    if (matches.isEmpty) return content;
+
+    final imageUrls = matches.map((m) => m.group(1)!).toList();
+    if (imageUrls.isEmpty) return content;
+
+    if (mounted) {
+      AppTheme.showGlassToast(context, message: '正在下载 ${imageUrls.length} 张图片...', icon: Icons.cloud_download, iconColor: AppTheme.getPrimaryColor(context));
+    }
+
+    // 创建图片目录
+    final gamePath = widget.game.path;
+    final imagesDir = Directory('$gamePath${Platform.pathSeparator}images');
+    if (!await imagesDir.exists()) {
+      await imagesDir.create(recursive: true);
+    }
+
+    // 下载图片
+    final headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Referer': 'https://www.bilibili.com/',
+    };
+
+    final urlToLocal = await ConcurrentImageDownloader.downloadAll(
+      imageUrls: imageUrls,
+      saveDir: gamePath,
+      headers: headers,
+      maxConcurrency: 3,
+      startIndex: 0,
+    );
+
+    // 重命名为 guide_xx.xx 格式
+    final localPaths = <String>[];
+    int guideIndex = 1;
+    for (final url in imageUrls) {
+      final localPath = urlToLocal[url];
+      if (localPath != null) {
+        final ext = localPath.split('.').last;
+        final newPath = '$gamePath${Platform.pathSeparator}images${Platform.pathSeparator}guide_${guideIndex.toString().padLeft(2, '0')}.$ext';
+        try {
+          await File(localPath).rename(newPath);
+          localPaths.add(newPath);
+        } catch (_) {
+          localPaths.add(localPath);
+        }
+        guideIndex++;
+      } else {
+        localPaths.add(url);
+      }
+    }
+
+    // 替换内容中的URL为本地路径
+    String result = content;
+    for (int i = 0; i < matches.length && i < localPaths.length; i++) {
+      final oldUrl = matches[i].group(1)!;
+      final localPath = localPaths[i];
+      if (localPath != oldUrl) {
+        result = result.replaceAll(oldUrl, localPath);
+      }
+    }
+
+    return result;
   }
 
   Future<Fan2dWalkthrough?> _showWalkthroughDialog(List<Fan2dWalkthrough> walkthroughs) async {
