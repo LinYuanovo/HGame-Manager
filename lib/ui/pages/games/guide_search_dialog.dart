@@ -165,10 +165,18 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
             }
 
             final fileName = 'guide_${(i + 1).toString().padLeft(2, '0')}$ext';
-            final filePath = '$gamePath${Platform.pathSeparator}images${Platform.pathSeparator}$fileName';
-            await File(filePath).writeAsBytes(response.bodyBytes, flush: true);
-            localPaths.add(filePath);
-            if (kDebugMode) debugPrint('[Guide] 下载图片: $fileName');
+            final imagesDirPath = '$gamePath${Platform.pathSeparator}images';
+            final filePath = '$imagesDirPath${Platform.pathSeparator}$fileName';
+            if (kDebugMode) debugPrint('[Guide] 保存到: $filePath (${response.bodyBytes.length} bytes)');
+            try {
+              await File(filePath).writeAsBytes(response.bodyBytes, flush: true);
+              final exists = await File(filePath).exists();
+              if (kDebugMode) debugPrint('[Guide] 文件存在: $exists');
+              localPaths.add(filePath);
+            } catch (e) {
+              if (kDebugMode) debugPrint('[Guide] 保存失败: $e');
+              localPaths.add(url);
+            }
           } else {
             localPaths.add(url);
           }

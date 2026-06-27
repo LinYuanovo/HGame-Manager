@@ -240,7 +240,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     final tagEnd = ']';
     final paths = <String>{};
 
-    for (final content in [_currentGame.intro, _currentGame.features, _currentGame.changelog]) {
+    for (final content in [_currentGame.intro, _currentGame.features, _currentGame.changelog, _currentGame.guide]) {
       if (content == null) continue;
       for (final line in content.split('\n')) {
         if (line.startsWith(imageTagStart) && line.endsWith(tagEnd)) {
@@ -1641,14 +1641,15 @@ if (_isEditing) ...[
     final title = _currentGame.title ?? '';
     final keyword = _extractSearchKeyword(title);
 
+    // 先删除旧的攻略图片（在下载新图片之前）
+    await _deleteGuideImages();
+
     final content = await showDialog<String>(
       context: context,
       builder: (context) => GuideSearchDialog(game: _currentGame, initialKeyword: keyword),
     );
 
     if (content != null && mounted) {
-      // 先删除旧的攻略图片
-      await _deleteGuideImages();
       setState(() {
         _guideController.text = content;
         _currentGame = _currentGame.copyWith(guide: content);
@@ -1656,6 +1657,8 @@ if (_isEditing) ...[
       final repo = ref.read(gameRepositoryProvider);
       await repo.updateGuide(_currentGame.id!, content);
       _syncGuideToMetadata(content);
+      // 重新预加载媒体文件（包括攻略中的图片）
+      await _preloadMediaFiles();
     }
   }
 
@@ -2087,17 +2090,29 @@ if (_isEditing) ...[
     final widgets = <Widget>[];
     final lines = content.split('\n');
     
+    // 收集内容中所有图片路径
+    final contentImages = <String>[];
+    for (final line in lines) {
+      if (line.startsWith(imageTagStart) && line.endsWith(tagEnd)) {
+        final imagePath = line.substring(imageTagStart.length, line.length - tagEnd.length);
+        if (_existingMediaFiles.contains(imagePath)) {
+          contentImages.add(imagePath);
+        }
+      }
+    }
+    
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i];
       
       if (line.startsWith(imageTagStart) && line.endsWith(tagEnd)) {
         final imagePath = line.substring(imageTagStart.length, line.length - tagEnd.length);
         if (_existingMediaFiles.contains(imagePath)) {
+          final imageIndex = contentImages.indexOf(imagePath);
           widgets.add(
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: GestureDetector(
-                onTap: () => _openImageViewer(imagePath),
+                onTap: () => _openImageViewerFromList(contentImages, imageIndex >= 0 ? imageIndex : 0),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
                   child: ConstrainedBox(
@@ -2144,6 +2159,25 @@ if (_isEditing) ...[
       crossAxisAlignment: CrossAxisAlignment.start,
       children: widgets,
     );
+  }
+
+  void _openImageViewerFromList(List<String> imagePaths, int initialIndex) {
+    setState(() => _isImageViewerOpen = true);
+    final images = imagePaths.map((p) => GameImage(gameId: _currentGame.id ?? 0, imagePath: p)).toList();
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: AppTheme.getOverlayColor(context),
+      builder: (dialogContext) => _ImageViewerDialog(
+        images: images,
+        initialIndex: initialIndex,
+        onClose: () {
+          setState(() => _isImageViewerOpen = false);
+        },
+      ),
+    ).then((_) {
+      if (mounted) setState(() => _isImageViewerOpen = false);
+    });
   }
 
   Widget _buildDownloadLinks(String downloadUrl) {
