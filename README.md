@@ -10,7 +10,7 @@
     <img src="https://img.shields.io/badge/Dart-3.11+-0175C2?style=flat-square&logo=dart" alt="Dart">
     <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows">
     <img src="https://img.shields.io/badge/License-AGPL--3.0-green?style=flat-square" alt="License">
-    <img src="https://img.shields.io/badge/Version-1.5.0-blue?style=flat-square" alt="Version">
+    <img src="https://img.shields.io/badge/Version-1.4.3-blue?style=flat-square" alt="Version">
   </nobr>
 </p>
 
@@ -50,7 +50,7 @@ Windows 系统在 [releases](https://github.com/LinYuanovo/HGame-Manager/release
 
 #### 使用教程
 
-- [图文教程](https://github.com/LinYuanovo/HGame-Manager/blob/master/%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B.docx)
+- [图文教程](https://github.com/LinYuanovo/HGame-Manager/blob/master/%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B.md)
 
 - [视频教程在网盘内](https://docs.qq.com/sheet/DVXZ6U2xmbFZuVGtQ?tab=BB08J2)
 
@@ -143,7 +143,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 - **灵活排序**：标题、添加时间、最近游玩
 - **分页 / 瀑布流**：两种浏览模式
 - **收藏功能**：收藏游戏优先排列
-- **游玩追踪**：记录游玩次数和时间
+- **游玩追踪**：记录游玩次数、时间和时长
 - **富文本编辑**：Markdown 编辑器，支持图片预览和插入
 
 ![游戏页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/games_page.png)
@@ -171,19 +171,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 ![已玩游戏评论弹窗](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/played_comment_window.png)
 
-## 新增功能 (v1.5.0)
-
-### 详情页增强
-- **快速滚动按钮**: 详情页右侧显示快速滚动到顶部/底部的按钮
-- **页内搜索**: 支持Ctrl+F唤起搜索栏，搜索内容并高亮显示
-- **滚动位置记忆**: 简介和攻略区域分别记录上次浏览位置
-- **多行文本选择**: 支持跨多个文本块选择和复制内容
-
-### 自定义重命名规则
-- **重命名规则管理**: 在设置→管理中可配置重命名规则
-- **可自定义包裹符号**: 每个规则项可单独设置前/后包裹符号
-- **启用/禁用控制**: 每个规则项可单独启用或禁用
-- **实时预览**: 配置时可实时预览重命名效果
+![游戏攻略页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/game_guide_page.png)
 
 ### 💾 存档管理
 
