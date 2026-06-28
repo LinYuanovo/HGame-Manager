@@ -93,6 +93,7 @@ app_logs/
 *.tmp
 web/
 rebuild_link.bat
+test/
 
 # Environment files
 .env
