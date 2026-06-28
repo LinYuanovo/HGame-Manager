@@ -333,10 +333,11 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
 
 /// 通过备份文件夹名匹配 DB 中的游戏记录
 Future<Game?> _findDbGameByBackupName(List<Game> allGames, String backupFolderName) async {
+  final rules = await FolderRenameService.loadRules();
   for (final game in allGames) {
-    final expectedName = await FolderRenameService.buildBackupFolderName(game);
-    if (expectedName != null) {
-      final sanitized = expectedName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+    final name = FolderRenameService.buildNameFromRules(rules, game);
+    if (name.isNotEmpty) {
+      final sanitized = name.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
       if (sanitized == backupFolderName) {
         return game;
       }

@@ -23,7 +23,7 @@ class FolderRenameService {
         _steamService = steamService ?? SteamService();
 
   /// 加载重命名规则配置
-  static Future<List<RenameRule>> _loadRules() async {
+  static Future<List<RenameRule>> loadRules() async {
     final prefs = await AppSettings.load();
     final raw = prefs.getString(AppSettings.renameRulesKey);
 
@@ -78,7 +78,7 @@ class FolderRenameService {
   }
 
   /// 根据规则列表构建备份文件夹名称
-  static String _buildNameFromRules(
+  static String buildNameFromRules(
     List<RenameRule> rules,
     Game game, {
     String? Function(String)? dlsiteIdExtractor,
@@ -110,8 +110,8 @@ class FolderRenameService {
     final title = game.title;
     if (title == null || title.isEmpty) return null;
 
-    final rules = await _loadRules();
-    final name = _buildNameFromRules(rules, game, dlsiteIdExtractor: dlsiteIdExtractor);
+    final rules = await loadRules();
+    final name = buildNameFromRules(rules, game, dlsiteIdExtractor: dlsiteIdExtractor);
     return name.isEmpty ? null : name;
   }
 
@@ -126,7 +126,7 @@ class FolderRenameService {
 
     // 使用默认规则
     final rules = RenameRule.defaultRules();
-    final name = _buildNameFromRules(rules, game, dlsiteIdExtractor: dlsiteIdExtractor);
+    final name = buildNameFromRules(rules, game, dlsiteIdExtractor: dlsiteIdExtractor);
     return name.isEmpty ? null : name;
   }
 
