@@ -2640,13 +2640,13 @@ if (_isEditing) ...[
           final backupDir = Directory(backupDirPath);
           if (!await backupDir.exists()) continue;
 
-          final oldBackupName = FolderRenameService.buildBackupFolderName(_currentGame);
+          final oldBackupName = await FolderRenameService.buildBackupFolderName(_currentGame);
           if (oldBackupName == null) continue;
           final oldSanitized = oldBackupName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
           final oldBackupDir = Directory('$backupDirPath$sep$oldSanitized');
 
           if (await oldBackupDir.exists()) {
-            final newBackupName = FolderRenameService.buildBackupFolderName(
+            final newBackupName = await FolderRenameService.buildBackupFolderName(
               _currentGame.copyWith(title: newTitle),
             );
             if (newBackupName == null) continue;
@@ -2683,13 +2683,13 @@ if (_isEditing) ...[
               final backupDir3 = Directory(backupDirPath3);
               if (!await backupDir3.exists()) continue;
 
-              final oldBackupName3 = FolderRenameService.buildBackupFolderName(_currentGame);
+              final oldBackupName3 = await FolderRenameService.buildBackupFolderName(_currentGame);
               if (oldBackupName3 == null) continue;
               final oldSanitized3 = oldBackupName3.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
               final oldBackupDir3 = Directory('$backupDirPath3$sep$oldSanitized3');
 
               if (await oldBackupDir3.exists()) {
-                final newBackupName3 = FolderRenameService.buildBackupFolderName(
+                final newBackupName3 = await FolderRenameService.buildBackupFolderName(
                   _currentGame.copyWith(title: newTitle),
                 );
                 if (newBackupName3 == null) continue;

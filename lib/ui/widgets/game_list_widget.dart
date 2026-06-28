@@ -2431,7 +2431,7 @@ _refreshAllProviders();
       }
 
       // 创建游戏备份目录（使用 buildBackupFolderName 生成文件夹名）
-      final backupFolderName = FolderRenameService.buildBackupFolderName(game);
+      final backupFolderName = await FolderRenameService.buildBackupFolderName(game);
       final gameTitle = backupFolderName ?? game.title ?? path.basename(game.path);
       final sanitizedTitle = gameTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
       final backupGameDir = Directory('${backupDir.path}${Platform.pathSeparator}$sanitizedTitle');
@@ -2787,7 +2787,7 @@ _refreshAllProviders();
       // 删除对应的 Backup 目录
       final backupDir = Directory('$clearedPath${Platform.pathSeparator}Backup');
       if (await backupDir.exists()) {
-        final backupFolderName = FolderRenameService.buildBackupFolderName(game);
+        final backupFolderName = await FolderRenameService.buildBackupFolderName(game);
         final gameTitle = backupFolderName ?? game.title ?? path.basename(game.path);
         final sanitizedTitle = gameTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
         final backupGameDir = Directory('${backupDir.path}${Platform.pathSeparator}$sanitizedTitle');

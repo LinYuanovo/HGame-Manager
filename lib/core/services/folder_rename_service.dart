@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:path/path.dart' as path;
 import '../models/models.dart';
+import '../models/rename_rule.dart';
 import '../repositories/game_repository.dart';
+import '../utils/app_settings.dart';
 import 'dlsite_service.dart';
 import 'steam_service.dart';
 
@@ -19,54 +22,116 @@ class FolderRenameService {
         _dlsiteService = dlsiteService ?? DlsiteService(),
         _steamService = steamService ?? SteamService();
 
-  /// 构建备份文件夹名称（静态版本，供外部直接调用）
-  /// 格式: [游戏ID] [游戏厂商] [系列标签] 游戏标题 游戏版本
-  static String? buildBackupFolderName(
+  /// 加载重命名规则配置
+  static Future<List<RenameRule>> _loadRules() async {
+    final prefs = await AppSettings.load();
+    final raw = prefs.getString(AppSettings.renameRulesKey);
+
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final List<dynamic> list = jsonDecode(raw);
+        return list.map((m) => RenameRule.fromJson(m as Map<String, dynamic>)).toList();
+      } catch (_) {
+        // JSON解析失败时使用默认配置
+      }
+    }
+
+    return RenameRule.defaultRules();
+  }
+
+  /// 从游戏数据中提取指定规则的值
+  static String? _extractRuleValue(String ruleId, Game game, {String? Function(String)? dlsiteIdExtractor}) {
+    switch (ruleId) {
+      case 'game_id':
+        if (game.sourceUrl != null && game.sourceUrl!.isNotEmpty) {
+          String? id;
+          if (dlsiteIdExtractor != null) {
+            id = dlsiteIdExtractor(game.sourceUrl!);
+          } else {
+            id = DlsiteService().normalizeId(game.sourceUrl!);
+          }
+          if (id == null || id.isEmpty) {
+            final steamMatch = RegExp(r'store\.steampowered\.com/app/(\d+)').firstMatch(game.sourceUrl!);
+            if (steamMatch != null) {
+              id = steamMatch.group(1);
+            }
+          }
+          return id;
+        }
+        return null;
+      case 'maker':
+        return game.maker;
+      case 'series':
+        for (final tag in game.tags) {
+          if (tag.type == Tag.typeSeries) {
+            return tag.name;
+          }
+        }
+        return null;
+      case 'title':
+        return game.title;
+      case 'version':
+        return game.version;
+      default:
+        return null;
+    }
+  }
+
+  /// 构建备份文件夹名称（异步版本，供外部直接调用）
+  /// 使用配置的规则构建名称
+  static Future<String?> buildBackupFolderName(
+    Game game, {
+    String? Function(String)? dlsiteIdExtractor,
+  }) async {
+    final title = game.title;
+    if (title == null || title.isEmpty) return null;
+
+    final rules = await _loadRules();
+    final parts = <String>[];
+
+    // 按排序顺序处理规则
+    final sortedRules = List<RenameRule>.from(rules)
+      ..sort((a, b) => a.order.compareTo(b.order));
+
+    for (final rule in sortedRules) {
+      if (!rule.enabled) continue;
+
+      final value = _extractRuleValue(rule.id, game, dlsiteIdExtractor: dlsiteIdExtractor);
+      if (value != null && value.isNotEmpty) {
+        parts.add(rule.wrapContent(value));
+      }
+    }
+
+    return parts.isEmpty ? null : parts.join(' ');
+  }
+
+  /// 同步版本的buildBackupFolderName（用于不能async的场景）
+  /// 使用默认规则，不读取配置
+  static String? buildBackupFolderNameSync(
     Game game, {
     String? Function(String)? dlsiteIdExtractor,
   }) {
     final title = game.title;
     if (title == null || title.isEmpty) return null;
 
-    String? id;
-    String? series;
-    String? maker;
-
-    if (game.sourceUrl != null && game.sourceUrl!.isNotEmpty) {
-      if (dlsiteIdExtractor != null) {
-        id = dlsiteIdExtractor(game.sourceUrl!);
-      } else {
-        id = DlsiteService().normalizeId(game.sourceUrl!);
-      }
-      if (id == null || id.isEmpty) {
-        final steamMatch = RegExp(r'store\.steampowered\.com/app/(\d+)').firstMatch(game.sourceUrl!);
-        if (steamMatch != null) {
-          id = steamMatch.group(1);
-        }
-      }
-    }
-
-    for (final tag in game.tags) {
-      if (tag.type == Tag.typeSeries) {
-        series = tag.name;
-        break;
-      }
-    }
-
-    maker = game.maker;
-
+    // 使用默认规则
+    final rules = RenameRule.defaultRules();
     final parts = <String>[];
-    if (id != null && id.isNotEmpty) parts.add('[$id]');
-    if (maker != null && maker.isNotEmpty) parts.add('[$maker]');
-    if (series != null && series.isNotEmpty) parts.add('[$series]');
-    parts.add(title);
-    if (game.version != null && game.version!.isNotEmpty) parts.add(game.version!);
 
-    return parts.join(' ');
+    for (final rule in rules) {
+      if (!rule.enabled) continue;
+
+      final value = _extractRuleValue(rule.id, game, dlsiteIdExtractor: dlsiteIdExtractor);
+      if (value != null && value.isNotEmpty) {
+        parts.add(rule.wrapContent(value));
+      }
+    }
+
+    return parts.isEmpty ? null : parts.join(' ');
   }
 
   String? buildNewFolderName(Game game) {
-    return buildBackupFolderName(
+    return buildBackupFolderNameSync(
       game,
       dlsiteIdExtractor: (url) => _dlsiteService.normalizeId(url),
     );
@@ -142,7 +207,6 @@ class FolderRenameService {
     }
   }
 
-  /// Count how many games would be renamed (dry run).
   Future<int> countRenamableGames() async {
     final games = await _gameRepository.getAllGames();
     int count = 0;
@@ -168,7 +232,6 @@ class FolderRenameService {
     final games = await _gameRepository.getAllGames();
     int renamed = 0;
 
-    // Process in parallel batches of 10
     const batchSize = 10;
     for (var i = 0; i < games.length; i += batchSize) {
       final batch = games.skip(i).take(batchSize).toList();
