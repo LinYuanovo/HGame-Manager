@@ -264,12 +264,19 @@ Future<String> getCookieForSite(String url) async {
     return prefs.getString('cookie_vikacg') ?? '';
   }
 
+  final domain2dfan = prefs.getString('domain_2dfan') ?? '';
+  if (domain2dfan.isNotEmpty && host.contains(domain2dfan.toLowerCase())) {
+    return prefs.getString('cookie_2dfan') ?? '';
+  }
+
   if (host.contains('acgyyg') || host.contains('acgying')) {
     return prefs.getString('cookie_acgying') ?? '';
   } else if (host.contains('feixueacg') || host.contains('feixue')) {
     return prefs.getString('cookie_feixue') ?? '';
   } else if (host.contains('vikacg') || host.contains('weika')) {
     return prefs.getString('cookie_vikacg') ?? '';
+  } else if (host.contains('fan2d') || host.contains('2dfan')) {
+    return prefs.getString('cookie_2dfan') ?? '';
   }
   return '';
 }

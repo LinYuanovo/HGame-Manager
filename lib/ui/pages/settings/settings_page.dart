@@ -45,6 +45,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   late TextEditingController _cookieFeixueController;
   late TextEditingController _cookieVikacgController;
   late TextEditingController _cookiePilipiliController;
+  late TextEditingController _cookie2dfanController;
   late TextEditingController _domainAcgyingController;
   late TextEditingController _domainFeixueController;
   late TextEditingController _domainVikacgController;
@@ -120,6 +121,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     final cookieFeixue = prefs.getString('cookie_feixue') ?? '';
     final cookieVikacg = prefs.getString('cookie_vikacg') ?? '';
     final cookiePilipili = prefs.getString('cookie_pilipili') ?? '';
+    final cookie2dfan = prefs.getString('cookie_2dfan') ?? '';
 
     // Library path migration
     final rawLib = prefs.getString('library_path') ?? '';
@@ -167,6 +169,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _cookieFeixueController = TextEditingController(text: cookieFeixue);
     _cookieVikacgController = TextEditingController(text: cookieVikacg);
     _cookiePilipiliController = TextEditingController(text: cookiePilipili);
+    _cookie2dfanController = TextEditingController(text: cookie2dfan);
     _domainAcgyingController = TextEditingController(text: prefs.getString('domain_acgying') ?? '');
     _domainFeixueController = TextEditingController(text: prefs.getString('domain_feixue') ?? '');
     _domainVikacgController = TextEditingController(text: prefs.getString('domain_vikacg') ?? '');
@@ -217,6 +220,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _cookieFeixueController.dispose();
     _cookieVikacgController.dispose();
     _cookiePilipiliController.dispose();
+    _cookie2dfanController.dispose();
     _domainAcgyingController.dispose();
     _domainFeixueController.dispose();
     _domainVikacgController.dispose();
@@ -1349,6 +1353,12 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
           controller: _cookiePilipiliController,
           hint: '登录 pilipili.com 后复制 Cookie',
         ),
+        const SizedBox(height: 12),
+        _buildCookieInput(
+          label: '2DFan (fan2d.top / 2dfan.com)',
+          controller: _cookie2dfanController,
+          hint: '登录 2DFan 后复制 Cookie',
+        ),
         const SizedBox(height: 8),
         Text(
           'ACG嘤嘤怪/飞雪ACG 获取方法：浏览器按F12 → Network → 刷新页面 → 点击第一个请求 → 复制Request Headers中的Cookie值',
@@ -1362,6 +1372,11 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         const SizedBox(height: 4),
         Text(
           'pilipili 获取方法：浏览器按F12 → Network → 刷新页面 → 点击第一个请求 → 复制Request Headers中的Cookie值',
+          style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5), fontSize: 11),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '2DFan 获取方法：浏览器按F12 → Network → 刷新页面 → 点击第一个请求 → 复制Request Headers中的Cookie值',
           style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5), fontSize: 11),
         ),
       ],
@@ -2132,6 +2147,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     await prefs.setString('cookie_feixue', _cookieFeixueController.text.trim());
     await prefs.setString('cookie_vikacg', _cookieVikacgController.text.trim());
     await prefs.setString('cookie_pilipili', _cookiePilipiliController.text.trim());
+    await prefs.setString('cookie_2dfan', _cookie2dfanController.text.trim());
     await prefs.setString('domain_acgying', _domainAcgyingController.text.trim());
     await prefs.setString('domain_feixue', _domainFeixueController.text.trim());
     await prefs.setString('domain_vikacg', _domainVikacgController.text.trim());
