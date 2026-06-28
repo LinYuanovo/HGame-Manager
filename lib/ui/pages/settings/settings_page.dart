@@ -17,6 +17,7 @@ import '../../../core/models/models.dart';
 import 'context_menu_manager_dialog.dart';
 import 'sidebar_manager_dialog.dart';
 import 'scrape_mode_config_dialog.dart';
+import 'rename_manager_dialog.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/models/theme_mode.dart';
 
@@ -77,7 +78,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _SidebarCategory(
       label: '管理',
       icon: Icons.admin_panel_settings_outlined,
-      items: ['黑名单管理', '右键菜单管理', '侧边栏页面管理', '刮削移动与重命名管理'],
+      items: ['黑名单管理', '右键菜单管理', '侧边栏页面管理', '刮削行为管理', '重命名规则管理'],
     ),
     _SidebarCategory(
       label: '刮削',
@@ -387,8 +388,10 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         return _buildSidebarManagerSection();
       case '黑名单管理':
         return _buildBlacklistSection();
-      case '刮削移动与重命名管理':
+      case '刮削行为管理':
         return _buildScrapeModeConfigSection();
+      case '重命名规则管理':
+        return _buildRenameManagerSection();
       case '论坛自定义域名':
         return _buildForumDomainSection();
       case 'Cookie设置':
@@ -1049,6 +1052,51 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         ),
       ],
     );
+  }
+
+  Widget _buildRenameManagerSection() {
+    return _buildSection(
+      title: '重命名规则管理',
+      icon: Icons.drive_file_rename_outline,
+      children: [
+        Text(
+          '配置游戏文件夹重命名规则，控制标记通关时备份文件夹的命名格式。',
+          style: TextStyle(fontSize: 13, color: AppTheme.getTextSecondary(context)),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          '当前规则：启用的项将按顺序组合，包裹符号会添加到内容两侧。',
+          style: TextStyle(fontSize: 13, color: AppTheme.getTextSecondary(context)),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _showRenameManager,
+            icon: const Icon(Icons.settings, size: 18),
+            label: const Text('打开重命名规则管理'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
+              foregroundColor: AppTheme.getPrimaryColor(context),
+              side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showRenameManager() {
+    showDialog<bool>(
+      context: context,
+      builder: (context) => const RenameManagerDialog(),
+    ).then((saved) {
+      if (saved == true) {
+        // 重命名规则已保存
+      }
+    });
   }
 
   Widget _buildProxySection() {
