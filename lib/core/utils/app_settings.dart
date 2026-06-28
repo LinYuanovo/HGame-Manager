@@ -23,6 +23,7 @@ class AppSettings {
   static const String sidebarConfigKey = 'sidebar_config';
   static const String autoMoveToSortedKey = 'auto_move_to_sorted';
   static const String scrapeModeConfigsKey = 'scrape_mode_configs';
+  static const String renameRulesKey = 'rename_rules';
 
   Map<String, dynamic> _data = {};
   final String _filePath;
