@@ -1598,7 +1598,10 @@ if (_isEditing) ...[
     }
 
     final sections = <String, String?>{
-      if (!_showGuide) 'intro': _currentGame.intro,
+      if (!_showGuide)
+        'intro': _introHtml != null && _introHtml!.isNotEmpty
+            ? _buildSearchTextFromHtml(_introHtml!)
+            : _currentGame.intro,
       if (_showGuide) 'guide': _currentGame.guide,
       'features': _currentGame.features,
       'changelog': _currentGame.changelog,
@@ -1621,6 +1624,20 @@ if (_isEditing) ...[
         _scrollToMatch(_searchMatches[_currentMatchIndex]);
       });
     }
+  }
+
+  /// 从 HTML 构建搜索文本，行索引与 _buildHtmlContent 保持一致
+  String _buildSearchTextFromHtml(String html) {
+    final blocks = _parseHtmlToBlocks(html, '');
+    final buffer = StringBuffer();
+    for (final block in blocks) {
+      final textLines = block.text.split('\n');
+      if (textLines.any((l) => l.isNotEmpty)) {
+        if (buffer.isNotEmpty) buffer.write('\n');
+        buffer.write(block.text);
+      }
+    }
+    return buffer.toString();
   }
 
   Future<void> _scrollToMatch(ContentSearchMatch match) async {
@@ -2256,35 +2273,64 @@ if (_isEditing) ...[
     for (final block in blocks) {
       final textLines = block.text.split('\n');
       final startLine = lineAccum;
-      // 只文本行计入行号（纯图片不计入，因搜索引索引的是纯文本）
       final hasText = textLines.length >= 1 && textLines.any((l) => l.isNotEmpty);
       if (hasText) lineAccum += textLines.length;
 
-      Widget buildTextWidget(String text, TextStyle style) {
-        Widget w = SelectableText(text, style: style);
-        if (sectionKey != null && hasText) {
-          final key = GlobalKey();
-          w = KeyedSubtree(key: key, child: w);
-          for (var k = 0; k < textLines.length; k++) {
-            _contentBlockKeys['${sectionKey}_${startLine + k}'] = key;
+      Widget buildRichTextWidget(String text, TextStyle baseStyle, TextStyle? headingStyle) {
+        final lines = text.split('\n');
+        final spans = <InlineSpan>[];
+        for (var j = 0; j < lines.length; j++) {
+          final lineIdx = startLine + j;
+          final line = lines[j];
+          final style = headingStyle ?? baseStyle;
+
+          if (sectionKey != null && _searchMatches.isNotEmpty) {
+            final sectionMatches = _searchMatches
+                .where((m) => m.sectionKey == sectionKey && m.lineIndex == lineIdx)
+                .toList();
+            if (sectionMatches.isNotEmpty) {
+              spans.addAll(_buildHighlightedSpans(line, sectionMatches, style));
+            } else {
+              spans.add(TextSpan(text: line, style: style));
+            }
+          } else {
+            spans.add(TextSpan(text: line, style: style));
+          }
+
+          if (j < lines.length - 1) {
+            spans.add(TextSpan(text: '\n', style: style));
+          }
+
+          if (sectionKey != null) {
+            final key = GlobalKey();
+            _contentBlockKeys['${sectionKey}_$lineIdx'] = key;
+            spans.add(WidgetSpan(
+              child: SizedBox(key: key, width: 1, height: fontSize),
+              alignment: PlaceholderAlignment.middle,
+            ));
           }
         }
-        return w;
+        return SelectableText.rich(
+          TextSpan(children: spans),
+          style: TextStyle(fontSize: fontSize, height: 1.8),
+        );
       }
 
       switch (block.type) {
         case _ContentBlockType.heading:
           children.add(Padding(
             padding: const EdgeInsets.only(top: 12, bottom: 4),
-            child: buildTextWidget(block.text,
+            child: buildRichTextWidget(block.text,
               TextStyle(fontSize: fontSize + 2, fontWeight: FontWeight.w700, color: AppTheme.getDetailTextPrimary(context)),
+              null,
             ),
           ));
         case _ContentBlockType.text:
           children.add(Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),
-            child: buildTextWidget(block.text,
+            child: buildRichTextWidget(block.text,
               TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getDetailTextPrimary(context)),
+              null,
             ),
           ));
         case _ContentBlockType.imageWithText:
@@ -2303,8 +2349,9 @@ if (_isEditing) ...[
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: buildTextWidget(block.text,
+                        child: buildRichTextWidget(block.text,
                           TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getDetailTextPrimary(context)),
+                          null,
                         ),
                       ),
                     ],
