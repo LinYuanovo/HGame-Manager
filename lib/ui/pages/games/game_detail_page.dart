@@ -298,10 +298,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   @override
   void dispose() {
     ServicesBinding.instance.keyboard.removeHandler(_handleKeyDown);
+    _saveScrollPositions();
     _contentScrollController.dispose();
     _searchController.dispose();
     _searchDebounce?.cancel();
-    _saveScrollPositions();
     _quickScrapeController.dispose();
     _titleController.dispose();
     _versionController.dispose();
@@ -389,34 +389,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               _buildHeader(),
               Container(height: 1, color: AppTheme.getBorderColor(context)),
               Expanded(
-                child: Stack(
-                  children: [
-                    _buildBody(),
-                    if (_isSearchOpen)
-                      Positioned(
-                        top: 0,
-                        left: 320,
-                        right: 0,
-                        child: DetailSearchBar(
-                          controller: _searchController,
-                          matches: _searchMatches,
-                          currentMatchIndex: _currentMatchIndex,
-                          hasSearched: _searchController.text.isNotEmpty,
-                          onNext: _nextMatch,
-                          onPrevious: _previousMatch,
-                          onSearch: _onSearchChanged,
-                          onClose: () {
-                            setState(() {
-                              _isSearchOpen = false;
-                              _searchMatches = [];
-                              _currentMatchIndex = -1;
-                              _searchController.clear();
-                            });
-                          },
-                        ),
-                      ),
-                  ],
-                ),
+                child: _buildBody(),
               ),
               if (_isEditing) Container(height: 1, color: AppTheme.getBorderColor(context)),
               if (_isEditing) _buildEditBar(),
@@ -596,7 +569,31 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           width: 1,
           color: AppTheme.getBorderColor(context),
         ),
-        Expanded(child: _buildContentPanel()),
+        Expanded(
+          child: Column(
+            children: [
+              if (_isSearchOpen)
+                DetailSearchBar(
+                  controller: _searchController,
+                  matches: _searchMatches,
+                  currentMatchIndex: _currentMatchIndex,
+                  hasSearched: _searchController.text.isNotEmpty,
+                  onNext: _nextMatch,
+                  onPrevious: _previousMatch,
+                  onSearch: _onSearchChanged,
+                  onClose: () {
+                    setState(() {
+                      _isSearchOpen = false;
+                      _searchMatches = [];
+                      _currentMatchIndex = -1;
+                      _searchController.clear();
+                    });
+                  },
+                ),
+              Expanded(child: _buildContentPanel()),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -1451,10 +1448,12 @@ if (_isEditing) ...[
     }
   }
 
-  void _switchTab(bool showGuide) {
+  Future<void> _switchTab(bool showGuide) async {
     if (_showGuide == showGuide) return;
 
-    _saveScrollPositions();
+    await _saveScrollPositions();
+
+    if (!mounted) return;
 
     setState(() {
       _showGuide = showGuide;
@@ -1514,14 +1513,6 @@ if (_isEditing) ...[
     final key = _contentBlockKeys['${match.sectionKey}_${match.lineIndex}'];
     if (key == null || key.currentContext == null) return;
 
-    await Scrollable.ensureVisible(
-      key.currentContext!,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-
-    if (key.currentContext == null) return;
-
     final RenderBox? targetBox = key.currentContext!.findRenderObject() as RenderBox?;
     final scrollable = Scrollable.of(key.currentContext!);
     final RenderBox? scrollBox = scrollable.context.findRenderObject() as RenderBox?;
@@ -1535,7 +1526,7 @@ if (_isEditing) ...[
     if ((clampedOffset - scrollable.position.pixels).abs() > 1.0) {
       scrollable.position.animateTo(
         clampedOffset,
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
     }
@@ -1566,6 +1557,7 @@ if (_isEditing) ...[
   }
 
   Widget _buildContentPanel() {
+    _contentBlockKeys.clear();
     final images = _currentGame.images;
     return Stack(
       children: [
@@ -1855,7 +1847,7 @@ if (_isEditing) ...[
           ],
         ),
         const SizedBox(height: 12),
-        _buildRichIntro(guide, ref.watch(detailFontSizeProvider)),
+        _buildRichIntro(guide, ref.watch(detailFontSizeProvider), sectionKey: 'guide'),
       ],
     );
   }
@@ -2004,7 +1996,9 @@ if (_isEditing) ...[
         ] else if (title == '简介' && _introHtml != null && _introHtml!.isNotEmpty) ...[
           _buildHtmlContent(_introHtml!, ref.watch(detailFontSizeProvider)),
         ] else
-          _buildRichIntro(content ?? '暂无信息', ref.watch(detailFontSizeProvider)),
+          _buildRichIntro(content ?? '暂无信息', ref.watch(detailFontSizeProvider),
+            sectionKey: title == '简介' ? 'intro' : title == '特性' ? 'features' : title == '更新日志' ? 'changelog' : null,
+          ),
       ],
     );
   }
@@ -2286,28 +2280,37 @@ if (_isEditing) ...[
     }).toList();
   }
 
-  Widget _buildRichIntro(String content, double fontSize) {
+  Widget _buildRichIntro(String content, double fontSize, {String? sectionKey}) {
     final imageTagStart = '[图片:';
     final videoTagStart = '[视频:';
     final tagEnd = ']';
     
     if (!content.contains(imageTagStart) && !content.contains(videoTagStart)) {
       final lines = content.split('\n');
-      final spans = <InlineSpan>[];
+      final widgets = <Widget>[];
       for (var i = 0; i < lines.length; i++) {
         final line = lines[i].trimRight();
         final isHeading = RegExp(r'^.{1,6}[：:]\s*$').hasMatch(line);
         if (isHeading && i > 0 && lines[i - 1].trim().isNotEmpty) {
-          spans.add(const TextSpan(text: '\n'));
+          widgets.add(const SizedBox(height: 8));
         }
-        spans.add(TextSpan(
-          text: '$line\n',
+        Widget textWidget = SelectableText(
+          line,
           style: isHeading
               ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.getDetailTextPrimary(context))
               : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getDetailTextPrimary(context)),
-        ));
+        );
+        if (sectionKey != null) {
+          final key = GlobalKey();
+          _contentBlockKeys['${sectionKey}_$i'] = key;
+          textWidget = KeyedSubtree(key: key, child: textWidget);
+        }
+        widgets.add(textWidget);
       }
-      return SelectableText.rich(TextSpan(children: spans));
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: widgets,
+      );
     }
 
     final widgets = <Widget>[];
@@ -2367,14 +2370,18 @@ if (_isEditing) ...[
         if (isHeading && i > 0 && lines[i - 1].trim().isNotEmpty) {
           widgets.add(const SizedBox(height: 8));
         }
-        widgets.add(
-          SelectableText(
-            line,
-            style: isHeading
-                ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.getDetailTextPrimary(context))
-                : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getDetailTextPrimary(context)),
-          ),
+        Widget textWidget = SelectableText(
+          line,
+          style: isHeading
+              ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.getDetailTextPrimary(context))
+              : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getDetailTextPrimary(context)),
         );
+        if (sectionKey != null) {
+          final key = GlobalKey();
+          _contentBlockKeys['${sectionKey}_$i'] = key;
+          textWidget = KeyedSubtree(key: key, child: textWidget);
+        }
+        widgets.add(textWidget);
       }
     }
 
