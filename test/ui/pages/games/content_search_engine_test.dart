@@ -225,7 +225,7 @@ void main() {
       expect(match.matchLength, 3);
     });
 
-    test('相等性比较', () {
+    test('const实例相等性比较', () {
       const match1 = ContentSearchMatch(
         sectionKey: 'intro',
         lineIndex: 0,
@@ -239,6 +239,39 @@ void main() {
         matchLength: 3,
       );
       expect(match1, equals(match2));
+    });
+
+    test('非const实例相等性比较', () {
+      final match1 = ContentSearchMatch(
+        sectionKey: 'intro',
+        lineIndex: 0,
+        charOffset: 5,
+        matchLength: 3,
+      );
+      final match2 = ContentSearchMatch(
+        sectionKey: 'intro',
+        lineIndex: 0,
+        charOffset: 5,
+        matchLength: 3,
+      );
+      expect(match1, equals(match2));
+      expect(match1.hashCode, equals(match2.hashCode));
+    });
+
+    test('不同字段的实例不相等', () {
+      final match1 = ContentSearchMatch(
+        sectionKey: 'intro',
+        lineIndex: 0,
+        charOffset: 5,
+        matchLength: 3,
+      );
+      final match2 = ContentSearchMatch(
+        sectionKey: 'guide',
+        lineIndex: 0,
+        charOffset: 5,
+        matchLength: 3,
+      );
+      expect(match1, isNot(equals(match2)));
     });
   });
 }

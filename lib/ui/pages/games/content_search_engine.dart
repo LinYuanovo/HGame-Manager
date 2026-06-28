@@ -14,6 +14,19 @@ class ContentSearchMatch {
     required this.charOffset,
     required this.matchLength,
   });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ContentSearchMatch &&
+        other.sectionKey == sectionKey &&
+        other.lineIndex == lineIndex &&
+        other.charOffset == charOffset &&
+        other.matchLength == matchLength;
+  }
+
+  @override
+  int get hashCode => Object.hash(sectionKey, lineIndex, charOffset, matchLength);
 }
 
 /// 内容搜索引擎（纯逻辑，无UI依赖）
