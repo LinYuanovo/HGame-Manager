@@ -1423,8 +1423,8 @@ if (_isEditing) ...[
     final maxScroll = _contentScrollController.position.maxScrollExtent;
     if (maxScroll <= 0) return;
 
-    final introPosition = _showGuide ? 0.0 : _contentScrollController.offset / maxScroll;
-    final guidePosition = _showGuide ? _contentScrollController.offset / maxScroll : 0.0;
+    final introPosition = _showGuide ? _currentGame.introScrollPosition : _contentScrollController.offset / maxScroll;
+    final guidePosition = _showGuide ? _contentScrollController.offset / maxScroll : _currentGame.guideScrollPosition;
 
     final repo = ref.read(gameRepositoryProvider);
     await repo.updateScrollPosition(
