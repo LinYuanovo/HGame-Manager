@@ -1331,19 +1331,19 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         ),
         const SizedBox(height: 16),
         _buildCookieInput(
-          label: 'ACG嘤嘤怪 (acgyyg.ru)',
+          label: 'ACG嘤嘤怪',
           controller: _cookieAcgyingController,
           hint: '登录 acgyyg.ru 后复制 Cookie',
         ),
         const SizedBox(height: 12),
         _buildCookieInput(
-          label: '飞雪ACG (feixueacg.org)',
+          label: '飞雪ACG',
           controller: _cookieFeixueController,
           hint: '登录 feixueacg.org 后复制 Cookie',
         ),
         const SizedBox(height: 12),
         _buildCookieInput(
-          label: '维咔ACG (vikacg.com) - Authorization',
+          label: '维咔ACG - Authorization',
           controller: _cookieVikacgController,
           hint: '输入 Authorization Token（如 Bearer xxx）',
         ),
@@ -1351,7 +1351,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         _buildCookieInput(
           label: 'pilipili',
           controller: _cookiePilipiliController,
-          hint: '登录 pilipili.com 后复制 Cookie',
+          hint: 'B站随便一个请求 复制 Cookie（确保包含了buvid3）',
         ),
         const SizedBox(height: 12),
         _buildCookieInput(
@@ -1361,22 +1361,12 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         ),
         const SizedBox(height: 8),
         Text(
-          'ACG嘤嘤怪/飞雪ACG 获取方法：浏览器按F12 → Network → 刷新页面 → 点击第一个请求 → 复制Request Headers中的Cookie值',
+          '通用Cookie 获取方法：浏览器按F12 → Network → 刷新页面 → 点击域名下的请求 → 复制Request Headers中的Cookie值',
           style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5), fontSize: 11),
         ),
         const SizedBox(height: 4),
         Text(
-          '维咔ACG 获取方法：浏览器按F12 → Network → 点击任意请求 → 复制Request Headers中的Authorization值',
-          style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5), fontSize: 11),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'pilipili 获取方法：浏览器按F12 → Network → 刷新页面 → 点击第一个请求 → 复制Request Headers中的Cookie值',
-          style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5), fontSize: 11),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '2DFan 获取方法：浏览器按F12 → Network → 刷新页面 → 点击第一个请求 → 复制Request Headers中的Cookie值',
+          '维咔ACG Authorization 获取方法：浏览器按F12 → Network → 点击任意请求 → 复制Request Headers中的Authorization值',
           style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5), fontSize: 11),
         ),
       ],
@@ -1417,12 +1407,17 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       icon: Icons.code_outlined,
       children: [
         Text(
-          '当内置解析器无法覆盖新站点时，可通过配置 XPath 来实现自定义解析。',
+          '当内置解析器无法覆盖新站点时，可通过配置 XPath 来实现自定义解析',
           style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 13),
         ),
         const SizedBox(height: 4),
         Text(
-          '在浏览器中按 F12 打开开发者工具，右键元素 → Copy → Copy XPath 即可获取。',
+          '在浏览器中按 F12 打开开发者工具，右键元素 → Copy → Copy XPath 即可获取',
+          style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6), fontSize: 11),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '一般站点只需要填写域名、标题Xpath、内容Xpath即可，刮削不到图片时再补充cookie',
           style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6), fontSize: 11),
         ),
         const SizedBox(height: 16),
