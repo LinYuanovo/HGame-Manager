@@ -244,48 +244,46 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // 包裹符号输入
-                if (rule.id != 'title' && rule.id != 'version') ...[
-                  SizedBox(
-                    width: 40,
-                    child: TextField(
-                      controller: TextEditingController(text: rule.wrapBefore),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 14, color: AppTheme.getTextPrimary(context)),
-                      decoration: InputDecoration(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
-                        hintText: '前',
-                        isDense: true,
-                      ),
-                      onChanged: (value) {
-                        setState(() {
-                          _rules[index] = rule.copyWith(wrapBefore: value);
-                        });
-                      },
+                SizedBox(
+                  width: 40,
+                  child: TextField(
+                    controller: TextEditingController(text: rule.wrapBefore),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: AppTheme.getTextPrimary(context)),
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
+                      hintText: '前',
+                      isDense: true,
                     ),
+                    onChanged: (value) {
+                      setState(() {
+                        _rules[index] = rule.copyWith(wrapBefore: value);
+                      });
+                    },
                   ),
-                  const SizedBox(width: 4),
-                  SizedBox(
-                    width: 40,
-                    child: TextField(
-                      controller: TextEditingController(text: rule.wrapAfter),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 14, color: AppTheme.getTextPrimary(context)),
-                      decoration: InputDecoration(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
-                        hintText: '后',
-                        isDense: true,
-                      ),
-                      onChanged: (value) {
-                        setState(() {
-                          _rules[index] = rule.copyWith(wrapAfter: value);
-                        });
-                      },
+                ),
+                const SizedBox(width: 4),
+                SizedBox(
+                  width: 40,
+                  child: TextField(
+                    controller: TextEditingController(text: rule.wrapAfter),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: AppTheme.getTextPrimary(context)),
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
+                      hintText: '后',
+                      isDense: true,
                     ),
+                    onChanged: (value) {
+                      setState(() {
+                        _rules[index] = rule.copyWith(wrapAfter: value);
+                      });
+                    },
                   ),
-                  const SizedBox(width: 8),
-                ],
+                ),
+                const SizedBox(width: 8),
                 // 启用开关
                 Switch(
                   value: rule.enabled,
