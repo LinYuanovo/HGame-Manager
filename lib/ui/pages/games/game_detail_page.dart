@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -26,6 +27,9 @@ import '../../widgets/markdown_editor.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'save_management_dialog.dart';
 import 'guide_search_dialog.dart';
+import 'detail_scroll_buttons.dart';
+import 'detail_search_bar.dart';
+import 'content_search_engine.dart';
 
 class GameDetailDialog extends ConsumerStatefulWidget {
   final Game game;
@@ -72,6 +76,15 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   final TextEditingController _quickScrapeController = TextEditingController();
   String _quickScrapeChannel = 'auto';
   bool _showChannelSelector = false;
+
+  late ScrollController _contentScrollController;
+  final GlobalKey _scrollContentKey = GlobalKey();
+  bool _isSearchOpen = false;
+  List<ContentSearchMatch> _searchMatches = [];
+  int _currentMatchIndex = -1;
+  final Map<String, GlobalKey> _contentBlockKeys = {};
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
 
   /// 刷新游戏列表
   void _refreshGames() {
@@ -213,10 +226,15 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _makerController = TextEditingController(text: _currentGame.maker ?? '');
     _editedTags = List.from(_currentGame.tags);
     _guideController = TextEditingController(text: _currentGame.guide);
+    _contentScrollController = ScrollController();
     _checkIsLocal();
     _forceReloadImages();
     _preloadMediaFiles();
     _loadMetadataHtml();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _restoreScrollPositions();
+    });
+    ServicesBinding.instance.keyboard.addHandler(_handleKeyDown);
   }
 
   void _forceReloadImages() {
@@ -279,6 +297,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   @override
   void dispose() {
+    ServicesBinding.instance.keyboard.removeHandler(_handleKeyDown);
+    _contentScrollController.dispose();
+    _searchController.dispose();
+    _searchDebounce?.cancel();
+    _saveScrollPositions();
     _quickScrapeController.dispose();
     _titleController.dispose();
     _versionController.dispose();
@@ -365,7 +388,36 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 ),
               _buildHeader(),
               Container(height: 1, color: AppTheme.getBorderColor(context)),
-              Expanded(child: _buildBody()),
+              Expanded(
+                child: Stack(
+                  children: [
+                    _buildBody(),
+                    if (_isSearchOpen)
+                      Positioned(
+                        top: 0,
+                        left: 320,
+                        right: 0,
+                        child: DetailSearchBar(
+                          controller: _searchController,
+                          matches: _searchMatches,
+                          currentMatchIndex: _currentMatchIndex,
+                          hasSearched: _searchController.text.isNotEmpty,
+                          onNext: _nextMatch,
+                          onPrevious: _previousMatch,
+                          onSearch: _onSearchChanged,
+                          onClose: () {
+                            setState(() {
+                              _isSearchOpen = false;
+                              _searchMatches = [];
+                              _currentMatchIndex = -1;
+                              _searchController.clear();
+                            });
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
               if (_isEditing) Container(height: 1, color: AppTheme.getBorderColor(context)),
               if (_isEditing) _buildEditBar(),
             ],
@@ -1351,13 +1403,180 @@ if (_isEditing) ...[
     );
   }
 
+  bool _handleKeyDown(KeyEvent event) {
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.keyF &&
+          (HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed)) {
+        setState(() {
+          _isSearchOpen = !_isSearchOpen;
+          if (!_isSearchOpen) {
+            _searchMatches = [];
+            _currentMatchIndex = -1;
+          }
+        });
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Future<void> _saveScrollPositions() async {
+    if (_currentGame.id == null || !_contentScrollController.hasClients) return;
+
+    final maxScroll = _contentScrollController.position.maxScrollExtent;
+    if (maxScroll <= 0) return;
+
+    final introPosition = _showGuide ? 0.0 : _contentScrollController.offset / maxScroll;
+    final guidePosition = _showGuide ? _contentScrollController.offset / maxScroll : 0.0;
+
+    final repo = ref.read(gameRepositoryProvider);
+    await repo.updateScrollPosition(
+      _currentGame.id!,
+      introPosition: introPosition,
+      guidePosition: guidePosition,
+    );
+  }
+
+  Future<void> _restoreScrollPositions() async {
+    if (_currentGame.id == null || !_contentScrollController.hasClients) return;
+
+    final maxScroll = _contentScrollController.position.maxScrollExtent;
+    if (maxScroll <= 0) return;
+
+    final targetPosition = _showGuide ? _currentGame.guideScrollPosition : _currentGame.introScrollPosition;
+
+    if (targetPosition > 0 && targetPosition <= 1) {
+      final targetOffset = targetPosition * maxScroll;
+      _contentScrollController.jumpTo(targetOffset.clamp(0.0, maxScroll));
+    }
+  }
+
+  void _switchTab(bool showGuide) {
+    if (_showGuide == showGuide) return;
+
+    _saveScrollPositions();
+
+    setState(() {
+      _showGuide = showGuide;
+      if (_isSearchOpen && _searchController.text.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _performSearch(_searchController.text);
+        });
+      }
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _restoreScrollPositions();
+    });
+  }
+
+  void _onSearchChanged(String query) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      _performSearch(query);
+    });
+  }
+
+  void _performSearch(String query) {
+    final trimmedQuery = query.trim();
+
+    if (trimmedQuery.isEmpty) {
+      setState(() {
+        _searchMatches = [];
+        _currentMatchIndex = -1;
+      });
+      return;
+    }
+
+    final sections = <String, String?>{
+      if (!_showGuide) 'intro': _currentGame.intro,
+      if (_showGuide) 'guide': _currentGame.guide,
+      'features': _currentGame.features,
+      'changelog': _currentGame.changelog,
+    };
+
+    setState(() {
+      _searchMatches = ContentSearchEngine.findAll(
+        query: trimmedQuery,
+        sections: sections,
+      );
+      _currentMatchIndex = _searchMatches.isNotEmpty ? 0 : -1;
+    });
+
+    if (_searchMatches.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToMatch(_searchMatches[_currentMatchIndex]);
+      });
+    }
+  }
+
+  Future<void> _scrollToMatch(ContentSearchMatch match) async {
+    final key = _contentBlockKeys['${match.sectionKey}_${match.lineIndex}'];
+    if (key == null || key.currentContext == null) return;
+
+    await Scrollable.ensureVisible(
+      key.currentContext!,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+
+    if (key.currentContext == null) return;
+
+    final RenderBox? targetBox = key.currentContext!.findRenderObject() as RenderBox?;
+    final scrollable = Scrollable.of(key.currentContext!);
+    final RenderBox? scrollBox = scrollable.context.findRenderObject() as RenderBox?;
+    if (targetBox == null || scrollBox == null) return;
+
+    final targetPosition = targetBox.localToGlobal(Offset.zero, ancestor: scrollBox);
+    const topPadding = 80.0;
+    final desiredOffset = targetPosition.dy - topPadding + scrollable.position.pixels;
+    final clampedOffset = desiredOffset.clamp(0.0, scrollable.position.maxScrollExtent);
+
+    if ((clampedOffset - scrollable.position.pixels).abs() > 1.0) {
+      scrollable.position.animateTo(
+        clampedOffset,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _nextMatch() {
+    if (_searchMatches.isEmpty) return;
+    final newIndex = (_currentMatchIndex + 1) % _searchMatches.length;
+
+    if (newIndex == _currentMatchIndex && _searchMatches.length == 1) return;
+
+    setState(() {
+      _currentMatchIndex = newIndex;
+    });
+    _scrollToMatch(_searchMatches[_currentMatchIndex]);
+  }
+
+  void _previousMatch() {
+    if (_searchMatches.isEmpty) return;
+    final newIndex = (_currentMatchIndex - 1 + _searchMatches.length) % _searchMatches.length;
+
+    if (newIndex == _currentMatchIndex && _searchMatches.length == 1) return;
+
+    setState(() {
+      _currentMatchIndex = newIndex;
+    });
+    _scrollToMatch(_searchMatches[_currentMatchIndex]);
+  }
+
   Widget _buildContentPanel() {
     final images = _currentGame.images;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Stack(
+      children: [
+        SelectionArea(
+          child: SingleChildScrollView(
+            controller: _contentScrollController,
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              key: _scrollContentKey,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
           if (_isEditing)
             TextField(
               controller: _titleController,
@@ -1513,9 +1732,9 @@ if (_isEditing) ...[
           // Tab切换：简介/攻略
           Row(
             children: [
-              _buildTabButton('简介', !_showGuide, () => setState(() => _showGuide = false)),
+              _buildTabButton('简介', !_showGuide, () => _switchTab(false)),
               const SizedBox(width: 8),
-              _buildTabButton('攻略', _showGuide, () => setState(() => _showGuide = true)),
+              _buildTabButton('攻略', _showGuide, () => _switchTab(true)),
             ],
           ),
           const SizedBox(height: 16),
@@ -1547,8 +1766,12 @@ if (_isEditing) ...[
             _buildImageGallery(_getUnusedImages(images)),
           ],
           ],
-        ],
-      ),
+          ],
+        ),
+          ),
+        ),
+        DetailScrollButtons(scrollController: _contentScrollController),
+      ],
     );
   }
 
