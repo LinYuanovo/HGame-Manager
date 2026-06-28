@@ -678,6 +678,16 @@ class GameRepository {
     );
   }
 
+  Future<void> updateScrollPosition(int gameId, {double? introPosition, double? guidePosition}) async {
+    final db = await _db;
+    final updates = <String, dynamic>{};
+    if (introPosition != null) updates['intro_scroll_position'] = introPosition;
+    if (guidePosition != null) updates['guide_scroll_position'] = guidePosition;
+    if (updates.isNotEmpty) {
+      await db.update('games', updates, where: 'id = ?', whereArgs: [gameId]);
+    }
+  }
+
   /// Update all image paths that start with [oldPrefix] to start with [newPrefix].
   /// Used when a game folder is moved or renamed.
   Future<void> updateImagePaths(int gameId, String oldPrefix, String newPrefix) async {

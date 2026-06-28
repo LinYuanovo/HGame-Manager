@@ -47,6 +47,8 @@ class Game {
   final bool launcherLocked;
   final bool useLocaleEmulator;
   final String? guide;       // 攻略内容（Markdown格式）
+  final double introScrollPosition;  // 简介滚动位置（0.0-1.0）
+  final double guideScrollPosition;  // 攻略滚动位置（0.0-1.0）
 
   Game({
     this.id,
@@ -76,6 +78,8 @@ class Game {
     this.launcherLocked = false,
     this.useLocaleEmulator = false,
     this.guide,
+    this.introScrollPosition = 0.0,
+    this.guideScrollPosition = 0.0,
   });
 
   factory Game.fromMap(Map<String, dynamic> map) {
@@ -109,6 +113,8 @@ class Game {
       launcherLocked: (map['launcher_locked'] as int? ?? 0) == 1,
       useLocaleEmulator: (map['use_locale_emulator'] as int? ?? 0) == 1,
       guide: map['guide'] as String?,
+      introScrollPosition: (map['intro_scroll_position'] as num?)?.toDouble() ?? 0.0,
+      guideScrollPosition: (map['guide_scroll_position'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -139,6 +145,8 @@ class Game {
       'launcher_locked': launcherLocked ? 1 : 0,
       'use_locale_emulator': useLocaleEmulator ? 1 : 0,
       if (guide != null) 'guide': guide,
+      'intro_scroll_position': introScrollPosition,
+      'guide_scroll_position': guideScrollPosition,
     };
   }
 
@@ -170,6 +178,8 @@ class Game {
     Object? launcherLocked = _undefined,
     Object? useLocaleEmulator = _undefined,
     Object? guide = _undefined,
+    Object? introScrollPosition = _undefined,
+    Object? guideScrollPosition = _undefined,
   }) {
     return Game(
       id: id ?? this.id,
@@ -199,6 +209,8 @@ class Game {
       launcherLocked: identical(launcherLocked, _undefined) ? this.launcherLocked : launcherLocked as bool,
       useLocaleEmulator: identical(useLocaleEmulator, _undefined) ? this.useLocaleEmulator : useLocaleEmulator as bool,
       guide: identical(guide, _undefined) ? this.guide : guide as String?,
+      introScrollPosition: identical(introScrollPosition, _undefined) ? this.introScrollPosition : introScrollPosition as double,
+      guideScrollPosition: identical(guideScrollPosition, _undefined) ? this.guideScrollPosition : guideScrollPosition as double,
     );
   }
 }
