@@ -1092,11 +1092,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     showDialog<bool>(
       context: context,
       builder: (context) => const RenameManagerDialog(),
-    ).then((saved) {
-      if (saved == true) {
-        // 重命名规则已保存
-      }
-    });
+    );
   }
 
   Widget _buildProxySection() {
