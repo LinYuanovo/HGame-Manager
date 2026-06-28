@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart';
+
 /// 内容搜索匹配位置
+@immutable
 class ContentSearchMatch {
   final String sectionKey;    // 区域键（'intro', 'guide', 'features', 'changelog'）
   final int lineIndex;        // 行索引
@@ -15,27 +18,30 @@ class ContentSearchMatch {
 
 /// 内容搜索引擎（纯逻辑，无UI依赖）
 class ContentSearchEngine {
+  /// 媒体标签前缀列表
+  static const _mediaPrefixes = ['[图片:', '[视频:'];
+
   /// 查找所有匹配项
   static List<ContentSearchMatch> findAll({
     required String query,
     required Map<String, String?> sections,
     bool caseSensitive = false,
   }) {
-    if (query.isEmpty) return [];
-    
+    if (query.trim().isEmpty) return [];
+
+    final regex = RegExp(RegExp.escape(query), caseSensitive: caseSensitive);
     final matches = <ContentSearchMatch>[];
-    
+
     for (final entry in sections.entries) {
       final content = entry.value;
       if (content == null || content.isEmpty) continue;
-      
+
       final lines = content.split('\n');
       for (var lineIdx = 0; lineIdx < lines.length; lineIdx++) {
         final line = lines[lineIdx];
         // 跳过媒体标签行
-        if (line.startsWith('[图片:') || line.startsWith('[视频:')) continue;
-        
-        final regex = RegExp(RegExp.escape(query), caseSensitive: caseSensitive);
+        if (_mediaPrefixes.any((prefix) => line.startsWith(prefix))) continue;
+
         for (final match in regex.allMatches(line)) {
           matches.add(ContentSearchMatch(
             sectionKey: entry.key,
@@ -46,7 +52,7 @@ class ContentSearchEngine {
         }
       }
     }
-    
+
     return matches;
   }
 }
