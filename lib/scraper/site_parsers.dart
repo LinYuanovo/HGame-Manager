@@ -1309,16 +1309,14 @@ class VikAcgParser extends SiteParser {
 /// Register all site parsers into the ParserRegistry.
 /// Called by HtmlScraper._ensureRegistered() to guarantee registration.
 void registerAllParsers() {
-  if (ParserRegistry.allParsers.isEmpty) {
-    ParserRegistry.register(AcgYingParser());
-    ParserRegistry.register(VikAcgParser());
-    ParserRegistry.register(FeiXueAcgParser());
-    ParserRegistry.register(DlsiteParser());
-    // Register domain alias parsers that share the same parsing logic
-    ParserRegistry.register(_AliasParser('acgying', AcgYingParser()));
-    ParserRegistry.register(_AliasParser('weika', VikAcgParser()));
-    AppLogger.instance.info('Scraper', 'Registered ${ParserRegistry.allParsers.length} site parsers (including aliases): AcgYing/acgying, VikAcg/weika, FeiXueAcg, Dlsite');
-  }
+  final existingDomains = ParserRegistry.allParsers.map((p) => p.domain).toSet();
+  if (!existingDomains.contains('acgyyg')) ParserRegistry.register(AcgYingParser());
+  if (!existingDomains.contains('vikacg')) ParserRegistry.register(VikAcgParser());
+  if (!existingDomains.contains('feixueacg')) ParserRegistry.register(FeiXueAcgParser());
+  if (!existingDomains.contains('dlsite')) ParserRegistry.register(DlsiteParser());
+  if (!existingDomains.contains('yyg')) ParserRegistry.register(_AliasParser('acgying', AcgYingParser()));
+  if (!existingDomains.contains('vik')) ParserRegistry.register(_AliasParser('weika', VikAcgParser()));
+  AppLogger.instance.info('Scraper', 'Registered ${ParserRegistry.allParsers.length} site parsers (including aliases): AcgYing/acgying, VikAcg/weika, FeiXueAcg, Dlsite');
 }
 
 Future<void> registerCustomDomainParsers() async {

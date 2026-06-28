@@ -3,8 +3,15 @@ import '../../theme/app_theme.dart';
 
 class DetailScrollButtons extends StatefulWidget {
   final ScrollController scrollController;
+  final bool showGuide;
+  final VoidCallback? onToggleGuide;
 
-  const DetailScrollButtons({super.key, required this.scrollController});
+  const DetailScrollButtons({
+    super.key,
+    required this.scrollController,
+    this.showGuide = false,
+    this.onToggleGuide,
+  });
 
   @override
   State<DetailScrollButtons> createState() => _DetailScrollButtonsState();
@@ -18,7 +25,7 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
   void initState() {
     super.initState();
     widget.scrollController.addListener(_updateButtons);
-    _updateButtons();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateButtons());
   }
 
   @override
@@ -27,8 +34,8 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
     if (oldWidget.scrollController != widget.scrollController) {
       oldWidget.scrollController.removeListener(_updateButtons);
       widget.scrollController.addListener(_updateButtons);
-      _updateButtons();
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateButtons());
   }
 
   @override
@@ -82,7 +89,7 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_showTop && !_showBottom) {
+    if (!_showTop && !_showBottom && widget.onToggleGuide == null) {
       return const SizedBox.shrink();
     }
 
@@ -99,6 +106,13 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
                 icon: Icons.keyboard_arrow_up,
                 onPressed: _scrollToTop,
                 tooltip: '滚动到顶部',
+              ),
+            const SizedBox(height: 8),
+            if (widget.onToggleGuide != null)
+              _buildButton(
+                icon: widget.showGuide ? Icons.menu_book : Icons.description,
+                onPressed: widget.onToggleGuide!,
+                tooltip: widget.showGuide ? '切换到简介' : '切换到攻略',
               ),
             const SizedBox(height: 8),
             if (_showBottom)

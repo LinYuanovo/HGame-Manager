@@ -14,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/repositories/game_repository.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../../scraper/html_parser.dart';
 import '../../../scraper/parse_utils.dart';
@@ -79,6 +80,14 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   late ScrollController _contentScrollController;
   final GlobalKey _scrollContentKey = GlobalKey();
+  GameRepository? _repo;
+  Timer? _scrollSaveDebounce;
+  bool _isRestoringScroll = false;
+  bool _suppressScrollSave = false;
+  double _lastStableMax = 0;
+  int _stableFrames = 0;
+  int _restoreFrameCount = 0;
+  final GlobalKey _contentPanelKey = GlobalKey();
   bool _isSearchOpen = false;
   List<ContentSearchMatch> _searchMatches = [];
   int _currentMatchIndex = -1;
@@ -227,11 +236,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _editedTags = List.from(_currentGame.tags);
     _guideController = TextEditingController(text: _currentGame.guide);
     _contentScrollController = ScrollController();
+    _contentScrollController.addListener(_onScroll);
+    _repo = ref.read(gameRepositoryProvider);
     _checkIsLocal();
     _forceReloadImages();
-    _preloadMediaFiles();
-    _loadMetadataHtml();
+    Future.wait([_preloadMediaFiles(), _loadMetadataHtml()]);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      debugPrint('[ScrollPos] postFrameCallback: calling _restoreScrollPositions');
       _restoreScrollPositions();
     });
     ServicesBinding.instance.keyboard.addHandler(_handleKeyDown);
@@ -298,7 +309,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   @override
   void dispose() {
     ServicesBinding.instance.keyboard.removeHandler(_handleKeyDown);
-    _saveScrollPositions();
+    debugPrint('[ScrollPos] dispose: saving scroll position');
+    _captureAndSaveScrollPositions();
+    _scrollSaveDebounce?.cancel();
+    _contentScrollController.removeListener(_onScroll);
     _contentScrollController.dispose();
     _searchController.dispose();
     _searchDebounce?.cancel();
@@ -1418,41 +1432,136 @@ if (_isEditing) ...[
     return false;
   }
 
-  Future<void> _saveScrollPositions() async {
-    if (_currentGame.id == null || !_contentScrollController.hasClients) return;
+  void _onScroll() {
+    if (_isRestoringScroll || _suppressScrollSave) return;
+    _scrollSaveDebounce?.cancel();
+    _scrollSaveDebounce = Timer(const Duration(milliseconds: 500), () {
+      _captureAndSaveScrollPositions();
+    });
+  }
 
+  void _captureAndSaveScrollPositions() {
+    if (_currentGame.id == null || !_contentScrollController.hasClients) {
+      debugPrint('[ScrollPos] SAVE skipped: id=${_currentGame.id}, hasClients=${_contentScrollController.hasClients}');
+      return;
+    }
     final maxScroll = _contentScrollController.position.maxScrollExtent;
-    if (maxScroll <= 0) return;
-
-    final introPosition = _showGuide ? _currentGame.introScrollPosition : _contentScrollController.offset / maxScroll;
-    final guidePosition = _showGuide ? _contentScrollController.offset / maxScroll : _currentGame.guideScrollPosition;
-
-    final repo = ref.read(gameRepositoryProvider);
-    await repo.updateScrollPosition(
+    if (maxScroll <= 0) {
+      debugPrint('[ScrollPos] SAVE skipped: maxScroll=$maxScroll');
+      return;
+    }
+    final ratio = _contentScrollController.offset / maxScroll;
+    final introRatio = _showGuide ? _currentGame.introScrollPosition : ratio;
+    final guideRatio = _showGuide ? ratio : _currentGame.guideScrollPosition;
+    debugPrint('[ScrollPos] SAVE: id=${_currentGame.id}, showGuide=$_showGuide, offset=${_contentScrollController.offset}, maxScroll=$maxScroll, ratio=$ratio, introRatio=$introRatio, guideRatio=$guideRatio');
+    _currentGame = _currentGame.copyWith(
+      introScrollPosition: introRatio,
+      guideScrollPosition: guideRatio,
+    );
+    _repo?.updateScrollPosition(
       _currentGame.id!,
-      introPosition: introPosition,
-      guidePosition: guidePosition,
+      introPosition: introRatio,
+      guidePosition: guideRatio,
     );
   }
 
   Future<void> _restoreScrollPositions() async {
-    if (_currentGame.id == null || !_contentScrollController.hasClients) return;
-
-    final maxScroll = _contentScrollController.position.maxScrollExtent;
-    if (maxScroll <= 0) return;
-
-    final targetPosition = _showGuide ? _currentGame.guideScrollPosition : _currentGame.introScrollPosition;
-
-    if (targetPosition > 0 && targetPosition <= 1) {
-      final targetOffset = targetPosition * maxScroll;
-      _contentScrollController.jumpTo(targetOffset.clamp(0.0, maxScroll));
+    if (_currentGame.id == null || !_contentScrollController.hasClients) {
+      debugPrint('[ScrollPos] RESTORE skipped: id=${_currentGame.id}, hasClients=${_contentScrollController.hasClients}');
+      return;
     }
+    final maxScroll = _contentScrollController.position.maxScrollExtent;
+    debugPrint('[ScrollPos] RESTORE: initial maxScroll=$maxScroll, showGuide=$_showGuide');
+    if (maxScroll <= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _restoreScrollPositions());
+      return;
+    }
+    final repo = ref.read(gameRepositoryProvider);
+    final freshGame = await repo.getGameById(_currentGame.id!);
+    if (freshGame != null) {
+      _currentGame = freshGame;
+      debugPrint('[ScrollPos] RESTORE: refreshed game, introRatio=${_currentGame.introScrollPosition}, guideRatio=${_currentGame.guideScrollPosition}');
+    } else {
+      debugPrint('[ScrollPos] RESTORE: freshGame is null');
+    }
+    final targetRatio = _showGuide ? _currentGame.guideScrollPosition : _currentGame.introScrollPosition;
+    debugPrint('[ScrollPos] RESTORE: targetRatio=$targetRatio');
+    _suppressScrollSave = true;
+    _lastStableMax = 0;
+    _stableFrames = 0;
+    _restoreFrameCount = 0;
+    if (targetRatio > 0) {
+      _applyRestoreJump(targetRatio);
+    } else {
+      _releaseRestoreLock();
+    }
+  }
+
+  void _applyRestoreJump(double targetRatio) {
+    _restoreFrameCount++;
+    if (!_contentScrollController.hasClients) {
+      _releaseRestoreLock();
+      return;
+    }
+    final maxScroll = _contentScrollController.position.maxScrollExtent;
+    if (maxScroll <= 0) {
+      if (_restoreFrameCount > 300) {
+        debugPrint('[ScrollPos] RESTORE: timeout after 300 frames');
+        _releaseRestoreLock();
+        return;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) => _applyRestoreJump(targetRatio));
+      return;
+    }
+    // First frame: always jump immediately for fast feedback
+    if (_restoreFrameCount == 1) {
+      _lastStableMax = maxScroll;
+      _stableFrames = 0;
+      final targetOffset = (targetRatio * maxScroll).clamp(0.0, maxScroll);
+      debugPrint('[ScrollPos] RESTORE: initial jump to $targetOffset (ratio=$targetRatio, maxScroll=$maxScroll)');
+      _isRestoringScroll = true;
+      _contentScrollController.jumpTo(targetOffset);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _isRestoringScroll = false;
+        _applyRestoreJump(targetRatio);
+      });
+      return;
+    }
+    // Subsequent frames: track stability
+    if (maxScroll == _lastStableMax) {
+      _stableFrames++;
+      if (_stableFrames >= 5) {
+        debugPrint('[ScrollPos] RESTORE: stable at maxScroll=$maxScroll (${_stableFrames}frames), done');
+        _releaseRestoreLock();
+        return;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) => _applyRestoreJump(targetRatio));
+      return;
+    }
+    // maxScroll grew: do a corrective jump
+    _lastStableMax = maxScroll;
+    _stableFrames = 0;
+    final targetOffset = (targetRatio * maxScroll).clamp(0.0, maxScroll);
+    debugPrint('[ScrollPos] RESTORE: corrective jump to $targetOffset (ratio=$targetRatio, maxScroll=$maxScroll)');
+    _isRestoringScroll = true;
+    _contentScrollController.jumpTo(targetOffset);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _isRestoringScroll = false;
+      _applyRestoreJump(targetRatio);
+    });
+  }
+
+  void _releaseRestoreLock() {
+    _scrollSaveDebounce?.cancel();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      _suppressScrollSave = false;
+    });
   }
 
   Future<void> _switchTab(bool showGuide) async {
     if (_showGuide == showGuide) return;
 
-    await _saveScrollPositions();
+    _captureAndSaveScrollPositions();
 
     if (!mounted) return;
 
@@ -1504,6 +1613,10 @@ if (_isEditing) ...[
     });
 
     if (_searchMatches.isNotEmpty) {
+      debugPrint('[Search] Found ${_searchMatches.length} matches, first: sectionKey=${_searchMatches[0].sectionKey}, lineIndex=${_searchMatches[0].lineIndex}');
+      for (final m in _searchMatches) {
+        debugPrint('[HTMLSearch] match: sectionKey=${m.sectionKey}, lineIndex=${m.lineIndex}, charOffset=${m.charOffset}, matchLength=${m.matchLength}');
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollToMatch(_searchMatches[_currentMatchIndex]);
       });
@@ -1511,25 +1624,44 @@ if (_isEditing) ...[
   }
 
   Future<void> _scrollToMatch(ContentSearchMatch match) async {
-    final key = _contentBlockKeys['${match.sectionKey}_${match.lineIndex}'];
-    if (key == null || key.currentContext == null) return;
+    final exactKey = _contentBlockKeys['${match.sectionKey}_${match.lineIndex}'];
+    debugPrint('[Search] _scrollToMatch: sectionKey=${match.sectionKey}, lineIndex=${match.lineIndex}, exactKey found=${exactKey != null}, context=${exactKey?.currentContext != null}');
+    debugPrint('[HTMLSearch] _contentBlockKeys keys: ${_contentBlockKeys.keys.where((k) => k.startsWith('${match.sectionKey}_')).toList()}');
 
-    final RenderBox? targetBox = key.currentContext!.findRenderObject() as RenderBox?;
-    final scrollable = Scrollable.of(key.currentContext!);
-    final RenderBox? scrollBox = scrollable.context.findRenderObject() as RenderBox?;
-    if (targetBox == null || scrollBox == null) return;
+    GlobalKey? targetKey = exactKey;
+    if (targetKey == null || targetKey.currentContext == null) {
+      debugPrint('[HTMLSearch] Exact key not found or has null context, searching for nearest key...');
+      for (var offset = 1; offset < 50; offset++) {
+        for (final dir in [-1, 1]) {
+          final candidateKey = _contentBlockKeys['${match.sectionKey}_${match.lineIndex + offset * dir}'];
+          if (candidateKey != null && candidateKey.currentContext != null) {
+            targetKey = candidateKey;
+            debugPrint('[HTMLSearch] Found nearest key at offset=${offset * dir}: ${match.sectionKey}_${match.lineIndex + offset * dir}');
+            break;
+          }
+        }
+        if (targetKey != null) break;
+      }
+      if (targetKey == null || targetKey.currentContext == null) {
+        debugPrint('[HTMLSearch] No valid key found for sectionKey=${match.sectionKey}, falling back to any key in this section');
+        final fallbackKey = _contentBlockKeys.keys
+            .where((k) => k.startsWith('${match.sectionKey}_'))
+            .map((k) => _contentBlockKeys[k])
+            .firstWhere((k) => k?.currentContext != null, orElse: () => null);
+        if (fallbackKey == null || fallbackKey.currentContext == null) return;
+        targetKey = fallbackKey;
+      }
+    }
 
-    final targetPosition = targetBox.localToGlobal(Offset.zero, ancestor: scrollBox);
-    const topPadding = 80.0;
-    final desiredOffset = targetPosition.dy - topPadding + scrollable.position.pixels;
-    final clampedOffset = desiredOffset.clamp(0.0, scrollable.position.maxScrollExtent);
-
-    if ((clampedOffset - scrollable.position.pixels).abs() > 1.0) {
-      scrollable.position.animateTo(
-        clampedOffset,
+    try {
+      await Scrollable.ensureVisible(
+        targetKey!.currentContext!,
+        alignment: 0.1,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
+    } catch (e) {
+      debugPrint('[Search] ensureVisible error: $e');
     }
   }
 
@@ -1564,6 +1696,7 @@ if (_isEditing) ...[
       children: [
         SelectionArea(
           child: SingleChildScrollView(
+            key: _contentPanelKey,
             controller: _contentScrollController,
             padding: const EdgeInsets.all(28),
             child: Column(
@@ -1763,7 +1896,11 @@ if (_isEditing) ...[
         ),
           ),
         ),
-        DetailScrollButtons(scrollController: _contentScrollController),
+        DetailScrollButtons(
+          scrollController: _contentScrollController,
+          showGuide: _showGuide,
+          onToggleGuide: () => _switchTab(!_showGuide),
+        ),
       ],
     );
   }
@@ -1995,7 +2132,7 @@ if (_isEditing) ...[
             ],
           ),
         ] else if (title == '简介' && _introHtml != null && _introHtml!.isNotEmpty) ...[
-          _buildHtmlContent(_introHtml!, ref.watch(detailFontSizeProvider)),
+          _buildHtmlContent(_introHtml!, ref.watch(detailFontSizeProvider), sectionKey: 'intro'),
         ] else
           _buildRichIntro(content ?? '暂无信息', ref.watch(detailFontSizeProvider),
             sectionKey: title == '简介' ? 'intro' : title == '特性' ? 'features' : title == '更新日志' ? 'changelog' : null,
@@ -2108,69 +2245,76 @@ if (_isEditing) ...[
 
 
 
-  Widget _buildHtmlContent(String html, double fontSize) {
+  Widget _buildHtmlContent(String html, double fontSize, {String? sectionKey}) {
     final blocks = _parseHtmlToBlocks(html, '');
     if (blocks.isEmpty) {
       return SelectableText('暂无信息', style: TextStyle(fontSize: fontSize, color: AppTheme.getDetailTextPrimary(context)));
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: blocks.map((block) {
-        switch (block.type) {
-          case _ContentBlockType.heading:
-            return Padding(
-              padding: const EdgeInsets.only(top: 12, bottom: 4),
-              child: SelectableText(
-                block.text,
-                style: TextStyle(fontSize: fontSize + 2, fontWeight: FontWeight.w700, color: AppTheme.getDetailTextPrimary(context)),
-              ),
-            );
-          case _ContentBlockType.text:
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: SelectableText(
-                block.text,
-                style: TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getDetailTextPrimary(context)),
-              ),
-            );
-          case _ContentBlockType.imageWithText:
-            final hasText = block.text.isNotEmpty;
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: hasText
-                  ? Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 350, maxHeight: 280),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: _buildBlockImage(block.imageUrl!),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: SelectableText(
-                            block.text,
-                            style: TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getDetailTextPrimary(context)),
-                          ),
-                        ),
-                      ],
-                    )
-                  : Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 800),
+    int lineAccum = 0;
+    final children = <Widget>[];
+    for (final block in blocks) {
+      final textLines = block.text.split('\n');
+      final startLine = lineAccum;
+      // 只文本行计入行号（纯图片不计入，因搜索引索引的是纯文本）
+      final hasText = textLines.length >= 1 && textLines.any((l) => l.isNotEmpty);
+      if (hasText) lineAccum += textLines.length;
+
+      Widget buildTextWidget(String text, TextStyle style) {
+        Widget w = SelectableText(text, style: style);
+        if (sectionKey != null && hasText) {
+          final key = GlobalKey();
+          w = KeyedSubtree(key: key, child: w);
+          for (var k = 0; k < textLines.length; k++) {
+            _contentBlockKeys['${sectionKey}_${startLine + k}'] = key;
+          }
+        }
+        return w;
+      }
+
+      switch (block.type) {
+        case _ContentBlockType.heading:
+          children.add(Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 4),
+            child: buildTextWidget(block.text,
+              TextStyle(fontSize: fontSize + 2, fontWeight: FontWeight.w700, color: AppTheme.getDetailTextPrimary(context)),
+            ),
+          ));
+        case _ContentBlockType.text:
+          children.add(Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: buildTextWidget(block.text,
+              TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getDetailTextPrimary(context)),
+            ),
+          ));
+        case _ContentBlockType.imageWithText:
+          final imageBlock = Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: block.text.isNotEmpty
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 350, maxHeight: 280),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(12),
                           child: _buildBlockImage(block.imageUrl!),
                         ),
                       ),
-                    ),
-            );
-        }
-      }).toList(),
-    );
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: buildTextWidget(block.text,
+                          TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getDetailTextPrimary(context)),
+                        ),
+                      ),
+                    ],
+                  )
+                : _buildBlockImage(block.imageUrl!),
+          );
+          children.add(imageBlock);
+      }
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: children);
   }
 
   Widget _buildBlockImage(String imageUrl) {
@@ -2281,6 +2425,72 @@ if (_isEditing) ...[
     }).toList();
   }
 
+  Widget _buildMergedSelectableText(
+    List<String> lines,
+    int startLineIndex,
+    String? sectionKey,
+    double fontSize,
+    bool Function(int lineIdx) isHeading,
+  ) {
+    final spans = <InlineSpan>[];
+    for (var j = 0; j < lines.length; j++) {
+      final lineIdx = startLineIndex + j;
+      final line = lines[j];
+      final h = isHeading(lineIdx);
+      final baseStyle = h
+          ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.getDetailTextPrimary(context))
+          : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getDetailTextPrimary(context));
+      if (sectionKey != null && _searchMatches.isNotEmpty) {
+        final sectionMatches = _searchMatches.where((m) => m.sectionKey == sectionKey && m.lineIndex == lineIdx).toList();
+        if (sectionMatches.isNotEmpty) {
+          spans.addAll(_buildHighlightedSpans(line, sectionMatches, baseStyle));
+        } else {
+          spans.add(TextSpan(text: j < lines.length - 1 ? '$line\n' : line, style: baseStyle));
+        }
+      } else {
+        spans.add(TextSpan(text: j < lines.length - 1 ? '$line\n' : line, style: baseStyle));
+      }
+      if (sectionKey != null) {
+        final key = GlobalKey();
+        _contentBlockKeys['${sectionKey}_$lineIdx'] = key;
+        spans.add(WidgetSpan(
+          child: SizedBox(key: key, width: 1, height: fontSize),
+          alignment: PlaceholderAlignment.middle,
+        ));
+      }
+    }
+    return SelectableText.rich(
+      TextSpan(children: spans),
+      style: TextStyle(fontSize: fontSize, height: 1.8),
+    );
+  }
+
+  List<TextSpan> _buildHighlightedSpans(String line, List<ContentSearchMatch> matches, TextStyle baseStyle) {
+    final spans = <TextSpan>[];
+    final sortedMatches = List<ContentSearchMatch>.from(matches)
+      ..sort((a, b) => a.charOffset.compareTo(b.charOffset));
+    var pos = 0;
+    for (final match in sortedMatches) {
+      if (match.charOffset > pos) {
+        spans.add(TextSpan(text: line.substring(pos, match.charOffset), style: baseStyle));
+      }
+      final isCurrent = match == _searchMatches[_currentMatchIndex];
+      spans.add(TextSpan(
+        text: line.substring(match.charOffset, match.charOffset + match.matchLength),
+        style: baseStyle.copyWith(
+          backgroundColor: isCurrent
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)
+              : Colors.yellow.withValues(alpha: 0.4),
+        ),
+      ));
+      pos = match.charOffset + match.matchLength;
+    }
+    if (pos < line.length) {
+      spans.add(TextSpan(text: line.substring(pos), style: baseStyle));
+    }
+    return spans;
+  }
+
   Widget _buildRichIntro(String content, double fontSize, {String? sectionKey}) {
     final imageTagStart = '[图片:';
     final videoTagStart = '[视频:';
@@ -2288,29 +2498,13 @@ if (_isEditing) ...[
     
     if (!content.contains(imageTagStart) && !content.contains(videoTagStart)) {
       final lines = content.split('\n');
-      final widgets = <Widget>[];
+      final merged = <String>[];
       for (var i = 0; i < lines.length; i++) {
-        final line = lines[i].trimRight();
-        final isHeading = RegExp(r'^.{1,6}[：:]\s*$').hasMatch(line);
-        if (isHeading && i > 0 && lines[i - 1].trim().isNotEmpty) {
-          widgets.add(const SizedBox(height: 8));
-        }
-        Widget textWidget = SelectableText(
-          line,
-          style: isHeading
-              ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.getDetailTextPrimary(context))
-              : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getDetailTextPrimary(context)),
-        );
-        if (sectionKey != null) {
-          final key = GlobalKey();
-          _contentBlockKeys['${sectionKey}_$i'] = key;
-          textWidget = KeyedSubtree(key: key, child: textWidget);
-        }
-        widgets.add(textWidget);
+        merged.add(lines[i].trimRight());
       }
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: widgets,
+      return _buildMergedSelectableText(
+        merged, 0, sectionKey, fontSize,
+        (lineIdx) => RegExp(r'^.{1,6}[：:]\s*$').hasMatch(lines[lineIdx].trimRight()),
       );
     }
 
@@ -2328,10 +2522,24 @@ if (_isEditing) ...[
       }
     }
     
+    // 收集连续文本行并分组处理
+    var textGroupStart = -1;
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i];
       
       if (line.startsWith(imageTagStart) && line.endsWith(tagEnd)) {
+        // Flush pending text group
+        if (textGroupStart >= 0) {
+          final groupLines = <String>[];
+          for (var j = textGroupStart; j < i; j++) {
+            groupLines.add(lines[j].trimRight());
+          }
+          widgets.add(_buildMergedSelectableText(
+            groupLines, textGroupStart, sectionKey, fontSize,
+            (lineIdx) => RegExp(r'^.{1,6}[：:]\s*$').hasMatch(lines[lineIdx].trimRight()),
+          ));
+          textGroupStart = -1;
+        }
         final imagePath = line.substring(imageTagStart.length, line.length - tagEnd.length);
         if (_existingMediaFiles.contains(imagePath)) {
           final imageIndex = contentImages.indexOf(imagePath);
@@ -2357,33 +2565,41 @@ if (_isEditing) ...[
           );
         }
       } else if (line.startsWith(videoTagStart) && line.endsWith(tagEnd)) {
+        // Flush pending text group
+        if (textGroupStart >= 0) {
+          final groupLines = <String>[];
+          for (var j = textGroupStart; j < i; j++) {
+            groupLines.add(lines[j].trimRight());
+          }
+          widgets.add(_buildMergedSelectableText(
+            groupLines, textGroupStart, sectionKey, fontSize,
+            (lineIdx) => RegExp(r'^.{1,6}[：:]\s*$').hasMatch(lines[lineIdx].trimRight()),
+          ));
+          textGroupStart = -1;
+        }
         final videoPath = line.substring(videoTagStart.length, line.length - tagEnd.length);
         if (_existingMediaFiles.contains(videoPath)) {
           widgets.add(
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: _InlineVideoPlayer(videoPath: videoPath),
+              child: _InlineVideoPlayer(videoPath: videoPath, cached: _getOrCreatePlayer(videoPath)),
             ),
           );
         }
       } else {
-        final isHeading = RegExp(r'^.{1,6}[：:]\s*$').hasMatch(line);
-        if (isHeading && i > 0 && lines[i - 1].trim().isNotEmpty) {
-          widgets.add(const SizedBox(height: 8));
-        }
-        Widget textWidget = SelectableText(
-          line,
-          style: isHeading
-              ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.getDetailTextPrimary(context))
-              : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getDetailTextPrimary(context)),
-        );
-        if (sectionKey != null) {
-          final key = GlobalKey();
-          _contentBlockKeys['${sectionKey}_$i'] = key;
-          textWidget = KeyedSubtree(key: key, child: textWidget);
-        }
-        widgets.add(textWidget);
+        if (textGroupStart < 0) textGroupStart = i;
       }
+    }
+    // Flush remaining text group
+    if (textGroupStart >= 0) {
+      final groupLines = <String>[];
+      for (var j = textGroupStart; j < lines.length; j++) {
+        groupLines.add(lines[j].trimRight());
+      }
+      widgets.add(_buildMergedSelectableText(
+        groupLines, textGroupStart, sectionKey, fontSize,
+        (lineIdx) => RegExp(r'^.{1,6}[：:]\s*$').hasMatch(lines[lineIdx].trimRight()),
+      ));
     }
 
     return Column(
@@ -2574,6 +2790,10 @@ if (_isEditing) ...[
         ),
       ),
     );
+  }
+
+  _CachedVideoPlayer _getOrCreatePlayer(String videoPath) {
+    return _PlayerCache.getOrCreate(videoPath);
   }
 
   void _showImageViewer(int initialIndex) {
@@ -5054,48 +5274,79 @@ class _ContentBlock {
       _ContentBlock._(_ContentBlockType.imageWithText, text, imageUrl);
 }
 
+class _PlayerCache {
+  static final Map<String, _CachedVideoPlayer> _players = {};
+
+  static _CachedVideoPlayer getOrCreate(String videoPath) {
+    return _players.putIfAbsent(
+      videoPath,
+      () => _CachedVideoPlayer(Player()),
+    );
+  }
+
+  static void disposeAll() {
+    for (final cached in _players.values) {
+      cached.player.dispose();
+    }
+    _players.clear();
+  }
+}
+
+class _CachedVideoPlayer {
+  final Player player;
+  late final VideoController controller;
+  bool initialized = false;
+
+  _CachedVideoPlayer(this.player) {
+    controller = VideoController(player);
+  }
+}
+
 class _InlineVideoPlayer extends StatefulWidget {
   final String videoPath;
+  final _CachedVideoPlayer cached;
 
-  const _InlineVideoPlayer({required this.videoPath});
+  const _InlineVideoPlayer({required this.videoPath, required this.cached});
 
   @override
   State<_InlineVideoPlayer> createState() => _InlineVideoPlayerState();
 }
 
 class _InlineVideoPlayerState extends State<_InlineVideoPlayer> {
-  late final Player _player;
-  late final VideoController _controller;
-  bool _initialized = false;
   bool _disposed = false;
 
   @override
   void initState() {
     super.initState();
-    _player = Player();
-    _controller = VideoController(_player);
-    _init();
+    if (!widget.cached.initialized) {
+      _init();
+    }
   }
 
   Future<void> _init() async {
-    await _player.open(Media(widget.videoPath), play: false);
-    await _player.setPlaylistMode(PlaylistMode.loop);
-    await _player.play();
-    if (!_disposed && mounted) {
-      setState(() => _initialized = true);
+    try {
+      await widget.cached.player.open(Media(widget.videoPath), play: false);
+      if (_disposed || !mounted) return;
+      await widget.cached.player.setPlaylistMode(PlaylistMode.loop);
+      if (_disposed || !mounted) return;
+      await widget.cached.player.play();
+      if (!_disposed && mounted) {
+        setState(() => widget.cached.initialized = true);
+      }
+    } catch (e) {
+      debugPrint('[VideoPlayer] _init error: $e');
     }
   }
 
   @override
   void dispose() {
     _disposed = true;
-    _player.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_initialized) {
+    if (!widget.cached.initialized) {
       return Container(
         height: 200,
         decoration: BoxDecoration(
@@ -5113,7 +5364,7 @@ class _InlineVideoPlayerState extends State<_InlineVideoPlayer> {
         child: AspectRatio(
           aspectRatio: 16 / 9,
           child: Video(
-            controller: _controller,
+            controller: widget.cached.controller,
           ),
         ),
       ),

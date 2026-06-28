@@ -734,6 +734,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
       gameId = await repo.insertGame(game);
     }
 
+    await repo.clearGameTags(gameId);
     for (final tagName in gameInfo.tags) {
       final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
       await repo.addTagToGame(gameId, tagId);
@@ -853,6 +854,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
       gameId = await repo.insertGame(game);
     }
 
+    await repo.clearGameTags(gameId);
     for (final tagName in gameInfo.tags) {
       final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
       await repo.addTagToGame(gameId, tagId);
@@ -1654,6 +1656,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       gameId = await repo.insertGame(game);
     }
 
+    await repo.clearGameTags(gameId);
     for (final tagName in gameInfo.tags) {
       final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
       await repo.addTagToGame(gameId, tagId);

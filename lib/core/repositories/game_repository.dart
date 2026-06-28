@@ -533,6 +533,15 @@ class GameRepository {
     );
   }
 
+  Future<void> clearGameTags(int gameId) async {
+    final db = await _db;
+    await db.delete(
+      'game_tag_relation',
+      where: 'game_id = ?',
+      whereArgs: [gameId],
+    );
+  }
+
   Future<void> setGameImages(int gameId, List<GameImage> images) async {
     final db = await _db;
     await db.transaction((txn) async {

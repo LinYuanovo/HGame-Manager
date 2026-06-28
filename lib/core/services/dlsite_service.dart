@@ -377,6 +377,7 @@ class DlsiteService {
         return null;
       }
 
+      await _scraper.ensureLoaded();
       final gameInfo = _scraper.scrapeGameInfo(response.body, url);
       if (gameInfo != null) {
         _log.info('DlsiteService', '[fetchById] 解析成功');

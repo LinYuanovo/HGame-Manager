@@ -96,16 +96,18 @@ class ParserRegistry {
 
 /// Main scraper that dispatches to site-specific parsers
 class HtmlScraper {
-  static bool _registered = false;
   static bool _xpathLoaded = false;
   final _log = AppLogger.instance;
 
   /// Ensure all site parsers are registered (called once).
   void _ensureRegistered() {
-    if (_registered) return;
-    _registered = true;
+    final countBefore = ParserRegistry.allParsers.length;
     registerAllParsers();
     registerCustomDomainParsers();
+    final countAfter = ParserRegistry.allParsers.length;
+    if (countAfter != countBefore) {
+      _log.info('Scraper', '[ensureRegistered] parsers: $countBefore -> $countAfter, domains: ${ParserRegistry.allParsers.map((p) => '${p.runtimeType}(${p.domain})').toList()}');
+    }
   }
 
   /// Load user-configured XPath parsers from settings.
@@ -185,7 +187,9 @@ class HtmlScraper {
       }
       parser = ParserRegistry.getParserForUrl(url);
       if (parser == null) {
-        _log.warning('Scraper', 'No parser found (built-in or XPath) for URL: $url');
+        _log.warning('Scraper', 'No parser found for URL: $url');
+        _log.warning('Scraper', '  Registered parsers: ${ParserRegistry.allParsers.map((p) => '${p.runtimeType}(domain=${p.domain})').toList()}');
+        _log.warning('Scraper', '  Parsed host: ${Uri.tryParse(url)?.host}');
         return null;
       }
       _log.info('Scraper', 'Using XPath parser for: $url');

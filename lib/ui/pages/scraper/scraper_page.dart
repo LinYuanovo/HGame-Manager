@@ -808,6 +808,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             item.game = updated.copyWith(id: gameId);
           }
 
+          await gameRepo.clearGameTags(gameId);
           for (final tagName in gameInfo.tags) {
             final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
             await gameRepo.addTagToGame(gameId, tagId);
