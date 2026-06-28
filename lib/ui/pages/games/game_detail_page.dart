@@ -540,7 +540,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       : Icon(Icons.refresh, size: 20, color: _currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty
                           ? AppTheme.getDetailTextPrimary(context)
                           : AppTheme.getDetailTextPrimary(context).withValues(alpha: 0.3)),
-                  tooltip: '重新刮削',
                   onPressed: _currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty && !_isRescraping
                       ? _rescrapeGame
                       : null,

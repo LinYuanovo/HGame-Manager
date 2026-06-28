@@ -122,27 +122,27 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
       builder: (context) => Tooltip(
         message: tooltip,
         child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppTheme.getBorderColor(context)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppTheme.getBorderColor(context)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: IconButton(
+            icon: Icon(icon, size: 20),
+            onPressed: onPressed,
+            padding: EdgeInsets.zero,
+            color: AppTheme.getPrimaryColor(context),
+          ),
         ),
-        child: IconButton(
-          icon: Icon(icon, size: 20),
-          onPressed: onPressed,
-          padding: EdgeInsets.zero,
-          color: AppTheme.getPrimaryColor(context),
-        ),
-      ),
     ),
     );
   }
