@@ -77,16 +77,12 @@ class FolderRenameService {
     }
   }
 
-  /// 构建备份文件夹名称（异步版本，供外部直接调用）
-  /// 使用配置的规则构建名称
-  static Future<String?> buildBackupFolderName(
+  /// 根据规则列表构建备份文件夹名称
+  static String _buildNameFromRules(
+    List<RenameRule> rules,
     Game game, {
     String? Function(String)? dlsiteIdExtractor,
-  }) async {
-    final title = game.title;
-    if (title == null || title.isEmpty) return null;
-
-    final rules = await _loadRules();
+  }) {
     final parts = <String>[];
 
     // 按排序顺序处理规则
@@ -102,7 +98,21 @@ class FolderRenameService {
       }
     }
 
-    return parts.isEmpty ? null : parts.join(' ');
+    return parts.isEmpty ? '' : parts.join(' ');
+  }
+
+  /// 构建备份文件夹名称（异步版本，供外部直接调用）
+  /// 使用配置的规则构建名称
+  static Future<String?> buildBackupFolderName(
+    Game game, {
+    String? Function(String)? dlsiteIdExtractor,
+  }) async {
+    final title = game.title;
+    if (title == null || title.isEmpty) return null;
+
+    final rules = await _loadRules();
+    final name = _buildNameFromRules(rules, game, dlsiteIdExtractor: dlsiteIdExtractor);
+    return name.isEmpty ? null : name;
   }
 
   /// 同步版本的buildBackupFolderName（用于不能async的场景）
@@ -116,29 +126,21 @@ class FolderRenameService {
 
     // 使用默认规则
     final rules = RenameRule.defaultRules();
-    final parts = <String>[];
-
-    for (final rule in rules) {
-      if (!rule.enabled) continue;
-
-      final value = _extractRuleValue(rule.id, game, dlsiteIdExtractor: dlsiteIdExtractor);
-      if (value != null && value.isNotEmpty) {
-        parts.add(rule.wrapContent(value));
-      }
-    }
-
-    return parts.isEmpty ? null : parts.join(' ');
+    final name = _buildNameFromRules(rules, game, dlsiteIdExtractor: dlsiteIdExtractor);
+    return name.isEmpty ? null : name;
   }
 
-  String? buildNewFolderName(Game game) {
-    return buildBackupFolderNameSync(
+  /// 根据用户配置的规则构建新的游戏文件夹名称
+  Future<String?> buildNewFolderName(Game game) {
+    return buildBackupFolderName(
       game,
       dlsiteIdExtractor: (url) => _dlsiteService.normalizeId(url),
     );
   }
 
+  /// 重命名单个游戏文件夹
   Future<String?> renameGameFolder(Game game) async {
-    final newName = buildNewFolderName(game);
+    final newName = await buildNewFolderName(game);
     if (newName == null) {
       debugPrint('[FolderRename] Cannot build name for game: ${game.title}');
       return null;
@@ -207,12 +209,13 @@ class FolderRenameService {
     }
   }
 
+  /// 计算可以重命名的游戏数量（预览）
   Future<int> countRenamableGames() async {
     final games = await _gameRepository.getAllGames();
     int count = 0;
 
     for (final game in games) {
-      final newName = buildNewFolderName(game);
+      final newName = await buildNewFolderName(game);
       if (newName == null) continue;
 
       final oldPath = game.path;
@@ -228,6 +231,7 @@ class FolderRenameService {
     return count;
   }
 
+  /// 批量重命名所有游戏文件夹
   Future<int> renameAllGameFolders() async {
     final games = await _gameRepository.getAllGames();
     int renamed = 0;

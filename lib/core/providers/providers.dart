@@ -241,7 +241,7 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
               }
             }
             // 路径匹配失败时，尝试通过 buildBackupFolderName 匹配
-            existingDbGame ??= _findDbGameByBackupName(allGames, folderName);
+            existingDbGame ??= await _findDbGameByBackupName(allGames, folderName);
 
             final backupGame = await _loadGameFromBackup(
               backupDir.path, folderName, existingDbGame,
@@ -305,7 +305,7 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
               }
             }
             // 路径匹配失败时，尝试通过 buildBackupFolderName 匹配
-            existingDbGame ??= _findDbGameByBackupName(allGames, folderName);
+            existingDbGame ??= await _findDbGameByBackupName(allGames, folderName);
 
             final backupGame = await _loadGameFromBackup(
               backupDir.path, folderName, existingDbGame,
@@ -332,9 +332,9 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
 });
 
 /// 通过备份文件夹名匹配 DB 中的游戏记录
-Game? _findDbGameByBackupName(List<Game> allGames, String backupFolderName) {
+Future<Game?> _findDbGameByBackupName(List<Game> allGames, String backupFolderName) async {
   for (final game in allGames) {
-    final expectedName = FolderRenameService.buildBackupFolderNameSync(game);
+    final expectedName = await FolderRenameService.buildBackupFolderName(game);
     if (expectedName != null) {
       final sanitized = expectedName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
       if (sanitized == backupFolderName) {
