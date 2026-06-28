@@ -118,9 +118,10 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
     required VoidCallback onPressed,
     required String tooltip,
   }) {
-    return Tooltip(
-      message: tooltip,
-      child: Container(
+    return Builder(
+      builder: (context) => Tooltip(
+        message: tooltip,
+        child: Container(
         width: 36,
         height: 36,
         decoration: BoxDecoration(
@@ -142,6 +143,7 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
           color: AppTheme.getPrimaryColor(context),
         ),
       ),
+    ),
     );
   }
 }

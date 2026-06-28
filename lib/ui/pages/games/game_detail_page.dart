@@ -529,20 +529,22 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               ),
             ),
             const SizedBox(width: 8),
-            Tooltip(
-              message: _currentGame.sourceUrl == null || _currentGame.sourceUrl!.isEmpty
-                  ? '该游戏没有来源URL，无法重新刮削'
-                  : '重新刮削',
-              child: IconButton(
-                icon: _isRescraping
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : Icon(Icons.refresh, size: 20, color: _currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty
-                        ? AppTheme.getDetailTextPrimary(context)
-                        : AppTheme.getDetailTextPrimary(context).withValues(alpha: 0.3)),
-                tooltip: '重新刮削',
-                onPressed: _currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty && !_isRescraping
-                    ? _rescrapeGame
-                    : null,
+            Builder(
+              builder: (context) => Tooltip(
+                message: _currentGame.sourceUrl == null || _currentGame.sourceUrl!.isEmpty
+                    ? '该游戏没有来源URL，无法重新刮削'
+                    : '重新刮削',
+                child: IconButton(
+                  icon: _isRescraping
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(Icons.refresh, size: 20, color: _currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty
+                          ? AppTheme.getDetailTextPrimary(context)
+                          : AppTheme.getDetailTextPrimary(context).withValues(alpha: 0.3)),
+                  tooltip: '重新刮削',
+                  onPressed: _currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty && !_isRescraping
+                      ? _rescrapeGame
+                      : null,
+                ),
               ),
             ),
             IconButton(

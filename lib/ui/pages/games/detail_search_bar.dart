@@ -109,13 +109,15 @@ class _DetailSearchBarState extends State<DetailSearchBar> {
     required VoidCallback? onPressed,
     required String tooltip,
   }) {
-    return Tooltip(
-      message: tooltip,
-      child: IconButton(
-        icon: Icon(icon, size: 18),
-        onPressed: onPressed,
-        color: AppTheme.getPrimaryColor(context),
-        disabledColor: AppTheme.getTextSecondary(context).withValues(alpha: 0.3),
+    return Builder(
+      builder: (context) => Tooltip(
+        message: tooltip,
+        child: IconButton(
+          icon: Icon(icon, size: 18),
+          onPressed: onPressed,
+          color: AppTheme.getPrimaryColor(context),
+          disabledColor: AppTheme.getTextSecondary(context).withValues(alpha: 0.3),
+        ),
       ),
     );
   }
