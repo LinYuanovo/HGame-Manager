@@ -6,6 +6,8 @@ import '../database/database_helper.dart';
 import '../models/models.dart';
 import 'play_time_repository.dart';
 import '../utils/app_settings.dart';
+import '../utils/backup_image_reference_resolver.dart';
+import '../utils/cleared_game_path_utils.dart';
 import '../utils/game_data_paths.dart';
 
 class GameRepository implements PlayTimeRepository {
@@ -64,6 +66,7 @@ class GameRepository implements PlayTimeRepository {
 
     return Future.wait(games.map((game) async {
       var images = imagesByGameId[game.id!] ?? [];
+      var resolvedGame = game;
       final gamePathExists = await _pathExists(game.path);
 
       // 如果游戏路径不存在且在 Cleared 目录下，尝试从 Backup 目录加载
@@ -73,10 +76,11 @@ class GameRepository implements PlayTimeRepository {
         final backupPath = await _findBackupPath(game.path, game.title);
         if (backupPath != null) {
           images = await _loadImagesFromBackupDir(backupPath);
+          resolvedGame = game.copyWith(path: backupPath);
         }
       }
       // 对于路径中直接包含 Backup 的游戏
-      else if (game.path.contains('${path.separator}Backup${path.separator}')) {
+      else if (ClearedGamePathUtils.hasBackupSegment(game.path)) {
         // 检查数据库中的图片是否存在
         bool hasValidImages = false;
         if (images.isNotEmpty) {
@@ -93,10 +97,11 @@ class GameRepository implements PlayTimeRepository {
         }
       }
 
-      return game.copyWith(
+      resolvedGame = resolvedGame.copyWith(
         tags: tagsByGameId[game.id!] ?? [],
         images: images,
       );
+      return BackupImageReferenceResolver.rewriteGameReferences(resolvedGame);
     }));
   }
 
@@ -145,7 +150,6 @@ class GameRepository implements PlayTimeRepository {
 
   Future<String?> _searchBackupDir(
       String backupBasePath, String gameTitle) async {
-    final sep = path.separator;
     final backupDir = Directory(backupBasePath);
 
     // 清理游戏title中的特殊字符
@@ -232,6 +236,35 @@ class GameRepository implements PlayTimeRepository {
       }
     }
     return images;
+  }
+
+  Future<Game> _applyBackupImageFallback(Game game) async {
+    var images = game.images;
+    var resolvedGame = game;
+    final gamePathExists = await _pathExists(game.path);
+
+    if (!gamePathExists &&
+        game.path.contains('${path.separator}Cleared${path.separator}')) {
+      final backupPath = await _findBackupPath(game.path, game.title);
+      if (backupPath != null) {
+        images = await _loadImagesFromBackupDir(backupPath);
+        resolvedGame = game.copyWith(path: backupPath);
+      }
+    } else if (ClearedGamePathUtils.hasBackupSegment(game.path)) {
+      var hasValidImages = false;
+      for (final img in images) {
+        if (await File(img.imagePath).exists()) {
+          hasValidImages = true;
+          break;
+        }
+      }
+      if (!hasValidImages) {
+        images = await _loadImagesFromBackupDir(game.path);
+      }
+    }
+
+    resolvedGame = resolvedGame.copyWith(images: images);
+    return BackupImageReferenceResolver.rewriteGameReferences(resolvedGame);
   }
 
   Future<List<Game>> getAllGames() async {
@@ -340,7 +373,7 @@ class GameRepository implements PlayTimeRepository {
     final game = Game.fromMap(maps.first);
     final tags = await getGameTags(game.id!);
     final images = await getGameImages(game.id!);
-    return game.copyWith(tags: tags, images: images);
+    return _applyBackupImageFallback(game.copyWith(tags: tags, images: images));
   }
 
   Future<Game?> getGameByPath(String path) async {
@@ -349,6 +382,34 @@ class GameRepository implements PlayTimeRepository {
       'games',
       where: 'path = ?',
       whereArgs: [path],
+    );
+    if (maps.isEmpty) return null;
+    final game = Game.fromMap(maps.first);
+    final tags = await getGameTags(game.id!);
+    final images = await getGameImages(game.id!);
+    return _applyBackupImageFallback(game.copyWith(tags: tags, images: images));
+  }
+
+  Future<String?> getStoredGamePath(int id) async {
+    final db = await _db;
+    final maps = await db.query(
+      'games',
+      columns: ['path'],
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return maps.first['path'] as String?;
+  }
+
+  Future<Game?> getStoredGameByPath(String path) async {
+    final db = await _db;
+    final maps = await db.query(
+      'games',
+      where: 'path = ?',
+      whereArgs: [path],
+      limit: 1,
     );
     if (maps.isEmpty) return null;
     final game = Game.fromMap(maps.first);
@@ -410,6 +471,63 @@ class GameRepository implements PlayTimeRepository {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  Future<void> mergeDuplicateGamePath({
+    required int keepGameId,
+    required int duplicateGameId,
+    required String targetPath,
+  }) async {
+    if (keepGameId == duplicateGameId) {
+      await updateGamePath(keepGameId, targetPath);
+      return;
+    }
+
+    final db = await _db;
+    await db.transaction((txn) async {
+      await txn.rawInsert('''
+        INSERT OR IGNORE INTO game_tag_relation (game_id, tag_id)
+        SELECT ?, tag_id FROM game_tag_relation WHERE game_id = ?
+      ''', [keepGameId, duplicateGameId]);
+
+      final countRows = await txn.rawQuery(
+        'SELECT COUNT(*) AS count FROM game_images WHERE game_id = ?',
+        [keepGameId],
+      );
+      final imageOffset =
+          countRows.isEmpty ? 0 : (countRows.first['count'] as int? ?? 0);
+      final duplicateImages = await txn.query(
+        'game_images',
+        where: 'game_id = ?',
+        whereArgs: [duplicateGameId],
+        orderBy: 'sort_order ASC',
+      );
+      for (var i = 0; i < duplicateImages.length; i++) {
+        await txn.insert('game_images', {
+          'game_id': keepGameId,
+          'image_path': duplicateImages[i]['image_path'],
+          'sort_order': imageOffset + i,
+        });
+      }
+
+      await txn.delete(
+        'game_images',
+        where: 'game_id = ?',
+        whereArgs: [duplicateGameId],
+      );
+      await txn.delete(
+        'game_tag_relation',
+        where: 'game_id = ?',
+        whereArgs: [duplicateGameId],
+      );
+      await txn.delete('games', where: 'id = ?', whereArgs: [duplicateGameId]);
+      await txn.update(
+        'games',
+        {'path': targetPath},
+        where: 'id = ?',
+        whereArgs: [keepGameId],
+      );
+    });
   }
 
   Future<void> deleteGame(int id) async {

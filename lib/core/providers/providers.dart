@@ -24,6 +24,8 @@ import '../models/models.dart';
 import '../../scraper/parse_utils.dart';
 import '../models/context_menu_config.dart';
 import '../services/process_probe.dart';
+import '../utils/backup_image_reference_resolver.dart';
+import '../utils/cleared_game_path_utils.dart';
 import '../utils/game_data_paths.dart';
 
 final sharedPreferencesProvider = Provider<AppSettings>((ref) {
@@ -179,7 +181,7 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
     final dbClearedGames = allGames
         .where((g) =>
             g.path.contains('${sep}Cleared$sep') &&
-            !g.path.contains('${sep}Backup$sep'))
+            !ClearedGamePathUtils.hasBackupSegment(g.path))
         .toList();
     // 新格式：路径在 cleared_paths 目录下的游戏
     final dbNewClearedGames = allGames.where((g) {
@@ -187,7 +189,7 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
       for (final cp in clearedPathList) {
         final normalizedCleared = cp.replaceAll('\\', '/').toLowerCase();
         if (normalizedGamePath.startsWith(normalizedCleared) &&
-            !g.path.contains('${sep}Backup$sep')) {
+            !ClearedGamePathUtils.hasBackupSegment(g.path)) {
           return true;
         }
       }
@@ -196,6 +198,45 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
     final allClearedGames = [...dbClearedGames, ...dbNewClearedGames];
 
     final result = <String, Game>{};
+    final allGamesByPath = <String, Game>{
+      for (final game in allGames) _normalizedPathKey(game.path): game,
+    };
+
+    void putPreferredResult(String key, Game game) {
+      final existing = result[key];
+      if (existing == null || _dataWeight(game) > _dataWeight(existing)) {
+        result[key] = game;
+      }
+    }
+
+    Future<void> addLocalClearedFolders(String clearedPath) async {
+      final clearedDir = Directory(clearedPath);
+      if (!await clearedDir.exists()) return;
+
+      await for (final entity in clearedDir.list(followLinks: false)) {
+        if (entity is! Directory) continue;
+        final folderName = path.basename(entity.path);
+        if (folderName.toLowerCase() == 'backup') continue;
+
+        final existingDbGame = await _resolveDbGameForDirectory(
+          repository: repository,
+          allGames: allGames,
+          allGamesByPath: allGamesByPath,
+          folderPath: entity.path,
+          fallbackTitle: folderName,
+        );
+        final localGame = await _loadGameFromDirectory(
+          entity.path,
+          folderName,
+          existingDbGame,
+        );
+        if (localGame == null) continue;
+
+        final normalizedTitle = removeVersionFromTitle(localGame.title ?? '');
+        final key = normalizedTitle.toLowerCase();
+        putPreferredResult(key, localGame.copyWith(title: normalizedTitle));
+      }
+    }
 
     // 先处理本地游戏，用 metadata title 作为 key（去除版本号后比较）
     for (final game in allClearedGames) {
@@ -218,9 +259,18 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
         }
         final normalizedTitle = removeVersionFromTitle(title);
         // debugPrint('[LOCAL] final title: $title -> normalized: $normalizedTitle');
-        result[normalizedTitle.toLowerCase()] =
-            game.copyWith(title: normalizedTitle);
+        putPreferredResult(
+          normalizedTitle.toLowerCase(),
+          game.copyWith(title: normalizedTitle),
+        );
       }
+    }
+
+    for (final sortedPath in sortedPathList) {
+      await addLocalClearedFolders('$sortedPath${sep}Cleared');
+    }
+    for (final clearedPath in clearedPathList) {
+      await addLocalClearedFolders(clearedPath);
     }
 
     // 再处理 Backup 目录（旧格式：sortedPath/Cleared/Backup）
@@ -234,6 +284,17 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
             // 优先用 buildBackupFolderName 匹配新格式备份
             final backupName =
                 await FolderRenameService.buildBackupFolderName(game);
+            final lookupName = backupName ?? game.title;
+            if (lookupName != null &&
+                await _hasExistingLocalClearedGameForBackup(
+                  backupDir.path,
+                  allClearedGames,
+                  lookupName,
+                  game,
+                )) {
+              continue;
+            }
+
             Game? backupGame;
             if (backupName != null) {
               backupGame = await _loadGameFromBackup(
@@ -252,9 +313,10 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
               final normalizedTitle =
                   removeVersionFromTitle(backupGame.title ?? '');
               final key = normalizedTitle.toLowerCase();
-              if (!result.containsKey(key)) {
-                result[key] = backupGame.copyWith(title: normalizedTitle);
-              }
+              putPreferredResult(
+                key,
+                backupGame.copyWith(title: normalizedTitle),
+              );
             }
           }
         }
@@ -265,19 +327,23 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
             final folderName = path.basename(entity.path);
             final backupPath = entity.path;
 
-            // 先检查是否有 DB 记录（通过 path 匹配，规范化路径格式）
-            Game? existingDbGame;
-            final normalizedBackupPath = backupPath.replaceAll('\\', '/');
-            for (final game in allGames) {
-              final normalizedGamePath = game.path.replaceAll('\\', '/');
-              if (normalizedGamePath == normalizedBackupPath) {
-                existingDbGame = game;
-                break;
-              }
+            if (await _hasExistingLocalClearedGameForBackup(
+              backupDir.path,
+              allClearedGames,
+              folderName,
+              null,
+            )) {
+              continue;
             }
-            // 路径匹配失败时，尝试通过 buildBackupFolderName 匹配
-            existingDbGame ??=
-                await _findDbGameByBackupName(allGames, folderName);
+
+            // 先检查是否有 DB 记录（通过 path 匹配，规范化路径格式）
+            final existingDbGame = await _resolveDbGameForDirectory(
+              repository: repository,
+              allGames: allGames,
+              allGamesByPath: allGamesByPath,
+              folderPath: backupPath,
+              fallbackTitle: folderName,
+            );
 
             final backupGame = await _loadGameFromBackup(
               backupDir.path,
@@ -288,9 +354,10 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
               final normalizedTitle =
                   removeVersionFromTitle(backupGame.title ?? '');
               final key = normalizedTitle.toLowerCase();
-              if (!result.containsKey(key)) {
-                result[key] = backupGame.copyWith(title: normalizedTitle);
-              }
+              putPreferredResult(
+                key,
+                backupGame.copyWith(title: normalizedTitle),
+              );
             }
           }
         }
@@ -308,6 +375,17 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
             // 优先用 buildBackupFolderName 匹配新格式备份
             final backupName =
                 await FolderRenameService.buildBackupFolderName(game);
+            final lookupName = backupName ?? game.title;
+            if (lookupName != null &&
+                await _hasExistingLocalClearedGameForBackup(
+                  backupDir.path,
+                  allClearedGames,
+                  lookupName,
+                  game,
+                )) {
+              continue;
+            }
+
             Game? backupGame;
             if (backupName != null) {
               backupGame = await _loadGameFromBackup(
@@ -326,9 +404,10 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
               final normalizedTitle =
                   removeVersionFromTitle(backupGame.title ?? '');
               final key = normalizedTitle.toLowerCase();
-              if (!result.containsKey(key)) {
-                result[key] = backupGame.copyWith(title: normalizedTitle);
-              }
+              putPreferredResult(
+                key,
+                backupGame.copyWith(title: normalizedTitle),
+              );
             }
           }
         }
@@ -339,19 +418,23 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
             final folderName = path.basename(entity.path);
             final backupPath = entity.path;
 
-            // 先检查是否有 DB 记录（通过 path 匹配，规范化路径格式）
-            Game? existingDbGame;
-            final normalizedBackupPath = backupPath.replaceAll('\\', '/');
-            for (final game in allGames) {
-              final normalizedGamePath = game.path.replaceAll('\\', '/');
-              if (normalizedGamePath == normalizedBackupPath) {
-                existingDbGame = game;
-                break;
-              }
+            if (await _hasExistingLocalClearedGameForBackup(
+              backupDir.path,
+              allClearedGames,
+              folderName,
+              null,
+            )) {
+              continue;
             }
-            // 路径匹配失败时，尝试通过 buildBackupFolderName 匹配
-            existingDbGame ??=
-                await _findDbGameByBackupName(allGames, folderName);
+
+            // 先检查是否有 DB 记录（通过 path 匹配，规范化路径格式）
+            final existingDbGame = await _resolveDbGameForDirectory(
+              repository: repository,
+              allGames: allGames,
+              allGamesByPath: allGamesByPath,
+              folderPath: backupPath,
+              fallbackTitle: folderName,
+            );
 
             final backupGame = await _loadGameFromBackup(
               backupDir.path,
@@ -362,9 +445,10 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
               final normalizedTitle =
                   removeVersionFromTitle(backupGame.title ?? '');
               final key = normalizedTitle.toLowerCase();
-              if (!result.containsKey(key)) {
-                result[key] = backupGame.copyWith(title: normalizedTitle);
-              }
+              putPreferredResult(
+                key,
+                backupGame.copyWith(title: normalizedTitle),
+              );
             }
           }
         }
@@ -396,6 +480,389 @@ Future<Game?> _findDbGameByBackupName(
   return null;
 }
 
+Future<Game?> _resolveDbGameForDirectory({
+  required GameRepository repository,
+  required List<Game> allGames,
+  required Map<String, Game> allGamesByPath,
+  required String folderPath,
+  required String fallbackTitle,
+}) async {
+  final pathKey = _normalizedPathKey(folderPath);
+  final exact = allGamesByPath[pathKey];
+
+  final identity = await _readDirectoryIdentity(folderPath, fallbackTitle);
+  final candidates = <_LinkedGameCandidate>[];
+
+  if (exact != null) {
+    candidates.add(_LinkedGameCandidate(exact, 900));
+  }
+
+  final sourceUrlKey = _sourceUrlKey(identity.sourceUrl);
+  if (sourceUrlKey != null) {
+    for (final game in allGames) {
+      if (game.id == exact?.id) continue;
+      if (_sourceUrlKey(game.sourceUrl) == sourceUrlKey) {
+        candidates.add(_LinkedGameCandidate(game, 980));
+      }
+    }
+  }
+
+  final backupNameMatch = await _findDbGameByBackupName(allGames, fallbackTitle);
+  if (backupNameMatch != null && backupNameMatch.id != exact?.id) {
+    candidates.add(_LinkedGameCandidate(
+      backupNameMatch,
+      940,
+    ));
+  }
+
+  final identityNames = <String>{
+    fallbackTitle,
+    if (identity.title != null && identity.title!.isNotEmpty)
+      removeVersionFromTitle(identity.title!),
+  };
+  for (final game in allGames) {
+    if (game.id == exact?.id) continue;
+    final gameNames = <String>{
+      path.basename(game.path),
+      if (game.title != null && game.title!.isNotEmpty)
+        removeVersionFromTitle(game.title!),
+    };
+    for (final left in identityNames) {
+      for (final right in gameNames) {
+        if (ClearedGamePathUtils.isLikelySameGameName(left, right)) {
+          candidates.add(_LinkedGameCandidate(game, 850));
+        }
+      }
+    }
+  }
+
+  if (candidates.isEmpty) return null;
+  final selected = _selectLinkedGameCandidate(candidates, exact);
+  final best = selected.game;
+
+  if (best.id != null) {
+    final storedPath = await repository.getStoredGamePath(best.id!);
+    final oldPath = storedPath ?? best.path;
+    if (_normalizedPathKey(oldPath) == pathKey) return best;
+
+    final storedPathOwner = await repository.getStoredGameByPath(folderPath);
+    final pathOwner = storedPathOwner ?? allGamesByPath[pathKey];
+    if (pathOwner == null || _sameGameRecord(pathOwner, best)) {
+      await repository.updateGamePath(best.id!, folderPath);
+      await GameDataMigrationService(gameRepository: repository)
+          .rewriteGamePathReferences(
+        gameId: best.id!,
+        oldPath: oldPath,
+        newPath: folderPath,
+      );
+      allGamesByPath.remove(_normalizedPathKey(oldPath));
+      allGamesByPath.remove(_normalizedPathKey(best.path));
+      final migrated = best.copyWith(path: folderPath);
+      allGamesByPath[pathKey] = migrated;
+      return migrated;
+    }
+    if (pathOwner.id != null && _dataWeight(best) > _dataWeight(pathOwner)) {
+      final mergedBest = _mergeLinkedGameData(best, pathOwner);
+      await repository.updateGame(mergedBest.copyWith(path: oldPath));
+      await repository.mergeDuplicateGamePath(
+        keepGameId: best.id!,
+        duplicateGameId: pathOwner.id!,
+        targetPath: folderPath,
+      );
+      await GameDataMigrationService(gameRepository: repository)
+          .rewriteGamePathReferences(
+        gameId: best.id!,
+        oldPath: oldPath,
+        newPath: folderPath,
+      );
+      allGamesByPath.remove(_normalizedPathKey(oldPath));
+      allGamesByPath.remove(_normalizedPathKey(best.path));
+      allGamesByPath.remove(pathKey);
+      final migrated = mergedBest.copyWith(path: folderPath);
+      allGamesByPath[pathKey] = migrated;
+      return migrated;
+    }
+    return pathOwner;
+  }
+
+  return best;
+}
+
+_LinkedGameCandidate _selectLinkedGameCandidate(
+  List<_LinkedGameCandidate> candidates,
+  Game? exact,
+) {
+  candidates.sort((a, b) => b.score.compareTo(a.score));
+  var selected = candidates.first;
+  if (exact == null) return selected;
+
+  final exactWeight = _dataWeight(exact);
+  final richerCandidates = candidates
+      .where((candidate) =>
+          !_sameGameRecord(candidate.game, exact) &&
+          _dataWeight(candidate.game) > exactWeight)
+      .toList()
+    ..sort((a, b) {
+      final priorityCompare = b.priority.compareTo(a.priority);
+      if (priorityCompare != 0) return priorityCompare;
+      return _dataWeight(b.game).compareTo(_dataWeight(a.game));
+    });
+
+  if (richerCandidates.isEmpty) return selected;
+
+  final richer = richerCandidates.first;
+  final dataGap = _dataWeight(richer.game) - exactWeight;
+  if (richer.priority >= 940 || exactWeight == 0 || dataGap >= 20) {
+    selected = richer;
+  }
+  return selected;
+}
+
+Game _mergeLinkedGameData(Game primary, Game fallback) {
+  return primary.copyWith(
+    title: _preferText(primary.title, fallback.title),
+    version: _preferText(primary.version, fallback.version),
+    intro: _preferText(primary.intro, fallback.intro),
+    features: _preferText(primary.features, fallback.features),
+    changelog: _preferText(primary.changelog, fallback.changelog),
+    downloadUrl: _preferText(primary.downloadUrl, fallback.downloadUrl),
+    sourceUrl: _preferText(primary.sourceUrl, fallback.sourceUrl),
+    playCount: primary.playCount >= fallback.playCount
+        ? primary.playCount
+        : fallback.playCount,
+    lastPlayedTime: _latestDate(primary.lastPlayedTime, fallback.lastPlayedTime),
+    addedTime: _earliestDate(primary.addedTime, fallback.addedTime),
+    isFavorite: primary.isFavorite || fallback.isFavorite,
+    isPlayed: primary.isPlayed || fallback.isPlayed,
+    tags: _mergeTags(primary.tags, fallback.tags),
+    images: _mergeImages(primary.images, fallback.images),
+    coverIndex: primary.coverIndex != 0 ? primary.coverIndex : fallback.coverIndex,
+    rating: primary.rating > 0 ? primary.rating : fallback.rating,
+    review: _preferText(primary.review, fallback.review),
+    savePath: _preferText(primary.savePath, fallback.savePath),
+    playDuration: primary.playDuration >= fallback.playDuration
+        ? primary.playDuration
+        : fallback.playDuration,
+    maker: _preferText(primary.maker, fallback.maker),
+    makerUrl: _preferText(primary.makerUrl, fallback.makerUrl),
+    gameLauncher: _preferText(primary.gameLauncher, fallback.gameLauncher),
+    launcherLocked: primary.launcherLocked || fallback.launcherLocked,
+    useLocaleEmulator: primary.useLocaleEmulator || fallback.useLocaleEmulator,
+    guide: _preferText(primary.guide, fallback.guide),
+    introScrollPosition: primary.introScrollPosition != 0
+        ? primary.introScrollPosition
+        : fallback.introScrollPosition,
+    guideScrollPosition: primary.guideScrollPosition != 0
+        ? primary.guideScrollPosition
+        : fallback.guideScrollPosition,
+  );
+}
+
+String? _preferText(String? primary, String? fallback) {
+  if (primary != null && primary.trim().isNotEmpty) return primary;
+  if (fallback != null && fallback.trim().isNotEmpty) return fallback;
+  return primary ?? fallback;
+}
+
+DateTime? _latestDate(DateTime? primary, DateTime? fallback) {
+  if (primary == null) return fallback;
+  if (fallback == null) return primary;
+  return primary.isAfter(fallback) ? primary : fallback;
+}
+
+DateTime? _earliestDate(DateTime? primary, DateTime? fallback) {
+  if (primary == null) return fallback;
+  if (fallback == null) return primary;
+  return primary.isBefore(fallback) ? primary : fallback;
+}
+
+List<Tag> _mergeTags(List<Tag> primary, List<Tag> fallback) {
+  final result = <String, Tag>{};
+  for (final tag in [...primary, ...fallback]) {
+    result['${tag.type}:${tag.name.toLowerCase()}'] = tag;
+  }
+  return result.values.toList();
+}
+
+List<GameImage> _mergeImages(List<GameImage> primary, List<GameImage> fallback) {
+  final result = <String, GameImage>{};
+  for (final image in [...primary, ...fallback]) {
+    final key = _normalizedPathKey(image.imagePath);
+    result.putIfAbsent(key, () => image);
+  }
+  return result.values.toList();
+}
+
+Future<_DirectoryIdentity> _readDirectoryIdentity(
+  String folderPath,
+  String fallbackTitle,
+) async {
+  String? title;
+  String? sourceUrl;
+
+  try {
+    final metadataFile = await GameDataPaths.existingMetadataFile(folderPath);
+    if (await metadataFile.exists()) {
+      final metadata =
+          jsonDecode(await metadataFile.readAsString()) as Map<String, dynamic>;
+      title = metadata['title'] as String?;
+      sourceUrl = metadata['source_url'] as String?;
+    }
+  } catch (_) {}
+
+  try {
+    final sourceUrlFile = await GameDataPaths.existingSourceUrlFile(folderPath);
+    if (await sourceUrlFile.exists()) {
+      final value = (await sourceUrlFile.readAsString()).trim();
+      if (value.isNotEmpty) sourceUrl = value;
+    }
+  } catch (_) {}
+
+  return _DirectoryIdentity(
+    title: title == null || title.isEmpty ? fallbackTitle : title,
+    sourceUrl: sourceUrl,
+  );
+}
+
+String? _sourceUrlKey(String? value) {
+  if (value == null || value.trim().isEmpty) return null;
+  return value.trim().toLowerCase();
+}
+
+int _dataWeight(Game game) {
+  var score = 0;
+  score += game.playCount * 20;
+  score += game.playDuration ~/ 60;
+  if (game.lastPlayedTime != null) score += 20;
+  if (game.isPlayed) score += 20;
+  if (game.isFavorite) score += 10;
+  if (game.rating > 0) score += 10;
+  if (game.review != null && game.review!.isNotEmpty) score += 10;
+  if (game.savePath != null && game.savePath!.isNotEmpty) score += 10;
+  if (game.tags.isNotEmpty) score += 5;
+  return score;
+}
+
+class _DirectoryIdentity {
+  final String? title;
+  final String? sourceUrl;
+
+  const _DirectoryIdentity({
+    required this.title,
+    required this.sourceUrl,
+  });
+}
+
+class _LinkedGameCandidate {
+  final Game game;
+  final int priority;
+
+  int get score => priority + _dataWeight(game);
+
+  const _LinkedGameCandidate(this.game, this.priority);
+}
+
+String _normalizedPathKey(String value) =>
+    value.replaceAll('\\', '/').toLowerCase();
+
+bool _sameGameRecord(Game left, Game right) {
+  if (left.id != null && right.id != null) return left.id == right.id;
+  return _normalizedPathKey(left.path) == _normalizedPathKey(right.path);
+}
+
+bool _isPathInsideDirectory(String childPath, String parentPath) {
+  final child = _normalizedPathKey(childPath);
+  var parent = _normalizedPathKey(parentPath);
+  if (!parent.endsWith('/')) parent = '$parent/';
+  return child.startsWith(parent);
+}
+
+Future<bool> _hasExistingLocalClearedGameForBackup(
+  String backupBasePath,
+  List<Game> clearedGames,
+  String backupFolderName,
+  Game? existingDbGame,
+) async {
+  final clearedDir = Directory(backupBasePath).parent;
+  if (existingDbGame != null &&
+      !ClearedGamePathUtils.hasBackupSegment(existingDbGame.path) &&
+      _isPathInsideDirectory(existingDbGame.path, clearedDir.path) &&
+      await Directory(existingDbGame.path).exists()) {
+    return true;
+  }
+
+  if (await _hasExistingLocalClearedFolderForBackup(
+    backupBasePath,
+    backupFolderName,
+  )) {
+    return true;
+  }
+
+  for (final game in clearedGames) {
+    if (ClearedGamePathUtils.hasBackupSegment(game.path)) continue;
+    if (!await Directory(game.path).exists()) continue;
+
+    final candidates = <String>{
+      path.basename(game.path),
+      if (game.title != null) removeVersionFromTitle(game.title!),
+    };
+    for (final candidate in candidates) {
+      if (ClearedGamePathUtils.isLikelyBackupForLocalName(
+        backupFolderName,
+        candidate,
+      )) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+Future<bool> _hasExistingLocalClearedFolderForBackup(
+  String backupBasePath,
+  String backupFolderName,
+) async {
+  final backupDir = Directory(backupBasePath);
+  final clearedDir = backupDir.parent;
+  if (!await clearedDir.exists()) return false;
+
+  await for (final entity in clearedDir.list(followLinks: false)) {
+    if (entity is! Directory) continue;
+
+    final folderName = path.basename(entity.path);
+    if (folderName.toLowerCase() == 'backup') continue;
+
+    if (ClearedGamePathUtils.isLikelyBackupForLocalName(
+      backupFolderName,
+      folderName,
+    )) {
+      return true;
+    }
+
+    try {
+      final metadataFile =
+          await GameDataPaths.existingMetadataFile(entity.path);
+      if (await metadataFile.exists()) {
+        final metadata = jsonDecode(await metadataFile.readAsString())
+            as Map<String, dynamic>;
+        final title = metadata['title'] as String?;
+        if (title != null &&
+            ClearedGamePathUtils.isLikelyBackupForLocalName(
+              backupFolderName,
+              removeVersionFromTitle(title),
+            )) {
+          return true;
+        }
+      }
+    } catch (_) {
+      // 本地目录元数据损坏时只跳过元数据标题匹配，继续检查其他目录。
+    }
+  }
+
+  return false;
+}
+
 Future<Game?> _loadGameFromBackup(
   String backupBasePath,
   String? gameTitle,
@@ -411,26 +878,35 @@ Future<Game?> _loadGameFromBackup(
     return null;
   }
 
-  final metadataFile =
-      await GameDataPaths.existingMetadataFile(backupGameDir.path);
+  return _loadGameFromDirectory(backupGameDir.path, gameTitle, existingDbGame);
+}
+
+Future<Game?> _loadGameFromDirectory(
+  String gamePath,
+  String fallbackTitle,
+  Game? existingDbGame,
+) async {
+  final gameDir = Directory(gamePath);
+  if (!await gameDir.exists()) return null;
+
+  final metadataFile = await GameDataPaths.existingMetadataFile(gameDir.path);
   Map<String, dynamic>? metadata;
   if (await metadataFile.exists()) {
     try {
       final content = await metadataFile.readAsString();
       metadata = jsonDecode(content) as Map<String, dynamic>;
     } catch (e) {
-      debugPrint('[Backup] metadata parse error for ${backupGameDir.path}: $e');
+      debugPrint('[Cleared] metadata parse error for ${gameDir.path}: $e');
     }
   }
 
-  final sourceUrlFile =
-      await GameDataPaths.existingSourceUrlFile(backupGameDir.path);
+  final sourceUrlFile = await GameDataPaths.existingSourceUrlFile(gameDir.path);
   String? sourceUrl;
   if (await sourceUrlFile.exists()) {
     sourceUrl = (await sourceUrlFile.readAsString()).trim();
   }
 
-  final imageDir = await GameDataPaths.existingImagesDir(backupGameDir.path);
+  final imageDir = await GameDataPaths.existingImagesDir(gameDir.path);
   final List<String> imagePaths = [];
   if (await imageDir.exists()) {
     await for (final entity in imageDir.list()) {
@@ -444,21 +920,25 @@ Future<Game?> _loadGameFromBackup(
     imagePaths.sort();
   }
 
-  return Game(
+  final game = Game(
     id: existingDbGame?.id,
-    path: backupGameDir.path,
-    title: metadata?['title'] as String? ?? gameTitle,
-    version: metadata?['version'] as String?,
-    intro: metadata?['intro'] as String?,
-    features: metadata?['features'] as String?,
-    changelog: metadata?['changelog'] as String?,
-    downloadUrl: metadata?['download_url'] as String?,
-    sourceUrl: sourceUrl ?? metadata?['source_url'] as String?,
+    path: gameDir.path,
+    title:
+        (metadata?['title'] as String?) ?? existingDbGame?.title ?? fallbackTitle,
+    version: (metadata?['version'] as String?) ?? existingDbGame?.version,
+    intro: (metadata?['intro'] as String?) ?? existingDbGame?.intro,
+    features: (metadata?['features'] as String?) ?? existingDbGame?.features,
+    changelog: (metadata?['changelog'] as String?) ?? existingDbGame?.changelog,
+    downloadUrl:
+        (metadata?['download_url'] as String?) ?? existingDbGame?.downloadUrl,
+    sourceUrl: sourceUrl ??
+        (metadata?['source_url'] as String?) ??
+        existingDbGame?.sourceUrl,
     playCount: existingDbGame?.playCount ?? 0,
     lastPlayedTime: existingDbGame?.lastPlayedTime,
     addedTime: existingDbGame?.addedTime,
     isFavorite: existingDbGame?.isFavorite ?? false,
-    isPlayed: true,
+    isPlayed: existingDbGame?.isPlayed ?? true,
     tags: existingDbGame?.tags ?? [],
     images: imagePaths
         .asMap()
@@ -473,9 +953,17 @@ Future<Game?> _loadGameFromBackup(
     rating: existingDbGame?.rating ?? 0.0,
     review: existingDbGame?.review,
     savePath: existingDbGame?.savePath,
+    playDuration: existingDbGame?.playDuration ?? 0,
+    maker: (metadata?['maker'] as String?) ?? existingDbGame?.maker,
+    makerUrl: (metadata?['maker_url'] as String?) ?? existingDbGame?.makerUrl,
     gameLauncher: existingDbGame?.gameLauncher,
     launcherLocked: existingDbGame?.launcherLocked ?? false,
+    useLocaleEmulator: existingDbGame?.useLocaleEmulator ?? false,
+    guide: (metadata?['guide'] as String?) ?? existingDbGame?.guide,
+    introScrollPosition: existingDbGame?.introScrollPosition ?? 0.0,
+    guideScrollPosition: existingDbGame?.guideScrollPosition ?? 0.0,
   );
+  return BackupImageReferenceResolver.rewriteGameReferences(game);
 }
 
 final playedGamesProvider = FutureProvider<List<Game>>((ref) async {

@@ -103,7 +103,10 @@ test/services/*
 !test/services/game_data_migration_service_test.dart
 !test/utils/
 test/utils/*
+!test/utils/backup_image_reference_resolver_test.dart
+!test/utils/cleared_game_path_utils_test.dart
 !test/utils/game_data_paths_test.dart
+!test/utils/media_reference_parser_test.dart
 hgame-manager-creative-proposal/
 
 # Environment files

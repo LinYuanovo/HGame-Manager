@@ -24,11 +24,15 @@ import '../../../core/services/folder_rename_service.dart';
 import '../../../core/services/game_launch_service.dart';
 import '../../../core/services/play_time_tracker.dart';
 import '../../../core/utils/app_settings.dart';
+import '../../../core/utils/backup_image_reference_resolver.dart';
+import '../../../core/utils/cleared_game_path_utils.dart';
 import '../../../core/utils/game_data_paths.dart';
+import '../../../core/utils/media_reference_parser.dart';
 import '../../../core/utils/path_reference_rewriter.dart';
 import '../../widgets/image_manager_dialog.dart';
 import '../../widgets/markdown_editor.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:path/path.dart' as path;
 import 'save_management_dialog.dart';
 import 'guide_search_dialog.dart';
 import 'detail_scroll_buttons.dart';
@@ -68,6 +72,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   bool _isRescraping = false;
   bool _isLocal = false;
   Set<String> _existingMediaFiles = {};
+  Map<String, String> _mediaPathAliases = {};
 
   String? _introHtml;
   bool _showGuide = false;
@@ -270,7 +275,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     Future.microtask(_migrateCurrentGameData);
     _checkIsLocal();
     _forceReloadImages();
-    Future.wait([_preloadMediaFiles(), _loadMetadataHtml()]);
+    Future.microtask(() async {
+      await _loadMetadataHtml();
+      await _preloadMediaFiles();
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       debugPrint(
           '[ScrollPos] postFrameCallback: calling _restoreScrollPositions');
@@ -296,9 +304,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Future<void> _preloadMediaFiles() async {
-    final imageTagStart = '[图片:';
-    final videoTagStart = '[视频:';
-    final tagEnd = ']';
     final paths = <String>{};
 
     for (final content in [
@@ -308,29 +313,70 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       _currentGame.guide
     ]) {
       if (content == null) continue;
-      for (final line in content.split('\n')) {
-        if (line.startsWith(imageTagStart) && line.endsWith(tagEnd)) {
-          paths.add(line.substring(
-              imageTagStart.length, line.length - tagEnd.length));
-        } else if (line.startsWith(videoTagStart) && line.endsWith(tagEnd)) {
-          paths.add(line.substring(
-              videoTagStart.length, line.length - tagEnd.length));
-        }
+      for (final imagePath in MediaReferenceParser.extractImagePaths(content)) {
+        paths.add(imagePath);
+      }
+      for (final videoPath in MediaReferenceParser.extractVideoPaths(content)) {
+        paths.add(videoPath);
+      }
+    }
+    if (_introHtml != null && _introHtml!.isNotEmpty) {
+      for (final imagePath in _collectHtmlImageSources(_introHtml!)) {
+        paths.add(imagePath);
       }
     }
 
+    final aliases = await BackupImageReferenceResolver.buildAliases(
+      contents: [
+        _currentGame.intro,
+        _currentGame.features,
+        _currentGame.changelog,
+        _currentGame.guide,
+      ],
+      html: _introHtml,
+      images: _currentGame.images,
+    );
+
     final existing = <String>{};
-    for (final path in paths) {
-      if (await File(path).exists()) {
-        existing.add(path);
+    for (final mediaPath in paths) {
+      if (await File(mediaPath).exists()) {
+        existing.add(mediaPath);
+      } else if (aliases[mediaPath] != null) {
+        existing.add(mediaPath);
+        existing.add(aliases[mediaPath]!);
       }
     }
 
     if (mounted) {
       setState(() {
         _existingMediaFiles = existing;
+        _mediaPathAliases = aliases;
       });
     }
+  }
+
+  String? _resolveExistingMediaPath(String mediaPath) {
+    if (_existingMediaFiles.contains(mediaPath) &&
+        File(mediaPath).existsSync()) {
+      return mediaPath;
+    }
+    final alias = _mediaPathAliases[mediaPath];
+    if (alias != null &&
+        _existingMediaFiles.contains(alias) &&
+        File(alias).existsSync()) {
+      return alias;
+    }
+    return null;
+  }
+
+  String _normalizeMediaPathKey(String mediaPath) =>
+      path.normalize(mediaPath).toLowerCase();
+
+  String _mediaStemKey(String mediaPath) {
+    final fileName = path.basename(mediaPath).toLowerCase();
+    final extension = path.extension(fileName);
+    if (extension.isEmpty) return fileName;
+    return fileName.substring(0, fileName.length - extension.length);
   }
 
   Future<void> _loadMetadataHtml() async {
@@ -2656,6 +2702,31 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     return src.startsWith('//') ? 'https:$src' : src;
   }
 
+  Set<String> _collectHtmlImageSources(String html) {
+    final sources = <String>{};
+
+    for (final block in _parseHtmlToBlocks(html, '')) {
+      final imageUrl = block.imageUrl;
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        sources.add(imageUrl);
+      }
+    }
+
+    try {
+      final document = html_parser.parse(html);
+      for (final imgEl in document.querySelectorAll('img')) {
+        final imageUrl = _resolveImgSrc(imgEl);
+        if (imageUrl.isNotEmpty) {
+          sources.add(imageUrl);
+        }
+      }
+    } catch (_) {
+      // HTML 已在 _parseHtmlToBlocks 做过容错；这里的兜底扫描失败时直接忽略。
+    }
+
+    return sources;
+  }
+
   Widget _buildHtmlContent(String html, double fontSize, {String? sectionKey}) {
     final blocks = _parseHtmlToBlocks(html, '');
     if (blocks.isEmpty) {
@@ -2782,12 +2853,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     if (!imageUrl.startsWith('http://') &&
         !imageUrl.startsWith('https://') &&
         !imageUrl.startsWith('//')) {
-      if (_existingMediaFiles.contains(imageUrl)) {
+      final resolvedPath = _resolveExistingMediaPath(imageUrl);
+      if (resolvedPath != null) {
         return GestureDetector(
-          onTap: () => _openImageViewer(imageUrl),
+          onTap: () => _openImageViewer(resolvedPath),
           child: Image.file(
-            File(imageUrl),
-            key: ValueKey('img_${_imageVersion}_$imageUrl'),
+            File(resolvedPath),
+            key: ValueKey('img_${_imageVersion}_$resolvedPath'),
             fit: BoxFit.contain,
             errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           ),
@@ -2856,38 +2928,51 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   List<GameImage> _getUnusedImages(List<GameImage> allImages) {
-    final usedFileNames = <String>{};
+    final usedPathKeys = <String>{};
+    final usedStemKeys = <String>{};
 
-    // 从 intro 文本中提取 [图片:path] 标记的文件名
-    final intro = _currentGame.intro ?? '';
-    final imagePattern = RegExp(r'\[图片:(.+?)\]');
-    for (final match in imagePattern.allMatches(intro)) {
-      final path = match.group(1) ?? '';
-      if (path.isNotEmpty) {
-        final fileName = path.split(Platform.pathSeparator).last;
-        final baseName = fileName.split('.').first;
-        usedFileNames.add(baseName);
+    void markUsed(String mediaPath) {
+      if (mediaPath.isEmpty ||
+          mediaPath.startsWith('http://') ||
+          mediaPath.startsWith('https://') ||
+          mediaPath.startsWith('//')) {
+        return;
+      }
+
+      usedPathKeys.add(_normalizeMediaPathKey(mediaPath));
+      usedStemKeys.add(_mediaStemKey(mediaPath));
+
+      final resolvedPath = _resolveExistingMediaPath(mediaPath);
+      if (resolvedPath != null) {
+        usedPathKeys.add(_normalizeMediaPathKey(resolvedPath));
+        usedStemKeys.add(_mediaStemKey(resolvedPath));
       }
     }
 
-    // 从 intro_html 中提取 img src 属性
+    // 从所有详情正文中提取 [图片:path] 标记，避免更多图片重复展示已内嵌图片。
+    for (final content in [
+      _currentGame.intro,
+      _currentGame.features,
+      _currentGame.changelog,
+      _currentGame.guide,
+    ]) {
+      for (final imagePath in MediaReferenceParser.extractImagePaths(content)) {
+        markUsed(imagePath);
+      }
+    }
+
+    // 从 intro_html 中提取实际会渲染的图片，覆盖 src/data-src/data-original。
     if (_introHtml != null && _introHtml!.isNotEmpty) {
-      final srcPattern = RegExp(r'src="([^"]+)"');
-      for (final match in srcPattern.allMatches(_introHtml!)) {
-        final src = match.group(1) ?? '';
-        if (src.isNotEmpty && !src.startsWith('http')) {
-          final fileName = src.split(Platform.pathSeparator).last;
-          final baseName = fileName.split('.').first;
-          usedFileNames.add(baseName);
-        }
+      for (final imagePath in _collectHtmlImageSources(_introHtml!)) {
+        markUsed(imagePath);
       }
     }
 
-    // 过滤掉已在 intro 中使用的图片
     return allImages.where((img) {
-      final fileName = img.imagePath.split(Platform.pathSeparator).last;
-      final baseName = fileName.split('.').first;
-      return !usedFileNames.contains(baseName);
+      final imagePath = img.imagePath;
+      final pathKey = _normalizeMediaPathKey(imagePath);
+      final stemKey = _mediaStemKey(imagePath);
+      return !usedPathKeys.contains(pathKey) && !usedStemKeys.contains(stemKey);
     }).toList();
   }
 
@@ -2972,9 +3057,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   Widget _buildRichIntro(String content, double fontSize,
       {String? sectionKey}) {
-    final imageTagStart = '[图片:';
-    final videoTagStart = '[视频:';
-    final tagEnd = ']';
+    const imageTagStart = MediaReferenceParser.imagePrefix;
+    const videoTagStart = MediaReferenceParser.videoPrefix;
 
     if (!content.contains(imageTagStart) && !content.contains(videoTagStart)) {
       final lines = content.split('\n');
@@ -2998,11 +3082,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     // 收集内容中所有图片路径
     final contentImages = <String>[];
     for (final line in lines) {
-      if (line.startsWith(imageTagStart) && line.endsWith(tagEnd)) {
-        final imagePath =
-            line.substring(imageTagStart.length, line.length - tagEnd.length);
-        if (_existingMediaFiles.contains(imagePath)) {
-          contentImages.add(imagePath);
+      final imagePath = MediaReferenceParser.parseImageLine(line);
+      if (imagePath != null) {
+        final resolvedPath = _resolveExistingMediaPath(imagePath);
+        if (resolvedPath != null) {
+          contentImages.add(resolvedPath);
         }
       }
     }
@@ -3011,8 +3095,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     var textGroupStart = -1;
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i];
+      final imagePath = MediaReferenceParser.parseImageLine(line);
+      final videoPath = MediaReferenceParser.parseVideoLine(line);
 
-      if (line.startsWith(imageTagStart) && line.endsWith(tagEnd)) {
+      if (imagePath != null) {
         // Flush pending text group
         if (textGroupStart >= 0) {
           final groupLines = <String>[];
@@ -3029,10 +3115,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           ));
           textGroupStart = -1;
         }
-        final imagePath =
-            line.substring(imageTagStart.length, line.length - tagEnd.length);
-        if (_existingMediaFiles.contains(imagePath)) {
-          final imageIndex = contentImages.indexOf(imagePath);
+        final resolvedPath = _resolveExistingMediaPath(imagePath);
+        if (resolvedPath != null) {
+          final imageIndex = contentImages.indexOf(resolvedPath);
           widgets.add(
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -3045,8 +3130,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 800),
                     child: Image.file(
-                      File(imagePath),
-                      key: ValueKey('img_${_imageVersion}_$imagePath'),
+                      File(resolvedPath),
+                      key: ValueKey('img_${_imageVersion}_$resolvedPath'),
                       fit: BoxFit.contain,
                       errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                     ),
@@ -3056,7 +3141,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ),
           );
         }
-      } else if (line.startsWith(videoTagStart) && line.endsWith(tagEnd)) {
+      } else if (videoPath != null) {
         // Flush pending text group
         if (textGroupStart >= 0) {
           final groupLines = <String>[];
@@ -3073,8 +3158,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           ));
           textGroupStart = -1;
         }
-        final videoPath =
-            line.substring(videoTagStart.length, line.length - tagEnd.length);
         if (_existingMediaFiles.contains(videoPath)) {
           widgets.add(
             Padding(
@@ -3518,7 +3601,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         } catch (_) {}
       }
       final isBackupGame =
-          _currentGame.path.contains('${sep}Cleared${sep}Backup${sep}') ||
+          ClearedGamePathUtils.hasBackupSegment(_currentGame.path) ||
               !await Directory(_currentGame.path).exists();
       if (titleChanged &&
           (isInCleared || isInNewClearedPath) &&

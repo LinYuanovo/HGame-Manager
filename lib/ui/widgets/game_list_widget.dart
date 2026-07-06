@@ -19,6 +19,7 @@ import '../pages/games/game_detail_page.dart';
 import '../../../core/services/play_time_tracker.dart';
 import '../pages/games/save_management_dialog.dart';
 import '../../../core/utils/app_settings.dart';
+import '../../../core/utils/cleared_game_path_utils.dart';
 import '../../../core/utils/game_data_paths.dart';
 import 'multi_select_controller.dart';
 import 'image_preloader.dart';
@@ -1214,8 +1215,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   Widget _buildListItem(Game game,
       [double coverWidth = 120, double coverHeight = 68]) {
-    final isBackupOnly = game.path
-        .contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
+    final isBackupOnly = ClearedGamePathUtils.hasBackupSegment(game.path);
     final isSelected = _multiSelectController.isSelected(game);
     return GestureDetector(
       onSecondaryTapUp: (details) =>
@@ -1476,8 +1476,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   Widget _buildPosterItem(Game game) {
-    final isBackupOnly = game.path
-        .contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
+    final isBackupOnly = ClearedGamePathUtils.hasBackupSegment(game.path);
     final isSelected = _multiSelectController.isSelected(game);
     return GestureDetector(
       onSecondaryTapUp: (details) =>
@@ -1979,8 +1978,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   void _showContextMenu(BuildContext context, Offset position, Game game) {
-    final isBackupOnly = game.path
-        .contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
+    final isBackupOnly = ClearedGamePathUtils.hasBackupSegment(game.path);
     final isMultiSelect = _multiSelectController.isMultiSelectMode;
 
     // 获取菜单配置
@@ -2456,12 +2454,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         return;
       }
 
-      // 使用更健壮的路径检查
-      final normalizedPath = game.path.replaceAll('\\', '/');
-      final isBackupOnly = normalizedPath.contains('/Backup/') ||
-          normalizedPath.endsWith('/Backup') ||
-          normalizedPath.contains('\\Backup\\') ||
-          normalizedPath.endsWith('\\Backup');
+      final isBackupOnly = ClearedGamePathUtils.hasBackupSegment(game.path);
 
       if (isBackupOnly) {
         // 删除关联的图片文件
@@ -2762,12 +2755,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   Future<void> _unmarkAsCleared(Game game) async {
     final gameName = game.title ?? path.basename(game.path);
-    // 使用更健壮的路径检查，统一使用正斜杠
-    final normalizedPath = game.path.replaceAll('\\', '/');
-    final isBackupOnly = normalizedPath.contains('/Backup/') ||
-        normalizedPath.endsWith('/Backup') ||
-        normalizedPath.contains('\\Backup\\') ||
-        normalizedPath.endsWith('\\Backup');
+    final isBackupOnly = ClearedGamePathUtils.hasBackupSegment(game.path);
     // 确认对话框
     final confirm = await showGlassDialog<bool>(
       context: context,
@@ -3068,8 +3056,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   Future<void> _scanSavePathForGame(Game game) async {
     try {
       // 跳过"仅备份"游戏
-      if (game.path.contains(
-          '${Platform.pathSeparator}Backup${Platform.pathSeparator}')) {
+      if (ClearedGamePathUtils.hasBackupSegment(game.path)) {
         return;
       }
 

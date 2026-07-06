@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import '../../core/utils/media_reference_parser.dart';
 import '../theme/app_theme.dart';
 
 class MarkdownEditor extends StatefulWidget {
@@ -23,22 +24,20 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
   bool _isPreview = false;
 
   String _toPreview(String text) {
-    var result = text.replaceAllMapped(
-      RegExp(r'\[图片:([^\]]+)\]'),
-      (m) {
-        var imgPath = m[1]!.trim();
-        // 如果已经是 file:// 或 http:// 开头，直接使用
-        if (imgPath.startsWith('file://') || imgPath.startsWith('http://') || imgPath.startsWith('https://')) {
-          return '![]($imgPath)';
-        }
-        // Windows 路径：含 : 的路径（如 F:/xxx 或 F:\xxx）
-        if (RegExp(r'^[A-Za-z]:').hasMatch(imgPath)) {
-          final encodedPath = imgPath.replaceAll('\\', '/').replaceAll(' ', '%20');
-          imgPath = 'file:///$encodedPath';
-        }
+    var result = MediaReferenceParser.replaceImageLines(text, (imagePath) {
+      var imgPath = imagePath.trim();
+      // 如果已经是 file:// 或 http:// 开头，直接使用
+      if (imgPath.startsWith('file://') ||
+          imgPath.startsWith('http://') ||
+          imgPath.startsWith('https://')) {
         return '![]($imgPath)';
-      },
-    );
+      }
+      // Windows 路径：含 : 的路径（如 F:/xxx 或 F:\xxx）
+      if (RegExp(r'^[A-Za-z]:').hasMatch(imgPath)) {
+        imgPath = Uri.file(imgPath, windows: true).toString();
+      }
+      return '![]($imgPath)';
+    });
 
     // 处理换行：单个 \n 转换为两个空格 + \n（Markdown 强制换行）
     result = result.replaceAll(RegExp(r'(?<!\n)\n(?!\n)'), '  \n');
@@ -55,7 +54,8 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
     final selected = text.substring(start, end);
     final replacement = '$prefix$selected$suffix';
     ctrl.text = text.substring(0, start) + replacement + text.substring(end);
-    ctrl.selection = TextSelection.collapsed(offset: start + prefix.length + selected.length);
+    ctrl.selection = TextSelection.collapsed(
+        offset: start + prefix.length + selected.length);
   }
 
   void _insertImage(String path) {
@@ -102,15 +102,19 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
             onTap: () => setState(() => _isPreview = true),
           ),
           const SizedBox(width: 8),
-          Container(width: 1, height: 20, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
+          Container(
+              width: 1,
+              height: 20,
+              color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
           const SizedBox(width: 8),
-          _formatButton(Icons.format_bold, '粗体', () => _insert('**', suffix: '**')),
-          _formatButton(Icons.format_italic, '斜体', () => _insert('*', suffix: '*')),
+          _formatButton(
+              Icons.format_bold, '粗体', () => _insert('**', suffix: '**')),
+          _formatButton(
+              Icons.format_italic, '斜体', () => _insert('*', suffix: '*')),
           _formatButton(Icons.title, '标题', () => _insert('### ')),
           _formatButton(Icons.format_list_bulleted, '列表', () => _insert('- ')),
           const Spacer(),
-          if (widget.imagePaths.isNotEmpty)
-            _imagePickerButton(),
+          if (widget.imagePaths.isNotEmpty) _imagePickerButton(),
         ],
       ),
     );
@@ -128,19 +132,27 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: active ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15) : Colors.transparent,
+          color: active
+              ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: active ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context)),
+            Icon(icon,
+                size: 16,
+                color: active
+                    ? AppTheme.getPrimaryColor(context)
+                    : AppTheme.getTextSecondary(context)),
             const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(
                 fontSize: 12,
-                color: active ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context),
+                color: active
+                    ? AppTheme.getPrimaryColor(context)
+                    : AppTheme.getTextSecondary(context),
                 fontWeight: active ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
@@ -150,7 +162,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
     );
   }
 
-  Widget _formatButton( IconData icon, String tooltip, VoidCallback onPressed) {
+  Widget _formatButton(IconData icon, String tooltip, VoidCallback onPressed) {
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -158,7 +170,8 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
         borderRadius: BorderRadius.circular(6),
         child: Padding(
           padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 18, color: AppTheme.getTextSecondary(context)),
+          child:
+              Icon(icon, size: 18, color: AppTheme.getTextSecondary(context)),
         ),
       ),
     );
@@ -170,23 +183,27 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       onSelected: _insertImage,
       itemBuilder: (_) => widget.imagePaths.map((p) {
         final name = p.split(RegExp(r'[/\\]')).last;
-        return PopupMenuItem(value: p, child: Text(name, style: const TextStyle(fontSize: 13)));
+        return PopupMenuItem(
+            value: p, child: Text(name, style: const TextStyle(fontSize: 13)));
       }).toList(),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.add_photo_alternate, size: 16, color: AppTheme.getPrimaryColor(context)),
-              const SizedBox(width: 4),
-              Text('图片', style: TextStyle(fontSize: 12, color: AppTheme.getPrimaryColor(context))),
-            ],
-          ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
         ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add_photo_alternate,
+                size: 16, color: AppTheme.getPrimaryColor(context)),
+            const SizedBox(width: 4),
+            Text('图片',
+                style: TextStyle(
+                    fontSize: 12, color: AppTheme.getPrimaryColor(context))),
+          ],
+        ),
+      ),
     );
   }
 
@@ -195,7 +212,10 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       controller: widget.controller,
       maxLines: null,
       expands: true,
-      style: TextStyle(fontSize: widget.fontSize, height: 1.7, color: AppTheme.getTextPrimary(context)),
+      style: TextStyle(
+          fontSize: widget.fontSize,
+          height: 1.7,
+          color: AppTheme.getTextPrimary(context)),
       decoration: InputDecoration(
         border: InputBorder.none,
         contentPadding: const EdgeInsets.all(16),
@@ -209,7 +229,8 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
     final preview = _toPreview(widget.controller.text);
     if (preview.isEmpty) {
       return Center(
-        child: Text('暂无内容', style: TextStyle(color: AppTheme.getTextSecondary(context))),
+        child: Text('暂无内容',
+            style: TextStyle(color: AppTheme.getTextSecondary(context))),
       );
     }
     return SingleChildScrollView(
@@ -217,11 +238,25 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       child: MarkdownBody(
         data: preview,
         styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-          p: TextStyle(fontSize: widget.fontSize, height: 1.7, color: AppTheme.getTextPrimary(context)),
-          h1: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context)),
-          h2: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context)),
-          h3: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context)),
-          listBullet: TextStyle(fontSize: widget.fontSize, color: AppTheme.getTextPrimary(context)),
+          p: TextStyle(
+              fontSize: widget.fontSize,
+              height: 1.7,
+              color: AppTheme.getTextPrimary(context)),
+          h1: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.getTextPrimary(context)),
+          h2: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.getTextPrimary(context)),
+          h3: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.getTextPrimary(context)),
+          listBullet: TextStyle(
+              fontSize: widget.fontSize,
+              color: AppTheme.getTextPrimary(context)),
         ),
         imageBuilder: (uri, title, alt) {
           final uriStr = uri.toString();
@@ -236,7 +271,8 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
                 return Image.file(file, fit: BoxFit.contain);
               }
               debugPrint('[MarkdownPreview] File not found: $filePath');
-            } else if (uriStr.startsWith('http://') || uriStr.startsWith('https://')) {
+            } else if (uriStr.startsWith('http://') ||
+                uriStr.startsWith('https://')) {
               return Image.network(uriStr, fit: BoxFit.contain);
             } else {
               final file = File(uriStr);
@@ -250,7 +286,10 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
 
           return Container(
             padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Text('[图片加载失败]', style: TextStyle(fontSize: 12, color: AppTheme.errorColor.withValues(alpha: 0.7))),
+            child: Text('[图片加载失败]',
+                style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.errorColor.withValues(alpha: 0.7))),
           );
         },
       ),

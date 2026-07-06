@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/utils/cleared_game_path_utils.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/game_list_widget.dart';
 import '../categories/tag_games_page.dart';
@@ -14,7 +15,8 @@ class PlayedPage extends ConsumerStatefulWidget {
   ConsumerState<PlayedPage> createState() => _PlayedPageState();
 }
 
-class _PlayedPageState extends ConsumerState<PlayedPage> with AutomaticKeepAliveClientMixin {
+class _PlayedPageState extends ConsumerState<PlayedPage>
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
@@ -90,9 +92,9 @@ class _PlayedPageState extends ConsumerState<PlayedPage> with AutomaticKeepAlive
       } else {
         final allPlayed = await repo.getPlayedGames();
         final sep = Platform.pathSeparator;
-        gamesToScan = allPlayed.where((g) =>
-          !g.path.contains('${sep}Cleared$sep')
-        ).toList();
+        gamesToScan = allPlayed
+            .where((g) => !g.path.contains('${sep}Cleared$sep'))
+            .toList();
       }
 
       int found = 0;
@@ -112,12 +114,13 @@ class _PlayedPageState extends ConsumerState<PlayedPage> with AutomaticKeepAlive
         }
 
         // 跳过"仅备份"游戏
-        if (game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}')) {
+        if (ClearedGamePathUtils.hasBackupSegment(game.path)) {
           skipped++;
           continue;
         }
 
-        final savePath = await saveService.scanWithConfidence(game.path, game.title);
+        final savePath =
+            await saveService.scanWithConfidence(game.path, game.title);
         if (savePath != null) {
           await repo.updateSavePath(game.id!, savePath);
           found++;
@@ -129,14 +132,20 @@ class _PlayedPageState extends ConsumerState<PlayedPage> with AutomaticKeepAlive
       if (mounted) {
         final newFound = found - skipped;
         if (skipped > 0) {
-          AppTheme.showGlassToast(context, message: '扫描完成: 新发现 $newFound 个，跳过 $skipped 个已有记录，共 $found/$total 个有存档');
+          AppTheme.showGlassToast(context,
+              message:
+                  '扫描完成: 新发现 $newFound 个，跳过 $skipped 个已有记录，共 $found/$total 个有存档');
         } else {
-          AppTheme.showGlassToast(context, message: '扫描完成: 找到 $found/$total 个存档位置');
+          AppTheme.showGlassToast(context,
+              message: '扫描完成: 找到 $found/$total 个存档位置');
         }
       }
     } catch (e) {
       if (mounted) {
-        AppTheme.showGlassToast(context, message: '扫描失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        AppTheme.showGlassToast(context,
+            message: '扫描失败: $e',
+            icon: Icons.error_outline,
+            iconColor: AppTheme.errorColor);
       }
     } finally {
       if (mounted) {
