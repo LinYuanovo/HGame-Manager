@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import '../models/models.dart';
 import '../repositories/game_repository.dart';
 import '../repositories/tool_repository.dart';
+import 'app_logger.dart';
 import 'process_probe.dart';
 import 'save_path_service.dart';
 
@@ -49,6 +50,8 @@ class GameLaunchResult {
 }
 
 class GameLaunchService {
+  static const _logTag = 'GameLaunchService';
+
   final GameRepository _gameRepository;
   final ToolRepository _toolRepository;
   final SavePathService _savePathService;
@@ -67,6 +70,13 @@ class GameLaunchService {
   Future<GameLaunchResult> launch(Game game,
       {String? manualLauncherPath}) async {
     final snapshotBefore = await processProbe.snapshot();
+    AppLogger.instance.info(
+      _logTag,
+      '准备启动游戏：gameId=${game.id}, title=${game.title}, path=${game.path}, '
+      'manualLauncherPath=$manualLauncherPath, useLocaleEmulator=${game.useLocaleEmulator}, '
+      'launcherLocked=${game.launcherLocked}, storedLauncher=${game.gameLauncher}, '
+      'beforeProcessCount=${snapshotBefore.length}',
+    );
 
     if (manualLauncherPath != null) {
       return _launchManual(game, manualLauncherPath, snapshotBefore);
@@ -83,6 +93,10 @@ class GameLaunchService {
       final leProcPath = await findLeProcPath();
       if (leProcPath == null) {
         localeEmulatorMissing = true;
+        AppLogger.instance.warning(
+          _logTag,
+          'LE 启动失败：未找到 LEProc.exe，gameId=${gameForLaunch.id}',
+        );
         if (gameForLaunch.id != null) {
           await _gameRepository.updateLocaleEmulator(gameForLaunch.id!, false);
         }
@@ -111,6 +125,10 @@ class GameLaunchService {
     List<RunningProcess> snapshotBefore,
   ) async {
     try {
+      AppLogger.instance.info(
+        _logTag,
+        '手动启动器启动：gameId=${game.id}, launcherPath=$launcherPath',
+      );
       final startedProcessId = await _startLauncher(launcherPath);
       var updatedGame =
           game.copyWith(gameLauncher: launcherPath, launcherLocked: true);
@@ -127,6 +145,11 @@ class GameLaunchService {
         startedProcessId: startedProcessId,
       );
     } catch (e) {
+      AppLogger.instance.error(
+        _logTag,
+        '手动启动器启动失败：gameId=${game.id}, launcherPath=$launcherPath',
+        e,
+      );
       return GameLaunchResult(
         launched: false,
         game: game,
@@ -144,9 +167,19 @@ class GameLaunchService {
     if (leProcPath == null) return null;
 
     final exePath = await _findLocaleTargetExe(game);
-    if (exePath == null) return null;
+    if (exePath == null) {
+      AppLogger.instance.warning(
+        _logTag,
+        'LE 启动跳过：未找到目标 exe，gameId=${game.id}, path=${game.path}',
+      );
+      return null;
+    }
 
     try {
+      AppLogger.instance.info(
+        _logTag,
+        'LE 启动：gameId=${game.id}, leProcPath=$leProcPath, targetExe=$exePath',
+      );
       final startedProcessId = await _startLauncher(
         leProcPath,
         args: [exePath],
@@ -163,6 +196,11 @@ class GameLaunchService {
         startedProcessId: startedProcessId,
       );
     } catch (e) {
+      AppLogger.instance.error(
+        _logTag,
+        'LE 启动失败：gameId=${game.id}, leProcPath=$leProcPath, targetExe=$exePath',
+        e,
+      );
       return null;
     }
   }
@@ -177,6 +215,10 @@ class GameLaunchService {
         lockedLauncher.isNotEmpty) {
       final file = File(lockedLauncher);
       if (await file.exists()) {
+        AppLogger.instance.info(
+          _logTag,
+          '使用锁定启动器：gameId=${game.id}, launcherPath=$lockedLauncher',
+        );
         return _launchCandidate(
           game: game,
           launcherPath: lockedLauncher,
@@ -189,12 +231,20 @@ class GameLaunchService {
 
     final gameDir = Directory(game.path);
     if (!await gameDir.exists()) {
+      AppLogger.instance.warning(
+        _logTag,
+        '普通启动失败：游戏目录不存在，gameId=${game.id}, path=${game.path}',
+      );
       return GameLaunchResult(
           launched: false, game: game, processSnapshotBefore: snapshotBefore);
     }
 
     final toolBat = File(p.join(game.path, '与工具一同启动.bat'));
     if (await toolBat.exists()) {
+      AppLogger.instance.info(
+        _logTag,
+        '使用工具 bat 启动：gameId=${game.id}, launcherPath=${toolBat.path}',
+      );
       return _launchCandidate(
         game: game,
         launcherPath: toolBat.path,
@@ -209,6 +259,10 @@ class GameLaunchService {
         final fileName = p.basename(entity.path).toLowerCase();
         if (fileName.endsWith('.bat') &&
             (fileName.contains('启动') || fileName.contains('开始'))) {
+          AppLogger.instance.info(
+            _logTag,
+            '使用目录内 bat 启动：gameId=${game.id}, launcherPath=${entity.path}',
+          );
           return _launchCandidate(
             game: game,
             launcherPath: entity.path,
@@ -223,6 +277,10 @@ class GameLaunchService {
     for (final exeName in _fallbackExeNames) {
       final exeFile = File(p.join(game.path, exeName));
       if (await exeFile.exists()) {
+        AppLogger.instance.info(
+          _logTag,
+          '使用兜底 exe 启动：gameId=${game.id}, launcherPath=${exeFile.path}',
+        );
         return _launchCandidate(
           game: game,
           launcherPath: exeFile.path,
@@ -235,6 +293,10 @@ class GameLaunchService {
 
     final exePath = await _savePathService.findGameExe(game.path);
     if (exePath != null) {
+      AppLogger.instance.info(
+        _logTag,
+        '使用自动扫描 exe 启动：gameId=${game.id}, launcherPath=$exePath',
+      );
       return _launchCandidate(
         game: game,
         launcherPath: exePath,
@@ -244,6 +306,10 @@ class GameLaunchService {
       );
     }
 
+    AppLogger.instance.warning(
+      _logTag,
+      '普通启动失败：未找到启动器，gameId=${game.id}, path=${game.path}',
+    );
     return GameLaunchResult(
         launched: false, game: game, processSnapshotBefore: snapshotBefore);
   }
@@ -256,7 +322,16 @@ class GameLaunchService {
     required bool updateStoredLauncher,
   }) async {
     try {
+      AppLogger.instance.info(
+        _logTag,
+        '执行启动器：gameId=${game.id}, launcherPath=$launcherPath, locked=$locked, '
+        'updateStoredLauncher=$updateStoredLauncher',
+      );
       final startedProcessId = await _startLauncher(launcherPath);
+      AppLogger.instance.info(
+        _logTag,
+        '启动器进程已创建：gameId=${game.id}, launcherPath=$launcherPath, startedProcessId=$startedProcessId',
+      );
       var updatedGame = game;
       if (updateStoredLauncher && game.id != null) {
         await _gameRepository.updateGameLauncher(game.id!, launcherPath, false);
@@ -273,6 +348,11 @@ class GameLaunchService {
         startedProcessId: startedProcessId,
       );
     } catch (e) {
+      AppLogger.instance.error(
+        _logTag,
+        '执行启动器失败：gameId=${game.id}, launcherPath=$launcherPath',
+        e,
+      );
       return GameLaunchResult(
         launched: false,
         game: game,

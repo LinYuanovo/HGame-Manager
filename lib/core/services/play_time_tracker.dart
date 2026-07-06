@@ -4,10 +4,12 @@ import 'package:path/path.dart' as p;
 import '../models/models.dart';
 import '../repositories/game_repository.dart';
 import '../repositories/play_time_repository.dart';
+import 'app_logger.dart';
 import 'process_probe.dart';
 
 class PlayTimeTracker {
   static final PlayTimeTracker _default = PlayTimeTracker();
+  static const _logTag = 'PlayTimeTracker';
 
   final PlayTimeRepository _repository;
   final ProcessProbe _processProbe;
@@ -69,11 +71,26 @@ class PlayTimeTracker {
     bool launcherWasLocked = false,
     int? startedProcessId,
   }) async {
-    if (game.id == null) return false;
+    if (game.id == null) {
+      AppLogger.instance.warning(_logTag, '开始计时失败：游戏缺少 id，path=${game.path}');
+      return false;
+    }
 
     if (_currentGame != null) {
+      AppLogger.instance.info(
+        _logTag,
+        '切换追踪游戏：先停止当前游戏，currentGameId=${_currentGame?.id}, newGameId=${game.id}',
+      );
       await stop();
     }
+
+    AppLogger.instance.info(
+      _logTag,
+      '开始绑定游戏进程：gameId=${game.id}, title=${game.title}, path=${game.path}, '
+      'launchedPath=$launchedPath, trackingHintPath=$trackingHintPath, '
+      'launcherWasLocked=$launcherWasLocked, startedProcessId=$startedProcessId, '
+      'beforeCount=${processSnapshotBefore.length}',
+    );
 
     final target = await _bindTargetProcess(
       game: game,
@@ -84,7 +101,14 @@ class PlayTimeTracker {
       startedProcessId: startedProcessId,
     );
 
-    if (target == null) return false;
+    if (target == null) {
+      AppLogger.instance.warning(
+        _logTag,
+        '绑定游戏进程失败：30 秒内未识别到有效目标，gameId=${game.id}, '
+        'path=${game.path}, launchedPath=$launchedPath, trackingHintPath=$trackingHintPath',
+      );
+      return false;
+    }
 
     final startedAt = _now();
     await _repository.recordPlayStarted(game.id!, startedAt);
@@ -101,6 +125,10 @@ class PlayTimeTracker {
 
     _timer?.cancel();
     _timer = Timer.periodic(checkInterval, (_) => _handleTick());
+    AppLogger.instance.info(
+      _logTag,
+      '绑定游戏进程成功并开始计时：gameId=${game.id}, ${_formatProcess(target)}',
+    );
     return true;
   }
 
@@ -117,6 +145,12 @@ class PlayTimeTracker {
     }
 
     await _saveProgress();
+    if (_currentGame != null) {
+      AppLogger.instance.info(
+        _logTag,
+        '停止计时：gameId=${_currentGame?.id}, sessionSeconds=$_sessionSeconds, savedSeconds=$_lastSaveSeconds',
+      );
+    }
     _reset();
   }
 
@@ -164,7 +198,13 @@ class PlayTimeTracker {
         startedProcessId: startedProcessId,
       );
       if (target != null) return target;
-      if (!_now().isBefore(deadline)) return null;
+      if (!_now().isBefore(deadline)) {
+        AppLogger.instance.warning(
+          _logTag,
+          '绑定轮询结束仍未找到目标进程：gameId=${game.id}, afterCount=${snapshotAfter.length}',
+        );
+        return null;
+      }
       await Future.delayed(bindPollInterval);
     }
   }
@@ -181,6 +221,10 @@ class PlayTimeTracker {
     final beforePids = before.map((process) => process.pid).toSet();
     final newProcesses =
         after.where((process) => !beforePids.contains(process.pid)).toList();
+    AppLogger.instance.info(
+      _logTag,
+      '进程绑定扫描：gameId=${game.id}, before=${before.length}, after=${after.length}, new=${newProcesses.length}',
+    );
 
     if (launcherWasLocked && _isExePath(trackingHintPath)) {
       final launcherProcess = _bestCandidate(
@@ -191,7 +235,13 @@ class PlayTimeTracker {
         game: game,
         trackingHintPath: trackingHintPath,
       );
-      if (launcherProcess != null) return launcherProcess;
+      if (launcherProcess != null) {
+        AppLogger.instance.info(
+          _logTag,
+          '绑定命中：锁定启动器仍在运行，${_formatProcess(launcherProcess)}',
+        );
+        return launcherProcess;
+      }
     }
 
     final newGameDirProcess = _bestCandidate(
@@ -202,7 +252,13 @@ class PlayTimeTracker {
       game: game,
       trackingHintPath: trackingHintPath,
     );
-    if (newGameDirProcess != null) return newGameDirProcess;
+    if (newGameDirProcess != null) {
+      AppLogger.instance.info(
+        _logTag,
+        '绑定命中：游戏目录内新进程，${_formatProcess(newGameDirProcess)}',
+      );
+      return newGameDirProcess;
+    }
 
     final relatedProcess = _bestCandidate(
       _relatedNewProcesses(
@@ -215,10 +271,16 @@ class PlayTimeTracker {
       game: game,
       trackingHintPath: trackingHintPath,
     );
-    if (relatedProcess != null) return relatedProcess;
+    if (relatedProcess != null) {
+      AppLogger.instance.info(
+        _logTag,
+        '绑定命中：启动器父子关系新进程，${_formatProcess(relatedProcess)}',
+      );
+      return relatedProcess;
+    }
 
     final commonNames = _commonGameProcessNames(trackingHintPath);
-    return _bestCandidate(
+    final commonNameProcess = _bestCandidate(
       after.where((process) {
         return _isValidGameProcess(process) &&
             commonNames.contains(process.normalizedName) &&
@@ -228,6 +290,16 @@ class PlayTimeTracker {
       game: game,
       trackingHintPath: trackingHintPath,
     );
+    if (commonNameProcess != null) {
+      AppLogger.instance.info(
+        _logTag,
+        '绑定命中：常见游戏进程名，${_formatProcess(commonNameProcess)}',
+      );
+      return commonNameProcess;
+    }
+
+    _logRejectedNewProcesses(newProcesses, game.path);
+    return null;
   }
 
   Iterable<RunningProcess> _relatedNewProcesses({
@@ -276,6 +348,10 @@ class PlayTimeTracker {
     try {
       final runningTarget = await _findRunningTarget();
       if (runningTarget == null) {
+        AppLogger.instance.info(
+          _logTag,
+          '目标进程已退出：gameId=${_currentGame?.id}, target=${_formatProcess(_targetProcess!)}',
+        );
         await _saveProgress();
         _reset();
         return;
@@ -351,7 +427,17 @@ class PlayTimeTracker {
     try {
       await _repository.addPlayDurationDelta(gameId, delta);
       _lastSaveSeconds = _sessionSeconds;
-    } catch (_) {
+      AppLogger.instance.info(
+        _logTag,
+        '保存游玩时长增量：gameId=$gameId, delta=$delta, sessionSeconds=$_sessionSeconds',
+      );
+    } catch (e, stackTrace) {
+      AppLogger.instance.error(
+        _logTag,
+        '保存游玩时长增量失败：gameId=$gameId, delta=$delta',
+        e,
+        stackTrace,
+      );
       // 保存失败不影响游戏继续运行；下次 tick 会再次尝试写入同一段增量。
     }
   }
@@ -375,6 +461,32 @@ class PlayTimeTracker {
     });
 
     return list.first;
+  }
+
+  void _logRejectedNewProcesses(
+    List<RunningProcess> newProcesses,
+    String gamePath,
+  ) {
+    if (newProcesses.isEmpty) {
+      AppLogger.instance.info(_logTag, '绑定未命中：未发现新进程');
+      return;
+    }
+
+    final preview = newProcesses.take(12).map((process) {
+      final valid = _isValidGameProcess(process);
+      final underGamePath = _isUnderPath(process.executablePath, gamePath);
+      return '${_formatProcess(process)} valid=$valid underGamePath=$underGamePath';
+    }).join(' | ');
+
+    AppLogger.instance.info(
+      _logTag,
+      '绑定未命中：新进程均未满足规则，preview=$preview',
+    );
+  }
+
+  String _formatProcess(RunningProcess process) {
+    return 'pid=${process.pid}, parentPid=${process.parentPid}, '
+        'name=${process.name}, path=${process.executablePath}';
   }
 
   int _scoreProcess(RunningProcess process,
