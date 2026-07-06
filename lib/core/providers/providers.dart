@@ -8,6 +8,7 @@ import '../repositories/game_repository.dart';
 import '../repositories/tag_repository.dart';
 import '../repositories/tool_repository.dart';
 import '../services/game_scanner_service.dart';
+import '../services/game_launch_service.dart';
 import '../services/game_count_service.dart';
 import '../services/save_path_service.dart';
 import '../services/webdav_service.dart';
@@ -21,6 +22,7 @@ import '../services/pilipili_service.dart';
 import '../models/models.dart';
 import '../../scraper/parse_utils.dart';
 import '../models/context_menu_config.dart';
+import '../services/process_probe.dart';
 
 final sharedPreferencesProvider = Provider<AppSettings>((ref) {
   throw UnimplementedError('AppSettings not initialized');
@@ -56,6 +58,19 @@ final gameScannerServiceProvider = Provider<GameScannerService>((ref) {
   };
   service.shouldCancel = () => ref.read(scanCancelProvider);
   return service;
+});
+
+final processProbeProvider = Provider<ProcessProbe>((ref) {
+  return const WindowsProcessProbe();
+});
+
+final gameLaunchServiceProvider = Provider<GameLaunchService>((ref) {
+  return GameLaunchService(
+    gameRepository: ref.read(gameRepositoryProvider),
+    toolRepository: ref.read(toolRepositoryProvider),
+    savePathService: ref.read(savePathServiceProvider),
+    processProbe: ref.read(processProbeProvider),
+  );
 });
 
 final gameCountServiceProvider = Provider<GameCountService>((ref) {
@@ -152,16 +167,18 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
 
     final sep = Platform.pathSeparator;
     // 旧格式：路径包含 /Cleared/ 的游戏
-    final dbClearedGames = allGames.where((g) =>
-      g.path.contains('${sep}Cleared$sep') &&
-      !g.path.contains('${sep}Backup$sep')
-    ).toList();
+    final dbClearedGames = allGames
+        .where((g) =>
+            g.path.contains('${sep}Cleared$sep') &&
+            !g.path.contains('${sep}Backup$sep'))
+        .toList();
     // 新格式：路径在 cleared_paths 目录下的游戏
     final dbNewClearedGames = allGames.where((g) {
       final normalizedGamePath = g.path.replaceAll('\\', '/').toLowerCase();
       for (final cp in clearedPathList) {
         final normalizedCleared = cp.replaceAll('\\', '/').toLowerCase();
-        if (normalizedGamePath.startsWith(normalizedCleared) && !g.path.contains('${sep}Backup$sep')) {
+        if (normalizedGamePath.startsWith(normalizedCleared) &&
+            !g.path.contains('${sep}Backup$sep')) {
           return true;
         }
       }
@@ -181,7 +198,8 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
           if (await metadataFile.exists()) {
             final content = await metadataFile.readAsString();
             final metadata = jsonDecode(content) as Map<String, dynamic>;
-            if (metadata['title'] != null && (metadata['title'] as String).isNotEmpty) {
+            if (metadata['title'] != null &&
+                (metadata['title'] as String).isNotEmpty) {
               title = metadata['title'] as String;
             }
           }
@@ -190,7 +208,8 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
         }
         final normalizedTitle = removeVersionFromTitle(title);
         // debugPrint('[LOCAL] final title: $title -> normalized: $normalizedTitle');
-        result[normalizedTitle.toLowerCase()] = game.copyWith(title: normalizedTitle);
+        result[normalizedTitle.toLowerCase()] =
+            game.copyWith(title: normalizedTitle);
       }
     }
 
@@ -203,19 +222,25 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
           final dir = Directory(game.path);
           if (!await dir.exists()) {
             // 优先用 buildBackupFolderName 匹配新格式备份
-            final backupName = await FolderRenameService.buildBackupFolderName(game);
+            final backupName =
+                await FolderRenameService.buildBackupFolderName(game);
             Game? backupGame;
             if (backupName != null) {
               backupGame = await _loadGameFromBackup(
-                backupDir.path, backupName, game,
+                backupDir.path,
+                backupName,
+                game,
               );
             }
             // 回退到用 game.title 匹配旧格式备份
             backupGame ??= await _loadGameFromBackup(
-              backupDir.path, game.title, game,
+              backupDir.path,
+              game.title,
+              game,
             );
             if (backupGame != null) {
-              final normalizedTitle = removeVersionFromTitle(backupGame.title ?? '');
+              final normalizedTitle =
+                  removeVersionFromTitle(backupGame.title ?? '');
               final key = normalizedTitle.toLowerCase();
               if (!result.containsKey(key)) {
                 result[key] = backupGame.copyWith(title: normalizedTitle);
@@ -241,13 +266,17 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
               }
             }
             // 路径匹配失败时，尝试通过 buildBackupFolderName 匹配
-            existingDbGame ??= await _findDbGameByBackupName(allGames, folderName);
+            existingDbGame ??=
+                await _findDbGameByBackupName(allGames, folderName);
 
             final backupGame = await _loadGameFromBackup(
-              backupDir.path, folderName, existingDbGame,
+              backupDir.path,
+              folderName,
+              existingDbGame,
             );
             if (backupGame != null) {
-              final normalizedTitle = removeVersionFromTitle(backupGame.title ?? '');
+              final normalizedTitle =
+                  removeVersionFromTitle(backupGame.title ?? '');
               final key = normalizedTitle.toLowerCase();
               if (!result.containsKey(key)) {
                 result[key] = backupGame.copyWith(title: normalizedTitle);
@@ -267,19 +296,25 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
           final dir = Directory(game.path);
           if (!await dir.exists()) {
             // 优先用 buildBackupFolderName 匹配新格式备份
-            final backupName = await FolderRenameService.buildBackupFolderName(game);
+            final backupName =
+                await FolderRenameService.buildBackupFolderName(game);
             Game? backupGame;
             if (backupName != null) {
               backupGame = await _loadGameFromBackup(
-                backupDir.path, backupName, game,
+                backupDir.path,
+                backupName,
+                game,
               );
             }
             // 回退到用 game.title 匹配旧格式备份
             backupGame ??= await _loadGameFromBackup(
-              backupDir.path, game.title, game,
+              backupDir.path,
+              game.title,
+              game,
             );
             if (backupGame != null) {
-              final normalizedTitle = removeVersionFromTitle(backupGame.title ?? '');
+              final normalizedTitle =
+                  removeVersionFromTitle(backupGame.title ?? '');
               final key = normalizedTitle.toLowerCase();
               if (!result.containsKey(key)) {
                 result[key] = backupGame.copyWith(title: normalizedTitle);
@@ -305,13 +340,17 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
               }
             }
             // 路径匹配失败时，尝试通过 buildBackupFolderName 匹配
-            existingDbGame ??= await _findDbGameByBackupName(allGames, folderName);
+            existingDbGame ??=
+                await _findDbGameByBackupName(allGames, folderName);
 
             final backupGame = await _loadGameFromBackup(
-              backupDir.path, folderName, existingDbGame,
+              backupDir.path,
+              folderName,
+              existingDbGame,
             );
             if (backupGame != null) {
-              final normalizedTitle = removeVersionFromTitle(backupGame.title ?? '');
+              final normalizedTitle =
+                  removeVersionFromTitle(backupGame.title ?? '');
               final key = normalizedTitle.toLowerCase();
               if (!result.containsKey(key)) {
                 result[key] = backupGame.copyWith(title: normalizedTitle);
@@ -332,7 +371,8 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
 });
 
 /// 通过备份文件夹名匹配 DB 中的游戏记录
-Future<Game?> _findDbGameByBackupName(List<Game> allGames, String backupFolderName) async {
+Future<Game?> _findDbGameByBackupName(
+    List<Game> allGames, String backupFolderName) async {
   final rules = await FolderRenameService.loadRules();
   for (final game in allGames) {
     final name = FolderRenameService.buildNameFromRules(rules, game);
@@ -347,7 +387,9 @@ Future<Game?> _findDbGameByBackupName(List<Game> allGames, String backupFolderNa
 }
 
 Future<Game?> _loadGameFromBackup(
-  String backupBasePath, String? gameTitle, Game? existingDbGame,
+  String backupBasePath,
+  String? gameTitle,
+  Game? existingDbGame,
 ) async {
   if (gameTitle == null || gameTitle.isEmpty) return null;
 
@@ -406,11 +448,15 @@ Future<Game?> _loadGameFromBackup(
     isFavorite: existingDbGame?.isFavorite ?? false,
     isPlayed: true,
     tags: existingDbGame?.tags ?? [],
-    images: imagePaths.asMap().entries.map((e) => GameImage(
-      gameId: existingDbGame?.id ?? 0,
-      imagePath: e.value,
-      sortOrder: e.key,
-    )).toList(),
+    images: imagePaths
+        .asMap()
+        .entries
+        .map((e) => GameImage(
+              gameId: existingDbGame?.id ?? 0,
+              imagePath: e.value,
+              sortOrder: e.key,
+            ))
+        .toList(),
     coverIndex: existingDbGame?.coverIndex ?? 0,
     rating: existingDbGame?.rating ?? 0.0,
     review: existingDbGame?.review,
@@ -424,7 +470,10 @@ final playedGamesProvider = FutureProvider<List<Game>>((ref) async {
   try {
     final repository = ref.watch(gameRepositoryProvider);
     final games = await repository.getPlayedGames();
-    return games.where((g) => !g.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}')).toList();
+    return games
+        .where((g) => !g.path.contains(
+            '${Platform.pathSeparator}Cleared${Platform.pathSeparator}'))
+        .toList();
   } catch (e, stackTrace) {
     if (kDebugMode) {
       debugPrint('ERROR Loading Played Games: $e\n$stackTrace');
@@ -482,7 +531,8 @@ final favoriteTagsProvider = FutureProvider<List<Tag>>((ref) async {
   }
 });
 
-final gamesByTagProvider = FutureProvider.family<List<Game>, int>((ref, tagId) async {
+final gamesByTagProvider =
+    FutureProvider.family<List<Game>, int>((ref, tagId) async {
   try {
     final repository = ref.watch(gameRepositoryProvider);
     return await repository.getGamesByTag(tagId);
@@ -494,7 +544,8 @@ final gamesByTagProvider = FutureProvider.family<List<Game>, int>((ref, tagId) a
   }
 });
 
-final searchGamesProvider = FutureProvider.family<List<Game>, String>((ref, query) async {
+final searchGamesProvider =
+    FutureProvider.family<List<Game>, String>((ref, query) async {
   try {
     final repository = ref.watch(gameRepositoryProvider);
     return await repository.searchGames(query);
@@ -506,7 +557,8 @@ final searchGamesProvider = FutureProvider.family<List<Game>, String>((ref, quer
   }
 });
 
-final selectedNavIndexProvider = StateProvider<int>((ref) => 1); // Default to games page
+final selectedNavIndexProvider =
+    StateProvider<int>((ref) => 1); // Default to games page
 
 final viewModeProvider = StateProvider<ViewMode>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
@@ -589,15 +641,19 @@ final currentPageProvider = StateProvider<Map<int, int>>((ref) {
 });
 
 /// 右键菜单配置 Provider（普通游戏列表）
-final contextMenuGamesProvider = StateNotifierProvider<ContextMenuConfigNotifier, ContextMenuConfig>((ref) {
+final contextMenuGamesProvider =
+    StateNotifierProvider<ContextMenuConfigNotifier, ContextMenuConfig>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
-  return ContextMenuConfigNotifier(prefs, AppSettings.contextMenuGamesKey, 'games');
+  return ContextMenuConfigNotifier(
+      prefs, AppSettings.contextMenuGamesKey, 'games');
 });
 
 /// 右键菜单配置 Provider（已玩游戏/通关页面）
-final contextMenuPlayedProvider = StateNotifierProvider<ContextMenuConfigNotifier, ContextMenuConfig>((ref) {
+final contextMenuPlayedProvider =
+    StateNotifierProvider<ContextMenuConfigNotifier, ContextMenuConfig>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
-  return ContextMenuConfigNotifier(prefs, AppSettings.contextMenuPlayedKey, 'played');
+  return ContextMenuConfigNotifier(
+      prefs, AppSettings.contextMenuPlayedKey, 'played');
 });
 
 /// 菜单配置状态管理器
@@ -606,7 +662,8 @@ class ContextMenuConfigNotifier extends StateNotifier<ContextMenuConfig> {
   final String _key;
   final String _mode;
 
-  ContextMenuConfigNotifier(this._prefs, this._key, this._mode) : super(const ContextMenuConfig(items: [])) {
+  ContextMenuConfigNotifier(this._prefs, this._key, this._mode)
+      : super(const ContextMenuConfig(items: [])) {
     _load();
   }
 
@@ -639,9 +696,15 @@ class ContextMenuConfigNotifier extends StateNotifier<ContextMenuConfig> {
       int insertAt = updated.length;
       for (int i = presetIndex + 1; i < presetDefs.length; i++) {
         final neighborIdx = updated.indexWhere((e) => e.id == presetDefs[i].id);
-        if (neighborIdx >= 0) { insertAt = neighborIdx; break; }
+        if (neighborIdx >= 0) {
+          insertAt = neighborIdx;
+          break;
+        }
       }
-      updated.insert(insertAt, ContextMenuItemState(id: def.id, enabled: def.defaultEnabled, order: insertAt));
+      updated.insert(
+          insertAt,
+          ContextMenuItemState(
+              id: def.id, enabled: def.defaultEnabled, order: insertAt));
     }
     state = ContextMenuConfig(items: updated);
   }
@@ -692,7 +755,8 @@ class ContextMenuConfigNotifier extends StateNotifier<ContextMenuConfig> {
 }
 
 /// 刮削模式配置 Provider
-final scrapeModeConfigsProvider = StateNotifierProvider<ScrapeModeConfigsNotifier, ScrapeModeConfigs>((ref) {
+final scrapeModeConfigsProvider =
+    StateNotifierProvider<ScrapeModeConfigsNotifier, ScrapeModeConfigs>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
   return ScrapeModeConfigsNotifier(prefs);
 });
@@ -719,19 +783,23 @@ class ScrapeModeConfigsNotifier extends StateNotifier<ScrapeModeConfigs> {
   }
 
   ScrapeModeConfigs _migrateFromGlobal() {
-    final autoRename = _prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
+    final autoRename =
+        _prefs.getBool(AppSettings.autoRenameFoldersKey) ?? false;
     final autoMove = _prefs.getBool(AppSettings.autoMoveToSortedKey) ?? false;
     return ScrapeModeConfigs(configs: {
       ScrapeMode.quickScrape: const ScrapeModeConfig(),
-      ScrapeMode.rescrape: ScrapeModeConfig(renameFolder: autoRename, moveToSorted: autoMove),
-      ScrapeMode.scraperCenter: ScrapeModeConfig(renameFolder: autoRename, moveToSorted: autoMove),
+      ScrapeMode.rescrape:
+          ScrapeModeConfig(renameFolder: autoRename, moveToSorted: autoMove),
+      ScrapeMode.scraperCenter:
+          ScrapeModeConfig(renameFolder: autoRename, moveToSorted: autoMove),
       ScrapeMode.singleAdd: const ScrapeModeConfig(),
       ScrapeMode.batchAdd: const ScrapeModeConfig(),
     });
   }
 
   Future<void> save() async {
-    await _prefs.setString(AppSettings.scrapeModeConfigsKey, jsonEncode(state.toMap()));
+    await _prefs.setString(
+        AppSettings.scrapeModeConfigsKey, jsonEncode(state.toMap()));
   }
 
   void updateConfig(ScrapeMode mode, ScrapeModeConfig config) {

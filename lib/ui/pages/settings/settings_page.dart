@@ -1351,7 +1351,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         _buildCookieInput(
           label: 'pilipili',
           controller: _cookiePilipiliController,
-          hint: 'B站随便一个请求 复制 Cookie（确保包含了buvid3）',
+          hint: '去隐私模式或者换一个浏览器在B站登录账号 复制 Cookie（确保包含了buvid3，后续不要去打开这个网页避免刷新失效）',
         ),
         const SizedBox(height: 12),
         _buildCookieInput(
@@ -2018,7 +2018,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   Widget _buildAboutSection() {
-    const currentVersion = '1.4.3';
+    const currentVersion = '1.4.4';
 
     return _buildSection(
       title: '关于',

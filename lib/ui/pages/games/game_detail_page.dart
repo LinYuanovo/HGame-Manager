@@ -21,6 +21,7 @@ import '../../../scraper/parse_utils.dart';
 import '../../theme/app_theme.dart';
 import '../../../core/services/version_check_service.dart';
 import '../../../core/services/folder_rename_service.dart';
+import '../../../core/services/game_launch_service.dart';
 import '../../../core/services/play_time_tracker.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../widgets/image_manager_dialog.dart';
@@ -131,91 +132,114 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Future<String?> _findLeProcPath() async {
-    final repo = ref.read(toolRepositoryProvider);
-    final tools = await repo.getAllTools();
-    debugPrint('[LE] Searching for LEProc.exe among ${tools.length} tools');
-    for (final tool in tools) {
-      final fileName = tool.path.split(RegExp(r'[/\\]')).last.toLowerCase();
-      debugPrint('[LE] Tool: ${tool.name} -> $fileName');
-      if (fileName == 'leproc.exe') {
-        final file = File(tool.path);
-        final exists = await file.exists();
-        debugPrint('[LE] Found LEProc.exe at ${tool.path}, exists: $exists');
-        if (exists) return tool.path;
-      }
-    }
-    debugPrint('[LE] LEProc.exe not found in tools');
-    return null;
+    return ref.read(gameLaunchServiceProvider).findLeProcPath();
   }
 
-  Future<bool> _launchWithLocaleEmulator(Game game) async {
-    debugPrint('[LE] Attempting locale emulator launch for: ${game.title}');
-    final leProcPath = await _findLeProcPath();
-    if (leProcPath == null) {
-      debugPrint('[LE] LEProc.exe path is null, returning false');
-      return false;
+  Future<void> _launchCurrentGame() async {
+    final launchService = ref.read(gameLaunchServiceProvider);
+
+    var result = await launchService.launch(_currentGame);
+    if (result.localeEmulatorMissing && mounted) {
+      setState(() {
+        _currentGame = result.game;
+      });
+      AppTheme.showGlassToast(
+        context,
+        message: 'LEProc.exe 不存在，已回退为普通启动',
+        icon: Icons.warning_amber,
+        iconColor: AppTheme.warningColor,
+      );
     }
 
-    // Find the actual game exe path (not the directory)
-    String? exePath;
-
-    // First check if we have a stored launcher path
-    if (game.launcherLocked && game.gameLauncher != null && game.gameLauncher!.isNotEmpty) {
-      final file = File(game.gameLauncher!);
-      if (await file.exists()) {
-        exePath = game.gameLauncher!;
-        debugPrint('[LE] Using stored launcher: $exePath');
+    if (!result.launched && result.error == null && mounted) {
+      final manualResult = await _pickManualLauncherAndLaunch(result.game);
+      if (manualResult == null) {
+        _refreshAllProviders();
+        return;
       }
+      result = manualResult;
     }
 
-    // If no stored launcher, look for common exe files in game directory
-    if (exePath == null) {
-      final gameDir = Directory(game.path);
-      if (await gameDir.exists()) {
-        final fallbackExes = ['game.exe', 'Game.exe', 'launcher.exe', 'launch.exe', 'player.exe', 'play.exe'];
-        for (final exeName in fallbackExes) {
-          final exeFile = File('${game.path}${Platform.pathSeparator}$exeName');
-          if (await exeFile.exists()) {
-            exePath = exeFile.path;
-            debugPrint('[LE] Found fallback exe: $exePath');
-            break;
-          }
-        }
-
-        // If still not found, scan for any .exe in the game directory (top level only)
-        if (exePath == null) {
-          await for (final entity in gameDir.list()) {
-            if (entity is File && entity.path.toLowerCase().endsWith('.exe')) {
-              exePath = entity.path;
-              debugPrint('[LE] Found exe by scanning: $exePath');
-              break;
-            }
-          }
-        }
-      }
-    }
-
-    if (exePath == null) {
-      debugPrint('[LE] Could not find game exe in ${game.path}');
+    if (!result.launched) {
       if (mounted) {
-        AppTheme.showGlassToast(context, message: '未找到游戏启动器，请先手动启动一次游戏', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
+        final message =
+            result.error == null ? '未找到游戏启动器' : '启动失败: ${result.error}';
+        AppTheme.showGlassToast(
+          context,
+          message: message,
+          icon: Icons.error_outline,
+          iconColor: AppTheme.errorColor,
+        );
       }
-      return false;
+      _refreshAllProviders();
+      return;
     }
 
+    if (mounted) {
+      setState(() {
+        _currentGame = result.game;
+      });
+    }
+
+    final tracked = await PlayTimeTracker.startTracking(
+      result.game,
+      processSnapshotBefore: result.processSnapshotBefore,
+      launchedPath: result.launchedPath,
+      trackingHintPath: result.trackingHintPath,
+      launcherWasLocked: result.launcherWasLocked,
+      startedProcessId: result.startedProcessId,
+    );
+
+    if (!mounted) return;
+
+    if (!tracked) {
+      AppTheme.showGlassToast(
+        context,
+        message: '未检测到游戏进程，本次未计时',
+        icon: Icons.warning_amber,
+        iconColor: AppTheme.warningColor,
+      );
+      _refreshAllProviders();
+      return;
+    }
+
+    final repo = ref.read(gameRepositoryProvider);
+    final freshGame =
+        result.game.id == null ? null : await repo.getGameById(result.game.id!);
+    if (freshGame != null && mounted) {
+      setState(() {
+        _currentGame = freshGame;
+      });
+    }
+
+    _refreshAllProviders();
+  }
+
+  Future<GameLaunchResult?> _pickManualLauncherAndLaunch(Game game) async {
+    final result = await FilePicker.pickFiles(
+      dialogTitle: '选择游戏启动器',
+      type: FileType.any,
+      initialDirectory: game.path,
+    );
+
+    if (result == null ||
+        result.files.isEmpty ||
+        result.files.first.path == null) {
+      await _openGameFolder(game.path);
+      return null;
+    }
+
+    return ref.read(gameLaunchServiceProvider).launch(
+          game,
+          manualLauncherPath: result.files.first.path!,
+        );
+  }
+
+  Future<void> _openGameFolder(String path) async {
     try {
-      debugPrint('[LE] Running: $leProcPath with args: [$exePath]');
-      final result = await Process.run(leProcPath, [exePath]);
-      debugPrint('[LE] Process exit code: ${result.exitCode}');
-      debugPrint('[LE] stdout: ${result.stdout}');
-      debugPrint('[LE] stderr: ${result.stderr}');
-      return true;
-    } catch (e) {
-      debugPrint('[LE] Launch failed with exception: $e');
-      if (mounted) {
-        AppTheme.showGlassToast(context, message: '转区启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-      }
-      return false;
+      await Process.run('explorer.exe', [path]);
+    } catch (_) {
+      // 文件夹打开失败时静默处理，避免遮挡主流程。
     }
   }
 
@@ -228,9 +252,12 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _introController = TextEditingController(text: _currentGame.intro);
     _featuresController = TextEditingController(text: _currentGame.features);
     _changelogController = TextEditingController(text: _currentGame.changelog);
-    _downloadUrlController = TextEditingController(text: _currentGame.downloadUrl ?? '');
-    _sourceUrlController = TextEditingController(text: _currentGame.sourceUrl ?? '');
-    _gameLauncherController = TextEditingController(text: _currentGame.gameLauncher ?? '');
+    _downloadUrlController =
+        TextEditingController(text: _currentGame.downloadUrl ?? '');
+    _sourceUrlController =
+        TextEditingController(text: _currentGame.sourceUrl ?? '');
+    _gameLauncherController =
+        TextEditingController(text: _currentGame.gameLauncher ?? '');
     _pathController = TextEditingController(text: _currentGame.path);
     _makerController = TextEditingController(text: _currentGame.maker ?? '');
     _editedTags = List.from(_currentGame.tags);
@@ -242,7 +269,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _forceReloadImages();
     Future.wait([_preloadMediaFiles(), _loadMetadataHtml()]);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      debugPrint('[ScrollPos] postFrameCallback: calling _restoreScrollPositions');
+      debugPrint(
+          '[ScrollPos] postFrameCallback: calling _restoreScrollPositions');
       _restoreScrollPositions();
     });
     ServicesBinding.instance.keyboard.addHandler(_handleKeyDown);
@@ -254,7 +282,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Future<void> _checkIsLocal() async {
-    final sourceUrlFile = File('${_currentGame.path}${Platform.pathSeparator}source_url.txt');
+    final sourceUrlFile =
+        File('${_currentGame.path}${Platform.pathSeparator}source_url.txt');
     final exists = await sourceUrlFile.exists();
     if (mounted) {
       setState(() {
@@ -269,13 +298,20 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     final tagEnd = ']';
     final paths = <String>{};
 
-    for (final content in [_currentGame.intro, _currentGame.features, _currentGame.changelog, _currentGame.guide]) {
+    for (final content in [
+      _currentGame.intro,
+      _currentGame.features,
+      _currentGame.changelog,
+      _currentGame.guide
+    ]) {
       if (content == null) continue;
       for (final line in content.split('\n')) {
         if (line.startsWith(imageTagStart) && line.endsWith(tagEnd)) {
-          paths.add(line.substring(imageTagStart.length, line.length - tagEnd.length));
+          paths.add(line.substring(
+              imageTagStart.length, line.length - tagEnd.length));
         } else if (line.startsWith(videoTagStart) && line.endsWith(tagEnd)) {
-          paths.add(line.substring(videoTagStart.length, line.length - tagEnd.length));
+          paths.add(line.substring(
+              videoTagStart.length, line.length - tagEnd.length));
         }
       }
     }
@@ -296,7 +332,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   Future<void> _loadMetadataHtml() async {
     try {
-      final metadataFile = File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
+      final metadataFile =
+          File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
       if (await metadataFile.exists()) {
         final json = jsonDecode(await metadataFile.readAsString());
         _introHtml = json['intro_html'] as String?;
@@ -354,7 +391,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.getShadowColor(context).withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 2.0 : 3.0),
+                color: AppTheme.getShadowColor(context).withValues(
+                    alpha: Theme.of(context).brightness == Brightness.dark
+                        ? 2.0
+                        : 3.0),
                 blurRadius: 30,
                 spreadRadius: 2,
                 offset: const Offset(0, 8),
@@ -365,25 +405,33 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             children: [
               if (_downloadTotal > 0 && _downloadCurrent < _downloadTotal)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.08),
+                    color: AppTheme.getPrimaryColor(context)
+                        .withValues(alpha: 0.08),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.cloud_download, size: 14, color: AppTheme.getPrimaryColor(context)),
+                          Icon(Icons.cloud_download,
+                              size: 14,
+                              color: AppTheme.getPrimaryColor(context)),
                           const SizedBox(width: 8),
                           Text(
                             '正在下载截图 $_downloadCurrent/$_downloadTotal',
-                            style: TextStyle(fontSize: 12, color: AppTheme.getPrimaryColor(context)),
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.getPrimaryColor(context)),
                           ),
                           const Spacer(),
                           Text(
                             '${(_downloadProgress * 100).round()}%',
-                            style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.getTextSecondary(context)),
                           ),
                         ],
                       ),
@@ -392,8 +440,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
                           value: _downloadProgress,
-                          backgroundColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
-                          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.getPrimaryColor(context)),
+                          backgroundColor: AppTheme.getPrimaryColor(context)
+                              .withValues(alpha: 0.15),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              AppTheme.getPrimaryColor(context)),
                           minHeight: 4,
                         ),
                       ),
@@ -405,7 +455,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               Expanded(
                 child: _buildBody(),
               ),
-              if (_isEditing) Container(height: 1, color: AppTheme.getBorderColor(context)),
+              if (_isEditing)
+                Container(height: 1, color: AppTheme.getBorderColor(context)),
               if (_isEditing) _buildEditBar(),
             ],
           ),
@@ -419,19 +470,30 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppTheme.getPrimaryColor(context).withValues(alpha: 0.08), Colors.transparent],
+          colors: [
+            AppTheme.getPrimaryColor(context).withValues(alpha: 0.08),
+            Colors.transparent
+          ],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
       ),
       child: Row(
         children: [
-          Icon(Icons.videogame_asset, color: AppTheme.getPrimaryColor(context), size: 22),
+          Icon(Icons.videogame_asset,
+              color: AppTheme.getPrimaryColor(context), size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              _isEditing ? (_titleController.text.isEmpty ? '游戏详情' : _titleController.text) : (_currentGame.title ?? '游戏详情'),
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context)),
+              _isEditing
+                  ? (_titleController.text.isEmpty
+                      ? '游戏详情'
+                      : _titleController.text)
+                  : (_currentGame.title ?? '游戏详情'),
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.getDetailTextPrimary(context)),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -442,29 +504,42 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               height: 36,
               child: TextField(
                 controller: _quickScrapeController,
-                style: TextStyle(fontSize: 13, color: AppTheme.getDetailTextPrimary(context)),
+                style: TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.getDetailTextPrimary(context)),
                 decoration: InputDecoration(
                   hintText: '输入链接/id/关键词回车刮削',
-                  hintStyle: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  hintStyle: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.getTextSecondary(context)
+                          .withValues(alpha: 0.5)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   isDense: true,
                   filled: true,
                   fillColor: AppTheme.getGlassFillColor(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                    borderSide: BorderSide(
+                        color: AppTheme.getBorderColor(context)
+                            .withValues(alpha: 0.3)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                    borderSide: BorderSide(
+                        color: AppTheme.getBorderColor(context)
+                            .withValues(alpha: 0.3)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.5)),
+                    borderSide: BorderSide(
+                        color: AppTheme.getPrimaryColor(context)
+                            .withValues(alpha: 0.5)),
                   ),
                   prefixIcon: GestureDetector(
                     onTap: () {
-                      setState(() => _showChannelSelector = !_showChannelSelector);
+                      setState(
+                          () => _showChannelSelector = !_showChannelSelector);
                     },
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -487,12 +562,22 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                               _showChannelSelector = false;
                             }),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: _quickScrapeChannel == 'auto' ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.2) : Colors.transparent,
+                                color: _quickScrapeChannel == 'auto'
+                                    ? AppTheme.getPrimaryColor(context)
+                                        .withValues(alpha: 0.2)
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text('自动', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'auto' ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context))),
+                              child: Text('自动',
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      color: _quickScrapeChannel == 'auto'
+                                          ? AppTheme.getPrimaryColor(context)
+                                          : AppTheme.getTextSecondary(
+                                              context))),
                             ),
                           ),
                           GestureDetector(
@@ -501,12 +586,22 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                               _showChannelSelector = false;
                             }),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: _quickScrapeChannel == 'steam' ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.2) : Colors.transparent,
+                                color: _quickScrapeChannel == 'steam'
+                                    ? AppTheme.getPrimaryColor(context)
+                                        .withValues(alpha: 0.2)
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text('Steam', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'steam' ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context))),
+                              child: Text('Steam',
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      color: _quickScrapeChannel == 'steam'
+                                          ? AppTheme.getPrimaryColor(context)
+                                          : AppTheme.getTextSecondary(
+                                              context))),
                             ),
                           ),
                           GestureDetector(
@@ -515,12 +610,22 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                               _showChannelSelector = false;
                             }),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: _quickScrapeChannel == 'dlsite' ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.2) : Colors.transparent,
+                                color: _quickScrapeChannel == 'dlsite'
+                                    ? AppTheme.getPrimaryColor(context)
+                                        .withValues(alpha: 0.2)
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text('DLsite', style: TextStyle(fontSize: 10, color: _quickScrapeChannel == 'dlsite' ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context))),
+                              child: Text('DLsite',
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      color: _quickScrapeChannel == 'dlsite'
+                                          ? AppTheme.getPrimaryColor(context)
+                                          : AppTheme.getTextSecondary(
+                                              context))),
                             ),
                           ),
                         ],
@@ -534,7 +639,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             _quickScrapeController.clear();
                             setState(() {});
                           },
-                          child: Icon(Icons.close, size: 16, color: AppTheme.getTextSecondary(context)),
+                          child: Icon(Icons.close,
+                              size: 16,
+                              color: AppTheme.getTextSecondary(context)),
                         )
                       : null,
                 ),
@@ -545,28 +652,40 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             const SizedBox(width: 8),
             Builder(
               builder: (context) => Tooltip(
-                message: _currentGame.sourceUrl == null || _currentGame.sourceUrl!.isEmpty
+                message: _currentGame.sourceUrl == null ||
+                        _currentGame.sourceUrl!.isEmpty
                     ? '该游戏没有来源URL，无法重新刮削'
                     : '重新刮削',
                 child: IconButton(
                   icon: _isRescraping
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : Icon(Icons.refresh, size: 20, color: _currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty
-                          ? AppTheme.getDetailTextPrimary(context)
-                          : AppTheme.getDetailTextPrimary(context).withValues(alpha: 0.3)),
-                  onPressed: _currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty && !_isRescraping
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(Icons.refresh,
+                          size: 20,
+                          color: _currentGame.sourceUrl != null &&
+                                  _currentGame.sourceUrl!.isNotEmpty
+                              ? AppTheme.getDetailTextPrimary(context)
+                              : AppTheme.getDetailTextPrimary(context)
+                                  .withValues(alpha: 0.3)),
+                  onPressed: _currentGame.sourceUrl != null &&
+                          _currentGame.sourceUrl!.isNotEmpty &&
+                          !_isRescraping
                       ? _rescrapeGame
                       : null,
                 ),
               ),
             ),
             IconButton(
-              icon: Icon(Icons.edit_outlined, size: 20, color: AppTheme.getDetailTextPrimary(context)),
+              icon: Icon(Icons.edit_outlined,
+                  size: 20, color: AppTheme.getDetailTextPrimary(context)),
               tooltip: '编辑',
               onPressed: () => setState(() => _isEditing = true),
             ),
             IconButton(
-              icon: Icon(Icons.close, size: 22, color: AppTheme.getDetailTextPrimary(context)),
+              icon: Icon(Icons.close,
+                  size: 22, color: AppTheme.getDetailTextPrimary(context)),
               tooltip: '关闭 (ESC)',
               onPressed: () => Navigator.of(context).pop(),
             ),
@@ -626,7 +745,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               final leProcPath = await _findLeProcPath();
               if (leProcPath == null) {
                 if (mounted) {
-                  AppTheme.showGlassToast(context, message: '未找到 LEProc.exe，请先在工具页面导入', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
+                  AppTheme.showGlassToast(context,
+                      message: '未找到 LEProc.exe，请先在工具页面导入',
+                      icon: Icons.warning_amber,
+                      iconColor: AppTheme.warningColor);
                 }
                 return;
               }
@@ -645,7 +767,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     child: Row(
                       children: [
                         Icon(
-                          _currentGame.useLocaleEmulator ? Icons.check_box : Icons.check_box_outline_blank,
+                          _currentGame.useLocaleEmulator
+                              ? Icons.check_box
+                              : Icons.check_box_outline_blank,
                           size: 18,
                           color: AppTheme.getPrimaryColor(context),
                         ),
@@ -655,12 +779,15 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     ),
                     onTap: () async {
                       final newValue = !_currentGame.useLocaleEmulator;
-                      debugPrint('[LE] Toggling locale emulator for ${_currentGame.title}: $newValue');
+                      debugPrint(
+                          '[LE] Toggling locale emulator for ${_currentGame.title}: $newValue');
                       final repo = ref.read(gameRepositoryProvider);
-                      await repo.updateLocaleEmulator(_currentGame.id!, newValue);
+                      await repo.updateLocaleEmulator(
+                          _currentGame.id!, newValue);
                       if (!mounted) return;
                       setState(() {
-                        _currentGame = _currentGame.copyWith(useLocaleEmulator: newValue);
+                        _currentGame =
+                            _currentGame.copyWith(useLocaleEmulator: newValue);
                       });
                       if (mounted) {
                         AppTheme.showGlassToast(
@@ -678,101 +805,24 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () async {
-                  final repo = ref.read(gameRepositoryProvider);
-                  try {
-                    await repo.markAsPlayed(_currentGame.id!);
-                    if (!mounted) return;
-                    setState(() {
-                      _currentGame = _currentGame.copyWith(
-                        isPlayed: true,
-                        playCount: _currentGame.playCount + 1,
-                        lastPlayedTime: DateTime.now(),
-                      );
-                    });
-                    // 开始追踪游玩时长
-                    PlayTimeTracker.startTracking(_currentGame);
-                  } catch (e) {
-                    debugPrint('markAsPlayed error: $e');
-                  }
-
-                  bool launched = false;
-
-                  // 优先检查转区启动
-                  if (_currentGame.useLocaleEmulator) {
-                    debugPrint('[LE] Game has locale emulator flag, attempting LE launch');
-                    launched = await _launchWithLocaleEmulator(_currentGame);
-                    // 如果转区启动失败（工具不存在），自动回退并清除标记
-                    if (!launched) {
-                      debugPrint('[LE] LE launch failed, checking if LEProc exists');
-                      final leProcPath = await _findLeProcPath();
-                      if (leProcPath == null) {
-                        await repo.updateLocaleEmulator(_currentGame.id!, false);
-                        if (!mounted) return;
-                        setState(() {
-                          _currentGame = _currentGame.copyWith(useLocaleEmulator: false);
-                        });
-                        if (mounted) {
-                          AppTheme.showGlassToast(context, message: 'LEProc.exe 不存在，已回退为普通启动', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
-                        }
-                      }
-                    }
-                  }
-
-                  // 普通启动
-                  if (!launched) {
-                    launched = await _launchGame(_currentGame);
-                  }
-
-                  if (!launched && mounted) {
-                    final result = await FilePicker.pickFiles(
-                      dialogTitle: '选择游戏启动器',
-                      type: FileType.any,
-                      initialDirectory: _currentGame.path,
-                    );
-                    if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
-                      final launcherPath = result.files.first.path!;
-                      final updated = _currentGame.copyWith(
-                        gameLauncher: launcherPath,
-                        launcherLocked: true,
-                      );
-                      await repo.updateGame(updated);
-                      if (!mounted) return;
-                      setState(() {
-                        _currentGame = updated;
-                      });
-                      try {
-                        await Process.run(launcherPath, [], workingDirectory: _currentGame.path);
-                      } catch (e) {
-                        if (mounted) {
-                          AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-                        }
-                      }
-                    } else {
-                      try {
-                        await Process.run('explorer.exe', [_currentGame.path]);
-    } catch (_) {
-      // 浏览器打开失败时静默处理
-    }
-  }
-                  }
-
-                  if (mounted) {
-                    _refreshAllProviders();
-                  }
-                },
+                onPressed: _launchCurrentGame,
                 icon: Icon(
-                  _currentGame.useLocaleEmulator ? Icons.language : Icons.play_arrow,
+                  _currentGame.useLocaleEmulator
+                      ? Icons.language
+                      : Icons.play_arrow,
                   size: 20,
                 ),
-                label: Text(_currentGame.useLocaleEmulator ? '开始游玩[转区]' : '开始游玩'),
+                label:
+                    Text(_currentGame.useLocaleEmulator ? '开始游玩[转区]' : '开始游玩'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _currentGame.useLocaleEmulator
                       ? AppTheme.secondaryColor
                       : AppTheme.getPrimaryColor(context),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(GlassConstants.radiusMedium)),
                 ),
               ),
             ),
@@ -788,9 +838,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 label: const Text('存档管理'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.getPrimaryColor(context),
-                  side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
+                  side: BorderSide(
+                      color: AppTheme.getPrimaryColor(context)
+                          .withValues(alpha: 0.3)),
                   padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(GlassConstants.radiusMedium)),
                 ),
               ),
             ),
@@ -803,48 +857,67 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   Widget _buildImageCarousel() {
     final images = _currentGame.images;
-    
+
     return Column(
       children: [
         if (images.isEmpty)
           Container(
             height: 200,
             decoration: BoxDecoration(
-              color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
+              color:
+                  AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
             ),
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.image_not_supported_outlined, size: 48, color: AppTheme.getDetailTextPrimary(context).withValues(alpha: 0.3)),
+                  Icon(Icons.image_not_supported_outlined,
+                      size: 48,
+                      color: AppTheme.getDetailTextPrimary(context)
+                          .withValues(alpha: 0.3)),
                   const SizedBox(height: 8),
-                  Text('暂无图片', style: TextStyle(color: AppTheme.getDetailTextPrimary(context).withValues(alpha: 0.5), fontSize: 13)),
+                  Text('暂无图片',
+                      style: TextStyle(
+                          color: AppTheme.getDetailTextPrimary(context)
+                              .withValues(alpha: 0.5),
+                          fontSize: 13)),
                 ],
               ),
             ),
           )
         else
           GestureDetector(
-            onTap: () => setState(() => _currentImageIndex = (_currentImageIndex + 1) % images.length),
+            onTap: () => setState(() =>
+                _currentImageIndex = (_currentImageIndex + 1) % images.length),
             child: Container(
               height: 200,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                borderRadius:
+                    BorderRadius.circular(GlassConstants.radiusMedium),
+                border: Border.all(
+                    color: AppTheme.getBorderColor(context)
+                        .withValues(alpha: 0.3)),
               ),
               child: Stack(
                 fit: StackFit.expand,
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(GlassConstants.radiusMedium - 1),
+                    borderRadius:
+                        BorderRadius.circular(GlassConstants.radiusMedium - 1),
                     child: Image.file(
                       File(images[_currentImageIndex].imagePath),
-                      key: ValueKey('img_${_imageVersion}_${images[_currentImageIndex].imagePath}'),
+                      key: ValueKey(
+                          'img_${_imageVersion}_${images[_currentImageIndex].imagePath}'),
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
-                        color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
-                        child: Center(child: Icon(Icons.broken_image, size: 36, color: AppTheme.getDetailTextPrimary(context).withValues(alpha: 0.3))),
+                        color: AppTheme.getBackgroundColor(context)
+                            .withValues(alpha: 0.3),
+                        child: Center(
+                            child: Icon(Icons.broken_image,
+                                size: 36,
+                                color: AppTheme.getDetailTextPrimary(context)
+                                    .withValues(alpha: 0.3))),
                       ),
                     ),
                   ),
@@ -855,12 +928,18 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       right: 0,
                       child: Center(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
                             color: AppTheme.getOverlayColor(context),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Text('${_currentImageIndex + 1} / ${images.length}', style: TextStyle(fontSize: 11, color: AppTheme.getTextColorOnPrimary(context))),
+                          child: Text(
+                              '${_currentImageIndex + 1} / ${images.length}',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color:
+                                      AppTheme.getTextColorOnPrimary(context))),
                         ),
                       ),
                     ),
@@ -877,7 +956,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             label: const Text('管理图片'),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.getPrimaryColor(context),
-              side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
+              side: BorderSide(
+                  color:
+                      AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
               padding: const EdgeInsets.symmetric(vertical: 8),
             ),
           ),
@@ -946,14 +1027,14 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     final text = controller.text;
     final selection = controller.selection;
     final imageTag = '\n[图片:${selectedImage.imagePath}]\n';
-    
+
     // 检查 selection 是否有效
     final startPos = selection.start >= 0 ? selection.start : text.length;
     final endPos = selection.end >= 0 ? selection.end : text.length;
-    
+
     final newText = text.replaceRange(startPos, endPos, imageTag);
     controller.text = newText;
-    
+
     // 更新光标位置
     final newCursorPos = startPos + imageTag.length;
     controller.selection = TextSelection.fromPosition(
@@ -972,7 +1053,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       decoration: BoxDecoration(
         color: AppTheme.getGlassFillColor(context),
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-        border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.2)),
+        border: Border.all(
+            color: AppTheme.getBorderColor(context).withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -988,7 +1070,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 final makerName = _currentGame.maker?.trim();
                 if (makerName != null && makerName.isNotEmpty) {
                   for (final t in _currentGame.tags) {
-                    if (t.name.toLowerCase() == makerName.toLowerCase() && !seen.contains(t.name.toLowerCase())) {
+                    if (t.name.toLowerCase() == makerName.toLowerCase() &&
+                        !seen.contains(t.name.toLowerCase())) {
                       orderedTags.add(t);
                       seen.add(t.name.toLowerCase());
                       break;
@@ -1002,77 +1085,107 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   }
                 }
                 return Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: orderedTags.map((tag) => GestureDetector(
-                onTap: () {
-                  if (widget.onTagTap != null) {
-                    Navigator.of(context).pop(tag);
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
-                  ),
-                  child: Text(tag.name, style: const TextStyle(fontSize: 11, color: Colors.blue)),
-                ),
-              )).toList(),
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: orderedTags
+                      .map((tag) => GestureDetector(
+                            onTap: () {
+                              if (widget.onTagTap != null) {
+                                Navigator.of(context).pop(tag);
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: Colors.blue.withValues(alpha: 0.2)),
+                              ),
+                              child: Text(tag.name,
+                                  style: const TextStyle(
+                                      fontSize: 11, color: Colors.blue)),
+                            ),
+                          ))
+                      .toList(),
                 );
               },
             ),
             const SizedBox(height: 10),
           ],
-if (_isEditing) ...[
-  Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Icon(Icons.folder_outlined, size: 15, color: AppTheme.getDetailTextPrimary(context)),
-      const SizedBox(width: 8),
-      Text('路径:', style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context))),
-      const SizedBox(width: 6),
-      Expanded(
-        child: TextField(
-          controller: _pathController,
-          maxLines: 3,
-          style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context)),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            isDense: true,
-          ),
-          onChanged: (_) {
-            if (!_pathChanged) setState(() => _pathChanged = true);
-          },
-        ),
-      ),
-    ],
-  ),
-] else ...[
-  _InfoRow(icon: Icons.folder_outlined, label: '路径', value: _currentGame.path, isPath: true),
-],
+          if (_isEditing) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.folder_outlined,
+                    size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                const SizedBox(width: 8),
+                Text('路径:',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.getDetailTextPrimary(context))),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: TextField(
+                    controller: _pathController,
+                    maxLines: 3,
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.getDetailTextPrimary(context)),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: AppTheme.getSurfaceColor(context)
+                          .withValues(alpha: 0.5),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 8),
+                      isDense: true,
+                    ),
+                    onChanged: (_) {
+                      if (!_pathChanged) setState(() => _pathChanged = true);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            _InfoRow(
+                icon: Icons.folder_outlined,
+                label: '路径',
+                value: _currentGame.path,
+                isPath: true),
+          ],
           if (_isEditing) ...[
             const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.tag, size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                Icon(Icons.tag,
+                    size: 15, color: AppTheme.getDetailTextPrimary(context)),
                 const SizedBox(width: 8),
-                Text('版本:', style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context))),
+                Text('版本:',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.getDetailTextPrimary(context))),
                 const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
                     controller: _versionController,
-                    style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context)),
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.getDetailTextPrimary(context)),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      fillColor: AppTheme.getSurfaceColor(context)
+                          .withValues(alpha: 0.5),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       isDense: true,
                     ),
                   ),
@@ -1083,24 +1196,35 @@ if (_isEditing) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.business, size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                Icon(Icons.business,
+                    size: 15, color: AppTheme.getDetailTextPrimary(context)),
                 const SizedBox(width: 8),
-                Text('厂商:', style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context))),
+                Text('厂商:',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.getDetailTextPrimary(context))),
                 const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
                     controller: _makerController,
-                    style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context)),
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.getDetailTextPrimary(context)),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      fillColor: AppTheme.getSurfaceColor(context)
+                          .withValues(alpha: 0.5),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       isDense: true,
                       hintText: '输入厂商名',
                     ),
                     onChanged: (value) {
-                      _currentGame = _currentGame.copyWith(maker: value.isEmpty ? null : value);
+                      _currentGame = _currentGame.copyWith(
+                          maker: value.isEmpty ? null : value);
                     },
                   ),
                 ),
@@ -1108,37 +1232,57 @@ if (_isEditing) ...[
             ),
           ] else if (_currentGame.version != null) ...[
             const SizedBox(height: 10),
-            _InfoRow(icon: Icons.tag, label: '版本', value: _currentGame.version!),
+            _InfoRow(
+                icon: Icons.tag, label: '版本', value: _currentGame.version!),
           ],
           const SizedBox(height: 10),
           _InfoRow(
-            icon: _currentGame.isPlayed ? Icons.check_circle : Icons.circle_outlined,
+            icon: _currentGame.isPlayed
+                ? Icons.check_circle
+                : Icons.circle_outlined,
             label: '状态',
-            value: _currentGame.isPlayed ? '已游玩 (${_currentGame.playCount}次)' : '未游玩',
-            valueColor: _currentGame.isPlayed ? AppTheme.successColor : AppTheme.getDetailTextPrimary(context),
+            value: _currentGame.isPlayed
+                ? '已游玩 (${_currentGame.playCount}次)'
+                : '未游玩',
+            valueColor: _currentGame.isPlayed
+                ? AppTheme.successColor
+                : AppTheme.getDetailTextPrimary(context),
           ),
           if (_currentGame.lastPlayedTime != null) ...[
             const SizedBox(height: 10),
-            _InfoRow(icon: Icons.access_time, label: '最后游玩', value: _formatDate(_currentGame.lastPlayedTime!)),
+            _InfoRow(
+                icon: Icons.access_time,
+                label: '最后游玩',
+                value: _formatDate(_currentGame.lastPlayedTime!)),
           ],
           if (_isEditing) ...[
             const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.link, size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                Icon(Icons.link,
+                    size: 15, color: AppTheme.getDetailTextPrimary(context)),
                 const SizedBox(width: 8),
-                Text('来源:', style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context))),
+                Text('来源:',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.getDetailTextPrimary(context))),
                 const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
                     controller: _sourceUrlController,
-                    style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context)),
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.getDetailTextPrimary(context)),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      fillColor: AppTheme.getSurfaceColor(context)
+                          .withValues(alpha: 0.5),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       isDense: true,
                       hintText: '输入来源链接',
                     ),
@@ -1146,13 +1290,18 @@ if (_isEditing) ...[
                 ),
               ],
             ),
-          ] else if (_currentGame.sourceUrl != null && _currentGame.sourceUrl!.isNotEmpty) ...[
+          ] else if (_currentGame.sourceUrl != null &&
+              _currentGame.sourceUrl!.isNotEmpty) ...[
             const SizedBox(height: 10),
             Row(
               children: [
-                Icon(Icons.link, size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                Icon(Icons.link,
+                    size: 15, color: AppTheme.getDetailTextPrimary(context)),
                 const SizedBox(width: 8),
-                Text('来源:', style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context))),
+                Text('来源:',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.getDetailTextPrimary(context))),
                 const SizedBox(width: 6),
                 ElevatedButton.icon(
                   onPressed: () async {
@@ -1165,14 +1314,18 @@ if (_isEditing) ...[
                   icon: const Icon(Icons.open_in_new, size: 12),
                   label: const Text('来源', style: TextStyle(fontSize: 11)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+                    backgroundColor: AppTheme.getPrimaryColor(context)
+                        .withValues(alpha: 0.1),
                     foregroundColor: AppTheme.getPrimaryColor(context),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6),
-                      side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
+                      side: BorderSide(
+                          color: AppTheme.getPrimaryColor(context)
+                              .withValues(alpha: 0.3)),
                     ),
                   ),
                 ),
@@ -1181,7 +1334,11 @@ if (_isEditing) ...[
           ],
           if (_isEditing) ...[
             const SizedBox(height: 12),
-            Text('启动器路径', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.getDetailTextPrimary(context))),
+            Text('启动器路径',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.getDetailTextPrimary(context))),
             const SizedBox(height: 4),
             Row(
               children: [
@@ -1190,15 +1347,23 @@ if (_isEditing) ...[
                     controller: _gameLauncherController,
                     decoration: InputDecoration(
                       hintText: '留空则自动检测',
-                      hintStyle: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      hintStyle: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.getTextSecondary(context)
+                              .withValues(alpha: 0.5)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                        borderSide: BorderSide(
+                            color: AppTheme.getBorderColor(context)
+                                .withValues(alpha: 0.3)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                        borderSide: BorderSide(
+                            color: AppTheme.getBorderColor(context)
+                                .withValues(alpha: 0.3)),
                       ),
                       isDense: true,
                     ),
@@ -1213,7 +1378,9 @@ if (_isEditing) ...[
                       type: FileType.any,
                       initialDirectory: _currentGame.path,
                     );
-                    if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
+                    if (result != null &&
+                        result.files.isNotEmpty &&
+                        result.files.first.path != null) {
                       _gameLauncherController.text = result.files.first.path!;
                     }
                   },
@@ -1221,23 +1388,32 @@ if (_isEditing) ...[
                   label: const Text('浏览', style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.getPrimaryColor(context),
-                    side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    side: BorderSide(
+                        color: AppTheme.getPrimaryColor(context)
+                            .withValues(alpha: 0.3)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                   ),
                 ),
               ],
             ),
           ],
           // 存档路径信息（仅编辑模式或有存档路径时显示）
-          if (_isEditing && (_currentGame.isPlayed || _currentGame.playCount > 0)) ...[
+          if (_isEditing &&
+              (_currentGame.isPlayed || _currentGame.playCount > 0)) ...[
             const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.folder_special, size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                Icon(Icons.folder_special,
+                    size: 15, color: AppTheme.getDetailTextPrimary(context)),
                 const SizedBox(width: 8),
-                Text('存档:', style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context))),
+                Text('存档:',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.getDetailTextPrimary(context))),
                 const SizedBox(width: 6),
                 Expanded(
                   child: GestureDetector(
@@ -1246,8 +1422,13 @@ if (_isEditing) ...[
                       _currentGame.savePath ?? '点击设置存档路径',
                       style: TextStyle(
                         fontSize: 12,
-                        color: _currentGame.savePath != null ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
-                        decoration: _currentGame.savePath != null ? TextDecoration.underline : null,
+                        color: _currentGame.savePath != null
+                            ? AppTheme.getPrimaryColor(context)
+                            : AppTheme.getTextSecondary(context)
+                                .withValues(alpha: 0.5),
+                        decoration: _currentGame.savePath != null
+                            ? TextDecoration.underline
+                            : null,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -1256,25 +1437,36 @@ if (_isEditing) ...[
                 ),
               ],
             ),
-          ] else if (_currentGame.savePath != null && _currentGame.savePath!.isNotEmpty) ...[
+          ] else if (_currentGame.savePath != null &&
+              _currentGame.savePath!.isNotEmpty) ...[
             const SizedBox(height: 10),
-            _InfoRow(icon: Icons.folder_special, label: '存档', value: _currentGame.savePath!, isPath: true),
+            _InfoRow(
+                icon: Icons.folder_special,
+                label: '存档',
+                value: _currentGame.savePath!,
+                isPath: true),
           ],
           if (_isEditing) ...[
             const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.timer, size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                Icon(Icons.timer,
+                    size: 15, color: AppTheme.getDetailTextPrimary(context)),
                 const SizedBox(width: 8),
-                Text('游玩时长:', style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context))),
+                Text('游玩时长:',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.getDetailTextPrimary(context))),
                 const SizedBox(width: 6),
                 Expanded(
                   child: GestureDetector(
                     onTap: _showEditPlayDurationDialog,
                     child: Text(
                       formatDuration(_currentGame.playDuration),
-                      style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context)),
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.getDetailTextPrimary(context)),
                     ),
                   ),
                 ),
@@ -1286,20 +1478,30 @@ if (_isEditing) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.download, size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                Icon(Icons.download,
+                    size: 15, color: AppTheme.getDetailTextPrimary(context)),
                 const SizedBox(width: 8),
-                Text('下载:', style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context))),
+                Text('下载:',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.getDetailTextPrimary(context))),
                 const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
                     controller: _downloadUrlController,
                     maxLines: 3,
-                    style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context)),
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.getDetailTextPrimary(context)),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      fillColor: AppTheme.getSurfaceColor(context)
+                          .withValues(alpha: 0.5),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 6),
                       isDense: true,
                       hintText: '输入下载链接',
                     ),
@@ -1307,7 +1509,8 @@ if (_isEditing) ...[
                 ),
               ],
             ),
-          ] else if (_currentGame.downloadUrl != null && _currentGame.downloadUrl!.isNotEmpty) ...[
+          ] else if (_currentGame.downloadUrl != null &&
+              _currentGame.downloadUrl!.isNotEmpty) ...[
             const SizedBox(height: 10),
             _buildDownloadLinks(_currentGame.downloadUrl!),
           ],
@@ -1322,26 +1525,31 @@ if (_isEditing) ...[
       runSpacing: 6,
       children: [
         ..._editedTags.map((tag) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: Colors.blue.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(tag.name, style: const TextStyle(fontSize: 11, color: Colors.blue), overflow: TextOverflow.ellipsis, maxLines: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
               ),
-              const SizedBox(width: 4),
-              GestureDetector(
-                onTap: () => setState(() => _editedTags.remove(tag)),
-                child: const Icon(Icons.close, size: 12, color: Colors.blue),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(tag.name,
+                        style:
+                            const TextStyle(fontSize: 11, color: Colors.blue),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1),
+                  ),
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: () => setState(() => _editedTags.remove(tag)),
+                    child:
+                        const Icon(Icons.close, size: 12, color: Colors.blue),
+                  ),
+                ],
               ),
-            ],
-          ),
-        )),
+            )),
         GestureDetector(
           onTap: () => _showAddTagDialog(),
           child: Container(
@@ -1349,9 +1557,12 @@ if (_isEditing) ...[
             decoration: BoxDecoration(
               color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.2)),
+              border: Border.all(
+                  color:
+                      AppTheme.getPrimaryColor(context).withValues(alpha: 0.2)),
             ),
-            child: Icon(Icons.add, size: 12, color: AppTheme.getPrimaryColor(context)),
+            child: Icon(Icons.add,
+                size: 12, color: AppTheme.getPrimaryColor(context)),
           ),
         ),
       ],
@@ -1372,7 +1583,11 @@ if (_isEditing) ...[
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('添加标签', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+                  Text('添加标签',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.getDetailTextPrimary(context))),
                   const SizedBox(height: 16),
                   TextField(
                     controller: controller,
@@ -1397,7 +1612,8 @@ if (_isEditing) ...[
                           controller.dispose();
                           if (name.isNotEmpty) {
                             setState(() {
-                              _editedTags.add(Tag(name: name, type: Tag.typeCustom));
+                              _editedTags
+                                  .add(Tag(name: name, type: Tag.typeCustom));
                             });
                           }
                           Navigator.of(context).pop();
@@ -1418,7 +1634,8 @@ if (_isEditing) ...[
   bool _handleKeyDown(KeyEvent event) {
     if (event is KeyDownEvent) {
       if (event.logicalKey == LogicalKeyboardKey.keyF &&
-          (HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed)) {
+          (HardwareKeyboard.instance.isControlPressed ||
+              HardwareKeyboard.instance.isMetaPressed)) {
         setState(() {
           _isSearchOpen = !_isSearchOpen;
           if (!_isSearchOpen) {
@@ -1442,7 +1659,8 @@ if (_isEditing) ...[
 
   void _captureAndSaveScrollPositions() {
     if (_currentGame.id == null || !_contentScrollController.hasClients) {
-      debugPrint('[ScrollPos] SAVE skipped: id=${_currentGame.id}, hasClients=${_contentScrollController.hasClients}');
+      debugPrint(
+          '[ScrollPos] SAVE skipped: id=${_currentGame.id}, hasClients=${_contentScrollController.hasClients}');
       return;
     }
     final maxScroll = _contentScrollController.position.maxScrollExtent;
@@ -1453,7 +1671,8 @@ if (_isEditing) ...[
     final ratio = _contentScrollController.offset / maxScroll;
     final introRatio = _showGuide ? _currentGame.introScrollPosition : ratio;
     final guideRatio = _showGuide ? ratio : _currentGame.guideScrollPosition;
-    debugPrint('[ScrollPos] SAVE: id=${_currentGame.id}, showGuide=$_showGuide, offset=${_contentScrollController.offset}, maxScroll=$maxScroll, ratio=$ratio, introRatio=$introRatio, guideRatio=$guideRatio');
+    debugPrint(
+        '[ScrollPos] SAVE: id=${_currentGame.id}, showGuide=$_showGuide, offset=${_contentScrollController.offset}, maxScroll=$maxScroll, ratio=$ratio, introRatio=$introRatio, guideRatio=$guideRatio');
     _currentGame = _currentGame.copyWith(
       introScrollPosition: introRatio,
       guideScrollPosition: guideRatio,
@@ -1467,24 +1686,30 @@ if (_isEditing) ...[
 
   Future<void> _restoreScrollPositions() async {
     if (_currentGame.id == null || !_contentScrollController.hasClients) {
-      debugPrint('[ScrollPos] RESTORE skipped: id=${_currentGame.id}, hasClients=${_contentScrollController.hasClients}');
+      debugPrint(
+          '[ScrollPos] RESTORE skipped: id=${_currentGame.id}, hasClients=${_contentScrollController.hasClients}');
       return;
     }
     final maxScroll = _contentScrollController.position.maxScrollExtent;
-    debugPrint('[ScrollPos] RESTORE: initial maxScroll=$maxScroll, showGuide=$_showGuide');
+    debugPrint(
+        '[ScrollPos] RESTORE: initial maxScroll=$maxScroll, showGuide=$_showGuide');
     if (maxScroll <= 0) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _restoreScrollPositions());
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _restoreScrollPositions());
       return;
     }
     final repo = ref.read(gameRepositoryProvider);
     final freshGame = await repo.getGameById(_currentGame.id!);
     if (freshGame != null) {
       _currentGame = freshGame;
-      debugPrint('[ScrollPos] RESTORE: refreshed game, introRatio=${_currentGame.introScrollPosition}, guideRatio=${_currentGame.guideScrollPosition}');
+      debugPrint(
+          '[ScrollPos] RESTORE: refreshed game, introRatio=${_currentGame.introScrollPosition}, guideRatio=${_currentGame.guideScrollPosition}');
     } else {
       debugPrint('[ScrollPos] RESTORE: freshGame is null');
     }
-    final targetRatio = _showGuide ? _currentGame.guideScrollPosition : _currentGame.introScrollPosition;
+    final targetRatio = _showGuide
+        ? _currentGame.guideScrollPosition
+        : _currentGame.introScrollPosition;
     debugPrint('[ScrollPos] RESTORE: targetRatio=$targetRatio');
     _suppressScrollSave = true;
     _lastStableMax = 0;
@@ -1510,7 +1735,8 @@ if (_isEditing) ...[
         _releaseRestoreLock();
         return;
       }
-      WidgetsBinding.instance.addPostFrameCallback((_) => _applyRestoreJump(targetRatio));
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _applyRestoreJump(targetRatio));
       return;
     }
     // First frame: always jump immediately for fast feedback
@@ -1518,7 +1744,8 @@ if (_isEditing) ...[
       _lastStableMax = maxScroll;
       _stableFrames = 0;
       final targetOffset = (targetRatio * maxScroll).clamp(0.0, maxScroll);
-      debugPrint('[ScrollPos] RESTORE: initial jump to $targetOffset (ratio=$targetRatio, maxScroll=$maxScroll)');
+      debugPrint(
+          '[ScrollPos] RESTORE: initial jump to $targetOffset (ratio=$targetRatio, maxScroll=$maxScroll)');
       _isRestoringScroll = true;
       _contentScrollController.jumpTo(targetOffset);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1531,18 +1758,21 @@ if (_isEditing) ...[
     if (maxScroll == _lastStableMax) {
       _stableFrames++;
       if (_stableFrames >= 5) {
-        debugPrint('[ScrollPos] RESTORE: stable at maxScroll=$maxScroll (${_stableFrames}frames), done');
+        debugPrint(
+            '[ScrollPos] RESTORE: stable at maxScroll=$maxScroll (${_stableFrames}frames), done');
         _releaseRestoreLock();
         return;
       }
-      WidgetsBinding.instance.addPostFrameCallback((_) => _applyRestoreJump(targetRatio));
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _applyRestoreJump(targetRatio));
       return;
     }
     // maxScroll grew: do a corrective jump
     _lastStableMax = maxScroll;
     _stableFrames = 0;
     final targetOffset = (targetRatio * maxScroll).clamp(0.0, maxScroll);
-    debugPrint('[ScrollPos] RESTORE: corrective jump to $targetOffset (ratio=$targetRatio, maxScroll=$maxScroll)');
+    debugPrint(
+        '[ScrollPos] RESTORE: corrective jump to $targetOffset (ratio=$targetRatio, maxScroll=$maxScroll)');
     _isRestoringScroll = true;
     _contentScrollController.jumpTo(targetOffset);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1616,9 +1846,11 @@ if (_isEditing) ...[
     });
 
     if (_searchMatches.isNotEmpty) {
-      debugPrint('[Search] Found ${_searchMatches.length} matches, first: sectionKey=${_searchMatches[0].sectionKey}, lineIndex=${_searchMatches[0].lineIndex}');
+      debugPrint(
+          '[Search] Found ${_searchMatches.length} matches, first: sectionKey=${_searchMatches[0].sectionKey}, lineIndex=${_searchMatches[0].lineIndex}');
       for (final m in _searchMatches) {
-        debugPrint('[HTMLSearch] match: sectionKey=${m.sectionKey}, lineIndex=${m.lineIndex}, charOffset=${m.charOffset}, matchLength=${m.matchLength}');
+        debugPrint(
+            '[HTMLSearch] match: sectionKey=${m.sectionKey}, lineIndex=${m.lineIndex}, charOffset=${m.charOffset}, matchLength=${m.matchLength}');
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollToMatch(_searchMatches[_currentMatchIndex]);
@@ -1641,26 +1873,33 @@ if (_isEditing) ...[
   }
 
   Future<void> _scrollToMatch(ContentSearchMatch match) async {
-    final exactKey = _contentBlockKeys['${match.sectionKey}_${match.lineIndex}'];
-    debugPrint('[Search] _scrollToMatch: sectionKey=${match.sectionKey}, lineIndex=${match.lineIndex}, exactKey found=${exactKey != null}, context=${exactKey?.currentContext != null}');
-    debugPrint('[HTMLSearch] _contentBlockKeys keys: ${_contentBlockKeys.keys.where((k) => k.startsWith('${match.sectionKey}_')).toList()}');
+    final exactKey =
+        _contentBlockKeys['${match.sectionKey}_${match.lineIndex}'];
+    debugPrint(
+        '[Search] _scrollToMatch: sectionKey=${match.sectionKey}, lineIndex=${match.lineIndex}, exactKey found=${exactKey != null}, context=${exactKey?.currentContext != null}');
+    debugPrint(
+        '[HTMLSearch] _contentBlockKeys keys: ${_contentBlockKeys.keys.where((k) => k.startsWith('${match.sectionKey}_')).toList()}');
 
     GlobalKey? targetKey = exactKey;
     if (targetKey == null || targetKey.currentContext == null) {
-      debugPrint('[HTMLSearch] Exact key not found or has null context, searching for nearest key...');
+      debugPrint(
+          '[HTMLSearch] Exact key not found or has null context, searching for nearest key...');
       for (var offset = 1; offset < 50; offset++) {
         for (final dir in [-1, 1]) {
-          final candidateKey = _contentBlockKeys['${match.sectionKey}_${match.lineIndex + offset * dir}'];
+          final candidateKey = _contentBlockKeys[
+              '${match.sectionKey}_${match.lineIndex + offset * dir}'];
           if (candidateKey != null && candidateKey.currentContext != null) {
             targetKey = candidateKey;
-            debugPrint('[HTMLSearch] Found nearest key at offset=${offset * dir}: ${match.sectionKey}_${match.lineIndex + offset * dir}');
+            debugPrint(
+                '[HTMLSearch] Found nearest key at offset=${offset * dir}: ${match.sectionKey}_${match.lineIndex + offset * dir}');
             break;
           }
         }
         if (targetKey != null) break;
       }
       if (targetKey == null || targetKey.currentContext == null) {
-        debugPrint('[HTMLSearch] No valid key found for sectionKey=${match.sectionKey}, falling back to any key in this section');
+        debugPrint(
+            '[HTMLSearch] No valid key found for sectionKey=${match.sectionKey}, falling back to any key in this section');
         final fallbackKey = _contentBlockKeys.keys
             .where((k) => k.startsWith('${match.sectionKey}_'))
             .map((k) => _contentBlockKeys[k])
@@ -1696,7 +1935,8 @@ if (_isEditing) ...[
 
   void _previousMatch() {
     if (_searchMatches.isEmpty) return;
-    final newIndex = (_currentMatchIndex - 1 + _searchMatches.length) % _searchMatches.length;
+    final newIndex = (_currentMatchIndex - 1 + _searchMatches.length) %
+        _searchMatches.length;
 
     if (newIndex == _currentMatchIndex && _searchMatches.length == 1) return;
 
@@ -1720,197 +1960,271 @@ if (_isEditing) ...[
               key: _scrollContentKey,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-          if (_isEditing)
-            TextField(
-              controller: _titleController,
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context), height: 1.4),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                hintText: '输入游戏标题',
-              ),
-              maxLines: null,
-            )
-          else
-            SelectableText(
-              _currentGame.title ?? '未命名游戏', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context), height: 1.4),
-            ),
+                if (_isEditing)
+                  TextField(
+                    controller: _titleController,
+                    style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.getDetailTextPrimary(context),
+                        height: 1.4),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: AppTheme.getSurfaceColor(context)
+                          .withValues(alpha: 0.5),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      hintText: '输入游戏标题',
+                    ),
+                    maxLines: null,
+                  )
+                else
+                  SelectableText(
+                    _currentGame.title ?? '未命名游戏',
+                    style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.getDetailTextPrimary(context),
+                        height: 1.4),
+                  ),
 
-          if (!_isEditing && _currentGame.maker != null && _currentGame.maker!.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Icon(Icons.business, size: 15, color: AppTheme.getTextSecondary(context)),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: _currentGame.maker!.split(', ').map((name) {
-                      final trimmedName = name.trim();
-                      return InkWell(
-                        onTap: () {
-                          if (_currentGame.makerUrl != null && _currentGame.makerUrl!.isNotEmpty) {
-                            launchUrl(Uri.parse(_currentGame.makerUrl!));
-                          }
-                        },
-                        onDoubleTap: () {
-                          Clipboard.setData(ClipboardData(text: trimmedName));
-                          AppTheme.showGlassToast(
-                            context,
-                            message: '已复制: $trimmedName',
-                            icon: Icons.copy,
-                            iconColor: AppTheme.successColor,
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
-                          ),
-                          child: Text(
-                            trimmedName,
-                            style: TextStyle(fontSize: 13, color: AppTheme.getPrimaryColor(context), fontWeight: FontWeight.w500),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
-            ),
-          ],
-          if (_currentGame.version != null || _currentGame.rating > 0 || _currentGame.playDuration > 0) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                if (_currentGame.version != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(_currentGame.version ?? '',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.getPrimaryColor(context))),
-                        const SizedBox(width: 6),
-                        GestureDetector(
-                          onTap: _isCheckingUpdate ? null : _checkForUpdate,
-                          child: _isCheckingUpdate
-                              ? SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.getPrimaryColor(context)),
-                                )
-                              : Icon(Icons.browser_updated, size: 16, color: AppTheme.getPrimaryColor(context)),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (_currentGame.playDuration > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.timer, size: 14, color: AppTheme.getPrimaryColor(context)),
-                        const SizedBox(width: 4),
-                        Text(
-                          formatDuration(_currentGame.playDuration),
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.getPrimaryColor(context)),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (_currentGame.rating > 0) ...[
+                if (!_isEditing &&
+                    _currentGame.maker != null &&
+                    _currentGame.maker!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
                   Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: List.generate(5, (index) {
-                      final starValue = index + 1;
-                      if (_currentGame.rating >= starValue) {
-                        return Icon(Icons.star, size: 18, color: AppTheme.getStarColor(context));
-                      } else if (_currentGame.rating >= starValue - 0.5) {
-                        return Icon(Icons.star_half, size: 18, color: AppTheme.getStarColor(context));
-                      } else {
-                        return Icon(Icons.star_border, size: 18, color: AppTheme.getTextSecondary(context));
-                      }
-                    }),
+                    children: [
+                      Icon(Icons.business,
+                          size: 15, color: AppTheme.getTextSecondary(context)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: _currentGame.maker!.split(', ').map((name) {
+                            final trimmedName = name.trim();
+                            return InkWell(
+                              onTap: () {
+                                if (_currentGame.makerUrl != null &&
+                                    _currentGame.makerUrl!.isNotEmpty) {
+                                  launchUrl(Uri.parse(_currentGame.makerUrl!));
+                                }
+                              },
+                              onDoubleTap: () {
+                                Clipboard.setData(
+                                    ClipboardData(text: trimmedName));
+                                AppTheme.showGlassToast(
+                                  context,
+                                  message: '已复制: $trimmedName',
+                                  icon: Icons.copy,
+                                  iconColor: AppTheme.successColor,
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.getPrimaryColor(context)
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                      color: AppTheme.getPrimaryColor(context)
+                                          .withValues(alpha: 0.3)),
+                                ),
+                                child: Text(
+                                  trimmedName,
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.getPrimaryColor(context),
+                                      fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
                   ),
-                  if (_currentGame.review != null && _currentGame.review!.isNotEmpty)
-                    _HoverReviewButton(
-                      review: _currentGame.review!,
-                      onTap: () => _showReviewDetail(context),
-                      onDoubleTap: () {
-                        Clipboard.setData(ClipboardData(text: _currentGame.review!));
-                        AppTheme.showGlassToast(context, message: '已复制评论内容');
-                      },
-                    ),
+                ],
+                if (_currentGame.version != null ||
+                    _currentGame.rating > 0 ||
+                    _currentGame.playDuration > 0) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (_currentGame.version != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.getPrimaryColor(context)
+                                .withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(_currentGame.version ?? '',
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color:
+                                          AppTheme.getPrimaryColor(context))),
+                              const SizedBox(width: 6),
+                              GestureDetector(
+                                onTap:
+                                    _isCheckingUpdate ? null : _checkForUpdate,
+                                child: _isCheckingUpdate
+                                    ? SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: AppTheme.getPrimaryColor(
+                                                context)),
+                                      )
+                                    : Icon(Icons.browser_updated,
+                                        size: 16,
+                                        color:
+                                            AppTheme.getPrimaryColor(context)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (_currentGame.playDuration > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.getPrimaryColor(context)
+                                .withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.timer,
+                                  size: 14,
+                                  color: AppTheme.getPrimaryColor(context)),
+                              const SizedBox(width: 4),
+                              Text(
+                                formatDuration(_currentGame.playDuration),
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppTheme.getPrimaryColor(context)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (_currentGame.rating > 0) ...[
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(5, (index) {
+                            final starValue = index + 1;
+                            if (_currentGame.rating >= starValue) {
+                              return Icon(Icons.star,
+                                  size: 18,
+                                  color: AppTheme.getStarColor(context));
+                            } else if (_currentGame.rating >= starValue - 0.5) {
+                              return Icon(Icons.star_half,
+                                  size: 18,
+                                  color: AppTheme.getStarColor(context));
+                            } else {
+                              return Icon(Icons.star_border,
+                                  size: 18,
+                                  color: AppTheme.getTextSecondary(context));
+                            }
+                          }),
+                        ),
+                        if (_currentGame.review != null &&
+                            _currentGame.review!.isNotEmpty)
+                          _HoverReviewButton(
+                            review: _currentGame.review!,
+                            onTap: () => _showReviewDetail(context),
+                            onDoubleTap: () {
+                              Clipboard.setData(
+                                  ClipboardData(text: _currentGame.review!));
+                              AppTheme.showGlassToast(context,
+                                  message: '已复制评论内容');
+                            },
+                          ),
+                      ],
+                    ],
+                  ),
+                ],
+
+                const SizedBox(height: 32),
+                Container(
+                  height: 1,
+                  color:
+                      AppTheme.getBorderColor(context).withValues(alpha: 0.3),
+                ),
+                const SizedBox(height: 16),
+
+                // Tab切换：简介/攻略
+                Row(
+                  children: [
+                    _buildTabButton('简介', !_showGuide, () => _switchTab(false)),
+                    const SizedBox(width: 8),
+                    _buildTabButton('攻略', _showGuide, () => _switchTab(true)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                if (!_showGuide)
+                  _buildSectionWithImages(
+                      title: '简介',
+                      icon: Icons.description_outlined,
+                      content: _currentGame.intro,
+                      images: images,
+                      sectionIndex: 0)
+                else
+                  _buildGuideSection(),
+
+                if (_currentGame.features != null &&
+                    _currentGame.features!.isNotEmpty) ...[
+                  const SizedBox(height: 32),
+                  _buildSectionWithImages(
+                      title: '特性',
+                      icon: Icons.stars_outlined,
+                      content: _currentGame.features,
+                      images: images,
+                      sectionIndex: 1),
+                ],
+
+                if (_currentGame.changelog != null &&
+                    _currentGame.changelog!.isNotEmpty) ...[
+                  const SizedBox(height: 32),
+                  _buildSectionWithImages(
+                      title: '更新日志',
+                      icon: Icons.history,
+                      content: _currentGame.changelog,
+                      images: images,
+                      sectionIndex: 2),
+                ],
+
+                // 本地游戏显示全部图片画廊，刮削游戏显示更多图片
+                if (_isLocalGame()) ...[
+                  if (images.isNotEmpty) ...[
+                    const SizedBox(height: 32),
+                    _buildAllImagesGallery(images),
+                  ],
+                ] else ...[
+                  if (images.length > 3) ...[
+                    const SizedBox(height: 32),
+                    _buildImageGallery(_getUnusedImages(images)),
+                  ],
                 ],
               ],
             ),
-          ],
-
-          const SizedBox(height: 32),
-          Container(
-            height: 1,
-            color: AppTheme.getBorderColor(context).withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 16),
-
-          // Tab切换：简介/攻略
-          Row(
-            children: [
-              _buildTabButton('简介', !_showGuide, () => _switchTab(false)),
-              const SizedBox(width: 8),
-              _buildTabButton('攻略', _showGuide, () => _switchTab(true)),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          if (!_showGuide)
-            _buildSectionWithImages(title: '简介', icon: Icons.description_outlined, content: _currentGame.intro, images: images, sectionIndex: 0)
-          else
-            _buildGuideSection(),
-
-          if (_currentGame.features != null && _currentGame.features!.isNotEmpty) ...[
-            const SizedBox(height: 32),
-            _buildSectionWithImages(title: '特性', icon: Icons.stars_outlined, content: _currentGame.features, images: images, sectionIndex: 1),
-          ],
-
-          if (_currentGame.changelog != null && _currentGame.changelog!.isNotEmpty) ...[
-            const SizedBox(height: 32),
-            _buildSectionWithImages(title: '更新日志', icon: Icons.history, content: _currentGame.changelog, images: images, sectionIndex: 2),
-          ],
-
-          // 本地游戏显示全部图片画廊，刮削游戏显示更多图片
-          if (_isLocalGame()) ...[
-            if (images.isNotEmpty) ...[
-              const SizedBox(height: 32),
-              _buildAllImagesGallery(images),
-            ],
-          ] else ...[
-          if (images.length > 3) ...[
-            const SizedBox(height: 32),
-            _buildImageGallery(_getUnusedImages(images)),
-          ],
-          ],
-          ],
-        ),
           ),
         ),
         DetailScrollButtons(
@@ -1928,11 +2242,22 @@ if (_isEditing) ...[
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15) : Colors.transparent,
+          color: isActive
+              ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: isActive ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.3) : AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+          border: Border.all(
+              color: isActive
+                  ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)
+                  : AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
         ),
-        child: Text(label, style: TextStyle(fontSize: 14, fontWeight: isActive ? FontWeight.w600 : FontWeight.normal, color: isActive ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context))),
+        child: Text(label,
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                color: isActive
+                    ? AppTheme.getPrimaryColor(context)
+                    : AppTheme.getTextSecondary(context))),
       ),
     );
   }
@@ -1948,7 +2273,7 @@ if (_isEditing) ...[
         ),
       );
     }
-    
+
     final guide = _currentGame.guide;
     if (guide == null || guide.isEmpty) {
       return GestureDetector(
@@ -1958,20 +2283,29 @@ if (_isEditing) ...[
           decoration: BoxDecoration(
             color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-            border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3), style: BorderStyle.solid),
+            border: Border.all(
+                color: AppTheme.getBorderColor(context).withValues(alpha: 0.3),
+                style: BorderStyle.solid),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.menu_book, size: 24, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
+              Icon(Icons.menu_book,
+                  size: 24,
+                  color: AppTheme.getTextSecondary(context)
+                      .withValues(alpha: 0.5)),
               const SizedBox(width: 12),
-              Text('暂无攻略，点击搜索', style: TextStyle(fontSize: 14, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.7))),
+              Text('暂无攻略，点击搜索',
+                  style: TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.getTextSecondary(context)
+                          .withValues(alpha: 0.7))),
             ],
           ),
         ),
       );
     }
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1981,7 +2315,8 @@ if (_isEditing) ...[
               onPressed: _openGuideSearch,
               icon: const Icon(Icons.search, size: 16),
               label: const Text('重新搜索'),
-              style: OutlinedButton.styleFrom(foregroundColor: AppTheme.getPrimaryColor(context)),
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.getPrimaryColor(context)),
             ),
             const SizedBox(width: 8),
             OutlinedButton.icon(
@@ -1997,12 +2332,14 @@ if (_isEditing) ...[
               },
               icon: const Icon(Icons.delete_outline, size: 16),
               label: const Text('清除攻略'),
-              style: OutlinedButton.styleFrom(foregroundColor: AppTheme.errorColor),
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.errorColor),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        _buildRichIntro(guide, ref.watch(detailFontSizeProvider), sectionKey: 'guide'),
+        _buildRichIntro(guide, ref.watch(detailFontSizeProvider),
+            sectionKey: 'guide'),
       ],
     );
   }
@@ -2016,7 +2353,8 @@ if (_isEditing) ...[
 
     final content = await showDialog<String>(
       context: context,
-      builder: (context) => GuideSearchDialog(game: _currentGame, initialKeyword: keyword),
+      builder: (context) =>
+          GuideSearchDialog(game: _currentGame, initialKeyword: keyword),
     );
 
     if (content != null && mounted) {
@@ -2034,7 +2372,8 @@ if (_isEditing) ...[
 
   /// 删除攻略相关的图片文件
   Future<void> _deleteGuideImages() async {
-    final imagesDir = Directory('${_currentGame.path}${Platform.pathSeparator}images');
+    final imagesDir =
+        Directory('${_currentGame.path}${Platform.pathSeparator}images');
     if (!await imagesDir.exists()) return;
 
     await for (final entity in imagesDir.list()) {
@@ -2052,18 +2391,22 @@ if (_isEditing) ...[
 
   String _extractSearchKeyword(String title) {
     var keyword = title;
-    keyword = keyword.replaceAll(RegExp(r'[Vv]er?\.?\s*\d+[\.\d]*[a-zA-Z]*'), '');
-    keyword = keyword.replaceAll(RegExp(r'[(\（]官中[)\）]|[(\（]汉化[)\）]|官中|汉化'), '');
+    keyword =
+        keyword.replaceAll(RegExp(r'[Vv]er?\.?\s*\d+[\.\d]*[a-zA-Z]*'), '');
+    keyword =
+        keyword.replaceAll(RegExp(r'[(\（]官中[)\）]|[(\（]汉化[)\）]|官中|汉化'), '');
     keyword = keyword.replaceAll(RegExp(r'\s+'), ' ').trim();
     return keyword;
   }
 
   void _syncGuideToMetadata(String? guide) async {
     try {
-      final metadataFile = File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
+      final metadataFile =
+          File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
       Map<String, dynamic> metadata;
       if (await metadataFile.exists()) {
-        metadata = jsonDecode(await metadataFile.readAsString()) as Map<String, dynamic>;
+        metadata = jsonDecode(await metadataFile.readAsString())
+            as Map<String, dynamic>;
       } else {
         metadata = <String, dynamic>{};
       }
@@ -2096,7 +2439,11 @@ if (_isEditing) ...[
           children: [
             Icon(icon, size: 18, color: AppTheme.getPrimaryColor(context)),
             const SizedBox(width: 8),
-            Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.getDetailTextPrimary(context))),
+            Text(title,
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.getDetailTextPrimary(context))),
           ],
         ),
         const SizedBox(height: 14),
@@ -2108,7 +2455,8 @@ if (_isEditing) ...[
             ),
             child: MarkdownEditor(
               controller: _introController,
-              imagePaths: _currentGame.images.map((img) => img.imagePath).toList(),
+              imagePaths:
+                  _currentGame.images.map((img) => img.imagePath).toList(),
               fontSize: ref.watch(detailFontSizeProvider),
             ),
           ),
@@ -2117,13 +2465,21 @@ if (_isEditing) ...[
             children: [
               Expanded(
                 child: TextField(
-                  controller: title == '特性' ? _featuresController : _changelogController,
+                  controller: title == '特性'
+                      ? _featuresController
+                      : _changelogController,
                   maxLines: null,
-                  style: TextStyle(fontSize: 14, height: 1.7, color: AppTheme.getDetailTextPrimary(context)),
+                  style: TextStyle(
+                      fontSize: 14,
+                      height: 1.7,
+                      color: AppTheme.getDetailTextPrimary(context)),
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    fillColor: AppTheme.getSurfaceColor(context)
+                        .withValues(alpha: 0.5),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
                     contentPadding: const EdgeInsets.all(16),
                   ),
                 ),
@@ -2137,22 +2493,37 @@ if (_isEditing) ...[
                       icon: const Icon(Icons.add_photo_alternate, size: 20),
                       tooltip: '插入图片',
                       style: IconButton.styleFrom(
-                        backgroundColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+                        backgroundColor: AppTheme.getPrimaryColor(context)
+                            .withValues(alpha: 0.1),
                         foregroundColor: AppTheme.getPrimaryColor(context),
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text('插入图片', style: TextStyle(fontSize: 10, color: AppTheme.getTextSecondary(context))),
+                    Text('插入图片',
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: AppTheme.getTextSecondary(context))),
                   ],
                 ),
               ],
             ],
           ),
-        ] else if (title == '简介' && _introHtml != null && _introHtml!.isNotEmpty) ...[
-          _buildHtmlContent(_introHtml!, ref.watch(detailFontSizeProvider), sectionKey: 'intro'),
+        ] else if (title == '简介' &&
+            _introHtml != null &&
+            _introHtml!.isNotEmpty) ...[
+          _buildHtmlContent(_introHtml!, ref.watch(detailFontSizeProvider),
+              sectionKey: 'intro'),
         ] else
-          _buildRichIntro(content ?? '暂无信息', ref.watch(detailFontSizeProvider),
-            sectionKey: title == '简介' ? 'intro' : title == '特性' ? 'features' : title == '更新日志' ? 'changelog' : null,
+          _buildRichIntro(
+            content ?? '暂无信息',
+            ref.watch(detailFontSizeProvider),
+            sectionKey: title == '简介'
+                ? 'intro'
+                : title == '特性'
+                    ? 'features'
+                    : title == '更新日志'
+                        ? 'changelog'
+                        : null,
           ),
       ],
     );
@@ -2204,7 +2575,8 @@ if (_isEditing) ...[
           }
         } else if (cls.contains('type_text')) {
           final parent = child.parent;
-          final hasContentsSibling = parent?.querySelector('.type_contents') != null;
+          final hasContentsSibling =
+              parent?.querySelector('.type_contents') != null;
           if (!hasContentsSibling) {
             final text = child.text.trim();
             if (text.isNotEmpty) blocks.add(_ContentBlock.text(text));
@@ -2214,11 +2586,9 @@ if (_isEditing) ...[
       // Container elements: recurse
       else if (tag == 'div' && cls.contains('work_parts_multitype')) {
         _parseElement(child, blocks);
-      }
-      else if (tag == 'ul' && cls.contains('work_parts_multiimage')) {
+      } else if (tag == 'ul' && cls.contains('work_parts_multiimage')) {
         _parseElement(child, blocks);
-      }
-      else if (tag == 'div' && cls.contains('work_parts')) {
+      } else if (tag == 'div' && cls.contains('work_parts')) {
         final heading = child.querySelector('.work_parts_heading');
         if (heading != null) {
           blocks.add(_ContentBlock.heading(heading.text.trim()));
@@ -2242,11 +2612,9 @@ if (_isEditing) ...[
             blocks.add(_ContentBlock.text(text));
           }
         }
-      }
-      else if (tag == 'h3' || tag == 'h4') {
+      } else if (tag == 'h3' || tag == 'h4') {
         blocks.add(_ContentBlock.heading(child.text.trim()));
-      }
-      else if (tag == 'div') {
+      } else if (tag == 'div') {
         _parseElement(child, blocks);
       }
     }
@@ -2256,16 +2624,18 @@ if (_isEditing) ...[
     if (imgEl == null) return '';
     final src = imgEl.attributes['data-original'] ??
         imgEl.attributes['data-src'] ??
-        imgEl.attributes['src'] ?? '';
+        imgEl.attributes['src'] ??
+        '';
     return src.startsWith('//') ? 'https:$src' : src;
   }
-
-
 
   Widget _buildHtmlContent(String html, double fontSize, {String? sectionKey}) {
     final blocks = _parseHtmlToBlocks(html, '');
     if (blocks.isEmpty) {
-      return SelectableText('暂无信息', style: TextStyle(fontSize: fontSize, color: AppTheme.getDetailTextPrimary(context)));
+      return SelectableText('暂无信息',
+          style: TextStyle(
+              fontSize: fontSize,
+              color: AppTheme.getDetailTextPrimary(context)));
     }
 
     int lineAccum = 0;
@@ -2273,10 +2643,12 @@ if (_isEditing) ...[
     for (final block in blocks) {
       final textLines = block.text.split('\n');
       final startLine = lineAccum;
-      final hasText = textLines.length >= 1 && textLines.any((l) => l.isNotEmpty);
+      final hasText =
+          textLines.length >= 1 && textLines.any((l) => l.isNotEmpty);
       if (hasText) lineAccum += textLines.length;
 
-      Widget buildRichTextWidget(String text, TextStyle baseStyle, TextStyle? headingStyle) {
+      Widget buildRichTextWidget(
+          String text, TextStyle baseStyle, TextStyle? headingStyle) {
         final lines = text.split('\n');
         final spans = <InlineSpan>[];
         for (var j = 0; j < lines.length; j++) {
@@ -2286,7 +2658,8 @@ if (_isEditing) ...[
 
           if (sectionKey != null && _searchMatches.isNotEmpty) {
             final sectionMatches = _searchMatches
-                .where((m) => m.sectionKey == sectionKey && m.lineIndex == lineIdx)
+                .where(
+                    (m) => m.sectionKey == sectionKey && m.lineIndex == lineIdx)
                 .toList();
             if (sectionMatches.isNotEmpty) {
               spans.addAll(_buildHighlightedSpans(line, sectionMatches, style));
@@ -2320,16 +2693,24 @@ if (_isEditing) ...[
         case _ContentBlockType.heading:
           children.add(Padding(
             padding: const EdgeInsets.only(top: 12, bottom: 4),
-            child: buildRichTextWidget(block.text,
-              TextStyle(fontSize: fontSize + 2, fontWeight: FontWeight.w700, color: AppTheme.getDetailTextPrimary(context)),
+            child: buildRichTextWidget(
+              block.text,
+              TextStyle(
+                  fontSize: fontSize + 2,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.getDetailTextPrimary(context)),
               null,
             ),
           ));
         case _ContentBlockType.text:
           children.add(Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),
-            child: buildRichTextWidget(block.text,
-              TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getDetailTextPrimary(context)),
+            child: buildRichTextWidget(
+              block.text,
+              TextStyle(
+                  fontSize: fontSize,
+                  height: 1.8,
+                  color: AppTheme.getDetailTextPrimary(context)),
               null,
             ),
           ));
@@ -2341,7 +2722,8 @@ if (_isEditing) ...[
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 350, maxHeight: 280),
+                        constraints:
+                            const BoxConstraints(maxWidth: 350, maxHeight: 280),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: _buildBlockImage(block.imageUrl!),
@@ -2349,8 +2731,12 @@ if (_isEditing) ...[
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: buildRichTextWidget(block.text,
-                          TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getDetailTextPrimary(context)),
+                        child: buildRichTextWidget(
+                          block.text,
+                          TextStyle(
+                              fontSize: fontSize,
+                              height: 1.8,
+                              color: AppTheme.getDetailTextPrimary(context)),
                           null,
                         ),
                       ),
@@ -2361,11 +2747,14 @@ if (_isEditing) ...[
           children.add(imageBlock);
       }
     }
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: children);
+    return Column(
+        crossAxisAlignment: CrossAxisAlignment.start, children: children);
   }
 
   Widget _buildBlockImage(String imageUrl) {
-    if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://') && !imageUrl.startsWith('//')) {
+    if (!imageUrl.startsWith('http://') &&
+        !imageUrl.startsWith('https://') &&
+        !imageUrl.startsWith('//')) {
       if (_existingMediaFiles.contains(imageUrl)) {
         return GestureDetector(
           onTap: () => _openImageViewer(imageUrl),
@@ -2389,7 +2778,8 @@ if (_isEditing) ...[
       ),
       errorWidget: (_, __, ___) => const SizedBox.shrink(),
       httpHeaders: const {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Referer': 'https://www.dlsite.com/',
       },
     );
@@ -2398,10 +2788,12 @@ if (_isEditing) ...[
   void _openImageViewer(String imagePath) {
     final allImages = _currentGame.images;
     // 查找点击的图片在所有图片中的索引
-    int initialIndex = allImages.indexWhere((img) => img.imagePath == imagePath);
+    int initialIndex =
+        allImages.indexWhere((img) => img.imagePath == imagePath);
     if (initialIndex < 0) {
       // 如果找不到，创建一个临时列表
-      final image = GameImage(gameId: _currentGame.id ?? 0, imagePath: imagePath);
+      final image =
+          GameImage(gameId: _currentGame.id ?? 0, imagePath: imagePath);
       setState(() => _isImageViewerOpen = true);
       showDialog(
         context: context,
@@ -2438,7 +2830,7 @@ if (_isEditing) ...[
 
   List<GameImage> _getUnusedImages(List<GameImage> allImages) {
     final usedFileNames = <String>{};
-    
+
     // 从 intro 文本中提取 [图片:path] 标记的文件名
     final intro = _currentGame.intro ?? '';
     final imagePattern = RegExp(r'\[图片:(.+?)\]');
@@ -2450,7 +2842,7 @@ if (_isEditing) ...[
         usedFileNames.add(baseName);
       }
     }
-    
+
     // 从 intro_html 中提取 img src 属性
     if (_introHtml != null && _introHtml!.isNotEmpty) {
       final srcPattern = RegExp(r'src="([^"]+)"');
@@ -2463,7 +2855,7 @@ if (_isEditing) ...[
         }
       }
     }
-    
+
     // 过滤掉已在 intro 中使用的图片
     return allImages.where((img) {
       final fileName = img.imagePath.split(Platform.pathSeparator).last;
@@ -2485,17 +2877,27 @@ if (_isEditing) ...[
       final line = lines[j];
       final h = isHeading(lineIdx);
       final baseStyle = h
-          ? TextStyle(fontSize: fontSize + 1, fontWeight: FontWeight.w700, color: AppTheme.getDetailTextPrimary(context))
-          : TextStyle(fontSize: fontSize, height: 1.8, color: AppTheme.getDetailTextPrimary(context));
+          ? TextStyle(
+              fontSize: fontSize + 1,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.getDetailTextPrimary(context))
+          : TextStyle(
+              fontSize: fontSize,
+              height: 1.8,
+              color: AppTheme.getDetailTextPrimary(context));
       if (sectionKey != null && _searchMatches.isNotEmpty) {
-        final sectionMatches = _searchMatches.where((m) => m.sectionKey == sectionKey && m.lineIndex == lineIdx).toList();
+        final sectionMatches = _searchMatches
+            .where((m) => m.sectionKey == sectionKey && m.lineIndex == lineIdx)
+            .toList();
         if (sectionMatches.isNotEmpty) {
           spans.addAll(_buildHighlightedSpans(line, sectionMatches, baseStyle));
         } else {
-          spans.add(TextSpan(text: j < lines.length - 1 ? '$line\n' : line, style: baseStyle));
+          spans.add(TextSpan(
+              text: j < lines.length - 1 ? '$line\n' : line, style: baseStyle));
         }
       } else {
-        spans.add(TextSpan(text: j < lines.length - 1 ? '$line\n' : line, style: baseStyle));
+        spans.add(TextSpan(
+            text: j < lines.length - 1 ? '$line\n' : line, style: baseStyle));
       }
       if (sectionKey != null) {
         final key = GlobalKey();
@@ -2512,18 +2914,21 @@ if (_isEditing) ...[
     );
   }
 
-  List<TextSpan> _buildHighlightedSpans(String line, List<ContentSearchMatch> matches, TextStyle baseStyle) {
+  List<TextSpan> _buildHighlightedSpans(
+      String line, List<ContentSearchMatch> matches, TextStyle baseStyle) {
     final spans = <TextSpan>[];
     final sortedMatches = List<ContentSearchMatch>.from(matches)
       ..sort((a, b) => a.charOffset.compareTo(b.charOffset));
     var pos = 0;
     for (final match in sortedMatches) {
       if (match.charOffset > pos) {
-        spans.add(TextSpan(text: line.substring(pos, match.charOffset), style: baseStyle));
+        spans.add(TextSpan(
+            text: line.substring(pos, match.charOffset), style: baseStyle));
       }
       final isCurrent = match == _searchMatches[_currentMatchIndex];
       spans.add(TextSpan(
-        text: line.substring(match.charOffset, match.charOffset + match.matchLength),
+        text: line.substring(
+            match.charOffset, match.charOffset + match.matchLength),
         style: baseStyle.copyWith(
           backgroundColor: isCurrent
               ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)
@@ -2538,11 +2943,12 @@ if (_isEditing) ...[
     return spans;
   }
 
-  Widget _buildRichIntro(String content, double fontSize, {String? sectionKey}) {
+  Widget _buildRichIntro(String content, double fontSize,
+      {String? sectionKey}) {
     final imageTagStart = '[图片:';
     final videoTagStart = '[视频:';
     final tagEnd = ']';
-    
+
     if (!content.contains(imageTagStart) && !content.contains(videoTagStart)) {
       final lines = content.split('\n');
       final merged = <String>[];
@@ -2550,30 +2956,35 @@ if (_isEditing) ...[
         merged.add(lines[i].trimRight());
       }
       return _buildMergedSelectableText(
-        merged, 0, sectionKey, fontSize,
-        (lineIdx) => RegExp(r'^.{1,6}[：:]\s*$').hasMatch(lines[lineIdx].trimRight()),
+        merged,
+        0,
+        sectionKey,
+        fontSize,
+        (lineIdx) =>
+            RegExp(r'^.{1,6}[：:]\s*$').hasMatch(lines[lineIdx].trimRight()),
       );
     }
 
     final widgets = <Widget>[];
     final lines = content.split('\n');
-    
+
     // 收集内容中所有图片路径
     final contentImages = <String>[];
     for (final line in lines) {
       if (line.startsWith(imageTagStart) && line.endsWith(tagEnd)) {
-        final imagePath = line.substring(imageTagStart.length, line.length - tagEnd.length);
+        final imagePath =
+            line.substring(imageTagStart.length, line.length - tagEnd.length);
         if (_existingMediaFiles.contains(imagePath)) {
           contentImages.add(imagePath);
         }
       }
     }
-    
+
     // 收集连续文本行并分组处理
     var textGroupStart = -1;
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i];
-      
+
       if (line.startsWith(imageTagStart) && line.endsWith(tagEnd)) {
         // Flush pending text group
         if (textGroupStart >= 0) {
@@ -2582,21 +2993,28 @@ if (_isEditing) ...[
             groupLines.add(lines[j].trimRight());
           }
           widgets.add(_buildMergedSelectableText(
-            groupLines, textGroupStart, sectionKey, fontSize,
-            (lineIdx) => RegExp(r'^.{1,6}[：:]\s*$').hasMatch(lines[lineIdx].trimRight()),
+            groupLines,
+            textGroupStart,
+            sectionKey,
+            fontSize,
+            (lineIdx) =>
+                RegExp(r'^.{1,6}[：:]\s*$').hasMatch(lines[lineIdx].trimRight()),
           ));
           textGroupStart = -1;
         }
-        final imagePath = line.substring(imageTagStart.length, line.length - tagEnd.length);
+        final imagePath =
+            line.substring(imageTagStart.length, line.length - tagEnd.length);
         if (_existingMediaFiles.contains(imagePath)) {
           final imageIndex = contentImages.indexOf(imagePath);
           widgets.add(
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: GestureDetector(
-                onTap: () => _openImageViewerFromList(contentImages, imageIndex >= 0 ? imageIndex : 0),
+                onTap: () => _openImageViewerFromList(
+                    contentImages, imageIndex >= 0 ? imageIndex : 0),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                  borderRadius:
+                      BorderRadius.circular(GlassConstants.radiusMedium),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 800),
                     child: Image.file(
@@ -2619,17 +3037,23 @@ if (_isEditing) ...[
             groupLines.add(lines[j].trimRight());
           }
           widgets.add(_buildMergedSelectableText(
-            groupLines, textGroupStart, sectionKey, fontSize,
-            (lineIdx) => RegExp(r'^.{1,6}[：:]\s*$').hasMatch(lines[lineIdx].trimRight()),
+            groupLines,
+            textGroupStart,
+            sectionKey,
+            fontSize,
+            (lineIdx) =>
+                RegExp(r'^.{1,6}[：:]\s*$').hasMatch(lines[lineIdx].trimRight()),
           ));
           textGroupStart = -1;
         }
-        final videoPath = line.substring(videoTagStart.length, line.length - tagEnd.length);
+        final videoPath =
+            line.substring(videoTagStart.length, line.length - tagEnd.length);
         if (_existingMediaFiles.contains(videoPath)) {
           widgets.add(
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: _InlineVideoPlayer(videoPath: videoPath, cached: _getOrCreatePlayer(videoPath)),
+              child: _InlineVideoPlayer(
+                  videoPath: videoPath, cached: _getOrCreatePlayer(videoPath)),
             ),
           );
         }
@@ -2644,8 +3068,12 @@ if (_isEditing) ...[
         groupLines.add(lines[j].trimRight());
       }
       widgets.add(_buildMergedSelectableText(
-        groupLines, textGroupStart, sectionKey, fontSize,
-        (lineIdx) => RegExp(r'^.{1,6}[：:]\s*$').hasMatch(lines[lineIdx].trimRight()),
+        groupLines,
+        textGroupStart,
+        sectionKey,
+        fontSize,
+        (lineIdx) =>
+            RegExp(r'^.{1,6}[：:]\s*$').hasMatch(lines[lineIdx].trimRight()),
       ));
     }
 
@@ -2657,7 +3085,9 @@ if (_isEditing) ...[
 
   void _openImageViewerFromList(List<String> imagePaths, int initialIndex) {
     setState(() => _isImageViewerOpen = true);
-    final images = imagePaths.map((p) => GameImage(gameId: _currentGame.id ?? 0, imagePath: p)).toList();
+    final images = imagePaths
+        .map((p) => GameImage(gameId: _currentGame.id ?? 0, imagePath: p))
+        .toList();
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -2675,13 +3105,15 @@ if (_isEditing) ...[
   }
 
   Widget _buildDownloadLinks(String downloadUrl) {
-    final lines = downloadUrl.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    final lines =
+        downloadUrl.split('\n').where((l) => l.trim().isNotEmpty).toList();
     final grouped = <String, List<String>>{};
     final decompressCodes = <String>[];
 
     for (final line in lines) {
       // Check for decompress code
-      final decompressMatch = RegExp(r'解压(?:码|密码)[：:]?\s*(.{1,50})').firstMatch(line);
+      final decompressMatch =
+          RegExp(r'解压(?:码|密码)[：:]?\s*(.{1,50})').firstMatch(line);
       if (decompressMatch != null) {
         final code = decompressMatch.group(1)?.trim() ?? '';
         if (code.isNotEmpty) {
@@ -2691,7 +3123,8 @@ if (_isEditing) ...[
       }
 
       // Check for labeled download link (e.g., "飞猫直连：https://..." or "飞猫直链① https://...")
-      final labeledMatch = RegExp(r'^([^：:]+)[：:]\s*(https?://.+)').firstMatch(line.trim());
+      final labeledMatch =
+          RegExp(r'^([^：:]+)[：:]\s*(https?://.+)').firstMatch(line.trim());
       if (labeledMatch != null) {
         final customLabel = labeledMatch.group(1)!.trim();
         final url = labeledMatch.group(2)!.trim();
@@ -2713,94 +3146,125 @@ if (_isEditing) ...[
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.download, size: 15, color: AppTheme.getDetailTextPrimary(context)),
+            Icon(Icons.download,
+                size: 15, color: AppTheme.getDetailTextPrimary(context)),
             const SizedBox(width: 8),
-            Text('下载:', style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context))),
+            Text('下载:',
+                style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.getDetailTextPrimary(context))),
           ],
         ),
         const SizedBox(height: 8),
         ...grouped.entries.map((entry) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ...entry.value.map((link) {
-                final urlMatch = RegExp('https?://[^\\s"\\)]+').firstMatch(link);
-                final url = urlMatch?.group(0) ?? '';
-                final extractCodeMatch = RegExp(r'(?:提取码|密码)[：:]\s*(\w+)').firstMatch(link);
-                final extractCode = extractCodeMatch?.group(1);
-                return Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onDoubleTap: () {
-                          Clipboard.setData(ClipboardData(text: url));
-                          AppTheme.showGlassToast(context, message: '已复制链接');
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.2)),
-                          ),
-                          child: Text(entry.key, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppTheme.getPrimaryColor(context))),
-                        ),
-                      ),
-                      if (extractCode != null) ...[
-                        const SizedBox(width: 6),
-                        GestureDetector(
-                          onDoubleTap: () {
-                            Clipboard.setData(ClipboardData(text: extractCode));
-                            AppTheme.showGlassToast(context, message: '已复制提取码');
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.orange.withValues(alpha: 0.2)),
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ...entry.value.map((link) {
+                    final urlMatch =
+                        RegExp('https?://[^\\s"\\)]+').firstMatch(link);
+                    final url = urlMatch?.group(0) ?? '';
+                    final extractCodeMatch =
+                        RegExp(r'(?:提取码|密码)[：:]\s*(\w+)').firstMatch(link);
+                    final extractCode = extractCodeMatch?.group(1);
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            onDoubleTap: () {
+                              Clipboard.setData(ClipboardData(text: url));
+                              AppTheme.showGlassToast(context,
+                                  message: '已复制链接');
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.getPrimaryColor(context)
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                    color: AppTheme.getPrimaryColor(context)
+                                        .withValues(alpha: 0.2)),
+                              ),
+                              child: Text(entry.key,
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color:
+                                          AppTheme.getPrimaryColor(context))),
                             ),
-                            child: const Text('提取码', style: TextStyle(fontSize: 11, color: Colors.orange)),
                           ),
-                        ),
-                      ],
-                    ],
-                  ),
-                );
-              }),
-            ],
-          ),
-        )),
+                          if (extractCode != null) ...[
+                            const SizedBox(width: 6),
+                            GestureDetector(
+                              onDoubleTap: () {
+                                Clipboard.setData(
+                                    ClipboardData(text: extractCode));
+                                AppTheme.showGlassToast(context,
+                                    message: '已复制提取码');
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                      color:
+                                          Colors.orange.withValues(alpha: 0.2)),
+                                ),
+                                child: const Text('提取码',
+                                    style: TextStyle(
+                                        fontSize: 11, color: Colors.orange)),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            )),
         // Decompress code section (separate from download links)
         if (decompressCodes.isNotEmpty) ...[
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.vpn_key_outlined, size: 15, color: AppTheme.getDetailTextPrimary(context)),
+              Icon(Icons.vpn_key_outlined,
+                  size: 15, color: AppTheme.getDetailTextPrimary(context)),
               const SizedBox(width: 8),
-              Text('解压码:', style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context))),
+              Text('解压码:',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.getDetailTextPrimary(context))),
               const SizedBox(width: 8),
               ...decompressCodes.map((code) => Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: GestureDetector(
-                  onDoubleTap: () {
-                    Clipboard.setData(ClipboardData(text: code));
-                    AppTheme.showGlassToast(context, message: '已复制解压码');
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.purple.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.purple.withValues(alpha: 0.2)),
+                    padding: const EdgeInsets.only(right: 6),
+                    child: GestureDetector(
+                      onDoubleTap: () {
+                        Clipboard.setData(ClipboardData(text: code));
+                        AppTheme.showGlassToast(context, message: '已复制解压码');
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: Colors.purple.withValues(alpha: 0.2)),
+                        ),
+                        child: const Text('解压码',
+                            style:
+                                TextStyle(fontSize: 11, color: Colors.purple)),
+                      ),
                     ),
-                    child: const Text('解压码', style: TextStyle(fontSize: 11, color: Colors.purple)),
-                  ),
-                ),
-              )),
+                  )),
             ],
           ),
         ],
@@ -2816,7 +3280,9 @@ if (_isEditing) ...[
     if (domain.contains('gofile')) return 'GoFile';
     if (domain.contains('mega')) return 'Mega';
     if (domain.contains('mediafire')) return 'MediaFire';
-    if (domain.contains('cm1.hk') || domain.contains('cm2.hk') || domain.contains('feimaocloud')) return '飞猫网盘';
+    if (domain.contains('cm1.hk') ||
+        domain.contains('cm2.hk') ||
+        domain.contains('feimaocloud')) return '飞猫网盘';
     return domain;
   }
 
@@ -2867,9 +3333,14 @@ if (_isEditing) ...[
       children: [
         Row(
           children: [
-            Icon(Icons.photo_library_outlined, size: 18, color: AppTheme.getPrimaryColor(context)),
+            Icon(Icons.photo_library_outlined,
+                size: 18, color: AppTheme.getPrimaryColor(context)),
             const SizedBox(width: 8),
-            Text('更多图片', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.getDetailTextPrimary(context))),
+            Text('更多图片',
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.getDetailTextPrimary(context))),
           ],
         ),
         const SizedBox(height: 14),
@@ -2888,9 +3359,14 @@ if (_isEditing) ...[
       children: [
         Row(
           children: [
-            Icon(Icons.photo_library, size: 18, color: AppTheme.getPrimaryColor(context)),
+            Icon(Icons.photo_library,
+                size: 18, color: AppTheme.getPrimaryColor(context)),
             const SizedBox(width: 8),
-            Text('全部图片 (${images.length})', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppTheme.getDetailTextPrimary(context))),
+            Text('全部图片 (${images.length})',
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.getDetailTextPrimary(context))),
           ],
         ),
         const SizedBox(height: 14),
@@ -2916,7 +3392,8 @@ if (_isEditing) ...[
             onPressed: () => setState(() => _isEditing = false),
             icon: const Icon(Icons.close, size: 18),
             label: const Text('取消'),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.getDetailTextPrimary(context)),
+            style: TextButton.styleFrom(
+                foregroundColor: AppTheme.getDetailTextPrimary(context)),
           ),
           const SizedBox(width: 12),
           ElevatedButton.icon(
@@ -2926,7 +3403,8 @@ if (_isEditing) ...[
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.getPrimaryColor(context),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             ),
           ),
@@ -2936,11 +3414,13 @@ if (_isEditing) ...[
   }
 
   String _syncIntroToHtml(String oldIntro, String newIntro, String html) {
-    final oldLines = oldIntro.split('\n').where((l) => l.trim().isNotEmpty).toList();
-    final newLines = newIntro.split('\n').where((l) => l.trim().isNotEmpty).toList();
-    
+    final oldLines =
+        oldIntro.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    final newLines =
+        newIntro.split('\n').where((l) => l.trim().isNotEmpty).toList();
+
     var result = html;
-    
+
     for (int i = 0; i < oldLines.length && i < newLines.length; i++) {
       final oldLine = oldLines[i].trim();
       final newLine = newLines[i].trim();
@@ -2948,7 +3428,7 @@ if (_isEditing) ...[
         result = result.replaceAll(oldLine, newLine);
       }
     }
-    
+
     return result;
   }
 
@@ -2958,14 +3438,30 @@ if (_isEditing) ...[
       final tagRepo = ref.read(tagRepositoryProvider);
       final gameId = _currentGame.id;
 
-      final newTitle = _titleController.text.trim().isEmpty ? null : _titleController.text.trim();
-      final newVersion = _versionController.text.trim().isEmpty ? null : _versionController.text.trim();
-      final newIntro = _introController.text.trim().isEmpty ? null : _introController.text.trim();
-      final newFeatures = _featuresController.text.trim().isEmpty ? null : _featuresController.text.trim();
-      final newChangelog = _changelogController.text.trim().isEmpty ? null : _changelogController.text.trim();
-      final newGuide = _guideController.text.trim().isEmpty ? null : _guideController.text.trim();
-      final newDownloadUrl = _downloadUrlController.text.trim().isEmpty ? null : _downloadUrlController.text.trim();
-      final newSourceUrl = _sourceUrlController.text.trim().isEmpty ? null : _sourceUrlController.text.trim();
+      final newTitle = _titleController.text.trim().isEmpty
+          ? null
+          : _titleController.text.trim();
+      final newVersion = _versionController.text.trim().isEmpty
+          ? null
+          : _versionController.text.trim();
+      final newIntro = _introController.text.trim().isEmpty
+          ? null
+          : _introController.text.trim();
+      final newFeatures = _featuresController.text.trim().isEmpty
+          ? null
+          : _featuresController.text.trim();
+      final newChangelog = _changelogController.text.trim().isEmpty
+          ? null
+          : _changelogController.text.trim();
+      final newGuide = _guideController.text.trim().isEmpty
+          ? null
+          : _guideController.text.trim();
+      final newDownloadUrl = _downloadUrlController.text.trim().isEmpty
+          ? null
+          : _downloadUrlController.text.trim();
+      final newSourceUrl = _sourceUrlController.text.trim().isEmpty
+          ? null
+          : _sourceUrlController.text.trim();
       final launcherText = _gameLauncherController.text.trim();
 
       // Handle backup folder rename when title changes
@@ -2978,8 +3474,10 @@ if (_isEditing) ...[
       final rawCleared0 = prefs0.getString('cleared_paths') ?? '';
       if (rawCleared0.startsWith('{')) {
         try {
-          final decodedCleared0 = jsonDecode(rawCleared0) as Map<String, dynamic>;
-          final normalizedGamePath0 = _currentGame.path.replaceAll('\\', '/').toLowerCase();
+          final decodedCleared0 =
+              jsonDecode(rawCleared0) as Map<String, dynamic>;
+          final normalizedGamePath0 =
+              _currentGame.path.replaceAll('\\', '/').toLowerCase();
           for (final v in decodedCleared0.values) {
             final cp = v?.toString() ?? '';
             if (cp.isNotEmpty) {
@@ -2992,9 +3490,12 @@ if (_isEditing) ...[
           }
         } catch (_) {}
       }
-      final isBackupGame = _currentGame.path.contains('${sep}Cleared${sep}Backup${sep}') ||
-                          !await Directory(_currentGame.path).exists();
-      if (titleChanged && (isInCleared || isInNewClearedPath) && gameId != null) {
+      final isBackupGame =
+          _currentGame.path.contains('${sep}Cleared${sep}Backup${sep}') ||
+              !await Directory(_currentGame.path).exists();
+      if (titleChanged &&
+          (isInCleared || isInNewClearedPath) &&
+          gameId != null) {
         final prefs = ref.read(sharedPreferencesProvider);
         // 读取所有整理目录
         final sortedPathList = <String>[];
@@ -3019,7 +3520,7 @@ if (_isEditing) ...[
           final sep = Platform.pathSeparator;
           final backupDirPath = '$sortedPath${sep}Cleared${sep}Backup';
           final backupDir = Directory(backupDirPath);
-          
+
           if (await backupDir.exists()) {
             // 找到实际的备份目录（通过遍历 Backup 目录查找匹配的文件夹）
             String? actualBackupPath;
@@ -3030,7 +3531,8 @@ if (_isEditing) ...[
                 if (await metadataFile.exists()) {
                   try {
                     final content = await metadataFile.readAsString();
-                    final metadata = jsonDecode(content) as Map<String, dynamic>;
+                    final metadata =
+                        jsonDecode(content) as Map<String, dynamic>;
                     final backupTitle = metadata['title'] as String?;
                     if (backupTitle == _currentGame.title) {
                       actualBackupPath = entity.path;
@@ -3042,19 +3544,23 @@ if (_isEditing) ...[
                 }
               }
             }
-            
+
             if (actualBackupPath != null) {
-              final oldSanitizedTitle = actualBackupPath.split(Platform.pathSeparator).last;
-              final newSanitizedTitle = newTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+              final oldSanitizedTitle =
+                  actualBackupPath.split(Platform.pathSeparator).last;
+              final newSanitizedTitle =
+                  newTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
               final oldBackupDir = Directory(actualBackupPath);
-              final newBackupDir = Directory('$backupDirPath$sep$newSanitizedTitle');
+              final newBackupDir =
+                  Directory('$backupDirPath$sep$newSanitizedTitle');
               if (oldSanitizedTitle != newSanitizedTitle) {
                 if (!await newBackupDir.exists()) {
                   await oldBackupDir.rename(newBackupDir.path);
                   // Update path in database
                   await repo.updateGamePath(gameId, newBackupDir.path);
                   // Update image paths in database
-                  await repo.updateImagePaths(gameId, oldBackupDir.path, newBackupDir.path);
+                  await repo.updateImagePaths(
+                      gameId, oldBackupDir.path, newBackupDir.path);
                   // Update current game object for subsequent operations
                   _currentGame = _currentGame.copyWith(path: newBackupDir.path);
                 }
@@ -3067,7 +3573,8 @@ if (_isEditing) ...[
         final rawCleared2 = prefs.getString('cleared_paths') ?? '';
         if (rawCleared2.startsWith('{')) {
           try {
-            final decodedCleared2 = jsonDecode(rawCleared2) as Map<String, dynamic>;
+            final decodedCleared2 =
+                jsonDecode(rawCleared2) as Map<String, dynamic>;
             for (final v in decodedCleared2.values) {
               final cp = v?.toString() ?? '';
               if (cp.isEmpty) continue;
@@ -3078,11 +3585,13 @@ if (_isEditing) ...[
               String? actualBackupPath2;
               await for (final entity in backupDir2.list()) {
                 if (entity is Directory) {
-                  final metadataFile = File('${entity.path}${sep}metadata.json');
+                  final metadataFile =
+                      File('${entity.path}${sep}metadata.json');
                   if (await metadataFile.exists()) {
                     try {
                       final content = await metadataFile.readAsString();
-                      final metadata = jsonDecode(content) as Map<String, dynamic>;
+                      final metadata =
+                          jsonDecode(content) as Map<String, dynamic>;
                       final backupTitle = metadata['title'] as String?;
                       if (backupTitle == _currentGame.title) {
                         actualBackupPath2 = entity.path;
@@ -3094,16 +3603,21 @@ if (_isEditing) ...[
               }
 
               if (actualBackupPath2 != null) {
-                final oldSanitizedTitle2 = actualBackupPath2.split(Platform.pathSeparator).last;
-                final newSanitizedTitle2 = newTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+                final oldSanitizedTitle2 =
+                    actualBackupPath2.split(Platform.pathSeparator).last;
+                final newSanitizedTitle2 =
+                    newTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
                 final oldBackupDir2 = Directory(actualBackupPath2);
-                final newBackupDir2 = Directory('$backupDirPath2$sep$newSanitizedTitle2');
+                final newBackupDir2 =
+                    Directory('$backupDirPath2$sep$newSanitizedTitle2');
                 if (oldSanitizedTitle2 != newSanitizedTitle2) {
                   if (!await newBackupDir2.exists()) {
                     await oldBackupDir2.rename(newBackupDir2.path);
                     await repo.updateGamePath(gameId, newBackupDir2.path);
-                    await repo.updateImagePaths(gameId, oldBackupDir2.path, newBackupDir2.path);
-                    _currentGame = _currentGame.copyWith(path: newBackupDir2.path);
+                    await repo.updateImagePaths(
+                        gameId, oldBackupDir2.path, newBackupDir2.path);
+                    _currentGame =
+                        _currentGame.copyWith(path: newBackupDir2.path);
                   }
                 }
               }
@@ -3138,17 +3652,21 @@ if (_isEditing) ...[
           final backupDir = Directory(backupDirPath);
           if (!await backupDir.exists()) continue;
 
-          final oldBackupName = await FolderRenameService.buildBackupFolderName(_currentGame);
+          final oldBackupName =
+              await FolderRenameService.buildBackupFolderName(_currentGame);
           if (oldBackupName == null) continue;
-          final oldSanitized = oldBackupName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+          final oldSanitized =
+              oldBackupName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
           final oldBackupDir = Directory('$backupDirPath$sep$oldSanitized');
 
           if (await oldBackupDir.exists()) {
-            final newBackupName = await FolderRenameService.buildBackupFolderName(
+            final newBackupName =
+                await FolderRenameService.buildBackupFolderName(
               _currentGame.copyWith(title: newTitle),
             );
             if (newBackupName == null) continue;
-            final newSanitized = newBackupName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+            final newSanitized =
+                newBackupName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
             if (oldSanitized == newSanitized) continue;
 
             final newBackupDir = Directory('$backupDirPath$sep$newSanitized');
@@ -3161,11 +3679,13 @@ if (_isEditing) ...[
               final normalizedOldPath = oldBackupDir.path.replaceAll('\\', '/');
               if (normalizedGPath == normalizedOldPath && g.id != null) {
                 await repo.updateGamePath(g.id!, newBackupDir.path);
-                await repo.updateImagePaths(g.id!, oldBackupDir.path, newBackupDir.path);
+                await repo.updateImagePaths(
+                    g.id!, oldBackupDir.path, newBackupDir.path);
                 break;
               }
             }
-            debugPrint('[Edit] Backup folder renamed: $oldSanitized -> $newSanitized');
+            debugPrint(
+                '[Edit] Backup folder renamed: $oldSanitized -> $newSanitized');
           }
         }
 
@@ -3173,7 +3693,8 @@ if (_isEditing) ...[
         final rawCleared3 = prefs2.getString('cleared_paths') ?? '';
         if (rawCleared3.startsWith('{')) {
           try {
-            final decodedCleared3 = jsonDecode(rawCleared3) as Map<String, dynamic>;
+            final decodedCleared3 =
+                jsonDecode(rawCleared3) as Map<String, dynamic>;
             for (final v in decodedCleared3.values) {
               final cp = v?.toString() ?? '';
               if (cp.isEmpty) continue;
@@ -3181,34 +3702,43 @@ if (_isEditing) ...[
               final backupDir3 = Directory(backupDirPath3);
               if (!await backupDir3.exists()) continue;
 
-              final oldBackupName3 = await FolderRenameService.buildBackupFolderName(_currentGame);
+              final oldBackupName3 =
+                  await FolderRenameService.buildBackupFolderName(_currentGame);
               if (oldBackupName3 == null) continue;
-              final oldSanitized3 = oldBackupName3.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-              final oldBackupDir3 = Directory('$backupDirPath3$sep$oldSanitized3');
+              final oldSanitized3 =
+                  oldBackupName3.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+              final oldBackupDir3 =
+                  Directory('$backupDirPath3$sep$oldSanitized3');
 
               if (await oldBackupDir3.exists()) {
-                final newBackupName3 = await FolderRenameService.buildBackupFolderName(
+                final newBackupName3 =
+                    await FolderRenameService.buildBackupFolderName(
                   _currentGame.copyWith(title: newTitle),
                 );
                 if (newBackupName3 == null) continue;
-                final newSanitized3 = newBackupName3.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+                final newSanitized3 =
+                    newBackupName3.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
                 if (oldSanitized3 == newSanitized3) continue;
 
-                final newBackupDir3 = Directory('$backupDirPath3$sep$newSanitized3');
+                final newBackupDir3 =
+                    Directory('$backupDirPath3$sep$newSanitized3');
                 if (await newBackupDir3.exists()) continue;
 
                 await oldBackupDir3.rename(newBackupDir3.path);
                 final allGames3 = await repo.getAllGames();
                 for (final g in allGames3) {
                   final normalizedGPath = g.path.replaceAll('\\', '/');
-                  final normalizedOldPath = oldBackupDir3.path.replaceAll('\\', '/');
+                  final normalizedOldPath =
+                      oldBackupDir3.path.replaceAll('\\', '/');
                   if (normalizedGPath == normalizedOldPath && g.id != null) {
                     await repo.updateGamePath(g.id!, newBackupDir3.path);
-                    await repo.updateImagePaths(g.id!, oldBackupDir3.path, newBackupDir3.path);
+                    await repo.updateImagePaths(
+                        g.id!, oldBackupDir3.path, newBackupDir3.path);
                     break;
                   }
                 }
-                debugPrint('[Edit] Backup folder renamed (cleared): $oldSanitized3 -> $newSanitized3');
+                debugPrint(
+                    '[Edit] Backup folder renamed (cleared): $oldSanitized3 -> $newSanitized3');
               }
             }
           } catch (e) {
@@ -3230,13 +3760,26 @@ if (_isEditing) ...[
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('确认修改路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+                  Text('确认修改路径',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.getDetailTextPrimary(context))),
                   const SizedBox(height: 16),
-                  Text('原路径: ${_currentGame.path}', style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 13)),
+                  Text('原路径: ${_currentGame.path}',
+                      style: TextStyle(
+                          color: AppTheme.getTextSecondary(context),
+                          fontSize: 13)),
                   const SizedBox(height: 8),
-                  Text('新路径: $newPath', style: TextStyle(color: AppTheme.getDetailTextPrimary(context), fontSize: 13, fontWeight: FontWeight.w500)),
+                  Text('新路径: $newPath',
+                      style: TextStyle(
+                          color: AppTheme.getDetailTextPrimary(context),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500)),
                   const SizedBox(height: 12),
-                  Text('将移动文件夹到新路径并更新数据库记录。', style: TextStyle(color: AppTheme.getTextSecondary(context))),
+                  Text('将移动文件夹到新路径并更新数据库记录。',
+                      style:
+                          TextStyle(color: AppTheme.getTextSecondary(context))),
                   const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -3277,7 +3820,10 @@ if (_isEditing) ...[
             }
           } catch (e) {
             if (mounted) {
-              AppTheme.showGlassToast(context, message: '路径修改失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+              AppTheme.showGlassToast(context,
+                  message: '路径修改失败: $e',
+                  icon: Icons.error_outline,
+                  iconColor: AppTheme.errorColor);
               return;
             }
           }
@@ -3299,7 +3845,8 @@ if (_isEditing) ...[
         downloadUrl: newDownloadUrl,
         sourceUrl: newSourceUrl,
         gameLauncher: launcherText.isNotEmpty ? launcherText : null,
-        launcherLocked: launcherText.isNotEmpty ? true : _currentGame.launcherLocked,
+        launcherLocked:
+            launcherText.isNotEmpty ? true : _currentGame.launcherLocked,
         tags: _editedTags,
       ));
 
@@ -3319,16 +3866,17 @@ if (_isEditing) ...[
 
       // Sync metadata.json
       try {
-        final metadataFile = File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
+        final metadataFile =
+            File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
         Map<String, dynamic> metadata;
-        
+
         if (await metadataFile.exists()) {
           final content = await metadataFile.readAsString();
           metadata = jsonDecode(content) as Map<String, dynamic>;
         } else {
           metadata = <String, dynamic>{};
         }
-        
+
         if (newTitle != null) metadata['title'] = newTitle;
         if (newVersion != null) metadata['version'] = newVersion;
         if (newIntro != null) {
@@ -3346,7 +3894,7 @@ if (_isEditing) ...[
         if (newGuide != null) metadata['guide'] = newGuide;
         if (newDownloadUrl != null) metadata['download_url'] = newDownloadUrl;
         if (newSourceUrl != null) metadata['source_url'] = newSourceUrl;
-        
+
         await metadataFile.writeAsString(jsonEncode(metadata), flush: true);
         debugPrint('[Edit] metadata.json updated for: ${_currentGame.path}');
       } catch (e) {
@@ -3356,7 +3904,8 @@ if (_isEditing) ...[
       // Sync source_url.txt
       if (newSourceUrl != null) {
         try {
-          final sourceUrlFile = File('${_currentGame.path}${Platform.pathSeparator}source_url.txt');
+          final sourceUrlFile = File(
+              '${_currentGame.path}${Platform.pathSeparator}source_url.txt');
           await sourceUrlFile.writeAsString(newSourceUrl, flush: true);
           debugPrint('[Edit] source_url.txt updated: $newSourceUrl');
         } catch (e) {
@@ -3400,9 +3949,15 @@ if (_isEditing) ...[
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('重新刮削', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+                    Text('重新刮削',
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.getDetailTextPrimary(context))),
                     const SizedBox(height: 12),
-                    Text('来源链接已修改，是否立即重新刮削该游戏？', style: TextStyle(color: AppTheme.getTextSecondary(context))),
+                    Text('来源链接已修改，是否立即重新刮削该游戏？',
+                        style: TextStyle(
+                            color: AppTheme.getTextSecondary(context))),
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -3447,104 +4002,6 @@ if (_isEditing) ...[
     }
   }
 
-  Future<void> _launchExe(String exePath, String gamePath) async {
-    // 工作目录应该是 exe 文件所在的文件夹
-    final exeDir = File(exePath).parent.path;
-    try {
-      await Process.run(exePath, [], workingDirectory: exeDir);
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<bool> _launchGame(Game game) async {
-    final repo = ref.read(gameRepositoryProvider);
-
-    if (game.launcherLocked && game.gameLauncher != null && game.gameLauncher!.isNotEmpty) {
-      final file = File(game.gameLauncher!);
-      if (await file.exists()) {
-        try {
-          await _launchExe(game.gameLauncher!, game.path);
-          return true;
-        } catch (e) {
-          if (mounted) {
-            AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-          }
-          return true;
-        }
-      }
-    }
-
-    final gameDir = Directory(game.path);
-    if (!await gameDir.exists()) return false;
-
-    final toolBat = File('${game.path}${Platform.pathSeparator}与工具一同启动.bat');
-    if (await toolBat.exists()) {
-      await repo.updateGame(game.copyWith(gameLauncher: toolBat.path));
-      try {
-        await _launchExe(toolBat.path, game.path);
-        return true;
-      } catch (e) {
-        if (mounted) {
-          AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-        }
-        return true;
-      }
-    }
-
-    await for (final entity in gameDir.list()) {
-      if (entity is File) {
-        final fileName = entity.path.split(RegExp(r'[/\\]')).last.toLowerCase();
-        if (fileName.endsWith('.bat') && (fileName.contains('启动') || fileName.contains('开始'))) {
-          await repo.updateGame(game.copyWith(gameLauncher: entity.path));
-          try {
-            await _launchExe(entity.path, game.path);
-            return true;
-          } catch (e) {
-            if (mounted) {
-              AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-            }
-            return true;
-          }
-        }
-      }
-    }
-
-    final fallbackExes = ['game.exe', 'Game.exe', 'launcher.exe', 'launch.exe', 'player.exe', 'play.exe'];
-    for (final exeName in fallbackExes) {
-      final exeFile = File('${game.path}${Platform.pathSeparator}$exeName');
-      if (await exeFile.exists()) {
-        await repo.updateGame(game.copyWith(gameLauncher: exeFile.path));
-        try {
-          await _launchExe(exeFile.path, game.path);
-          return true;
-        } catch (e) {
-          if (mounted) {
-            AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-          }
-          return true;
-        }
-      }
-    }
-
-    final saveService = ref.read(savePathServiceProvider);
-    final exePath = await saveService.findGameExe(game.path);
-    if (exePath != null) {
-      await repo.updateGame(game.copyWith(gameLauncher: exePath));
-      try {
-        await _launchExe(exePath, game.path);
-        return true;
-      } catch (e) {
-        if (mounted) {
-          AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-        }
-        return true;
-      }
-    }
-
-    return false;
-  }
-
   void _openSaveLocation() async {
     // 如果未设置存档路径，先提示用户设置
     if (_currentGame.savePath == null || _currentGame.savePath!.isEmpty) {
@@ -3564,7 +4021,8 @@ if (_isEditing) ...[
       context: context,
       child: StatefulBuilder(
         builder: (context, setDialogState) {
-          final controller = TextEditingController(text: _currentGame.savePath ?? '');
+          final controller =
+              TextEditingController(text: _currentGame.savePath ?? '');
           return SizedBox(
             width: GlassConstants.dialogWidth,
             child: Padding(
@@ -3573,7 +4031,11 @@ if (_isEditing) ...[
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('编辑存档路径', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+                  Text('编辑存档路径',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.getDetailTextPrimary(context))),
                   const SizedBox(height: 16),
                   TextField(
                     controller: controller,
@@ -3605,7 +4067,8 @@ if (_isEditing) ...[
                             gameId = await repo.insertGame(_currentGame);
                             _currentGame = _currentGame.copyWith(id: gameId);
                           }
-                          await repo.updateSavePath(gameId, newPath.isEmpty ? null : newPath);
+                          await repo.updateSavePath(
+                              gameId, newPath.isEmpty ? null : newPath);
                           final freshGame = await repo.getGameById(gameId);
                           if (freshGame != null && mounted) {
                             setState(() => _currentGame = freshGame);
@@ -3613,7 +4076,8 @@ if (_isEditing) ...[
                           if (mounted) {
                             _refreshAllProviders();
                             Navigator.pop(context);
-                            AppTheme.showGlassToast(context, message: '存档路径已更新');
+                            AppTheme.showGlassToast(context,
+                                message: '存档路径已更新');
                           }
                         },
                         child: const Text('保存'),
@@ -3648,7 +4112,11 @@ if (_isEditing) ...[
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('编辑游玩时长', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+                  Text('编辑游玩时长',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.getDetailTextPrimary(context))),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -3691,7 +4159,8 @@ if (_isEditing) ...[
                       ElevatedButton(
                         onPressed: () async {
                           final hours = int.tryParse(hoursController.text) ?? 0;
-                          final minutes = int.tryParse(minutesController.text) ?? 0;
+                          final minutes =
+                              int.tryParse(minutesController.text) ?? 0;
                           hoursController.dispose();
                           minutesController.dispose();
                           final totalSeconds = hours * 3600 + minutes * 60;
@@ -3702,7 +4171,8 @@ if (_isEditing) ...[
                             gameId = await repo.insertGame(_currentGame);
                             _currentGame = _currentGame.copyWith(id: gameId);
                           }
-                          await repo.updateGame(_currentGame.copyWith(playDuration: totalSeconds));
+                          await repo.updateGame(_currentGame.copyWith(
+                              playDuration: totalSeconds));
                           final freshGame = await repo.getGameById(gameId);
                           if (freshGame != null && mounted) {
                             setState(() => _currentGame = freshGame);
@@ -3710,7 +4180,8 @@ if (_isEditing) ...[
                           if (mounted) {
                             _refreshAllProviders();
                             Navigator.pop(context);
-                            AppTheme.showGlassToast(context, message: '游玩时长已更新');
+                            AppTheme.showGlassToast(context,
+                                message: '游玩时长已更新');
                           }
                         },
                         child: const Text('保存'),
@@ -3733,7 +4204,10 @@ if (_isEditing) ...[
     }
 
     setState(() => _isCheckingUpdate = true);
-    AppTheme.showGlassToast(context, message: '正在检查更新...', icon: Icons.system_update, iconColor: AppTheme.getPrimaryColor(context));
+    AppTheme.showGlassToast(context,
+        message: '正在检查更新...',
+        icon: Icons.system_update,
+        iconColor: AppTheme.getPrimaryColor(context));
 
     try {
       final service = VersionCheckService();
@@ -3754,15 +4228,20 @@ if (_isEditing) ...[
     } catch (e) {
       if (mounted) {
         setState(() => _isCheckingUpdate = false);
-        AppTheme.showGlassToast(context, message: '检查更新失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        AppTheme.showGlassToast(context,
+            message: '检查更新失败: $e',
+            icon: Icons.error_outline,
+            iconColor: AppTheme.errorColor);
       }
     }
   }
 
   Future<void> _rescrapeGame() async {
-    if (_currentGame.sourceUrl == null || _currentGame.sourceUrl!.isEmpty) return;
+    if (_currentGame.sourceUrl == null || _currentGame.sourceUrl!.isEmpty)
+      return;
     setState(() => _isRescraping = true);
-    AppTheme.showGlassToast(context, message: '刮削等待时间可能较长，请勿关闭当前窗口', duration: const Duration(seconds: 5));
+    AppTheme.showGlassToast(context,
+        message: '刮削等待时间可能较长，请勿关闭当前窗口', duration: const Duration(seconds: 5));
     try {
       final sourceUrl = _currentGame.sourceUrl!;
       final isDlsite = sourceUrl.contains('dlsite');
@@ -3788,7 +4267,9 @@ if (_isEditing) ...[
               tags: steamInfo.tags,
               screenshots: steamInfo.screenshots,
               sourceUrl: steamInfo.sourceUrl,
-              maker: steamInfo.developers.isNotEmpty ? steamInfo.developers.join(', ') : null,
+              maker: steamInfo.developers.isNotEmpty
+                  ? steamInfo.developers.join(', ')
+                  : null,
             );
           }
         }
@@ -3796,10 +4277,12 @@ if (_isEditing) ...[
         final scraper = HtmlScraper();
         await scraper.ensureLoaded();
         final headers = await buildScrapeHeaders(sourceUrl);
-        final client = await createProxyClientFromPrefs(domain: Uri.parse(sourceUrl).host);
+        final client =
+            await createProxyClientFromPrefs(domain: Uri.parse(sourceUrl).host);
         http.Response response;
         try {
-          response = await httpGetWithRetry(Uri.parse(sourceUrl), headers: headers, client: client);
+          response = await httpGetWithRetry(Uri.parse(sourceUrl),
+              headers: headers, client: client);
         } finally {
           client.close();
         }
@@ -3807,7 +4290,10 @@ if (_isEditing) ...[
           gameInfo = scraper.scrapeGameInfo(response.body, sourceUrl);
         } else {
           if (mounted) {
-            AppTheme.showGlassToast(context, message: '请求失败: HTTP ${response.statusCode}', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+            AppTheme.showGlassToast(context,
+                message: '请求失败: HTTP ${response.statusCode}',
+                icon: Icons.error_outline,
+                iconColor: AppTheme.errorColor);
           }
         }
       }
@@ -3815,24 +4301,33 @@ if (_isEditing) ...[
       if (gameInfo != null) {
         final repo = ref.read(gameRepositoryProvider);
         final tagRepo = ref.read(tagRepositoryProvider);
-        final displayTitle = gameInfo.title != null ? _stripVersionFromTitle(gameInfo.title!, gameInfo.version) : null;
+        final displayTitle = gameInfo.title != null
+            ? _stripVersionFromTitle(gameInfo.title!, gameInfo.version)
+            : null;
         var updated = _currentGame.copyWith(
           title: displayTitle ?? _currentGame.title,
           version: gameInfo.version ?? _currentGame.version,
           intro: gameInfo.description ?? _currentGame.intro,
-          features: gameInfo.features.isNotEmpty ? gameInfo.features.join('\n') : _currentGame.features,
+          features: gameInfo.features.isNotEmpty
+              ? gameInfo.features.join('\n')
+              : _currentGame.features,
           changelog: gameInfo.changelog ?? _currentGame.changelog,
-          downloadUrl: gameInfo.downloadUrl.isNotEmpty ? gameInfo.downloadUrl : _currentGame.downloadUrl,
+          downloadUrl: gameInfo.downloadUrl.isNotEmpty
+              ? gameInfo.downloadUrl
+              : _currentGame.downloadUrl,
           maker: gameInfo.maker ?? _currentGame.maker,
           makerUrl: gameInfo.makerUrl ?? _currentGame.makerUrl,
         );
 
-        final metadataFile = File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
-        await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()), flush: true);
+        final metadataFile =
+            File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
+        await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()),
+            flush: true);
         await repo.updateGame(updated);
 
         if (gameInfo.maker != null && gameInfo.maker!.isNotEmpty) {
-          final makerTagId = await tagRepo.insertOrGetTag(gameInfo.maker!, Tag.typeCustom);
+          final makerTagId =
+              await tagRepo.insertOrGetTag(gameInfo.maker!, Tag.typeCustom);
           await repo.addTagToGame(_currentGame.id!, makerTagId);
         }
         for (final tagName in gameInfo.tags) {
@@ -3840,12 +4335,16 @@ if (_isEditing) ...[
           await repo.addTagToGame(_currentGame.id!, tagId);
         }
         if (gameInfo.category != null) {
-          final tagId = await tagRepo.insertOrGetTag(gameInfo.category!, Tag.typeSeries);
+          final tagId =
+              await tagRepo.insertOrGetTag(gameInfo.category!, Tag.typeSeries);
           await repo.addTagToGame(_currentGame.id!, tagId);
         }
 
         final allTags = await tagRepo.getAllTags();
-        final gameTagNames = [...gameInfo.tags, if (gameInfo.category != null) gameInfo.category!];
+        final gameTagNames = [
+          ...gameInfo.tags,
+          if (gameInfo.category != null) gameInfo.category!
+        ];
         for (final existingTag in allTags) {
           if (existingTag.type == Tag.typeSeries) {
             final shouldAssociate = gameTagNames.any((name) =>
@@ -3865,7 +4364,8 @@ if (_isEditing) ...[
             _downloadProgress = 0.0;
           });
           await repo.deleteGameImagesByGameId(updated.id!);
-          final urlToLocal = await _downloadImagesWithMapping(updated, gameInfo.screenshots, onProgress: (current, total) {
+          final urlToLocal = await _downloadImagesWithMapping(
+              updated, gameInfo.screenshots, onProgress: (current, total) {
             if (mounted) {
               setState(() {
                 _downloadCurrent = current;
@@ -3884,7 +4384,8 @@ if (_isEditing) ...[
             if (gameInfo.description != null) {
               var desc = gameInfo.description!;
               for (final entry in urlToLocal.entries) {
-                desc = desc.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
+                desc =
+                    desc.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
               }
               final finalUpdated = updated.copyWith(intro: desc);
               await repo.updateGame(finalUpdated);
@@ -3893,7 +4394,8 @@ if (_isEditing) ...[
             if (gameInfo.description != null) {
               var desc = gameInfo.description!;
               for (final entry in urlToLocal.entries) {
-                desc = desc.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
+                desc =
+                    desc.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
               }
               metaJson['intro'] = desc;
             }
@@ -3902,7 +4404,8 @@ if (_isEditing) ...[
               for (final entry in urlToLocal.entries) {
                 html = html.replaceAll(entry.key, entry.value);
                 if (entry.key.startsWith('https:')) {
-                  html = html.replaceAll(entry.key.replaceFirst('https:', ''), entry.value);
+                  html = html.replaceAll(
+                      entry.key.replaceFirst('https:', ''), entry.value);
                 }
               }
               metaJson['intro_html'] = html;
@@ -3919,7 +4422,8 @@ if (_isEditing) ...[
             final gameForRename = await repo.getGameById(_currentGame.id!);
             if (gameForRename != null) {
               final renameService = FolderRenameService(gameRepository: repo);
-              final newPath = await renameService.renameGameFolder(gameForRename);
+              final newPath =
+                  await renameService.renameGameFolder(gameForRename);
               if (newPath != null) {
                 debugPrint('[Rescrape] Folder renamed: $newPath');
                 final refreshed = await repo.getGameById(_currentGame.id!);
@@ -3936,7 +4440,10 @@ if (_isEditing) ...[
           await _moveToSorted(updated);
         }
         if (!mounted) return;
-        setState(() { _currentGame = updated; _imageVersion++; });
+        setState(() {
+          _currentGame = updated;
+          _imageVersion++;
+        });
         await _loadMetadataHtml();
         await _preloadMediaFiles();
         if (mounted) {
@@ -3946,12 +4453,18 @@ if (_isEditing) ...[
         }
       } else {
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '刮削失败：无法解析页面', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          AppTheme.showGlassToast(context,
+              message: '刮削失败：无法解析页面',
+              icon: Icons.error_outline,
+              iconColor: AppTheme.errorColor);
         }
       }
     } catch (e) {
       if (mounted) {
-        AppTheme.showGlassToast(context, message: '刮削失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        AppTheme.showGlassToast(context,
+            message: '刮削失败: $e',
+            icon: Icons.error_outline,
+            iconColor: AppTheme.errorColor);
       }
     } finally {
       if (mounted) setState(() => _isRescraping = false);
@@ -3962,7 +4475,8 @@ if (_isEditing) ...[
     final input = _quickScrapeController.text.trim();
     if (input.isEmpty) return;
     setState(() => _isRescraping = true);
-    AppTheme.showGlassToast(context, message: '刮削等待时间可能较长，请勿关闭当前窗口', duration: const Duration(seconds: 5));
+    AppTheme.showGlassToast(context,
+        message: '刮削等待时间可能较长，请勿关闭当前窗口', duration: const Duration(seconds: 5));
     try {
       GameInfo? gameInfo;
       String url = input;
@@ -3971,7 +4485,8 @@ if (_isEditing) ...[
       if (channel == 'auto') {
         if (input.contains('steampowered.com') || input.contains('steam')) {
           channel = 'steam';
-        } else if (input.contains('dlsite.com') || RegExp(r'^(RJ|RE|VJ)\d+$', caseSensitive: false).hasMatch(input)) {
+        } else if (input.contains('dlsite.com') ||
+            RegExp(r'^(RJ|RE|VJ)\d+$', caseSensitive: false).hasMatch(input)) {
           channel = 'dlsite';
         }
       }
@@ -4001,7 +4516,9 @@ if (_isEditing) ...[
               tags: steamInfo.tags,
               screenshots: steamInfo.screenshots,
               sourceUrl: steamInfo.sourceUrl,
-              maker: steamInfo.developers.isNotEmpty ? steamInfo.developers.join(', ') : null,
+              maker: steamInfo.developers.isNotEmpty
+                  ? steamInfo.developers.join(', ')
+                  : null,
             );
           }
           url = 'https://store.steampowered.com/app/$appId/';
@@ -4010,17 +4527,22 @@ if (_isEditing) ...[
         final isUrl = url.startsWith('http://') || url.startsWith('https://');
         if (!isUrl) {
           if (mounted) {
-            AppTheme.showGlassToast(context, message: '请输入有效的链接、Steam AppID 或 DLsite ID', icon: Icons.info_outline, iconColor: AppTheme.getPrimaryColor(context));
+            AppTheme.showGlassToast(context,
+                message: '请输入有效的链接、Steam AppID 或 DLsite ID',
+                icon: Icons.info_outline,
+                iconColor: AppTheme.getPrimaryColor(context));
           }
           return;
         }
         final scraper = HtmlScraper();
         await scraper.ensureLoaded();
         final headers = await buildScrapeHeaders(url);
-        final client = await createProxyClientFromPrefs(domain: Uri.parse(url).host);
+        final client =
+            await createProxyClientFromPrefs(domain: Uri.parse(url).host);
         http.Response response;
         try {
-          response = await httpGetWithRetry(Uri.parse(url), headers: headers, client: client);
+          response = await httpGetWithRetry(Uri.parse(url),
+              headers: headers, client: client);
         } finally {
           client.close();
         }
@@ -4028,7 +4550,10 @@ if (_isEditing) ...[
           gameInfo = scraper.scrapeGameInfo(response.body, url);
         } else {
           if (mounted) {
-            AppTheme.showGlassToast(context, message: '请求失败: HTTP ${response.statusCode}', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+            AppTheme.showGlassToast(context,
+                message: '请求失败: HTTP ${response.statusCode}',
+                icon: Icons.error_outline,
+                iconColor: AppTheme.errorColor);
           }
           return;
         }
@@ -4036,7 +4561,10 @@ if (_isEditing) ...[
 
       if (gameInfo == null) {
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '刮削失败，无法解析页面内容。请确认链接正确且站点已配置解析器。', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          AppTheme.showGlassToast(context,
+              message: '刮削失败，无法解析页面内容。请确认链接正确且站点已配置解析器。',
+              icon: Icons.error_outline,
+              iconColor: AppTheme.errorColor);
         }
         return;
       }
@@ -4047,22 +4575,29 @@ if (_isEditing) ...[
         title: gameInfo.title ?? _currentGame.title,
         version: gameInfo.version ?? _currentGame.version,
         intro: gameInfo.description ?? _currentGame.intro,
-        features: gameInfo.features.isNotEmpty ? gameInfo.features.join('\n') : _currentGame.features,
+        features: gameInfo.features.isNotEmpty
+            ? gameInfo.features.join('\n')
+            : _currentGame.features,
         changelog: gameInfo.changelog ?? _currentGame.changelog,
-        downloadUrl: gameInfo.downloadUrl.isNotEmpty ? gameInfo.downloadUrl : _currentGame.downloadUrl,
+        downloadUrl: gameInfo.downloadUrl.isNotEmpty
+            ? gameInfo.downloadUrl
+            : _currentGame.downloadUrl,
         sourceUrl: url,
         maker: gameInfo.maker ?? _currentGame.maker,
         makerUrl: gameInfo.makerUrl ?? _currentGame.makerUrl,
       );
 
       try {
-        final metadataFile = File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
-        await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()), flush: true);
+        final metadataFile =
+            File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
+        await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()),
+            flush: true);
       } catch (e) {
         debugPrint('[QuickScrape] Failed to write metadata.json: $e');
       }
       try {
-        final sourceUrlFile = File('${_currentGame.path}${Platform.pathSeparator}source_url.txt');
+        final sourceUrlFile =
+            File('${_currentGame.path}${Platform.pathSeparator}source_url.txt');
         await sourceUrlFile.writeAsString(url, flush: true);
       } catch (e) {
         debugPrint('[QuickScrape] Failed to write source_url.txt: $e');
@@ -4072,7 +4607,8 @@ if (_isEditing) ...[
 
       if (_currentGame.id != null) {
         if (gameInfo.maker != null && gameInfo.maker!.isNotEmpty) {
-          final makerTagId = await tagRepo.insertOrGetTag(gameInfo.maker!, Tag.typeCustom);
+          final makerTagId =
+              await tagRepo.insertOrGetTag(gameInfo.maker!, Tag.typeCustom);
           await repo.addTagToGame(_currentGame.id!, makerTagId);
         }
         for (final tagName in gameInfo.tags) {
@@ -4080,7 +4616,8 @@ if (_isEditing) ...[
           await repo.addTagToGame(_currentGame.id!, tagId);
         }
         if (gameInfo.category != null) {
-          final tagId = await tagRepo.insertOrGetTag(gameInfo.category!, Tag.typeSeries);
+          final tagId =
+              await tagRepo.insertOrGetTag(gameInfo.category!, Tag.typeSeries);
           await repo.addTagToGame(_currentGame.id!, tagId);
         }
 
@@ -4115,7 +4652,8 @@ if (_isEditing) ...[
             var desc = gameInfo.description;
             if (desc != null) {
               for (final entry in urlToLocal.entries) {
-                desc = desc!.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
+                desc = desc!
+                    .replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
               }
               await repo.updateGame(updatedGame.copyWith(intro: desc));
             }
@@ -4126,14 +4664,17 @@ if (_isEditing) ...[
               for (final entry in urlToLocal.entries) {
                 html = html.replaceAll(entry.key, entry.value);
                 if (entry.key.startsWith('https:')) {
-                  html = html.replaceAll(entry.key.replaceFirst('https:', ''), entry.value);
+                  html = html.replaceAll(
+                      entry.key.replaceFirst('https:', ''), entry.value);
                 }
               }
               metaJson['intro_html'] = html;
             }
             try {
-              final metadataFile = File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
-              await metadataFile.writeAsString(jsonEncode(metaJson), flush: true);
+              final metadataFile = File(
+                  '${_currentGame.path}${Platform.pathSeparator}metadata.json');
+              await metadataFile.writeAsString(jsonEncode(metaJson),
+                  flush: true);
             } catch (e) {
               debugPrint('[GameDetail] 写入metadata.json失败: $e');
             }
@@ -4148,7 +4689,8 @@ if (_isEditing) ...[
             final gameForRename = await repo.getGameById(_currentGame.id!);
             if (gameForRename != null) {
               final renameService = FolderRenameService(gameRepository: repo);
-              final newPath = await renameService.renameGameFolder(gameForRename);
+              final newPath =
+                  await renameService.renameGameFolder(gameForRename);
               if (newPath != null) {
                 debugPrint('[QuickScrape] Folder renamed: $newPath');
                 final refreshed = await repo.getGameById(_currentGame.id!);
@@ -4184,11 +4726,15 @@ if (_isEditing) ...[
         });
         Navigator.of(context).pop();
         _refreshAllProviders();
-        AppTheme.showGlassToast(context, message: '刮削成功: ${gameInfo.title ?? "未知标题"}');
+        AppTheme.showGlassToast(context,
+            message: '刮削成功: ${gameInfo.title ?? "未知标题"}');
       }
     } catch (e) {
       if (mounted) {
-        AppTheme.showGlassToast(context, message: '刮削失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        AppTheme.showGlassToast(context,
+            message: '刮削失败: $e',
+            icon: Icons.error_outline,
+            iconColor: AppTheme.errorColor);
       }
     } finally {
       if (mounted) setState(() => _isRescraping = false);
@@ -4196,52 +4742,65 @@ if (_isEditing) ...[
   }
 
   Future<void> _downloadImages(Game game, List<String> imageUrls) async {
-    final client = await createProxyClientFromPrefs(domain: game.sourceUrl != null ? Uri.tryParse(game.sourceUrl!)?.host : null);
+    final client = await createProxyClientFromPrefs(
+        domain: game.sourceUrl != null
+            ? Uri.tryParse(game.sourceUrl!)?.host
+            : null);
     try {
-    final imageDir = Directory('${game.path}${Platform.pathSeparator}images');
-    if (!await imageDir.exists()) {
-      await imageDir.create(recursive: true);
-    }
-
-    await ref.read(gameRepositoryProvider).deleteGameImagesByGameId(game.id!);
-
-    // 清理旧图片文件
-    if (await imageDir.exists()) {
-      await for (final entity in imageDir.list()) {
-        if (entity is File) await entity.delete();
+      final imageDir = Directory('${game.path}${Platform.pathSeparator}images');
+      if (!await imageDir.exists()) {
+        await imageDir.create(recursive: true);
       }
-    }
 
-    final repo = ref.read(gameRepositoryProvider);
-    final sourceUrl = game.sourceUrl ?? '';
-    final cookie = sourceUrl.isNotEmpty ? await getCookieForSite(sourceUrl) : '';
-    for (int i = 0; i < imageUrls.length; i++) {
-      try {
-        final imageUrl = imageUrls[i];
-        final uri = Uri.parse(imageUrl);
-        final ext = imageUrl.contains('.') ? '.${imageUrl.split('.').last.split('?').first.split('#').first}' : '.jpg';
-        final validExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext.toLowerCase()) ? ext : '.jpg';
-        final fileName = '${i + 1}$validExt';
-        final filePath = '${imageDir.path}${Platform.pathSeparator}$fileName';
-        final file = File(filePath);
+      await ref.read(gameRepositoryProvider).deleteGameImagesByGameId(game.id!);
 
-        if (!await file.exists()) {
-          final imgHeaders = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-            'Referer': sourceUrl,
-            if (cookie.isNotEmpty) 'Cookie': cookie,
-          };
-          final response = await client.get(uri, headers: imgHeaders).timeout(const Duration(seconds: 15));
-          if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-            await file.writeAsBytes(response.bodyBytes, flush: true);
-          }
+      // 清理旧图片文件
+      if (await imageDir.exists()) {
+        await for (final entity in imageDir.list()) {
+          if (entity is File) await entity.delete();
         }
-        await repo.addGameImage(game.id!, filePath, i);
-      } catch (e) {
-        debugPrint('[GameDetail] 下载图片失败: $e');
       }
-    }
+
+      final repo = ref.read(gameRepositoryProvider);
+      final sourceUrl = game.sourceUrl ?? '';
+      final cookie =
+          sourceUrl.isNotEmpty ? await getCookieForSite(sourceUrl) : '';
+      for (int i = 0; i < imageUrls.length; i++) {
+        try {
+          final imageUrl = imageUrls[i];
+          final uri = Uri.parse(imageUrl);
+          final ext = imageUrl.contains('.')
+              ? '.${imageUrl.split('.').last.split('?').first.split('#').first}'
+              : '.jpg';
+          final validExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+                  .contains(ext.toLowerCase())
+              ? ext
+              : '.jpg';
+          final fileName = '${i + 1}$validExt';
+          final filePath = '${imageDir.path}${Platform.pathSeparator}$fileName';
+          final file = File(filePath);
+
+          if (!await file.exists()) {
+            final imgHeaders = {
+              'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+              'Accept':
+                  'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+              'Referer': sourceUrl,
+              if (cookie.isNotEmpty) 'Cookie': cookie,
+            };
+            final response = await client
+                .get(uri, headers: imgHeaders)
+                .timeout(const Duration(seconds: 15));
+            if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+              await file.writeAsBytes(response.bodyBytes, flush: true);
+            }
+          }
+          await repo.addGameImage(game.id!, filePath, i);
+        } catch (e) {
+          debugPrint('[GameDetail] 下载图片失败: $e');
+        }
+      }
     } finally {
       client.close();
     }
@@ -4249,7 +4808,8 @@ if (_isEditing) ...[
 
   Future<void> _fixImageUrlsInMetadata(Game game) async {
     try {
-      final metadataFile = File('${game.path}${Platform.pathSeparator}metadata.json');
+      final metadataFile =
+          File('${game.path}${Platform.pathSeparator}metadata.json');
       if (!await metadataFile.exists()) return;
 
       final metaJson = jsonDecode(await metadataFile.readAsString());
@@ -4264,7 +4824,8 @@ if (_isEditing) ...[
       }
       if (localImages.isEmpty) return;
 
-      final imageUrls = (metaJson['image_urls'] as List<dynamic>?)?.cast<String>() ?? [];
+      final imageUrls =
+          (metaJson['image_urls'] as List<dynamic>?)?.cast<String>() ?? [];
       if (imageUrls.isEmpty) return;
 
       final urlToLocal = <String, String>{};
@@ -4311,7 +4872,8 @@ if (_isEditing) ...[
       final updatedGame = game.copyWith(intro: intro);
       await repo.updateGame(updatedGame);
 
-      debugPrint('[FixImageUrls] Updated ${urlToLocal.length} image URLs for ${game.title}');
+      debugPrint(
+          '[FixImageUrls] Updated ${urlToLocal.length} image URLs for ${game.title}');
     } catch (e) {
       debugPrint('[FixImageUrls] Error: $e');
     }
@@ -4329,10 +4891,13 @@ if (_isEditing) ...[
     }
 
     final sourceUrl = game.sourceUrl ?? '';
-    final cookie = sourceUrl.isNotEmpty ? await getCookieForSite(sourceUrl) : '';
+    final cookie =
+        sourceUrl.isNotEmpty ? await getCookieForSite(sourceUrl) : '';
     final imgHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-      'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+      'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+      'Accept':
+          'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
       'Referer': sourceUrl,
       if (cookie.isNotEmpty) 'Cookie': cookie,
     };
@@ -4345,8 +4910,13 @@ if (_isEditing) ...[
       try {
         final imageUrl = imageUrls[i];
         final uri = Uri.parse(imageUrl);
-        final ext = imageUrl.contains('.') ? '.${imageUrl.split('.').last.split('?').first.split('#').first}' : '.jpg';
-        final validExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext.toLowerCase()) ? ext : '.jpg';
+        final ext = imageUrl.contains('.')
+            ? '.${imageUrl.split('.').last.split('?').first.split('#').first}'
+            : '.jpg';
+        final validExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+                .contains(ext.toLowerCase())
+            ? ext
+            : '.jpg';
         final fileName = '${i + 1}$validExt';
         final filePath = '${imageDir.path}${Platform.pathSeparator}$fileName';
         final file = File(filePath);
@@ -4379,7 +4949,16 @@ if (_isEditing) ...[
 
     final repo = ref.read(gameRepositoryProvider);
     final tags = await repo.getGameTags(game.id!);
-    const categoryOrder = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS', '3D'];
+    const categoryOrder = [
+      'RPG',
+      'ADV',
+      'ACT',
+      'SLG',
+      'AVG',
+      'FPS',
+      'TPS',
+      '3D'
+    ];
     String categoryName = 'Unclassified';
     final allNames = tags.map((t) => t.name.toUpperCase()).toList();
     for (final cat in categoryOrder) {
@@ -4390,9 +4969,13 @@ if (_isEditing) ...[
     }
 
     final folderName = game.path.split(RegExp(r'[/\\]')).last;
-    final targetDir = Directory('${sortedPath}${Platform.pathSeparator}${categoryName}${Platform.pathSeparator}$folderName');
-    if (!await Directory('${sortedPath}${Platform.pathSeparator}${categoryName}').exists()) {
-      await Directory('${sortedPath}${Platform.pathSeparator}${categoryName}').create(recursive: true);
+    final targetDir = Directory(
+        '${sortedPath}${Platform.pathSeparator}${categoryName}${Platform.pathSeparator}$folderName');
+    if (!await Directory(
+            '${sortedPath}${Platform.pathSeparator}${categoryName}')
+        .exists()) {
+      await Directory('${sortedPath}${Platform.pathSeparator}${categoryName}')
+          .create(recursive: true);
     }
 
     if (await targetDir.exists()) return;
@@ -4406,12 +4989,15 @@ if (_isEditing) ...[
     await repo.updateGamePath(game.id!, targetDir.path);
     final images = await repo.getGameImages(game.id!);
     if (images.isNotEmpty) {
-      final updatedImages = images.map((img) => GameImage(
-        id: img.id,
-        gameId: img.gameId,
-        imagePath: img.imagePath.replaceFirst(game.path, targetDir.path),
-        sortOrder: img.sortOrder,
-      )).toList();
+      final updatedImages = images
+          .map((img) => GameImage(
+                id: img.id,
+                gameId: img.gameId,
+                imagePath:
+                    img.imagePath.replaceFirst(game.path, targetDir.path),
+                sortOrder: img.sortOrder,
+              ))
+          .toList();
       await repo.setGameImages(game.id!, updatedImages);
     }
 
@@ -4425,7 +5011,8 @@ if (_isEditing) ...[
     }
 
     try {
-      final metadataFile = File('${targetDir.path}${Platform.pathSeparator}metadata.json');
+      final metadataFile =
+          File('${targetDir.path}${Platform.pathSeparator}metadata.json');
       if (await metadataFile.exists()) {
         final content = await metadataFile.readAsString();
         if (content.contains(game.path)) {
@@ -4439,12 +5026,15 @@ if (_isEditing) ...[
 
     final updatedGame = await repo.getGameById(game.id!);
     if (updatedGame != null) {
-      if (updatedGame.gameLauncher != null && updatedGame.gameLauncher!.startsWith(game.path)) {
+      if (updatedGame.gameLauncher != null &&
+          updatedGame.gameLauncher!.startsWith(game.path)) {
         final relative = updatedGame.gameLauncher!.substring(game.path.length);
         final newLauncher = '${targetDir.path}$relative';
-        await repo.updateGameLauncher(game.id!, newLauncher, updatedGame.launcherLocked);
+        await repo.updateGameLauncher(
+            game.id!, newLauncher, updatedGame.launcherLocked);
       }
-      if (updatedGame.savePath != null && updatedGame.savePath!.startsWith(game.path)) {
+      if (updatedGame.savePath != null &&
+          updatedGame.savePath!.startsWith(game.path)) {
         final relative = updatedGame.savePath!.substring(game.path.length);
         final newSavePath = '${targetDir.path}$relative';
         await repo.updateGame(updatedGame.copyWith(savePath: newSavePath));
@@ -4452,13 +5042,17 @@ if (_isEditing) ...[
     }
   }
 
-  static final _versionPattern = RegExp(r'\s+(?:build|v(?:er(?:sion)?)?)\s*\.?\d+(?:[\d.]*\d+)?\s*', caseSensitive: false);
+  static final _versionPattern = RegExp(
+      r'\s+(?:build|v(?:er(?:sion)?)?)\s*\.?\d+(?:[\d.]*\d+)?\s*',
+      caseSensitive: false);
 
   String _stripVersionFromTitle(String title, [String? version]) {
     var result = title;
     if (version != null && version.isNotEmpty) {
       final escaped = RegExp.escape(version);
-      final precisePattern = RegExp(r'\s+(?:build|v(?:er(?:sion)?)?)?\s*' + escaped + r'\s*', caseSensitive: false);
+      final precisePattern = RegExp(
+          r'\s+(?:build|v(?:er(?:sion)?)?)?\s*' + escaped + r'\s*',
+          caseSensitive: false);
       result = result.replaceAll(precisePattern, ' ');
     }
     result = result.replaceAll(_versionPattern, ' ');
@@ -4478,19 +5072,36 @@ if (_isEditing) ...[
             children: [
               Row(
                 children: [
-                  Icon(Icons.system_update, color: AppTheme.successColor, size: 22),
+                  Icon(Icons.system_update,
+                      color: AppTheme.successColor, size: 22),
                   const SizedBox(width: 8),
-                  Text('发现新版本', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+                  Text('发现新版本',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.getDetailTextPrimary(context))),
                 ],
               ),
               const SizedBox(height: 16),
-              Text('来源: ${result.siteName}', style: TextStyle(fontSize: 13, color: AppTheme.getTextSecondary(context))),
+              Text('来源: ${result.siteName}',
+                  style: TextStyle(
+                      fontSize: 13, color: AppTheme.getTextSecondary(context))),
               const SizedBox(height: 4),
-              Text('当前版本: ${_currentGame.version ?? "未知"}', style: TextStyle(fontSize: 13, color: AppTheme.getTextSecondary(context))),
+              Text('当前版本: ${_currentGame.version ?? "未知"}',
+                  style: TextStyle(
+                      fontSize: 13, color: AppTheme.getTextSecondary(context))),
               const SizedBox(height: 4),
-              Text('最新版本: ${result.maxVersion}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
+              Text('最新版本: ${result.maxVersion}',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.successColor)),
               const SizedBox(height: 8),
-              Text('帖子标题: ${result.postTitle}', style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)), maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text('帖子标题: ${result.postTitle}',
+                  style: TextStyle(
+                      fontSize: 12, color: AppTheme.getTextSecondary(context)),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis),
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -4516,7 +5127,8 @@ if (_isEditing) ...[
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.getPrimaryColor(context),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
                 ],
@@ -4542,12 +5154,15 @@ if (_isEditing) ...[
             final repo = ref.read(gameRepositoryProvider);
             var gameId = _currentGame.id;
             if (gameId == null) {
-              debugPrint('[Review] Game has no id, inserting into DB: ${_currentGame.path}');
+              debugPrint(
+                  '[Review] Game has no id, inserting into DB: ${_currentGame.path}');
               gameId = await repo.insertGame(_currentGame);
               debugPrint('[Review] Inserted game with id: $gameId');
             }
-            await repo.updateRatingReview(gameId, rating, review.isEmpty ? null : review);
-            debugPrint('[Review] Updated rating=$rating, review=${review.isEmpty ? "null" : review} for game id=$gameId');
+            await repo.updateRatingReview(
+                gameId, rating, review.isEmpty ? null : review);
+            debugPrint(
+                '[Review] Updated rating=$rating, review=${review.isEmpty ? "null" : review} for game id=$gameId');
             if (mounted) {
               _refreshAllProviders();
               AppTheme.showGlassToast(context, message: '评论已保存');
@@ -4569,7 +5184,8 @@ if (_isEditing) ...[
             final repo = ref.read(gameRepositoryProvider);
             var gameId = _currentGame.id;
             if (gameId == null) {
-              debugPrint('[Review] Game has no id, inserting into DB: ${_currentGame.path}');
+              debugPrint(
+                  '[Review] Game has no id, inserting into DB: ${_currentGame.path}');
               gameId = await repo.insertGame(_currentGame);
               debugPrint('[Review] Inserted game with id: $gameId');
             }
@@ -4634,9 +5250,14 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
               decoration: BoxDecoration(
                 color: AppTheme.getSurfaceColor(context),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                border: Border.all(
+                    color: AppTheme.getBorderColor(context)
+                        .withValues(alpha: 0.3)),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 2)),
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 2)),
                 ],
               ),
               child: Column(
@@ -4647,13 +5268,20 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
                     children: [
                       Icon(Icons.comment, size: 14, color: Colors.red),
                       SizedBox(width: 6),
-                      Text('评论预览', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.getTextSecondary(context))),
+                      Text('评论预览',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.getTextSecondary(context))),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
                     widget.review,
-                    style: TextStyle(fontSize: 13, height: 1.5, color: AppTheme.getDetailTextPrimary(context)),
+                    style: TextStyle(
+                        fontSize: 13,
+                        height: 1.5,
+                        color: AppTheme.getDetailTextPrimary(context)),
                     maxLines: 8,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -4688,25 +5316,29 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
         _removeOverlay();
       },
       child: GestureDetector(
-          onTap: widget.onTap,
-          onDoubleTap: widget.onDoubleTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.red.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.comment, size: 14, color: Colors.red),
-                SizedBox(width: 4),
-                Text('评论', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w500)),
-              ],
-            ),
+        onTap: widget.onTap,
+        onDoubleTap: widget.onDoubleTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.red.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.comment, size: 14, color: Colors.red),
+              SizedBox(width: 4),
+              Text('评论',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.red,
+                      fontWeight: FontWeight.w500)),
+            ],
           ),
         ),
+      ),
     );
   }
 }
@@ -4735,19 +5367,34 @@ class _InfoRow extends StatelessWidget {
       children: [
         Icon(icon, size: 15, color: AppTheme.getDetailTextPrimary(context)),
         const SizedBox(width: 8),
-        Text('$label:', style: TextStyle(fontSize: 12, color: AppTheme.getDetailTextPrimary(context))),
+        Text('$label:',
+            style: TextStyle(
+                fontSize: 12, color: AppTheme.getDetailTextPrimary(context))),
         const SizedBox(width: 6),
         Expanded(
           child: isLink
               ? InkWell(
-                  onTap: () async { try { await launchUrl(Uri.parse(value)); } catch (_) {
-                    // 外部浏览器打开失败时静默处理
-                  } },
-                  child: Text(value, style: TextStyle(fontSize: 12, color: AppTheme.getPrimaryColor(context), decoration: TextDecoration.underline), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  onTap: () async {
+                    try {
+                      await launchUrl(Uri.parse(value));
+                    } catch (_) {
+                      // 外部浏览器打开失败时静默处理
+                    }
+                  },
+                  child: Text(value,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.getPrimaryColor(context),
+                          decoration: TextDecoration.underline),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
                 )
               : SelectableText(
                   value,
-                  style: TextStyle(fontSize: 12, color: valueColor ?? AppTheme.getDetailTextPrimary(context)),
+                  style: TextStyle(
+                      fontSize: 12,
+                      color:
+                          valueColor ?? AppTheme.getDetailTextPrimary(context)),
                   maxLines: isPath ? 2 : 1,
                 ),
         ),
@@ -4761,7 +5408,8 @@ class _DetailReviewDialog extends StatefulWidget {
   final void Function(double rating, String review) onSave;
   final VoidCallback onDelete;
 
-  const _DetailReviewDialog({required this.game, required this.onSave, required this.onDelete});
+  const _DetailReviewDialog(
+      {required this.game, required this.onSave, required this.onDelete});
 
   @override
   State<_DetailReviewDialog> createState() => _DetailReviewDialogState();
@@ -4812,7 +5460,10 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                 Expanded(
                   child: Text(
                     widget.game.title ?? '未命名游戏',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context)),
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.getDetailTextPrimary(context)),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -4824,7 +5475,11 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
               ],
             ),
             const SizedBox(height: 20),
-            Text('评分', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.getDetailTextPrimary(context))),
+            Text('评分',
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.getDetailTextPrimary(context))),
             const SizedBox(height: 8),
             Builder(
               builder: (context) {
@@ -4833,12 +5488,16 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                 const starAreaWidth = 5 * (starSize + starGap) - starGap;
                 return Listener(
                   onPointerDown: (event) {
-                    final newRating = _calcRatingFromX(event.localPosition.dx, starAreaWidth);
-                    if (newRating != _rating) setState(() => _rating = newRating);
+                    final newRating =
+                        _calcRatingFromX(event.localPosition.dx, starAreaWidth);
+                    if (newRating != _rating)
+                      setState(() => _rating = newRating);
                   },
                   onPointerMove: (event) {
-                    final newRating = _calcRatingFromX(event.localPosition.dx, starAreaWidth);
-                    if (newRating != _rating) setState(() => _rating = newRating);
+                    final newRating =
+                        _calcRatingFromX(event.localPosition.dx, starAreaWidth);
+                    if (newRating != _rating)
+                      setState(() => _rating = newRating);
                   },
                   child: Row(
                     children: List.generate(5, (index) {
@@ -4856,7 +5515,9 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                         child: Icon(
                           icon,
                           size: starSize,
-                          color: icon == Icons.star_border ? AppTheme.getTextSecondary(context) : AppTheme.getStarColor(context),
+                          color: icon == Icons.star_border
+                              ? AppTheme.getTextSecondary(context)
+                              : AppTheme.getStarColor(context),
                         ),
                       );
                     }),
@@ -4868,33 +5529,48 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  _rating == _rating.roundToDouble() ? '${_rating.toInt()} / 5' : '$_rating / 5',
-                  style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
+                  _rating == _rating.roundToDouble()
+                      ? '${_rating.toInt()} / 5'
+                      : '$_rating / 5',
+                  style: TextStyle(
+                      fontSize: 12, color: AppTheme.getTextSecondary(context)),
                 ),
               ),
             const SizedBox(height: 20),
-            Text('评论', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.getDetailTextPrimary(context))),
+            Text('评论',
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.getDetailTextPrimary(context))),
             const SizedBox(height: 8),
             TextField(
               controller: _reviewController,
               maxLines: 5,
-              style: TextStyle(fontSize: 14, color: AppTheme.getDetailTextPrimary(context)),
+              style: TextStyle(
+                  fontSize: 14, color: AppTheme.getDetailTextPrimary(context)),
               decoration: InputDecoration(
                 hintText: '写下你的评论...',
-                hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
+                hintStyle: TextStyle(
+                    color: AppTheme.getTextSecondary(context)
+                        .withValues(alpha: 0.5)),
                 filled: true,
-                fillColor: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
+                fillColor: Theme.of(context).brightness == Brightness.dark
+                    ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5)
+                    : AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
+                  borderSide:
+                      BorderSide(color: AppTheme.getBorderColor(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
+                  borderSide:
+                      BorderSide(color: AppTheme.getBorderColor(context)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.getPrimaryColor(context)),
+                  borderSide:
+                      BorderSide(color: AppTheme.getPrimaryColor(context)),
                 ),
                 contentPadding: const EdgeInsets.all(12),
               ),
@@ -4908,14 +5584,18 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                     widget.onDelete();
                     Navigator.of(context).pop();
                   },
-                  icon: const Icon(Icons.delete_outline, size: 16, color: AppTheme.errorColor),
-                  label: const Text('删除', style: TextStyle(color: AppTheme.errorColor)),
+                  icon: const Icon(Icons.delete_outline,
+                      size: 16, color: AppTheme.errorColor),
+                  label: const Text('删除',
+                      style: TextStyle(color: AppTheme.errorColor)),
                 ),
                 Row(
                   children: [
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      child: Text('取消', style: TextStyle(color: AppTheme.getTextSecondary(context))),
+                      child: Text('取消',
+                          style: TextStyle(
+                              color: AppTheme.getTextSecondary(context))),
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton(
@@ -4926,7 +5606,8 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.getPrimaryColor(context),
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
                       ),
                       child: const Text('保存'),
                     ),
@@ -4946,7 +5627,10 @@ class _ImageViewerDialog extends StatefulWidget {
   final int initialIndex;
   final VoidCallback onClose;
 
-  const _ImageViewerDialog({required this.images, required this.initialIndex, required this.onClose});
+  const _ImageViewerDialog(
+      {required this.images,
+      required this.initialIndex,
+      required this.onClose});
 
   @override
   State<_ImageViewerDialog> createState() => _ImageViewerDialogState();
@@ -5055,9 +5739,13 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                 width: viewerW,
                 height: viewerH,
                 decoration: BoxDecoration(
-                  color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.95),
-                  borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
-                  border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                  color:
+                      AppTheme.getSurfaceColor(context).withValues(alpha: 0.95),
+                  borderRadius:
+                      BorderRadius.circular(GlassConstants.radiusLarge),
+                  border: Border.all(
+                      color: AppTheme.getBorderColor(context)
+                          .withValues(alpha: 0.3)),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.3),
@@ -5080,7 +5768,11 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                                 color: Colors.transparent,
                                 alignment: Alignment.center,
                                 child: _currentIndex > 0
-                                    ? Icon(Icons.chevron_left, size: 48, color: AppTheme.getDetailTextPrimary(context).withValues(alpha: 0.5))
+                                    ? Icon(Icons.chevron_left,
+                                        size: 48,
+                                        color: AppTheme.getDetailTextPrimary(
+                                                context)
+                                            .withValues(alpha: 0.5))
                                     : const SizedBox.shrink(),
                               ),
                             ),
@@ -5089,19 +5781,24 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                             child: Listener(
                               onPointerSignal: (pointerSignal) {
                                 if (pointerSignal is PointerScrollEvent) {
-                                  _handleScale(pointerSignal.scrollDelta.dy > 0 ? -1 : 1);
+                                  _handleScale(pointerSignal.scrollDelta.dy > 0
+                                      ? -1
+                                      : 1);
                                 }
                               },
                               child: GestureDetector(
                                 onScaleUpdate: (details) {
-                                  if (isDraggable && details.pointerCount == 1) {
+                                  if (isDraggable &&
+                                      details.pointerCount == 1) {
                                     setState(() {
                                       _offset += details.focalPointDelta;
                                       final scaledW = (viewerW - 120) * _scale;
                                       final scaledH = (viewerH - 80) * _scale;
                                       double maxDx = 0, maxDy = 0;
-                                      if (scaledW > viewerW - 120) maxDx = (scaledW - (viewerW - 120)) / 2;
-                                      if (scaledH > viewerH - 80) maxDy = (scaledH - (viewerH - 80)) / 2;
+                                      if (scaledW > viewerW - 120)
+                                        maxDx = (scaledW - (viewerW - 120)) / 2;
+                                      if (scaledH > viewerH - 80)
+                                        maxDy = (scaledH - (viewerH - 80)) / 2;
                                       _offset = Offset(
                                         _offset.dx.clamp(-maxDx, maxDx),
                                         _offset.dy.clamp(-maxDy, maxDy),
@@ -5111,18 +5808,28 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                                 },
                                 child: Container(
                                   color: Colors.transparent,
-                                  padding: const EdgeInsets.symmetric(vertical: 40),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 40),
                                   child: Center(
-                                    child: widget.images.isNotEmpty && _currentIndex < widget.images.length
+                                    child: widget.images.isNotEmpty &&
+                                            _currentIndex < widget.images.length
                                         ? Transform(
                                             transform: Matrix4.identity()
-                                              ..translate(_offset.dx, _offset.dy)
+                                              ..translate(
+                                                  _offset.dx, _offset.dy)
                                               ..scale(_scale),
                                             alignment: Alignment.center,
                                             child: Image.file(
-                                              File(widget.images[_currentIndex].imagePath!),
+                                              File(widget.images[_currentIndex]
+                                                  .imagePath!),
                                               fit: BoxFit.contain,
-                                              errorBuilder: (_, __, ___) => Icon(Icons.broken_image, size: 64, color: AppTheme.getDetailTextPrimary(context).withValues(alpha: 0.3)),
+                                              errorBuilder: (_, __, ___) => Icon(
+                                                  Icons.broken_image,
+                                                  size: 64,
+                                                  color: AppTheme
+                                                          .getDetailTextPrimary(
+                                                              context)
+                                                      .withValues(alpha: 0.3)),
                                             ),
                                           )
                                         : const SizedBox.shrink(),
@@ -5139,7 +5846,11 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                                 color: Colors.transparent,
                                 alignment: Alignment.center,
                                 child: _currentIndex < widget.images.length - 1
-                                    ? Icon(Icons.chevron_right, size: 48, color: AppTheme.getDetailTextPrimary(context).withValues(alpha: 0.5))
+                                    ? Icon(Icons.chevron_right,
+                                        size: 48,
+                                        color: AppTheme.getDetailTextPrimary(
+                                                context)
+                                            .withValues(alpha: 0.5))
                                     : const SizedBox.shrink(),
                               ),
                             ),
@@ -5159,10 +5870,13 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                           child: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
+                              color: AppTheme.getBackgroundColor(context)
+                                  .withValues(alpha: 0.5),
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(Icons.close, size: 22, color: AppTheme.getDetailTextPrimary(context)),
+                            child: Icon(Icons.close,
+                                size: 22,
+                                color: AppTheme.getDetailTextPrimary(context)),
                           ),
                         ),
                       ),
@@ -5172,12 +5886,18 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                       top: 12,
                       left: 16,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
+                          color: AppTheme.getBackgroundColor(context)
+                              .withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text('${_currentIndex + 1} / ${widget.images.length}', style: TextStyle(color: AppTheme.getDetailTextPrimary(context), fontSize: 13)),
+                        child: Text(
+                            '${_currentIndex + 1} / ${widget.images.length}',
+                            style: TextStyle(
+                                color: AppTheme.getDetailTextPrimary(context),
+                                fontSize: 13)),
                       ),
                     ),
                     // Zoom percentage
@@ -5185,12 +5905,17 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                       top: 12,
                       left: 100,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
+                          color: AppTheme.getBackgroundColor(context)
+                              .withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text('${(_scale * 100).round()}%', style: TextStyle(color: AppTheme.getDetailTextPrimary(context), fontSize: 13)),
+                        child: Text('${(_scale * 100).round()}%',
+                            style: TextStyle(
+                                color: AppTheme.getDetailTextPrimary(context),
+                                fontSize: 13)),
                       ),
                     ),
                     // Reset button
@@ -5204,12 +5929,17 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                             _offset = Offset.zero;
                           }),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
+                              color: AppTheme.getBackgroundColor(context)
+                                  .withValues(alpha: 0.5),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Text('重置', style: TextStyle(color: AppTheme.getPrimaryColor(context), fontSize: 13)),
+                            child: Text('重置',
+                                style: TextStyle(
+                                    color: AppTheme.getPrimaryColor(context),
+                                    fontSize: 13)),
                           ),
                         ),
                       ),
@@ -5245,12 +5975,16 @@ class _ImageSelectionDialog extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.photo_library, color: AppTheme.getPrimaryColor(context), size: 24),
+                Icon(Icons.photo_library,
+                    color: AppTheme.getPrimaryColor(context), size: 24),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     '选择图片',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context)),
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.getDetailTextPrimary(context)),
                   ),
                 ),
                 IconButton(
@@ -5262,7 +5996,8 @@ class _ImageSelectionDialog extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               '选择一张图片插入到内容中',
-              style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
+              style: TextStyle(
+                  fontSize: 12, color: AppTheme.getTextSecondary(context)),
             ),
             const SizedBox(height: 16),
             Expanded(
@@ -5280,17 +6015,23 @@ class _ImageSelectionDialog extends StatelessWidget {
                     onTap: () => Navigator.pop(context, image),
                     child: Container(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
-                        border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                        borderRadius:
+                            BorderRadius.circular(GlassConstants.radiusSmall),
+                        border: Border.all(
+                            color: AppTheme.getBorderColor(context)
+                                .withValues(alpha: 0.3)),
                       ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(GlassConstants.radiusSmall - 1),
+                        borderRadius: BorderRadius.circular(
+                            GlassConstants.radiusSmall - 1),
                         child: Image.file(
                           File(image.imagePath),
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => Container(
-                            color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
-                            child: const Center(child: Icon(Icons.broken_image, size: 32)),
+                            color: AppTheme.getBackgroundColor(context)
+                                .withValues(alpha: 0.3),
+                            child: const Center(
+                                child: Icon(Icons.broken_image, size: 32)),
                           ),
                         ),
                       ),
@@ -5315,8 +6056,10 @@ class _ContentBlock {
 
   _ContentBlock._(this.type, this.text, this.imageUrl);
 
-  factory _ContentBlock.text(String text) => _ContentBlock._(_ContentBlockType.text, text, null);
-  factory _ContentBlock.heading(String text) => _ContentBlock._(_ContentBlockType.heading, text, null);
+  factory _ContentBlock.text(String text) =>
+      _ContentBlock._(_ContentBlockType.text, text, null);
+  factory _ContentBlock.heading(String text) =>
+      _ContentBlock._(_ContentBlockType.heading, text, null);
   factory _ContentBlock.imageWithText(String imageUrl, String text) =>
       _ContentBlock._(_ContentBlockType.imageWithText, text, imageUrl);
 }

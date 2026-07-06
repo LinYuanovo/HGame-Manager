@@ -4,9 +4,10 @@ import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../database/database_helper.dart';
 import '../models/models.dart';
+import 'play_time_repository.dart';
 import '../utils/app_settings.dart';
 
-class GameRepository {
+class GameRepository implements PlayTimeRepository {
   Future<Database> get _db => DatabaseHelper.database;
 
   final Map<String, bool> _pathExistsCache = {};
@@ -14,7 +15,8 @@ class GameRepository {
 
   Future<bool> _pathExists(String path) async {
     if (_pathCacheTime != null &&
-        DateTime.now().difference(_pathCacheTime!) < const Duration(seconds: 30)) {
+        DateTime.now().difference(_pathCacheTime!) <
+            const Duration(seconds: 30)) {
       return _pathExistsCache[path] ?? false;
     }
     _pathExistsCache.clear();
@@ -62,9 +64,10 @@ class GameRepository {
     return Future.wait(games.map((game) async {
       var images = imagesByGameId[game.id!] ?? [];
       final gamePathExists = await _pathExists(game.path);
-      
+
       // 如果游戏路径不存在且在 Cleared 目录下，尝试从 Backup 目录加载
-      if (!gamePathExists && game.path.contains('${path.separator}Cleared${path.separator}')) {
+      if (!gamePathExists &&
+          game.path.contains('${path.separator}Cleared${path.separator}')) {
         // 尝试在 Backup 目录中模糊匹配
         final backupPath = await _findBackupPath(game.path, game.title);
         if (backupPath != null) {
@@ -88,7 +91,7 @@ class GameRepository {
           images = await _loadImagesFromBackupDir(game.path);
         }
       }
-      
+
       return game.copyWith(
         tags: tagsByGameId[game.id!] ?? [],
         images: images,
@@ -98,22 +101,22 @@ class GameRepository {
 
   Future<String?> _findBackupPath(String gamePath, String? gameTitle) async {
     if (gameTitle == null || gameTitle.isEmpty) return null;
-    
+
     final sep = path.separator;
-    
+
     // 旧格式：查找 Cleared 目录的位置
     final clearedIndex = gamePath.indexOf('${sep}Cleared$sep');
     if (clearedIndex != -1) {
       // 构建 Backup 目录路径
       final basePath = gamePath.substring(0, clearedIndex);
       final backupDir = Directory('$basePath${sep}Cleared${sep}Backup');
-      
+
       if (await backupDir.exists()) {
         final result = await _searchBackupDir(backupDir.path, gameTitle);
         if (result != null) return result;
       }
     }
-    
+
     // 新格式：检查 cleared_paths 配置
     final prefs = await AppSettings.load();
     final rawCleared = prefs.getString('cleared_paths') ?? '';
@@ -135,32 +138,33 @@ class GameRepository {
         }
       } catch (_) {}
     }
-    
+
     return null;
   }
 
-  Future<String?> _searchBackupDir(String backupBasePath, String gameTitle) async {
+  Future<String?> _searchBackupDir(
+      String backupBasePath, String gameTitle) async {
     final sep = path.separator;
     final backupDir = Directory(backupBasePath);
-    
+
     // 清理游戏title中的特殊字符
     final sanitizedTitle = gameTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
     final titleLower = sanitizedTitle.toLowerCase();
-    
+
     // 遍历 Backup 目录中的所有文件夹
     String? bestMatch;
     int bestScore = 0;
-    
+
     await for (final entity in backupDir.list()) {
       if (entity is Directory) {
         final folderName = path.basename(entity.path);
         final folderLower = folderName.toLowerCase();
-        
+
         // 精确匹配
         if (folderLower == titleLower) {
           return entity.path;
         }
-        
+
         // 计算匹配分数
         int score = 0;
         // 检查文件夹名是否包含title
@@ -178,23 +182,25 @@ class GameRepository {
             score = commonLength;
           }
         }
-        
+
         if (score > bestScore) {
           bestScore = score;
           bestMatch = entity.path;
         }
       }
     }
-    
+
     return bestMatch;
   }
-  
+
   int _commonSubstringLength(String s1, String s2) {
     int maxLen = 0;
     for (int i = 0; i < s1.length; i++) {
       for (int j = 0; j < s2.length; j++) {
         int len = 0;
-        while (i + len < s1.length && j + len < s2.length && s1[i + len] == s2[j + len]) {
+        while (i + len < s1.length &&
+            j + len < s2.length &&
+            s1[i + len] == s2[j + len]) {
           len++;
         }
         if (len > maxLen) {
@@ -220,7 +226,8 @@ class GameRepository {
       }
       imagePaths.sort();
       for (int i = 0; i < imagePaths.length; i++) {
-        images.add(GameImage(gameId: 0, imagePath: imagePaths[i], sortOrder: i));
+        images
+            .add(GameImage(gameId: 0, imagePath: imagePaths[i], sortOrder: i));
       }
     }
     return images;
@@ -351,8 +358,8 @@ class GameRepository {
 
   Future<int> insertGame(Game game) async {
     final db = await _db;
-    final gameToInsert = game.addedTime == null 
-        ? game.copyWith(addedTime: DateTime.now()) 
+    final gameToInsert = game.addedTime == null
+        ? game.copyWith(addedTime: DateTime.now())
         : game;
     return await db.insert(
       'games',
@@ -408,7 +415,8 @@ class GameRepository {
     final db = await _db;
     await db.transaction((txn) async {
       await txn.delete('game_images', where: 'game_id = ?', whereArgs: [id]);
-      await txn.delete('game_tag_relation', where: 'game_id = ?', whereArgs: [id]);
+      await txn
+          .delete('game_tag_relation', where: 'game_id = ?', whereArgs: [id]);
       await txn.delete('games', where: 'id = ?', whereArgs: [id]);
     });
   }
@@ -416,11 +424,13 @@ class GameRepository {
   Future<void> deleteGameByPath(String path) async {
     final db = await _db;
     await db.transaction((txn) async {
-      final maps = await txn.query('games', columns: ['id'], where: 'path = ?', whereArgs: [path]);
+      final maps = await txn.query('games',
+          columns: ['id'], where: 'path = ?', whereArgs: [path]);
       if (maps.isNotEmpty) {
         final id = maps.first['id'] as int;
         await txn.delete('game_images', where: 'game_id = ?', whereArgs: [id]);
-        await txn.delete('game_tag_relation', where: 'game_id = ?', whereArgs: [id]);
+        await txn
+            .delete('game_tag_relation', where: 'game_id = ?', whereArgs: [id]);
       }
       await txn.delete('games', where: 'path = ?', whereArgs: [path]);
     });
@@ -435,6 +445,29 @@ class GameRepository {
           is_played = 1
       WHERE id = ?
     ''', [DateTime.now().toIso8601String(), id]);
+  }
+
+  @override
+  Future<void> recordPlayStarted(int gameId, DateTime startedAt) async {
+    final db = await _db;
+    await db.rawUpdate('''
+      UPDATE games
+      SET play_count = play_count + 1,
+          last_played_time = ?,
+          is_played = 1
+      WHERE id = ?
+    ''', [startedAt.toIso8601String(), gameId]);
+  }
+
+  @override
+  Future<void> addPlayDurationDelta(int gameId, int seconds) async {
+    if (seconds <= 0) return;
+    final db = await _db;
+    await db.rawUpdate('''
+      UPDATE games
+      SET play_duration = COALESCE(play_duration, 0) + ?
+      WHERE id = ?
+    ''', [seconds, gameId]);
   }
 
   Future<void> toggleFavorite(int id, bool isFavorite) async {
@@ -464,7 +497,8 @@ class GameRepository {
 
   Future<void> decrementPlayCount(int id) async {
     final db = await _db;
-    final maps = await db.query('games', columns: ['play_count'], where: 'id = ?', whereArgs: [id]);
+    final maps = await db.query('games',
+        columns: ['play_count'], where: 'id = ?', whereArgs: [id]);
     if (maps.isEmpty) return;
     final currentCount = (maps.first['play_count'] as int?) ?? 0;
     if (currentCount <= 1) {
@@ -545,7 +579,8 @@ class GameRepository {
   Future<void> setGameImages(int gameId, List<GameImage> images) async {
     final db = await _db;
     await db.transaction((txn) async {
-      await txn.delete('game_images', where: 'game_id = ?', whereArgs: [gameId]);
+      await txn
+          .delete('game_images', where: 'game_id = ?', whereArgs: [gameId]);
       for (int i = 0; i < images.length; i++) {
         await txn.insert('game_images', {
           'game_id': gameId,
@@ -643,7 +678,8 @@ class GameRepository {
 
   Future<int> getPlayedCount() async {
     final db = await _db;
-    final result = await db.rawQuery('SELECT COUNT(*) as count FROM games WHERE is_played = 1 OR play_count > 0');
+    final result = await db.rawQuery(
+        'SELECT COUNT(*) as count FROM games WHERE is_played = 1 OR play_count > 0');
     return result.first['count'] as int;
   }
 
@@ -687,7 +723,8 @@ class GameRepository {
     );
   }
 
-  Future<void> updateScrollPosition(int gameId, {double? introPosition, double? guidePosition}) async {
+  Future<void> updateScrollPosition(int gameId,
+      {double? introPosition, double? guidePosition}) async {
     final db = await _db;
     final updates = <String, dynamic>{};
     if (introPosition != null) updates['intro_scroll_position'] = introPosition;
@@ -699,7 +736,8 @@ class GameRepository {
 
   /// Update all image paths that start with [oldPrefix] to start with [newPrefix].
   /// Used when a game folder is moved or renamed.
-  Future<void> updateImagePaths(int gameId, String oldPrefix, String newPrefix) async {
+  Future<void> updateImagePaths(
+      int gameId, String oldPrefix, String newPrefix) async {
     final db = await _db;
     await db.transaction((txn) async {
       final images = await txn.query(
@@ -709,7 +747,8 @@ class GameRepository {
       );
       for (final img in images) {
         final oldImgPath = img['image_path'] as String;
-        final newImgPath = '$newPrefix${oldImgPath.substring(oldPrefix.length)}';
+        final newImgPath =
+            '$newPrefix${oldImgPath.substring(oldPrefix.length)}';
         await txn.update(
           'game_images',
           {'image_path': newImgPath},

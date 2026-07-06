@@ -84,6 +84,7 @@ QUICK_START.md
 jav_manager.iml
 .uploads/
 .mimocode/
+.atomcode/
 
 # Logs and sensitive data
 *.log
@@ -94,6 +95,7 @@ app_logs/
 web/
 rebuild_link.bat
 test/
+hgame-manager-creative-proposal/
 
 # Environment files
 .env

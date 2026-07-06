@@ -12,6 +12,7 @@ import '../../../core/models/context_menu_config.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/services/image_service.dart';
 import '../../../core/services/folder_rename_service.dart';
+import '../../../core/services/game_launch_service.dart';
 import '../theme/app_theme.dart';
 import '../pages/games/game_detail_page.dart';
 import '../../../core/services/play_time_tracker.dart';
@@ -21,6 +22,7 @@ import 'multi_select_controller.dart';
 import 'image_preloader.dart';
 
 enum PaginationMode { paginated, infiniteScroll }
+
 enum ContextMenuMode { games, played }
 
 class GameListWidget extends ConsumerStatefulWidget {
@@ -66,17 +68,18 @@ class GameListWidget extends ConsumerStatefulWidget {
 class _GameListWidgetState extends ConsumerState<GameListWidget> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
-  final MultiSelectController<Game> _multiSelectController = MultiSelectController<Game>();
+  final MultiSelectController<Game> _multiSelectController =
+      MultiSelectController<Game>();
   ViewMode _viewMode = ViewMode.poster;
   SortMode _sortMode = SortMode.titleAsc;
   PaginationMode _paginationMode = PaginationMode.infiniteScroll;
   int _currentPage = 0;
   int _infiniteScrollCount = 20;
-  int _savedPage = -1;  // 保存搜索前的页码，-1表示未保存
-  String _lastSearchQuery = '';  // 上次的搜索词（用于检测变化）
+  int _savedPage = -1; // 保存搜索前的页码，-1表示未保存
+  String _lastSearchQuery = ''; // 上次的搜索词（用于检测变化）
   final TextEditingController _columnCountController = TextEditingController();
   final TextEditingController _pageJumpController = TextEditingController();
-  int _listItemsPerPage = 5;  // 列表视图每页显示数量
+  int _listItemsPerPage = 5; // 列表视图每页显示数量
   Timer? _searchDebounce;
   final ImagePreloader _preloader = ImagePreloader();
 
@@ -111,10 +114,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   String get _sortModeKey {
     switch (widget.routeIndex) {
-      case 1: return 'game_list_sort_mode_games';
-      case 4: return 'game_list_sort_mode_played';
-      case 5: return 'game_list_sort_mode_cleared';
-      default: return 'game_list_sort_mode';
+      case 1:
+        return 'game_list_sort_mode_games';
+      case 4:
+        return 'game_list_sort_mode_played';
+      case 5:
+        return 'game_list_sort_mode_cleared';
+      default:
+        return 'game_list_sort_mode';
     }
   }
 
@@ -128,21 +135,25 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       _viewMode = viewModeStr == 'poster' ? ViewMode.poster : ViewMode.list;
     }
     if (sortModeStr != null) {
-      try { _sortMode = SortMode.values.firstWhere((m) => m.name == sortModeStr); } catch (_) {
+      try {
+        _sortMode = SortMode.values.firstWhere((m) => m.name == sortModeStr);
+      } catch (_) {
         // 枚举解析失败时使用默认值
       }
     }
     if (paginationModeStr != null) {
-      _paginationMode = paginationModeStr == 'paginated' ? PaginationMode.paginated : PaginationMode.infiniteScroll;
+      _paginationMode = paginationModeStr == 'paginated'
+          ? PaginationMode.paginated
+          : PaginationMode.infiniteScroll;
     }
-    
+
     // 加载持久化的搜索词
     final savedSearch = prefs.getString('game_list_search_query');
     if (savedSearch != null && savedSearch.isNotEmpty) {
       _searchController.text = savedSearch;
       _lastSearchQuery = savedSearch;
     }
-    
+
     final savedColumnCount = prefs.getInt('column_count') ?? 3;
     _columnCountController.text = savedColumnCount.toString();
 
@@ -209,7 +220,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       current[widget.routeIndex!] = _currentPage;
       notifier.state = current;
       final prefs = ref.read(sharedPreferencesProvider);
-      prefs.setString('current_pages', jsonEncode(current.map((k, v) => MapEntry(k.toString(), v))));
+      prefs.setString('current_pages',
+          jsonEncode(current.map((k, v) => MapEntry(k.toString(), v))));
     }
   }
 
@@ -311,14 +323,18 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       visibleCount = _infiniteScrollCount;
     }
 
-    final preloadStart = (firstVisibleIndex - _itemsPerPage * 2).clamp(0, sortedGames.length - 1);
-    final preloadEnd = (firstVisibleIndex + visibleCount + _itemsPerPage * 2 - 1).clamp(0, sortedGames.length - 1);
+    final preloadStart = (firstVisibleIndex - _itemsPerPage * 2)
+        .clamp(0, sortedGames.length - 1);
+    final preloadEnd =
+        (firstVisibleIndex + visibleCount + _itemsPerPage * 2 - 1)
+            .clamp(0, sortedGames.length - 1);
 
     final pathsToPreload = <String>[];
     final activePaths = <String>{};
     for (var i = preloadStart; i <= preloadEnd; i++) {
       final game = sortedGames[i];
-      final coverIndex = game.coverIndex.clamp(0, game.images.length > 0 ? game.images.length - 1 : 0);
+      final coverIndex = game.coverIndex
+          .clamp(0, game.images.length > 0 ? game.images.length - 1 : 0);
       if (game.images.isNotEmpty) {
         final imgPath = game.images[coverIndex].imagePath;
         activePaths.add(imgPath);
@@ -353,15 +369,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final queryLower = searchQuery.toLowerCase();
       filteredGames = filteredGames
           .where((g) =>
-              (g.title ?? '')
-                  .toLowerCase()
-                  .contains(queryLower) ||
-              g.path
-                  .toLowerCase()
-                  .contains(queryLower) ||
-              (g.intro ?? '')
-                  .toLowerCase()
-                  .contains(queryLower))
+              (g.title ?? '').toLowerCase().contains(queryLower) ||
+              g.path.toLowerCase().contains(queryLower) ||
+              (g.intro ?? '').toLowerCase().contains(queryLower))
           .toList();
     }
     final result = _sortGames(filteredGames);
@@ -378,7 +388,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       listenable: _multiSelectController,
       builder: (context, _) {
         final searchQuery = _searchController.text.trim();
-        
+
         if (searchQuery != _lastSearchQuery) {
           if (searchQuery.isNotEmpty && _lastSearchQuery.isEmpty) {
             _savedPage = _currentPage;
@@ -395,7 +405,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             _persistCurrentPage();
           });
         }
-        
+
         final sortedGames = _getFilteredAndSortedGames();
         _preloadRange();
 
@@ -436,7 +446,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                             hintText: '搜索游戏（标题/路径/简介）...',
                             onChanged: (value) {
                               _searchDebounce?.cancel();
-                              _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+                              _searchDebounce =
+                                  Timer(const Duration(milliseconds: 300), () {
                                 if (mounted) setState(() {});
                               });
                             },
@@ -451,7 +462,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                 padding: const EdgeInsets.all(4),
                                 margin: const EdgeInsets.only(right: 30),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.getTextSecondary(context).withValues(alpha: 0.2),
+                                  color: AppTheme.getTextSecondary(context)
+                                      .withValues(alpha: 0.2),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
@@ -477,10 +489,13 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   _buildPaginationModeToggle(),
                   const SizedBox(width: 12),
                   _buildListItemsPerPageInput(),
-                  if (_viewMode == ViewMode.list && _paginationMode == PaginationMode.paginated) const SizedBox(width: 12),
+                  if (_viewMode == ViewMode.list &&
+                      _paginationMode == PaginationMode.paginated)
+                    const SizedBox(width: 12),
                   _buildMultiSelectToggle(sortedGames),
                   // 扫描存档按钮（始终显示，如果有回调）
-                  if (widget.onScanSavePaths != null || widget.scanProgress.isNotEmpty) ...[
+                  if (widget.onScanSavePaths != null ||
+                      widget.scanProgress.isNotEmpty) ...[
                     const SizedBox(width: 4),
                     _buildScanSaveButton(),
                   ],
@@ -509,31 +524,32 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           Tooltip(
             message: mode == ViewMode.list ? '列表视图' : '海报视图',
             child: GestureDetector(
-            onTap: () {
-              setState(() {
-                _viewMode = mode;
-                _savedPage = -1;
-              });
-              _updateCurrentPage(0);
-              _saveSetting('game_list_view_mode', mode == ViewMode.poster ? 'poster' : 'list');
-            },
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: _viewMode == mode
-                    ? AppTheme.primaryColor.withValues(alpha: 0.15)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                _getViewModeIcon(mode),
-                size: 18,
-                color: _viewMode == mode
-                    ? AppTheme.primaryColor
-                    : AppTheme.getTextSecondary(context),
+              onTap: () {
+                setState(() {
+                  _viewMode = mode;
+                  _savedPage = -1;
+                });
+                _updateCurrentPage(0);
+                _saveSetting('game_list_view_mode',
+                    mode == ViewMode.poster ? 'poster' : 'list');
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _viewMode == mode
+                      ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  _getViewModeIcon(mode),
+                  size: 18,
+                  color: _viewMode == mode
+                      ? AppTheme.primaryColor
+                      : AppTheme.getTextSecondary(context),
+                ),
               ),
             ),
-          ),
           ),
       ],
     );
@@ -580,11 +596,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: AppTheme.getTextPrimary(context), fontWeight: FontWeight.w600),
+            style: TextStyle(
+                fontSize: 13,
+                color: AppTheme.getTextPrimary(context),
+                fontWeight: FontWeight.w600),
             decoration: InputDecoration(
               contentPadding: EdgeInsets.zero,
               filled: true,
-              fillColor: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
+              fillColor:
+                  AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
                 borderSide: BorderSide.none,
@@ -595,7 +615,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.5)),
+                borderSide: BorderSide(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.5)),
               ),
               isDense: true,
             ),
@@ -604,7 +625,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               if (count != null && count >= 2 && count <= 8) {
                 _updateColumnCount(count);
               } else {
-                _columnCountController.text = (ref.read(fixedColumnCountProvider)).toString();
+                _columnCountController.text =
+                    (ref.read(fixedColumnCountProvider)).toString();
               }
             },
           ),
@@ -646,11 +668,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       _savedPage = -1;
     });
     _updateCurrentPage(0);
-    ref.read(sharedPreferencesProvider).setInt('game_list_items_per_page', count);
+    ref
+        .read(sharedPreferencesProvider)
+        .setInt('game_list_items_per_page', count);
   }
 
   Widget _buildListItemsPerPageInput() {
-    if (_viewMode != ViewMode.list || _paginationMode != PaginationMode.paginated) {
+    if (_viewMode != ViewMode.list ||
+        _paginationMode != PaginationMode.paginated) {
       return const SizedBox.shrink();
     }
     return Row(
@@ -660,7 +685,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           message: '减少每页数量',
           child: GestureDetector(
             onTap: () {
-              if (_listItemsPerPage > 3) _updateListItemsPerPage(_listItemsPerPage - 1);
+              if (_listItemsPerPage > 3)
+                _updateListItemsPerPage(_listItemsPerPage - 1);
             },
             child: Container(
               padding: const EdgeInsets.all(6),
@@ -681,7 +707,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           ),
           child: Text(
             '$_listItemsPerPage',
-            style: TextStyle(fontSize: 13, color: AppTheme.getTextPrimary(context), fontWeight: FontWeight.w600),
+            style: TextStyle(
+                fontSize: 13,
+                color: AppTheme.getTextPrimary(context),
+                fontWeight: FontWeight.w600),
           ),
         ),
         const SizedBox(width: 4),
@@ -689,7 +718,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           message: '增加每页数量',
           child: GestureDetector(
             onTap: () {
-              if (_listItemsPerPage < 20) _updateListItemsPerPage(_listItemsPerPage + 1);
+              if (_listItemsPerPage < 20)
+                _updateListItemsPerPage(_listItemsPerPage + 1);
             },
             child: Container(
               padding: const EdgeInsets.all(6),
@@ -707,15 +737,16 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   Widget _buildSortDropdown() {
     final prefs = ref.read(sharedPreferencesProvider);
-    final keepPlayedInGames = prefs.getBool(AppSettings.keepPlayedInGamesKey) ?? false;
+    final keepPlayedInGames =
+        prefs.getBool(AppSettings.keepPlayedInGamesKey) ?? false;
 
     final sortOptions = [
       SortMode.titleAsc,
       SortMode.addedTimeDesc,
     ];
     // 在已玩/通关页面、指定显示游玩时间排序、或开启"已玩保留库中"时添加
-    if (widget.contextMenuMode == ContextMenuMode.played || 
-        widget.isClearedPage || 
+    if (widget.contextMenuMode == ContextMenuMode.played ||
+        widget.isClearedPage ||
         widget.showPlayTimeSort ||
         keepPlayedInGames) {
       sortOptions.add(SortMode.lastPlayedTimeDesc);
@@ -735,8 +766,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         return Padding(
           padding: const EdgeInsets.only(left: 4),
           child: GlassChip(
-            label: sortLabels[mode.name.replaceFirst(
-                    RegExp(r'(Asc|Desc)$'), '')] ??
+            label: sortLabels[
+                    mode.name.replaceFirst(RegExp(r'(Asc|Desc)$'), '')] ??
                 _getSortLabel(mode),
             isSelected: isSelected,
             onTap: () {
@@ -775,27 +806,27 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     return Tooltip(
       message: isAsc ? '升序' : '降序',
       child: GestureDetector(
-      onTap: () {
-        setState(() {
-          _sortMode = _toggleDirection(_sortMode);
-          _savedPage = -1;
-        });
-        _updateCurrentPage(0);
-        _saveSetting(_sortModeKey, _sortMode.name);
-      },
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: AppTheme.primaryColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Icon(
-          isAsc ? Icons.arrow_upward : Icons.arrow_downward,
-          size: 16,
-          color: AppTheme.primaryColor,
+        onTap: () {
+          setState(() {
+            _sortMode = _toggleDirection(_sortMode);
+            _savedPage = -1;
+          });
+          _updateCurrentPage(0);
+          _saveSetting(_sortModeKey, _sortMode.name);
+        },
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(
+            isAsc ? Icons.arrow_upward : Icons.arrow_downward,
+            size: 16,
+            color: AppTheme.primaryColor,
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -823,58 +854,58 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         Tooltip(
           message: '分页模式',
           child: GestureDetector(
-          onTap: () {
-            setState(() {
-              _paginationMode = PaginationMode.paginated;
-              _savedPage = -1;
-            });
-            _updateCurrentPage(0);
-            _saveSetting('game_list_pagination_mode', 'paginated');
-          },
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: _paginationMode == PaginationMode.paginated
-                  ? AppTheme.primaryColor.withValues(alpha: 0.15)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(Icons.list_alt,
-                size: 18,
+            onTap: () {
+              setState(() {
+                _paginationMode = PaginationMode.paginated;
+                _savedPage = -1;
+              });
+              _updateCurrentPage(0);
+              _saveSetting('game_list_pagination_mode', 'paginated');
+            },
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
                 color: _paginationMode == PaginationMode.paginated
-                    ? AppTheme.primaryColor
-                    : AppTheme.getTextSecondary(context)),
+                    ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.list_alt,
+                  size: 18,
+                  color: _paginationMode == PaginationMode.paginated
+                      ? AppTheme.primaryColor
+                      : AppTheme.getTextSecondary(context)),
+            ),
           ),
-        ),
         ),
         Tooltip(
           message: '无限滚动',
           child: GestureDetector(
-          onTap: () {
-            setState(() {
-              _paginationMode = PaginationMode.infiniteScroll;
-              // 根据每页数量动态计算初始值，确保至少显示3行游戏
-              final itemsPerPage = _itemsPerPage;
-              _infiniteScrollCount = (itemsPerPage * 3).clamp(20, 200);
-              _savedPage = -1;
-            });
-            _saveSetting('game_list_pagination_mode', 'infiniteScroll');
-          },
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: _paginationMode == PaginationMode.infiniteScroll
-                  ? AppTheme.primaryColor.withValues(alpha: 0.15)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(Icons.auto_awesome,
-                size: 18,
+            onTap: () {
+              setState(() {
+                _paginationMode = PaginationMode.infiniteScroll;
+                // 根据每页数量动态计算初始值，确保至少显示3行游戏
+                final itemsPerPage = _itemsPerPage;
+                _infiniteScrollCount = (itemsPerPage * 3).clamp(20, 200);
+                _savedPage = -1;
+              });
+              _saveSetting('game_list_pagination_mode', 'infiniteScroll');
+            },
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
                 color: _paginationMode == PaginationMode.infiniteScroll
-                    ? AppTheme.primaryColor
-                    : AppTheme.getTextSecondary(context)),
+                    ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.auto_awesome,
+                  size: 18,
+                  color: _paginationMode == PaginationMode.infiniteScroll
+                      ? AppTheme.primaryColor
+                      : AppTheme.getTextSecondary(context)),
+            ),
           ),
-        ),
         ),
       ],
     );
@@ -884,30 +915,32 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     return Tooltip(
       message: _multiSelectController.isMultiSelectMode ? '退出多选' : '多选模式',
       child: GestureDetector(
-      onTap: () {
-        if (_multiSelectController.isMultiSelectMode) {
-          _multiSelectController.exitMultiSelectMode();
-        } else {
-          _multiSelectController.enterMultiSelectMode();
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: _multiSelectController.isMultiSelectMode
-              ? AppTheme.primaryColor.withValues(alpha: 0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          _multiSelectController.isMultiSelectMode ? Icons.deselect : Icons.checklist,
-          size: 18,
-          color: _multiSelectController.isMultiSelectMode
-              ? AppTheme.primaryColor
-              : AppTheme.getTextSecondary(context),
+        onTap: () {
+          if (_multiSelectController.isMultiSelectMode) {
+            _multiSelectController.exitMultiSelectMode();
+          } else {
+            _multiSelectController.enterMultiSelectMode();
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _multiSelectController.isMultiSelectMode
+                ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            _multiSelectController.isMultiSelectMode
+                ? Icons.deselect
+                : Icons.checklist,
+            size: 18,
+            color: _multiSelectController.isMultiSelectMode
+                ? AppTheme.primaryColor
+                : AppTheme.getTextSecondary(context),
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -927,10 +960,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               SizedBox(
                 width: 14,
                 height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: AppTheme.primaryColor),
               ),
               const SizedBox(width: 6),
-              Text(widget.scanProgress, style: TextStyle(fontSize: 13, color: AppTheme.primaryColor)),
+              Text(widget.scanProgress,
+                  style: TextStyle(fontSize: 13, color: AppTheme.primaryColor)),
             ],
           ),
         ),
@@ -946,7 +981,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             color: Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(Icons.manage_search, size: 18, color: AppTheme.getTextSecondary(context)),
+          child: Icon(Icons.manage_search,
+              size: 18, color: AppTheme.getTextSecondary(context)),
         ),
       ),
     );
@@ -959,7 +995,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     if (_paginationMode == PaginationMode.paginated) {
       final start = _currentPage * _itemsPerPage;
       final end = (start + _itemsPerPage).clamp(0, sortedGames.length);
-      currentPageGames = start < sortedGames.length ? sortedGames.sublist(start, end) : [];
+      currentPageGames =
+          start < sortedGames.length ? sortedGames.sublist(start, end) : [];
     } else {
       currentPageGames = sortedGames.take(_infiniteScrollCount).toList();
     }
@@ -968,7 +1005,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       decoration: BoxDecoration(
         color: AppTheme.primaryColor.withValues(alpha: 0.08),
-        border: Border(bottom: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.2))),
+        border: Border(
+            bottom: BorderSide(
+                color:
+                    AppTheme.getBorderColor(context).withValues(alpha: 0.2))),
       ),
       child: Row(
         children: [
@@ -977,24 +1017,31 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             onTap: () {
               _multiSelectController.selectAll(currentPageGames);
             },
-            child: Text('全选', style: TextStyle(fontSize: 16, color: AppTheme.primaryColor)),
+            child: Text('全选',
+                style: TextStyle(fontSize: 16, color: AppTheme.primaryColor)),
           ),
           const SizedBox(width: 16),
           GestureDetector(
             onTap: () {
               _multiSelectController.invertSelection(currentPageGames);
             },
-            child: Text('反选', style: TextStyle(fontSize: 16, color: AppTheme.primaryColor)),
+            child: Text('反选',
+                style: TextStyle(fontSize: 16, color: AppTheme.primaryColor)),
           ),
           const SizedBox(width: 16),
           GestureDetector(
             onTap: () => _multiSelectController.exitMultiSelectMode(),
-            child: Text('取消选择', style: TextStyle(fontSize: 16, color: AppTheme.getTextSecondary(context))),
+            child: Text('取消选择',
+                style: TextStyle(
+                    fontSize: 16, color: AppTheme.getTextSecondary(context))),
           ),
           const SizedBox(width: 24),
           Text(
             '已选择 ${_multiSelectController.selectedCount} 项',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppTheme.primaryColor),
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.primaryColor),
           ),
         ],
       ),
@@ -1006,12 +1053,19 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
         color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
-        border: Border(top: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.2))),
+        border: Border(
+            top: BorderSide(
+                color:
+                    AppTheme.getBorderColor(context).withValues(alpha: 0.2))),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildPageButton(Icons.chevron_left, _currentPage > 0 ? () => _updateCurrentPage(_currentPage - 1) : null),
+          _buildPageButton(
+              Icons.chevron_left,
+              _currentPage > 0
+                  ? () => _updateCurrentPage(_currentPage - 1)
+                  : null),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1020,10 +1074,17 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text('${_currentPage + 1} / $totalPages',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.getPrimaryColor(context))),
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.getPrimaryColor(context))),
           ),
           const SizedBox(width: 8),
-          _buildPageButton(Icons.chevron_right, _currentPage < totalPages - 1 ? () => _updateCurrentPage(_currentPage + 1) : null),
+          _buildPageButton(
+              Icons.chevron_right,
+              _currentPage < totalPages - 1
+                  ? () => _updateCurrentPage(_currentPage + 1)
+                  : null),
           const SizedBox(width: 16),
           SizedBox(
             width: 80,
@@ -1034,10 +1095,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               textAlign: TextAlign.center,
               decoration: InputDecoration(
                 hintText: '页码',
-                hintStyle: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                hintStyle: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.getTextSecondary(context)
+                        .withValues(alpha: 0.5)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 filled: true,
-                fillColor: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
+                fillColor:
+                    AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
@@ -1048,11 +1114,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.5)),
+                  borderSide: BorderSide(
+                      color: AppTheme.getPrimaryColor(context)
+                          .withValues(alpha: 0.5)),
                 ),
                 isDense: true,
               ),
-              style: TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
+              style: TextStyle(
+                  fontSize: 12, color: AppTheme.getTextPrimary(context)),
               onSubmitted: (value) {
                 final page = int.tryParse(value);
                 if (page != null && page >= 1 && page <= totalPages) {
@@ -1073,10 +1142,16 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       child: Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: onPressed != null ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15) : AppTheme.getBackgroundColor(context).withValues(alpha: 0.1),
+          color: onPressed != null
+              ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15)
+              : AppTheme.getBackgroundColor(context).withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6),
         ),
-        child: Icon(icon, size: 18, color: onPressed != null ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context).withValues(alpha: 0.4)),
+        child: Icon(icon,
+            size: 18,
+            color: onPressed != null
+                ? AppTheme.getPrimaryColor(context)
+                : AppTheme.getTextSecondary(context).withValues(alpha: 0.4)),
       ),
     );
   }
@@ -1089,16 +1164,19 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           children: [
             Icon(Icons.videogame_asset_off_outlined,
                 size: 64,
-                color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
+                color:
+                    AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
             const SizedBox(height: 16),
             Text('暂无游戏',
                 style: TextStyle(
-                    color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
+                    color: AppTheme.getTextSecondary(context)
+                        .withValues(alpha: 0.6),
                     fontSize: 16)),
             const SizedBox(height: 8),
             Text('请先在设置中配置并扫描游戏库',
                 style: TextStyle(
-                    color: AppTheme.getTextSecondary(context).withValues(alpha: 0.4),
+                    color: AppTheme.getTextSecondary(context)
+                        .withValues(alpha: 0.4),
                     fontSize: 13)),
           ],
         ),
@@ -1121,8 +1199,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         controller: _scrollController,
         padding: const EdgeInsets.all(GlassConstants.spacingMedium),
         itemCount: games.length,
-        separatorBuilder: (_, __) =>
-            Divider(height: 1, color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+        separatorBuilder: (_, __) => Divider(
+            height: 1,
+            color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
         itemBuilder: (_, index) => StaggeredItem(
           index: index,
           child: _buildListItem(games[index], coverWidth, coverHeight),
@@ -1131,187 +1210,221 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     });
   }
 
-  Widget _buildListItem(Game game, [double coverWidth = 120, double coverHeight = 68]) {
-    final isBackupOnly = game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
+  Widget _buildListItem(Game game,
+      [double coverWidth = 120, double coverHeight = 68]) {
+    final isBackupOnly = game.path
+        .contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
     final isSelected = _multiSelectController.isSelected(game);
     return GestureDetector(
       onSecondaryTapUp: (details) =>
           _showContextMenu(context, details.globalPosition, game),
-      onDoubleTap: ref.read(doubleClickLaunchProvider) ? () => _launchGameFromList(game) : null,
+      onDoubleTap: ref.read(doubleClickLaunchProvider)
+          ? () => _launchGameFromList(game)
+          : null,
       child: Container(
         decoration: isSelected
             ? BoxDecoration(
-                borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                borderRadius:
+                    BorderRadius.circular(GlassConstants.radiusMedium),
                 border: Border.all(color: AppTheme.primaryColor, width: 2),
               )
             : null,
         child: InkWell(
-        onTap: () {
-          if (_multiSelectController.isMultiSelectMode) {
-            final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
-            if (isShiftPressed) {
-              setState(() => _multiSelectController.selectRange(game, _sortGames(widget.games)));
+          onTap: () {
+            if (_multiSelectController.isMultiSelectMode) {
+              final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
+              if (isShiftPressed) {
+                setState(() => _multiSelectController.selectRange(
+                    game, _sortGames(widget.games)));
+              } else {
+                setState(() => _multiSelectController.toggleSelection(game));
+              }
             } else {
-              setState(() => _multiSelectController.toggleSelection(game));
+              _showGameDetail(game);
             }
-          } else {
-            _showGameDetail(game);
-          }
-        },
-        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
-                child: SizedBox(
-                  width: coverWidth,
-                  height: coverHeight,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      _buildGameCover(game, fit: BoxFit.cover),
-                    if (isBackupOnly)
-                      Positioned(
-                        top: 4,
-                        left: 4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.getOverlayColor(context),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.cloud_queue,
-                                size: 16,
-                                color: AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7),
-                              ),
-                              SizedBox(width: 2),
-                              Text(
-                                '仅备份',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    if (game.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}'))
-                      Positioned(
-                        top: 4,
-                        left: isBackupOnly ? 70 : 4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.getStarColor(context).withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.emoji_events, size: 16, color: AppTheme.getTextColorOnPrimary(context)),
-                              SizedBox(width: 2),
-                              Text('通关', style: TextStyle(fontSize: 14, color: AppTheme.getTextColorOnPrimary(context), fontWeight: FontWeight.w600)),
-                            ],
-                          ),
-                        ),
-                      )
-                    else if (game.isPlayed && !isBackupOnly && widget.contextMenuMode == ContextMenuMode.games)
-                      Positioned(
-                        top: 4,
-                        left: 4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.8),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.check_circle_outline, size: 16, color: AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7)),
-                              SizedBox(width: 2),
-                              Text(
-                                '玩过',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(game.title ?? '未命名',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 18,
-                            color: AppTheme.getCardTitleColor(context)),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                    if (game.tags.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
-                        children: game.tags.map((tag) {
-                          return GestureDetector(
-                            onTap: () {
-                              if (widget.onTagTap != null) {
-                                widget.onTagTap!(tag);
-                              }
-                            },
+          },
+          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius:
+                      BorderRadius.circular(GlassConstants.radiusSmall),
+                  child: SizedBox(
+                    width: coverWidth,
+                    height: coverHeight,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _buildGameCover(game, fit: BoxFit.cover),
+                        if (isBackupOnly)
+                          Positioned(
+                            top: 4,
+                            left: 4,
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color:
-                                    AppTheme.primaryColor.withValues(alpha: 0.08),
+                                color: AppTheme.getOverlayColor(context),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Text(tag.name,
-                                  style: const TextStyle(
-                                      fontSize: 16,
-                                      color: AppTheme.primaryColor)),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.cloud_queue,
+                                    size: 16,
+                                    color:
+                                        AppTheme.getTextColorOnPrimary(context)
+                                            .withValues(alpha: 0.7),
+                                  ),
+                                  SizedBox(width: 2),
+                                  Text(
+                                    '仅备份',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: AppTheme.getTextColorOnPrimary(
+                                              context)
+                                          .withValues(alpha: 0.7),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                    if (game.intro != null && game.intro!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(game.intro!,
-                          style: TextStyle(
-                              fontSize: 14,
-                              color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6)),
-                           maxLines: 4,
-                          overflow: TextOverflow.ellipsis),
-                    ],
-                  ],
+                          ),
+                        if (game.path.contains(
+                            '${Platform.pathSeparator}Cleared${Platform.pathSeparator}'))
+                          Positioned(
+                            top: 4,
+                            left: isBackupOnly ? 70 : 4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.getStarColor(context)
+                                    .withValues(alpha: 0.9),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.emoji_events,
+                                      size: 16,
+                                      color: AppTheme.getTextColorOnPrimary(
+                                          context)),
+                                  SizedBox(width: 2),
+                                  Text('通关',
+                                      style: TextStyle(
+                                          fontSize: 14,
+                                          color: AppTheme.getTextColorOnPrimary(
+                                              context),
+                                          fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                            ),
+                          )
+                        else if (game.isPlayed &&
+                            !isBackupOnly &&
+                            widget.contextMenuMode == ContextMenuMode.games)
+                          Positioned(
+                            top: 4,
+                            left: 4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor
+                                    .withValues(alpha: 0.8),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.check_circle_outline,
+                                      size: 16,
+                                      color: AppTheme.getTextColorOnPrimary(
+                                              context)
+                                          .withValues(alpha: 0.7)),
+                                  SizedBox(width: 2),
+                                  Text(
+                                    '玩过',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: AppTheme.getTextColorOnPrimary(
+                                              context)
+                                          .withValues(alpha: 0.7),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              _buildFavoriteButton(game),
-              const SizedBox(width: 8),
-              _buildPlayInfo(game),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(game.title ?? '未命名',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 18,
+                              color: AppTheme.getCardTitleColor(context)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                      if (game.tags.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: game.tags.map((tag) {
+                            return GestureDetector(
+                              onTap: () {
+                                if (widget.onTagTap != null) {
+                                  widget.onTagTap!(tag);
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor
+                                      .withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(tag.name,
+                                    style: const TextStyle(
+                                        fontSize: 16,
+                                        color: AppTheme.primaryColor)),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                      if (game.intro != null && game.intro!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(game.intro!,
+                            style: TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.getTextSecondary(context)
+                                    .withValues(alpha: 0.6)),
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                _buildFavoriteButton(game),
+                const SizedBox(width: 8),
+                _buildPlayInfo(game),
               ],
             ),
           ),
@@ -1335,7 +1448,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final aspectRatio = itemWidth / itemHeight;
 
       // 根据实际可用高度计算海报模式每页数量
-      final rows = (constraints.maxHeight / (itemHeight + 16)).floor().clamp(1, 10);
+      final rows =
+          (constraints.maxHeight / (itemHeight + 16)).floor().clamp(1, 10);
       final newItemsPerPage = (rows * crossAxisCount).clamp(1, 50);
       if (newItemsPerPage != _posterItemsPerPage) {
         _posterItemsPerPage = newItemsPerPage;
@@ -1360,12 +1474,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   Widget _buildPosterItem(Game game) {
-    final isBackupOnly = game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
+    final isBackupOnly = game.path
+        .contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
     final isSelected = _multiSelectController.isSelected(game);
     return GestureDetector(
       onSecondaryTapUp: (details) =>
           _showContextMenu(context, details.globalPosition, game),
-      onDoubleTap: ref.read(doubleClickLaunchProvider) ? () => _launchGameFromList(game) : null,
+      onDoubleTap: ref.read(doubleClickLaunchProvider)
+          ? () => _launchGameFromList(game)
+          : null,
       child: Container(
         decoration: isSelected
             ? BoxDecoration(
@@ -1376,194 +1493,254 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         child: GlassCard(
           enableHoverEffect: !isSelected,
           padding: EdgeInsets.zero,
-        onTap: () {
-          if (_multiSelectController.isMultiSelectMode) {
-            final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
-            if (isShiftPressed) {
-              setState(() => _multiSelectController.selectRange(game, _sortGames(widget.games)));
+          onTap: () {
+            if (_multiSelectController.isMultiSelectMode) {
+              final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
+              if (isShiftPressed) {
+                setState(() => _multiSelectController.selectRange(
+                    game, _sortGames(widget.games)));
+              } else {
+                setState(() => _multiSelectController.toggleSelection(game));
+              }
             } else {
-              setState(() => _multiSelectController.toggleSelection(game));
+              _showGameDetail(game);
             }
-          } else {
-            _showGameDetail(game);
-          }
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(GlassConstants.radiusLarge)),
-                child: Stack(
-                  fit: StackFit.expand,
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(GlassConstants.radiusLarge)),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildGameCover(game, fit: BoxFit.cover),
+                      if (isBackupOnly)
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.getOverlayColor(context),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? AppTheme.darkSurfaceColor
+                                        .withValues(alpha: 0.2)
+                                    : Colors.white.withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.cloud_queue,
+                                  size: 16,
+                                  color: AppTheme.getTextColorOnPrimary(context)
+                                      .withValues(alpha: 0.7),
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  '仅备份',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color:
+                                        AppTheme.getTextColorOnPrimary(context)
+                                            .withValues(alpha: 0.7),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      if (game.path.contains(
+                          '${Platform.pathSeparator}Cleared${Platform.pathSeparator}'))
+                        Positioned(
+                          top: 8,
+                          left: isBackupOnly ? 110 : 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.getStarColor(context)
+                                  .withValues(alpha: 0.9),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? AppTheme.darkSurfaceColor
+                                          .withValues(alpha: 0.2)
+                                      : Colors.white.withValues(alpha: 0.2)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.emoji_events,
+                                    size: 16,
+                                    color: AppTheme.getTextColorOnPrimary(
+                                        context)),
+                                SizedBox(width: 4),
+                                Text('通关',
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        color: AppTheme.getTextColorOnPrimary(
+                                            context),
+                                        fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
+                        )
+                      else if (game.isPlayed &&
+                          !isBackupOnly &&
+                          widget.contextMenuMode == ContextMenuMode.games)
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color:
+                                  AppTheme.primaryColor.withValues(alpha: 0.8),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? AppTheme.darkSurfaceColor
+                                          .withValues(alpha: 0.2)
+                                      : Colors.white.withValues(alpha: 0.2)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.check_circle_outline,
+                                    size: 16,
+                                    color:
+                                        AppTheme.getTextColorOnPrimary(context)
+                                            .withValues(alpha: 0.7)),
+                                SizedBox(width: 4),
+                                Text(
+                                  '玩过',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color:
+                                        AppTheme.getTextColorOnPrimary(context)
+                                            .withValues(alpha: 0.7),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: GestureDetector(
+                          onTap: () async {
+                            final repo = ref.read(gameRepositoryProvider);
+                            await repo.updateFavoriteStatus(
+                                game.id!, !game.isFavorite);
+                            _refreshGames();
+                            _refreshFavorites();
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: AppTheme.getOverlayColor(context)
+                                  .withValues(alpha: 0.7),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? AppTheme.darkSurfaceColor
+                                        .withValues(alpha: 0.15)
+                                    : Colors.white.withValues(alpha: 0.15),
+                              ),
+                            ),
+                            child: Icon(
+                              game.isFavorite
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
+                              size: 20,
+                              color: game.isFavorite
+                                  ? AppTheme.getFavoriteColor(context)
+                                  : AppTheme.getTextColorOnPrimary(context)
+                                      .withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (game.rating > 0)
+                        Positioned(
+                          bottom: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.getOverlayColor(context)
+                                  .withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: List.generate(5, (index) {
+                                final starValue = index + 1;
+                                if (game.rating >= starValue) {
+                                  return Icon(Icons.star,
+                                      size: 20,
+                                      color: AppTheme.getStarColor(context));
+                                } else if (game.rating >= starValue - 0.5) {
+                                  return Icon(Icons.star_half,
+                                      size: 20,
+                                      color: AppTheme.getStarColor(context));
+                                } else {
+                                  return Icon(Icons.star_border,
+                                      size: 20,
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? AppTheme.darkSurfaceColor
+                                              .withValues(alpha: 0.5)
+                                          : Colors.white
+                                              .withValues(alpha: 0.5));
+                                }
+                              }),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    _buildGameCover(game, fit: BoxFit.cover),
-                    if (isBackupOnly)
-                      Positioned(
-                        top: 8,
-                        left: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.getOverlayColor(context),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.2),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.cloud_queue,
-                                size: 16,
-                                color: AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7),
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                '仅备份',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    if (game.path.contains('${Platform.pathSeparator}Cleared${Platform.pathSeparator}'))
-                      Positioned(
-                        top: 8,
-                        left: isBackupOnly ? 110 : 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.getStarColor(context).withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.2)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.emoji_events, size: 16, color: AppTheme.getTextColorOnPrimary(context)),
-                              SizedBox(width: 4),
-                              Text('通关', style: TextStyle(fontSize: 14, color: AppTheme.getTextColorOnPrimary(context), fontWeight: FontWeight.w600)),
-                            ],
-                          ),
-                        ),
-                      )
-                    else if (game.isPlayed && !isBackupOnly && widget.contextMenuMode == ContextMenuMode.games)
-                      Positioned(
-                        top: 8,
-                        left: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.8),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.2)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.check_circle_outline, size: 16, color: AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7)),
-                              SizedBox(width: 4),
-                              Text(
-                                '玩过',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: GestureDetector(
-                        onTap: () async {
-                          final repo = ref.read(gameRepositoryProvider);
-                          await repo.updateFavoriteStatus(
-                              game.id!, !game.isFavorite);
-                          _refreshGames();
-                          _refreshFavorites();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: AppTheme.getOverlayColor(context).withValues(alpha: 0.7),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.15),
-                            ),
-                          ),
-                          child: Icon(
-                            game.isFavorite
-                                ? Icons.favorite
-                                : Icons.favorite_border,
-                            size: 20,
-                            color: game.isFavorite
-                                ? AppTheme.getFavoriteColor(context)
-                                : AppTheme.getTextColorOnPrimary(context).withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ),
+                    Text(
+                      game.title ?? '未命名',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                          color: AppTheme.getCardTitleColor(context)),
                     ),
-                    if (game.rating > 0)
-                      Positioned(
-                        bottom: 8,
-                        left: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.getOverlayColor(context).withValues(alpha: 0.7),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: List.generate(5, (index) {
-                              final starValue = index + 1;
-                              if (game.rating >= starValue) {
-                                return Icon(Icons.star, size: 20, color: AppTheme.getStarColor(context));
-                              } else if (game.rating >= starValue - 0.5) {
-                                return Icon(Icons.star_half, size: 20, color: AppTheme.getStarColor(context));
-                              } else {
-                                return Icon(Icons.star_border, size: 20, color: Theme.of(context).brightness == Brightness.dark ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.5));
-                              }
-                            }),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    game.title ?? '未命名',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        height: 1.3,
-                        color: AppTheme.getCardTitleColor(context)),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+            ],
+          ),
         ),
       ),
     );
@@ -1579,7 +1756,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           child: Center(
               child: Icon(Icons.videogame_asset,
                   size: 48,
-                  color: AppTheme.getTextSecondary(context).withValues(alpha: 0.25))),
+                  color: AppTheme.getTextSecondary(context)
+                      .withValues(alpha: 0.25))),
         ),
       );
     }
@@ -1614,7 +1792,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       child: Center(
           child: Icon(Icons.videogame_asset,
               size: (width ?? 70) * 0.5,
-              color: AppTheme.getTextSecondary(context).withValues(alpha: 0.25))),
+              color:
+                  AppTheme.getTextSecondary(context).withValues(alpha: 0.25))),
     );
   }
 
@@ -1653,250 +1832,110 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 fontSize: 13,
                 color: game.isPlayed
                     ? AppTheme.successColor
-                    : AppTheme.getTextSecondary(context).withValues(alpha: 0.5))),
+                    : AppTheme.getTextSecondary(context)
+                        .withValues(alpha: 0.5))),
         if (game.lastPlayedTime != null) ...[
           const SizedBox(height: 2),
           Text(_formatDate(game.lastPlayedTime!),
               style: TextStyle(
                   fontSize: 13,
-                  color: AppTheme.getTextSecondary(context).withValues(alpha: 0.4))),
+                  color: AppTheme.getTextSecondary(context)
+                      .withValues(alpha: 0.4))),
         ],
       ],
     );
   }
 
-  Future<void> _launchExe(String exePath, String gamePath) async {
-    // 工作目录应该是 exe 文件所在的文件夹
-    final exeDir = File(exePath).parent.path;
+  Future<void> _launchGameFromList(Game game) async {
+    final launchService = ref.read(gameLaunchServiceProvider);
+
+    var result = await launchService.launch(game);
+    if (result.localeEmulatorMissing && mounted) {
+      AppTheme.showGlassToast(
+        context,
+        message: 'LEProc.exe 不存在，已回退为普通启动',
+        icon: Icons.warning_amber,
+        iconColor: AppTheme.warningColor,
+      );
+    }
+
+    if (!result.launched && result.error == null && mounted) {
+      final manualResult = await _pickManualLauncherAndLaunch(result.game);
+      if (manualResult == null) {
+        _refreshAfterLaunch();
+        return;
+      }
+      result = manualResult;
+    }
+
+    if (!result.launched) {
+      if (mounted) {
+        final message =
+            result.error == null ? '未找到游戏启动器' : '启动失败: ${result.error}';
+        AppTheme.showGlassToast(
+          context,
+          message: message,
+          icon: Icons.error_outline,
+          iconColor: AppTheme.errorColor,
+        );
+      }
+      _refreshAfterLaunch();
+      return;
+    }
+
+    final tracked = await PlayTimeTracker.startTracking(
+      result.game,
+      processSnapshotBefore: result.processSnapshotBefore,
+      launchedPath: result.launchedPath,
+      trackingHintPath: result.trackingHintPath,
+      launcherWasLocked: result.launcherWasLocked,
+      startedProcessId: result.startedProcessId,
+    );
+
+    if (!tracked && mounted) {
+      AppTheme.showGlassToast(
+        context,
+        message: '未检测到游戏进程，本次未计时',
+        icon: Icons.warning_amber,
+        iconColor: AppTheme.warningColor,
+      );
+    }
+
+    _refreshAfterLaunch();
+  }
+
+  Future<GameLaunchResult?> _pickManualLauncherAndLaunch(Game game) async {
+    final result = await FilePicker.pickFiles(
+      dialogTitle: '选择游戏启动器',
+      type: FileType.any,
+      initialDirectory: game.path,
+    );
+
+    if (result == null ||
+        result.files.isEmpty ||
+        result.files.first.path == null) {
+      await _openGameFolder(game.path);
+      return null;
+    }
+
+    return ref.read(gameLaunchServiceProvider).launch(
+          game,
+          manualLauncherPath: result.files.first.path!,
+        );
+  }
+
+  Future<void> _openGameFolder(String gamePath) async {
     try {
-      await Process.run(exePath, [], workingDirectory: exeDir);
-    } catch (e) {
-      rethrow;
+      await Process.run('explorer.exe', [gamePath]);
+    } catch (_) {
+      // 文件夹打开失败时静默处理，避免遮挡主流程。
     }
   }
 
-  Future<void> _launchGameFromList(Game game) async {
-    final repo = ref.read(gameRepositoryProvider);
-
-    // 标记为已玩
-    if (game.id != null) {
-      try {
-        await repo.markAsPlayed(game.id!);
-      } catch (e) {
-        debugPrint('markAsPlayed error: $e');
-      }
-    }
-
-    PlayTimeTracker.startTracking(game);
-
-    bool launched = false;
-
-    // 优先检查转区启动
-    if (game.useLocaleEmulator) {
-      launched = await _launchWithLocaleEmulator(game);
-      if (!launched) {
-        final leProcPath = await _findLeProcPath();
-        if (leProcPath == null && game.id != null) {
-          await repo.updateLocaleEmulator(game.id!, false);
-          // 更新本地game对象
-          game = game.copyWith(useLocaleEmulator: false);
-          if (mounted) {
-            AppTheme.showGlassToast(context, message: 'LEProc.exe 不存在，已回退为普通启动', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
-          }
-        }
-      }
-    }
-
-    // 普通启动
-    if (!launched) {
-      launched = await _launchGameNormal(game);
-    }
-
-    // 文件选择器兜底
-    if (!launched) {
-      final result = await FilePicker.pickFiles(
-        dialogTitle: '选择游戏启动器',
-        type: FileType.any,
-        initialDirectory: game.path,
-      );
-      if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
-        final launcherPath = result.files.first.path!;
-        if (game.id != null) {
-          await repo.updateGameLauncher(game.id!, launcherPath, true);
-        }
-        try {
-          await Process.run(launcherPath, [], workingDirectory: game.path);
-        } catch (e) {
-          if (mounted) {
-            AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-          }
-        }
-      } else {
-        try {
-          await Process.run('explorer.exe', [game.path]);
-        } catch (_) {
-          // 浏览器打开失败时静默处理
-        }
-      }
-    }
-
-    // 刷新 provider
+  void _refreshAfterLaunch() {
     ref.invalidate(allGamesProvider);
     ref.invalidate(playedGamesProvider);
     ref.invalidate(favoriteGamesProvider);
-  }
-
-  Future<String?> _findLeProcPath() async {
-    final repo = ref.read(toolRepositoryProvider);
-    final tools = await repo.getAllTools();
-    for (final tool in tools) {
-      final fileName = tool.path.split(RegExp(r'[/\\]')).last.toLowerCase();
-      if (fileName == 'leproc.exe') {
-        final file = File(tool.path);
-        if (await file.exists()) return tool.path;
-      }
-    }
-    return null;
-  }
-
-  Future<bool> _launchWithLocaleEmulator(Game game) async {
-    final leProcPath = await _findLeProcPath();
-    if (leProcPath == null) return false;
-
-    String? exePath;
-    if (game.launcherLocked && game.gameLauncher != null && game.gameLauncher!.isNotEmpty) {
-      final file = File(game.gameLauncher!);
-      if (await file.exists()) exePath = game.gameLauncher!;
-    }
-
-    if (exePath == null) {
-      final gameDir = Directory(game.path);
-      if (await gameDir.exists()) {
-        final fallbackExes = ['game.exe', 'Game.exe', 'launcher.exe', 'launch.exe', 'player.exe', 'play.exe'];
-        for (final exeName in fallbackExes) {
-          final exeFile = File('${game.path}${Platform.pathSeparator}$exeName');
-          if (await exeFile.exists()) { exePath = exeFile.path; break; }
-        }
-        if (exePath == null) {
-          await for (final entity in gameDir.list()) {
-            if (entity is File && entity.path.toLowerCase().endsWith('.exe')) {
-              exePath = entity.path; break;
-            }
-          }
-        }
-      }
-    }
-
-    if (exePath == null) return false;
-
-    try {
-      await Process.run(leProcPath, [exePath]);
-      return true;
-    } catch (e) {
-      debugPrint('[LE] Launch failed: $e');
-      return false;
-    }
-  }
-
-  Future<bool> _launchGameNormal(Game game) async {
-    final repo = ref.read(gameRepositoryProvider);
-
-    // 存储的启动器
-    if (game.launcherLocked && game.gameLauncher != null && game.gameLauncher!.isNotEmpty) {
-      final file = File(game.gameLauncher!);
-      if (await file.exists()) {
-        try {
-          await _launchExe(game.gameLauncher!, game.path);
-          return true;
-        } catch (e) {
-          if (mounted) {
-            AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-          }
-          return true;
-        }
-      }
-    }
-
-    final gameDir = Directory(game.path);
-    if (!await gameDir.exists()) return false;
-
-    // 与工具一同启动.bat
-    final toolBat = File('${game.path}${Platform.pathSeparator}与工具一同启动.bat');
-    if (await toolBat.exists()) {
-      if (game.id != null) {
-        await repo.updateGameLauncher(game.id!, toolBat.path, false);
-      }
-      try {
-        await _launchExe(toolBat.path, game.path);
-        return true;
-      } catch (e) {
-        if (mounted) {
-          AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-        }
-        return true;
-      }
-    }
-
-    // 其他启动 bat 文件
-    await for (final entity in gameDir.list()) {
-      if (entity is File) {
-        final fileName = entity.path.split(RegExp(r'[/\\]')).last.toLowerCase();
-        if (fileName.endsWith('.bat') && (fileName.contains('启动') || fileName.contains('开始'))) {
-          if (game.id != null) {
-            await repo.updateGameLauncher(game.id!, entity.path, false);
-          }
-          try {
-            await _launchExe(entity.path, game.path);
-            return true;
-          } catch (e) {
-            if (mounted) {
-              AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-            }
-            return true;
-          }
-        }
-      }
-    }
-
-    // 常见 exe 兜底
-    final fallbackExes = ['game.exe', 'Game.exe', 'launcher.exe', 'launch.exe', 'player.exe', 'play.exe'];
-    for (final exeName in fallbackExes) {
-      final exeFile = File('${game.path}${Platform.pathSeparator}$exeName');
-      if (await exeFile.exists()) {
-        if (game.id != null) {
-          await repo.updateGameLauncher(game.id!, exeFile.path, false);
-        }
-        try {
-          await _launchExe(exeFile.path, game.path);
-          return true;
-        } catch (e) {
-          if (mounted) {
-            AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-          }
-          return true;
-        }
-      }
-    }
-
-    // findGameExe 兜底
-    final saveService = ref.read(savePathServiceProvider);
-    final exePath = await saveService.findGameExe(game.path);
-    if (exePath != null) {
-      if (game.id != null) {
-        await repo.updateGameLauncher(game.id!, exePath, false);
-      }
-      try {
-        await _launchExe(exePath, game.path);
-        return true;
-      } catch (e) {
-        if (mounted) {
-          AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
-        }
-        return true;
-      }
-    }
-
-    return false;
   }
 
   void _showGameDetail(Game game) {
@@ -1924,7 +1963,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   /// 获取菜单配置
   ContextMenuConfig _getMenuConfig() {
-    final mode = widget.contextMenuMode == ContextMenuMode.played ? 'played' : 'games';
+    final mode =
+        widget.contextMenuMode == ContextMenuMode.played ? 'played' : 'games';
     if (mode == 'played') {
       return ref.read(contextMenuPlayedProvider);
     }
@@ -1936,17 +1976,17 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     return _getMenuConfig().enabledItems.map((i) => i.id).toList();
   }
 
-  void _showContextMenu(
-      BuildContext context, Offset position, Game game) {
-    final isBackupOnly = game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
+  void _showContextMenu(BuildContext context, Offset position, Game game) {
+    final isBackupOnly = game.path
+        .contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}');
     final isMultiSelect = _multiSelectController.isMultiSelectMode;
-    
+
     // 获取菜单配置
     final menuOrder = _getEnabledMenuOrder();
-    
+
     // 定义所有可能的菜单项
     final allItems = <String, PopupMenuItem<String>>{};
-    
+
     allItems['open_folder'] = PopupMenuItem(
         value: 'open_folder',
         child: ListTile(
@@ -1954,27 +1994,32 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             contentPadding: EdgeInsets.zero,
             leading: Icon(Icons.folder_open, size: 18),
             title: const Text('打开文件夹')));
-    
+
     if (!isMultiSelect) {
       allItems['move_folder'] = PopupMenuItem(
           value: 'move_folder',
           child: ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.drive_file_move, size: 18, color: AppTheme.primaryColor),
+              leading: Icon(Icons.drive_file_move,
+                  size: 18, color: AppTheme.primaryColor),
               title: const Text('移动文件夹')));
     }
-    
-    if (widget.contextMenuMode == ContextMenuMode.played && game.savePath != null && game.savePath!.isNotEmpty && !isMultiSelect) {
+
+    if (widget.contextMenuMode == ContextMenuMode.played &&
+        game.savePath != null &&
+        game.savePath!.isNotEmpty &&
+        !isMultiSelect) {
       allItems['open_save'] = PopupMenuItem(
           value: 'open_save',
           child: ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.folder_special, size: 18, color: AppTheme.primaryColor),
+              leading: Icon(Icons.folder_special,
+                  size: 18, color: AppTheme.primaryColor),
               title: const Text('存档管理')));
     }
-    
+
     allItems['favorite'] = PopupMenuItem(
         value: 'favorite',
         child: ListTile(
@@ -1983,9 +2028,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             leading: Icon(
                 game.isFavorite ? Icons.favorite : Icons.favorite_border,
                 size: 18,
-                color: game.isFavorite ? AppTheme.getFavoriteColor(context) : null),
+                color: game.isFavorite
+                    ? AppTheme.getFavoriteColor(context)
+                    : null),
             title: Text(game.isFavorite ? '取消收藏' : '添加收藏')));
-    
+
     allItems['played'] = PopupMenuItem(
         value: 'played',
         child: ListTile(
@@ -1999,17 +2046,18 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             title: Text(widget.contextMenuMode == ContextMenuMode.played
                 ? '减少游玩次数'
                 : '增加游玩次数')));
-    
+
     if (_hasCustomSeries()) {
       allItems['move_to_series'] = PopupMenuItem(
           value: 'move_to_series',
           child: ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.playlist_add, size: 18, color: AppTheme.primaryColor),
+              leading: Icon(Icons.playlist_add,
+                  size: 18, color: AppTheme.primaryColor),
               title: const Text('移入自定义系列')));
     }
-    
+
     if (game.images.length > 1 && !isMultiSelect) {
       allItems['cover'] = PopupMenuItem(
           value: 'cover',
@@ -2017,66 +2065,72 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               dense: true,
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.image, size: 18),
-              title: Text(
-                  '选择封面 (${game.coverIndex + 1}/${game.images.length})')));
+              title:
+                  Text('选择封面 (${game.coverIndex + 1}/${game.images.length})')));
     }
-    
+
     if (!isMultiSelect) {
       allItems['review'] = PopupMenuItem(
           value: 'review',
           child: ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.rate_review_outlined, size: 18, color: AppTheme.primaryColor),
-              title: Text('评论', style: TextStyle(color: AppTheme.getTextPrimary(context)))));
+              leading: const Icon(Icons.rate_review_outlined,
+                  size: 18, color: AppTheme.primaryColor),
+              title: Text('评论',
+                  style: TextStyle(color: AppTheme.getTextPrimary(context)))));
     }
-    
+
     if (!widget.isClearedPage) {
       allItems['cleared'] = PopupMenuItem(
           value: 'cleared',
           child: ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.emoji_events, size: 18, color: AppTheme.getStarColor(context)),
-          title: Text('标记已通关', style: TextStyle(color: AppTheme.getStarColor(context)))));
+              leading: Icon(Icons.emoji_events,
+                  size: 18, color: AppTheme.getStarColor(context)),
+              title: Text('标记已通关',
+                  style: TextStyle(color: AppTheme.getStarColor(context)))));
     }
-    
+
     if (widget.isClearedPage) {
       allItems['uncleared'] = PopupMenuItem(
           value: 'uncleared',
           child: ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.emoji_events_outlined, size: 18, color: AppTheme.getTextSecondary(context)),
-          title: Text('取消标记已通关', style: TextStyle(color: AppTheme.getTextSecondary(context)))));
+              leading: Icon(Icons.emoji_events_outlined,
+                  size: 18, color: AppTheme.getTextSecondary(context)),
+              title: Text('取消标记已通关',
+                  style:
+                      TextStyle(color: AppTheme.getTextSecondary(context)))));
     }
-    
+
     allItems['blacklist'] = PopupMenuItem(
         value: 'blacklist',
         child: ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
-            leading:
-                Icon(Icons.block, size: 18, color: AppTheme.warningOrange),
-            title: Text('删除记录',
-                style: TextStyle(color: AppTheme.warningOrange))));
-    
+            leading: Icon(Icons.block, size: 18, color: AppTheme.warningOrange),
+            title:
+                Text('删除记录', style: TextStyle(color: AppTheme.warningOrange))));
+
     if (!isBackupOnly) {
       allItems['delete_folder'] = PopupMenuItem(
           value: 'delete_folder',
           child: ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              leading:
-                  Icon(Icons.folder_delete_outlined, size: 18, color: AppTheme.errorColor),
+              leading: Icon(Icons.folder_delete_outlined,
+                  size: 18, color: AppTheme.errorColor),
               title: const Text('删除本地文件夹',
                   style: TextStyle(color: AppTheme.errorColor))));
     }
-    
+
     // 根据配置过滤和排序菜单项
     final filteredItems = <PopupMenuEntry<String>>[];
     bool hasDangerItem = false;
-    
+
     for (final id in menuOrder) {
       if (allItems.containsKey(id)) {
         // 在危险项之前添加分隔线
@@ -2087,7 +2141,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         filteredItems.add(allItems[id]!);
       }
     }
-    
+
     AppTheme.showGlassMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -2098,9 +2152,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final repo = ref.read(gameRepositoryProvider);
 
       // 多选模式下对所有选中游戏执行操作，否则只对右键的游戏
-      final List<Game> targets = (isMultiSelect && _multiSelectController.selectedCount > 1)
-          ? _multiSelectController.selectedItems.toList()
-          : [game];
+      final List<Game> targets =
+          (isMultiSelect && _multiSelectController.selectedCount > 1)
+              ? _multiSelectController.selectedItems.toList()
+              : [game];
 
       switch (value) {
         case 'open_folder':
@@ -2176,12 +2231,18 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('删除记录', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+                    Text('删除记录',
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.getTextPrimary(context))),
                     const SizedBox(height: 12),
-                    Text(targets.length > 1
-                        ? '确定要删除选中的 ${targets.length} 个游戏的记录吗？\n路径将加入黑名单，后续扫描不再入库。\n不会删除实际文件。'
-                        : '确定要删除"${game.title}"的记录吗？\n路径将加入黑名单，后续扫描不再入库。\n不会删除实际文件。',
-                        style: TextStyle(color: AppTheme.getTextSecondary(context))),
+                    Text(
+                        targets.length > 1
+                            ? '确定要删除选中的 ${targets.length} 个游戏的记录吗？\n路径将加入黑名单，后续扫描不再入库。\n不会删除实际文件。'
+                            : '确定要删除"${game.title}"的记录吗？\n路径将加入黑名单，后续扫描不再入库。\n不会删除实际文件。',
+                        style: TextStyle(
+                            color: AppTheme.getTextSecondary(context))),
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -2211,7 +2272,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               }
             }
             _multiSelectController.exitMultiSelectMode();
-_refreshAllProviders();
+            _refreshAllProviders();
           }
           break;
         case 'delete_folder':
@@ -2225,12 +2286,18 @@ _refreshAllProviders();
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('删除本地文件夹', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+                    Text('删除本地文件夹',
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.getTextPrimary(context))),
                     const SizedBox(height: 12),
-                    Text(targets.length > 1
-                        ? '确定要删除选中的 ${targets.length} 个游戏的本地文件夹吗？\n此操作不可恢复！'
-                        : '确定要删除"${game.title}"的本地文件夹吗？\n此操作不可恢复！\n\n${game.path}',
-                        style: TextStyle(color: AppTheme.getTextSecondary(context))),
+                    Text(
+                        targets.length > 1
+                            ? '确定要删除选中的 ${targets.length} 个游戏的本地文件夹吗？\n此操作不可恢复！'
+                            : '确定要删除"${game.title}"的本地文件夹吗？\n此操作不可恢复！\n\n${game.path}',
+                        style: TextStyle(
+                            color: AppTheme.getTextSecondary(context))),
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -2267,9 +2334,10 @@ _refreshAllProviders();
               }
             }
             _multiSelectController.exitMultiSelectMode();
-_refreshAllProviders();
+            _refreshAllProviders();
             if (mounted) {
-              AppTheme.showGlassToast(context, message: '已删除 $successCount 个文件夹');
+              AppTheme.showGlassToast(context,
+                  message: '已删除 $successCount 个文件夹');
             }
           }
           break;
@@ -2287,12 +2355,15 @@ _refreshAllProviders();
             final repo = ref.read(gameRepositoryProvider);
             var gameId = game.id;
             if (gameId == null) {
-              debugPrint('[Review] Game has no id, inserting into DB: ${game.path}');
+              debugPrint(
+                  '[Review] Game has no id, inserting into DB: ${game.path}');
               gameId = await repo.insertGame(game);
               debugPrint('[Review] Inserted game with id: $gameId');
             }
-            await repo.updateRatingReview(gameId, rating, review.isEmpty ? null : review);
-            debugPrint('[Review] Updated rating=$rating, review=${review.isEmpty ? "null" : review} for game id=$gameId');
+            await repo.updateRatingReview(
+                gameId, rating, review.isEmpty ? null : review);
+            debugPrint(
+                '[Review] Updated rating=$rating, review=${review.isEmpty ? "null" : review} for game id=$gameId');
             _refreshGames();
             _refreshCleared();
             _refreshPlayed();
@@ -2337,9 +2408,15 @@ _refreshAllProviders();
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('标记已通关', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+              Text('标记已通关',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.getTextPrimary(context))),
               const SizedBox(height: 12),
-              Text('确定要将"$gameName"标记为已通关吗？\n\n游戏将移动到 Sorted/Cleared 目录，\n并自动创建备份。', style: TextStyle(color: AppTheme.getTextSecondary(context))),
+              Text(
+                  '确定要将"$gameName"标记为已通关吗？\n\n游戏将移动到 Sorted/Cleared 目录，\n并自动创建备份。',
+                  style: TextStyle(color: AppTheme.getTextSecondary(context))),
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -2369,17 +2446,20 @@ _refreshAllProviders();
 
       if (clearedPath.isEmpty) {
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '该游戏库未配置通关目录，请在设置中配置', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          AppTheme.showGlassToast(context,
+              message: '该游戏库未配置通关目录，请在设置中配置',
+              icon: Icons.error_outline,
+              iconColor: AppTheme.errorColor);
         }
         return;
       }
 
       // 使用更健壮的路径检查
       final normalizedPath = game.path.replaceAll('\\', '/');
-      final isBackupOnly = normalizedPath.contains('/Backup/') || 
-                           normalizedPath.endsWith('/Backup') ||
-                           normalizedPath.contains('\\Backup\\') ||
-                           normalizedPath.endsWith('\\Backup');
+      final isBackupOnly = normalizedPath.contains('/Backup/') ||
+          normalizedPath.endsWith('/Backup') ||
+          normalizedPath.contains('\\Backup\\') ||
+          normalizedPath.endsWith('\\Backup');
 
       if (isBackupOnly) {
         // 删除关联的图片文件
@@ -2402,7 +2482,7 @@ _refreshAllProviders();
           final repo = ref.read(gameRepositoryProvider);
           await repo.deleteGame(game.id!);
         }
-_refreshAllProviders();
+        _refreshAllProviders();
 
         if (mounted) {
           AppTheme.showGlassToast(context, message: '已删除"$gameName"的备份');
@@ -2413,7 +2493,10 @@ _refreshAllProviders();
       final gameDir = Directory(game.path);
       if (!await gameDir.exists()) {
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '游戏目录不存在', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          AppTheme.showGlassToast(context,
+              message: '游戏目录不存在',
+              icon: Icons.error_outline,
+              iconColor: AppTheme.errorColor);
         }
         return;
       }
@@ -2425,49 +2508,60 @@ _refreshAllProviders();
       }
 
       // 创建Backup目录
-      final backupDir = Directory('$clearedPath${Platform.pathSeparator}Backup');
+      final backupDir =
+          Directory('$clearedPath${Platform.pathSeparator}Backup');
       if (!await backupDir.exists()) {
         await backupDir.create(recursive: true);
       }
 
       // 创建游戏备份目录（使用 buildBackupFolderName 生成文件夹名）
-      final backupFolderName = await FolderRenameService.buildBackupFolderName(game);
-      final gameTitle = backupFolderName ?? game.title ?? path.basename(game.path);
+      final backupFolderName =
+          await FolderRenameService.buildBackupFolderName(game);
+      final gameTitle =
+          backupFolderName ?? game.title ?? path.basename(game.path);
       final sanitizedTitle = gameTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-      final backupGameDir = Directory('${backupDir.path}${Platform.pathSeparator}$sanitizedTitle');
+      final backupGameDir = Directory(
+          '${backupDir.path}${Platform.pathSeparator}$sanitizedTitle');
       if (!await backupGameDir.exists()) {
         await backupGameDir.create(recursive: true);
       }
 
       // 复制metadata.json到备份
-      final metadataFile = File('${game.path}${Platform.pathSeparator}metadata.json');
+      final metadataFile =
+          File('${game.path}${Platform.pathSeparator}metadata.json');
       if (await metadataFile.exists()) {
-        await metadataFile.copy('${backupGameDir.path}${Platform.pathSeparator}metadata.json');
+        await metadataFile.copy(
+            '${backupGameDir.path}${Platform.pathSeparator}metadata.json');
       }
 
       // 复制source_url.txt到备份
-      final sourceUrlFile = File('${game.path}${Platform.pathSeparator}source_url.txt');
+      final sourceUrlFile =
+          File('${game.path}${Platform.pathSeparator}source_url.txt');
       if (await sourceUrlFile.exists()) {
-        await sourceUrlFile.copy('${backupGameDir.path}${Platform.pathSeparator}source_url.txt');
+        await sourceUrlFile.copy(
+            '${backupGameDir.path}${Platform.pathSeparator}source_url.txt');
       }
 
       // 复制images目录到备份
-      final imagesDir = Directory('${game.path}${Platform.pathSeparator}images');
-      final backupImagesDir = Directory('${backupGameDir.path}${Platform.pathSeparator}images');
+      final imagesDir =
+          Directory('${game.path}${Platform.pathSeparator}images');
+      final backupImagesDir =
+          Directory('${backupGameDir.path}${Platform.pathSeparator}images');
       if (!await backupImagesDir.exists()) {
         await backupImagesDir.create(recursive: true);
       }
-      
+
       // 复制游戏目录下的images文件夹
       if (await imagesDir.exists()) {
         await for (final entity in imagesDir.list()) {
           if (entity is File) {
             final fileName = path.basename(entity.path);
-            await entity.copy('${backupImagesDir.path}${Platform.pathSeparator}$fileName');
+            await entity.copy(
+                '${backupImagesDir.path}${Platform.pathSeparator}$fileName');
           }
         }
       }
-      
+
       // 复制game_images目录中用户手动添加的图片
       final repo = ref.read(gameRepositoryProvider);
       final gameImages = await repo.getGameImages(game.id!);
@@ -2478,7 +2572,8 @@ _refreshAllProviders();
           final file = File(img.imagePath);
           if (await file.exists()) {
             final fileName = path.basename(img.imagePath);
-            final destPath = '${backupImagesDir.path}${Platform.pathSeparator}$fileName';
+            final destPath =
+                '${backupImagesDir.path}${Platform.pathSeparator}$fileName';
             if (!await File(destPath).exists()) {
               await file.copy(destPath);
             }
@@ -2487,15 +2582,19 @@ _refreshAllProviders();
       }
 
       // 移动游戏目录到Cleared
-      final newPath = '${clearedDir.path}${Platform.pathSeparator}${path.basename(game.path)}';
+      final newPath =
+          '${clearedDir.path}${Platform.pathSeparator}${path.basename(game.path)}';
       final newDir = Directory(newPath);
       if (await newDir.exists()) {
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '目标目录已存在: ${path.basename(game.path)}，请先处理冲突', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          AppTheme.showGlassToast(context,
+              message: '目标目录已存在: ${path.basename(game.path)}，请先处理冲突',
+              icon: Icons.error_outline,
+              iconColor: AppTheme.errorColor);
         }
         return;
       }
-      
+
       await gameDir.rename(newPath);
       await repo.updateGamePath(game.id!, newPath);
 
@@ -2507,21 +2606,23 @@ _refreshAllProviders();
           final normalizedOldPath = game.path.replaceAll('\\', '/');
           final normalizedNewPath = newPath.replaceAll('\\', '/');
           final normalizedImagePath = img.imagePath.replaceAll('\\', '/');
-          
+
           // 检查旧路径是否在图片路径中
           String newImagePath;
           if (normalizedImagePath.startsWith(normalizedOldPath)) {
             // 游戏目录中的图片，更新路径
-            newImagePath = normalizedImagePath.replaceFirst(normalizedOldPath, normalizedNewPath);
+            newImagePath = normalizedImagePath.replaceFirst(
+                normalizedOldPath, normalizedNewPath);
           } else if (img.imagePath.startsWith(storageDir)) {
             // game_images目录中的图片，更新为备份目录路径
             final fileName = path.basename(img.imagePath);
-            newImagePath = '${backupImagesDir.path}${Platform.pathSeparator}$fileName';
+            newImagePath =
+                '${backupImagesDir.path}${Platform.pathSeparator}$fileName';
           } else {
             // 其他情况保持原路径不变
             newImagePath = img.imagePath;
           }
-          
+
           return GameImage(
             id: img.id,
             gameId: img.gameId,
@@ -2542,7 +2643,10 @@ _refreshAllProviders();
       }
     } catch (e) {
       if (mounted) {
-        AppTheme.showGlassToast(context, message: '操作失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        AppTheme.showGlassToast(context,
+            message: '操作失败: $e',
+            icon: Icons.error_outline,
+            iconColor: AppTheme.errorColor);
       }
     }
   }
@@ -2567,11 +2671,21 @@ _refreshAllProviders();
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('确认移动文件夹', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+              Text('确认移动文件夹',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.getTextPrimary(context))),
               const SizedBox(height: 16),
-              Text('原路径: ${game.path}', style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 13)),
+              Text('原路径: ${game.path}',
+                  style: TextStyle(
+                      color: AppTheme.getTextSecondary(context), fontSize: 13)),
               const SizedBox(height: 8),
-              Text('新路径: $newPath', style: TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 13, fontWeight: FontWeight.w500)),
+              Text('新路径: $newPath',
+                  style: TextStyle(
+                      color: AppTheme.getTextPrimary(context),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500)),
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -2612,7 +2726,10 @@ _refreshAllProviders();
       }
     } catch (e) {
       if (mounted) {
-        AppTheme.showGlassToast(context, message: '移动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        AppTheme.showGlassToast(context,
+            message: '移动失败: $e',
+            icon: Icons.error_outline,
+            iconColor: AppTheme.errorColor);
       }
     }
   }
@@ -2621,10 +2738,10 @@ _refreshAllProviders();
     final gameName = game.title ?? path.basename(game.path);
     // 使用更健壮的路径检查，统一使用正斜杠
     final normalizedPath = game.path.replaceAll('\\', '/');
-    final isBackupOnly = normalizedPath.contains('/Backup/') || 
-                         normalizedPath.endsWith('/Backup') ||
-                         normalizedPath.contains('\\Backup\\') ||
-                         normalizedPath.endsWith('\\Backup');
+    final isBackupOnly = normalizedPath.contains('/Backup/') ||
+        normalizedPath.endsWith('/Backup') ||
+        normalizedPath.contains('\\Backup\\') ||
+        normalizedPath.endsWith('\\Backup');
     // 确认对话框
     final confirm = await showGlassDialog<bool>(
       context: context,
@@ -2634,7 +2751,11 @@ _refreshAllProviders();
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('取消标记已通关', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+            Text('取消标记已通关',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.getTextPrimary(context))),
             const SizedBox(height: 12),
             Text(
               isBackupOnly
@@ -2670,7 +2791,10 @@ _refreshAllProviders();
 
       if (clearedPath.isEmpty) {
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '该游戏库未配置通关目录', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          AppTheme.showGlassToast(context,
+              message: '该游戏库未配置通关目录',
+              icon: Icons.error_outline,
+              iconColor: AppTheme.errorColor);
         }
         return;
       }
@@ -2679,7 +2803,10 @@ _refreshAllProviders();
       final sortedPath = await AppSettings.getSortedPathForGame(game.path);
       if (sortedPath.isEmpty) {
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '该游戏库未配置整理目录，无法移回', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          AppTheme.showGlassToast(context,
+              message: '该游戏库未配置整理目录，无法移回',
+              icon: Icons.error_outline,
+              iconColor: AppTheme.errorColor);
         }
         return;
       }
@@ -2705,7 +2832,7 @@ _refreshAllProviders();
           final repo = ref.read(gameRepositoryProvider);
           await repo.deleteGame(game.id!);
         }
-_refreshAllProviders();
+        _refreshAllProviders();
 
         if (mounted) {
           AppTheme.showGlassToast(context, message: '已删除"$gameName"的备份');
@@ -2716,14 +2843,18 @@ _refreshAllProviders();
       final gameDir = Directory(game.path);
       if (!await gameDir.exists()) {
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '游戏目录不存在', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          AppTheme.showGlassToast(context,
+              message: '游戏目录不存在',
+              icon: Icons.error_outline,
+              iconColor: AppTheme.errorColor);
         }
         return;
       }
 
       // 读取 metadata.json 中的 series 字段
       String targetCategory = 'Unclassified';
-      final metadataFile = File('${game.path}${Platform.pathSeparator}metadata.json');
+      final metadataFile =
+          File('${game.path}${Platform.pathSeparator}metadata.json');
       if (await metadataFile.exists()) {
         try {
           final content = await metadataFile.readAsString();
@@ -2738,21 +2869,26 @@ _refreshAllProviders();
       }
 
       // 创建目标目录
-      final targetDir = Directory('$sortedPath${Platform.pathSeparator}$targetCategory');
+      final targetDir =
+          Directory('$sortedPath${Platform.pathSeparator}$targetCategory');
       if (!await targetDir.exists()) {
         await targetDir.create(recursive: true);
       }
 
       // 移动游戏目录到目标目录
-      final newPath = '${targetDir.path}${Platform.pathSeparator}${path.basename(game.path)}';
+      final newPath =
+          '${targetDir.path}${Platform.pathSeparator}${path.basename(game.path)}';
       final newDir = Directory(newPath);
       if (await newDir.exists()) {
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '目标目录已存在: ${path.basename(game.path)}，请先处理冲突', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          AppTheme.showGlassToast(context,
+              message: '目标目录已存在: ${path.basename(game.path)}，请先处理冲突',
+              icon: Icons.error_outline,
+              iconColor: AppTheme.errorColor);
         }
         return;
       }
-      
+
       await gameDir.rename(newPath);
       final repo = ref.read(gameRepositoryProvider);
       await repo.updateGamePath(game.id!, newPath);
@@ -2764,16 +2900,17 @@ _refreshAllProviders();
           final normalizedOldPath = game.path.replaceAll('\\', '/');
           final normalizedNewPath = newPath.replaceAll('\\', '/');
           final normalizedImagePath = img.imagePath.replaceAll('\\', '/');
-          
+
           // 检查旧路径是否在图片路径中
           String newImagePath;
           if (normalizedImagePath.startsWith(normalizedOldPath)) {
-            newImagePath = normalizedImagePath.replaceFirst(normalizedOldPath, normalizedNewPath);
+            newImagePath = normalizedImagePath.replaceFirst(
+                normalizedOldPath, normalizedNewPath);
           } else {
             // 如果路径不匹配，保持原路径不变（图片可能在game_images目录中）
             newImagePath = img.imagePath;
           }
-          
+
           return GameImage(
             id: img.id,
             gameId: img.gameId,
@@ -2785,12 +2922,17 @@ _refreshAllProviders();
       }
 
       // 删除对应的 Backup 目录
-      final backupDir = Directory('$clearedPath${Platform.pathSeparator}Backup');
+      final backupDir =
+          Directory('$clearedPath${Platform.pathSeparator}Backup');
       if (await backupDir.exists()) {
-        final backupFolderName = await FolderRenameService.buildBackupFolderName(game);
-        final gameTitle = backupFolderName ?? game.title ?? path.basename(game.path);
-        final sanitizedTitle = gameTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-        final backupGameDir = Directory('${backupDir.path}${Platform.pathSeparator}$sanitizedTitle');
+        final backupFolderName =
+            await FolderRenameService.buildBackupFolderName(game);
+        final gameTitle =
+            backupFolderName ?? game.title ?? path.basename(game.path);
+        final sanitizedTitle =
+            gameTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+        final backupGameDir = Directory(
+            '${backupDir.path}${Platform.pathSeparator}$sanitizedTitle');
         if (await backupGameDir.exists()) {
           await backupGameDir.delete(recursive: true);
         }
@@ -2807,7 +2949,10 @@ _refreshAllProviders();
       }
     } catch (e) {
       if (mounted) {
-        AppTheme.showGlassToast(context, message: '操作失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        AppTheme.showGlassToast(context,
+            message: '操作失败: $e',
+            icon: Icons.error_outline,
+            iconColor: AppTheme.errorColor);
       }
     }
   }
@@ -2820,7 +2965,7 @@ _refreshAllProviders();
   void _showMoveToSeriesDialog(List<Game> games) async {
     final seriesAsync = ref.read(allSeriesProvider);
     final customTags = seriesAsync.whenOrNull(data: (series) => series) ?? [];
-    
+
     if (customTags.isEmpty) {
       AppTheme.showGlassToast(context, message: '暂无自定义标签');
       return;
@@ -2828,7 +2973,9 @@ _refreshAllProviders();
 
     final firstGame = games.first;
     final currentTagIds = firstGame.tags.map((t) => t.id).toSet();
-    final selectedTagIds = <int>{...currentTagIds.where((id) => id != null).cast<int>()};
+    final selectedTagIds = <int>{
+      ...currentTagIds.where((id) => id != null).cast<int>()
+    };
 
     final title = games.length == 1
         ? (firstGame.title ?? '未命名游戏')
@@ -2872,7 +3019,8 @@ _refreshAllProviders();
   void _addToBlacklist(String gamePath) {
     final prefs = ref.read(sharedPreferencesProvider);
     final existing = prefs.getString('game_blacklist') ?? '';
-    final paths = existing.split('\n').where((s) => s.trim().isNotEmpty).toList();
+    final paths =
+        existing.split('\n').where((s) => s.trim().isNotEmpty).toList();
     if (!paths.contains(gamePath)) {
       paths.add(gamePath);
       prefs.setString('game_blacklist', paths.join('\n'));
@@ -2888,7 +3036,8 @@ _refreshAllProviders();
   Future<void> _scanSavePathForGame(Game game) async {
     try {
       // 跳过"仅备份"游戏
-      if (game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}')) {
+      if (game.path.contains(
+          '${Platform.pathSeparator}Backup${Platform.pathSeparator}')) {
         return;
       }
 
@@ -2896,19 +3045,26 @@ _refreshAllProviders();
       final saveService = ref.read(savePathServiceProvider);
 
       final freshGame = await repo.getGameById(game.id!);
-      if (freshGame != null && freshGame.savePath != null && freshGame.savePath!.isNotEmpty) {
+      if (freshGame != null &&
+          freshGame.savePath != null &&
+          freshGame.savePath!.isNotEmpty) {
         return;
       }
 
-      final savePath = await saveService.scanWithConfidence(game.path, game.title);
+      final savePath =
+          await saveService.scanWithConfidence(game.path, game.title);
       if (savePath != null) {
         await repo.updateSavePath(game.id!, savePath);
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '已找到"${game.title}"可能的存档位置');
+          AppTheme.showGlassToast(context,
+              message: '已找到"${game.title}"可能的存档位置');
         }
       } else {
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '未找到"${game.title}"的存档位置', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
+          AppTheme.showGlassToast(context,
+              message: '未找到"${game.title}"的存档位置',
+              icon: Icons.warning_amber,
+              iconColor: AppTheme.warningColor);
         }
       }
       _refreshGames();
@@ -2966,7 +3122,8 @@ class _CoverPickerDialog extends StatelessWidget {
                                 border: Border.all(
                                   color: i == game.coverIndex
                                       ? AppTheme.primaryColor
-                                      : AppTheme.getBorderColor(context).withValues(alpha: 0.3),
+                                      : AppTheme.getBorderColor(context)
+                                          .withValues(alpha: 0.3),
                                   width: i == game.coverIndex ? 3 : 1,
                                 ),
                               ),
@@ -2979,20 +3136,29 @@ class _CoverPickerDialog extends StatelessWidget {
                                       File(game.images[i].imagePath!),
                                       fit: BoxFit.contain,
                                       errorBuilder: (_, __, ___) => Container(
-                                        color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
-                                        child: Icon(Icons.broken_image, size: 24, color: AppTheme.getTextSecondary(context)),
+                                        color:
+                                            AppTheme.getBackgroundColor(context)
+                                                .withValues(alpha: 0.3),
+                                        child: Icon(Icons.broken_image,
+                                            size: 24,
+                                            color: AppTheme.getTextSecondary(
+                                                context)),
                                       ),
                                     ),
                                     Positioned(
                                       bottom: 4,
                                       right: 4,
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
                                             color: Colors.black54,
-                                            borderRadius: BorderRadius.circular(8)),
+                                            borderRadius:
+                                                BorderRadius.circular(8)),
                                         child: Text('${i + 1}',
-                                            style: const TextStyle(fontSize: 10, color: Colors.white)),
+                                            style: const TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.white)),
                                       ),
                                     ),
                                     if (i == game.coverIndex)
@@ -3004,7 +3170,8 @@ class _CoverPickerDialog extends StatelessWidget {
                                           decoration: const BoxDecoration(
                                               color: AppTheme.primaryColor,
                                               shape: BoxShape.circle),
-                                          child: const Icon(Icons.check, size: 14, color: Colors.white),
+                                          child: const Icon(Icons.check,
+                                              size: 14, color: Colors.white),
                                         ),
                                       ),
                                   ],
@@ -3095,7 +3262,10 @@ class _ReviewDialogState extends State<_ReviewDialog> {
             const SizedBox(height: 20),
             Text(
               '评分',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context)),
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.getTextPrimary(context)),
             ),
             const SizedBox(height: 8),
             Builder(
@@ -3105,12 +3275,16 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                 const starAreaWidth = 5 * (starSize + starGap) - starGap;
                 return Listener(
                   onPointerDown: (event) {
-                    final newRating = _calcRatingFromX(event.localPosition.dx, starAreaWidth);
-                    if (newRating != _rating) setState(() => _rating = newRating);
+                    final newRating =
+                        _calcRatingFromX(event.localPosition.dx, starAreaWidth);
+                    if (newRating != _rating)
+                      setState(() => _rating = newRating);
                   },
                   onPointerMove: (event) {
-                    final newRating = _calcRatingFromX(event.localPosition.dx, starAreaWidth);
-                    if (newRating != _rating) setState(() => _rating = newRating);
+                    final newRating =
+                        _calcRatingFromX(event.localPosition.dx, starAreaWidth);
+                    if (newRating != _rating)
+                      setState(() => _rating = newRating);
                   },
                   child: Row(
                     children: List.generate(5, (index) {
@@ -3128,7 +3302,10 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                         child: Icon(
                           icon,
                           size: starSize,
-                          color: icon == Icons.star_border ? AppTheme.getTextSecondary(context).withValues(alpha: 0.4) : AppTheme.getStarColor(context),
+                          color: icon == Icons.star_border
+                              ? AppTheme.getTextSecondary(context)
+                                  .withValues(alpha: 0.4)
+                              : AppTheme.getStarColor(context),
                         ),
                       );
                     }),
@@ -3140,32 +3317,43 @@ class _ReviewDialogState extends State<_ReviewDialog> {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  _rating == _rating.roundToDouble() ? '${_rating.toInt()} / 5' : '$_rating / 5',
-                  style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
+                  _rating == _rating.roundToDouble()
+                      ? '${_rating.toInt()} / 5'
+                      : '$_rating / 5',
+                  style: TextStyle(
+                      fontSize: 12, color: AppTheme.getTextSecondary(context)),
                 ),
               ),
             const SizedBox(height: 20),
             Text(
               '评论',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context)),
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.getTextPrimary(context)),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _reviewController,
               maxLines: 5,
-              style: TextStyle(fontSize: 14, color: AppTheme.getTextPrimary(context)),
+              style: TextStyle(
+                  fontSize: 14, color: AppTheme.getTextPrimary(context)),
               decoration: InputDecoration(
                 hintText: '写下你的评论...',
-                hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
+                hintStyle: TextStyle(
+                    color: AppTheme.getTextSecondary(context)
+                        .withValues(alpha: 0.5)),
                 filled: true,
                 fillColor: AppTheme.getInputFillColor(context),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
+                  borderSide:
+                      BorderSide(color: AppTheme.getBorderColor(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
+                  borderSide:
+                      BorderSide(color: AppTheme.getBorderColor(context)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -3180,7 +3368,9 @@ class _ReviewDialogState extends State<_ReviewDialog> {
               children: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: Text('取消', style: TextStyle(color: AppTheme.getTextSecondary(context))),
+                  child: Text('取消',
+                      style:
+                          TextStyle(color: AppTheme.getTextSecondary(context))),
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton(
@@ -3191,7 +3381,8 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   child: const Text('保存'),
                 ),
@@ -3244,12 +3435,16 @@ class _MoveToSeriesDialogState extends State<_MoveToSeriesDialog> {
           children: [
             Text(
               '移入自定义系列',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context)),
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.getTextPrimary(context)),
             ),
             const SizedBox(height: 8),
             Text(
               widget.gameTitle,
-              style: TextStyle(fontSize: 13, color: AppTheme.getTextSecondary(context)),
+              style: TextStyle(
+                  fontSize: 13, color: AppTheme.getTextSecondary(context)),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -3272,31 +3467,39 @@ class _MoveToSeriesDialogState extends State<_MoveToSeriesDialog> {
                         });
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           color: isSelected
                               ? AppTheme.primaryColor.withValues(alpha: 0.15)
-                              : AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
+                              : AppTheme.getBackgroundColor(context)
+                                  .withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: isSelected
                                 ? AppTheme.primaryColor
-                                : AppTheme.getBorderColor(context).withValues(alpha: 0.3),
+                                : AppTheme.getBorderColor(context)
+                                    .withValues(alpha: 0.3),
                           ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             if (isSelected) ...[
-                              Icon(Icons.check, size: 16, color: AppTheme.primaryColor),
+                              Icon(Icons.check,
+                                  size: 16, color: AppTheme.primaryColor),
                               const SizedBox(width: 4),
                             ],
                             Text(
                               tag.displayName ?? tag.name,
                               style: TextStyle(
                                 fontSize: 13,
-                                color: isSelected ? AppTheme.primaryColor : AppTheme.getTextPrimary(context),
-                                fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                                color: isSelected
+                                    ? AppTheme.primaryColor
+                                    : AppTheme.getTextPrimary(context),
+                                fontWeight: isSelected
+                                    ? FontWeight.w500
+                                    : FontWeight.normal,
                               ),
                             ),
                           ],
@@ -3317,7 +3520,8 @@ class _MoveToSeriesDialogState extends State<_MoveToSeriesDialog> {
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: () => Navigator.pop(context, _selectedIds.toList()),
+                  onPressed: () =>
+                      Navigator.pop(context, _selectedIds.toList()),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
