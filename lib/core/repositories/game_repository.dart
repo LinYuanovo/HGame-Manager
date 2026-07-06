@@ -6,6 +6,7 @@ import '../database/database_helper.dart';
 import '../models/models.dart';
 import 'play_time_repository.dart';
 import '../utils/app_settings.dart';
+import '../utils/game_data_paths.dart';
 
 class GameRepository implements PlayTimeRepository {
   Future<Database> get _db => DatabaseHelper.database;
@@ -212,7 +213,7 @@ class GameRepository implements PlayTimeRepository {
   }
 
   Future<List<GameImage>> _loadImagesFromBackupDir(String gamePath) async {
-    final imageDir = Directory(path.join(gamePath, 'images'));
+    final imageDir = await GameDataPaths.existingImagesDir(gamePath);
     final List<GameImage> images = [];
     if (await imageDir.exists()) {
       final List<String> imagePaths = [];

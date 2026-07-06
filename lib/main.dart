@@ -49,7 +49,10 @@ void main() async {
           try {
             final fontFile = File(fontPath);
             if (await fontFile.exists()) {
-              final fontName = fontPath.split(RegExp(r'[/\\]')).last.replaceAll(RegExp(r'\.ttf$', caseSensitive: false), '');
+              final fontName = fontPath
+                  .split(RegExp(r'[/\\]'))
+                  .last
+                  .replaceAll(RegExp(r'\.ttf$', caseSensitive: false), '');
               final fontData = await fontFile.readAsBytes();
               final fontLoader = FontLoader(fontName);
               fontLoader.addFont(Future.value(ByteData.view(fontData.buffer)));
@@ -81,7 +84,10 @@ void main() async {
           try {
             final fontFile = File(fontPath);
             if (await fontFile.exists()) {
-              final fontName = fontPath.split(RegExp(r'[/\\]')).last.replaceAll(RegExp(r'\.ttf$', caseSensitive: false), '');
+              final fontName = fontPath
+                  .split(RegExp(r'[/\\]'))
+                  .last
+                  .replaceAll(RegExp(r'\.ttf$', caseSensitive: false), '');
               final fontData = await fontFile.readAsBytes();
               final fontLoader = FontLoader(fontName);
               fontLoader.addFont(Future.value(ByteData.view(fontData.buffer)));
@@ -144,6 +150,27 @@ class _HGameManagerAppState extends ConsumerState<HGameManagerApp> {
   ThemeData? _cachedLightTheme;
   ThemeData? _cachedDarkTheme;
 
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_migrateExistingGameData);
+  }
+
+  Future<void> _migrateExistingGameData() async {
+    try {
+      final repository = ref.read(gameRepositoryProvider);
+      final migrationService = ref.read(gameDataMigrationServiceProvider);
+      final games = await repository.getAllGames();
+      await migrationService.migrateExistingGames(games);
+      ref.invalidate(allGamesProvider);
+      ref.invalidate(playedGamesProvider);
+      ref.invalidate(favoriteGamesProvider);
+      ref.invalidate(clearedGamesProvider);
+    } catch (e) {
+      debugPrint('[GameDataMigration] 启动迁移失败: $e');
+    }
+  }
+
   ThemeData _getLightTheme(String fontFamily) {
     if (_cachedLightTheme == null || _lastFontFamily != fontFamily) {
       _cachedLightTheme = AppTheme.lightTheme(
@@ -196,7 +223,8 @@ class ErrorBoundary extends StatefulWidget {
   State<ErrorBoundary> createState() => _ErrorBoundaryState();
 }
 
-class _ErrorBoundaryState extends State<ErrorBoundary> with WidgetsBindingObserver {
+class _ErrorBoundaryState extends State<ErrorBoundary>
+    with WidgetsBindingObserver {
   Object? _error;
   StackTrace? _stackTrace;
   bool _hasError = false;
@@ -255,7 +283,8 @@ class _ErrorBoundaryState extends State<ErrorBoundary> with WidgetsBindingObserv
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: AppTheme.errorColor.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                      borderRadius:
+                          BorderRadius.circular(GlassConstants.radiusMedium),
                       border: Border.all(
                         color: AppTheme.errorColor.withValues(alpha: 0.15),
                       ),
@@ -318,9 +347,14 @@ class _ErrorBoundaryState extends State<ErrorBoundary> with WidgetsBindingObserv
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.refresh, color: AppTheme.getTextColorOnPrimary(context), size: 18),
+                        Icon(Icons.refresh,
+                            color: AppTheme.getTextColorOnPrimary(context),
+                            size: 18),
                         const SizedBox(width: 8),
-                        Text('重试', style: TextStyle(color: AppTheme.getTextColorOnPrimary(context), fontWeight: FontWeight.w600)),
+                        Text('重试',
+                            style: TextStyle(
+                                color: AppTheme.getTextColorOnPrimary(context),
+                                fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),

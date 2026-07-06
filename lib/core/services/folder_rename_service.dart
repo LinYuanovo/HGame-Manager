@@ -6,6 +6,8 @@ import '../models/models.dart';
 import '../models/rename_rule.dart';
 import '../repositories/game_repository.dart';
 import '../utils/app_settings.dart';
+import '../utils/game_data_paths.dart';
+import '../utils/path_reference_rewriter.dart';
 import 'dlsite_service.dart';
 import 'steam_service.dart';
 
@@ -30,7 +32,9 @@ class FolderRenameService {
     if (raw != null && raw.isNotEmpty) {
       try {
         final List<dynamic> list = jsonDecode(raw);
-        return list.map((m) => RenameRule.fromJson(m as Map<String, dynamic>)).toList();
+        return list
+            .map((m) => RenameRule.fromJson(m as Map<String, dynamic>))
+            .toList();
       } catch (_) {
         // JSON解析失败时使用默认配置
       }
@@ -40,7 +44,8 @@ class FolderRenameService {
   }
 
   /// 从游戏数据中提取指定规则的值
-  static String? _extractRuleValue(String ruleId, Game game, {String? Function(String)? dlsiteIdExtractor}) {
+  static String? _extractRuleValue(String ruleId, Game game,
+      {String? Function(String)? dlsiteIdExtractor}) {
     switch (ruleId) {
       case 'game_id':
         if (game.sourceUrl != null && game.sourceUrl!.isNotEmpty) {
@@ -51,7 +56,8 @@ class FolderRenameService {
             id = DlsiteService().normalizeId(game.sourceUrl!);
           }
           if (id == null || id.isEmpty) {
-            final steamMatch = RegExp(r'store\.steampowered\.com/app/(\d+)').firstMatch(game.sourceUrl!);
+            final steamMatch = RegExp(r'store\.steampowered\.com/app/(\d+)')
+                .firstMatch(game.sourceUrl!);
             if (steamMatch != null) {
               id = steamMatch.group(1);
             }
@@ -92,7 +98,8 @@ class FolderRenameService {
     for (final rule in sortedRules) {
       if (!rule.enabled) continue;
 
-      final value = _extractRuleValue(rule.id, game, dlsiteIdExtractor: dlsiteIdExtractor);
+      final value = _extractRuleValue(rule.id, game,
+          dlsiteIdExtractor: dlsiteIdExtractor);
       if (value != null && value.isNotEmpty) {
         parts.add(rule.wrapContent(value));
       }
@@ -111,7 +118,8 @@ class FolderRenameService {
     if (title == null || title.isEmpty) return null;
 
     final rules = await loadRules();
-    final name = buildNameFromRules(rules, game, dlsiteIdExtractor: dlsiteIdExtractor);
+    final name =
+        buildNameFromRules(rules, game, dlsiteIdExtractor: dlsiteIdExtractor);
     return name.isEmpty ? null : name;
   }
 
@@ -126,7 +134,8 @@ class FolderRenameService {
 
     // 使用默认规则
     final rules = RenameRule.defaultRules();
-    final name = buildNameFromRules(rules, game, dlsiteIdExtractor: dlsiteIdExtractor);
+    final name =
+        buildNameFromRules(rules, game, dlsiteIdExtractor: dlsiteIdExtractor);
     return name.isEmpty ? null : name;
   }
 
@@ -170,7 +179,8 @@ class FolderRenameService {
       if (game.gameLauncher != null && game.gameLauncher!.startsWith(oldPath)) {
         final relative = game.gameLauncher!.substring(oldPath.length);
         final newLauncher = path.join(newPath, relative);
-        await _gameRepository.updateGameLauncher(game.id!, newLauncher, game.launcherLocked);
+        await _gameRepository.updateGameLauncher(
+            game.id!, newLauncher, game.launcherLocked);
       }
 
       if (game.savePath != null && game.savePath!.startsWith(oldPath)) {
@@ -180,20 +190,36 @@ class FolderRenameService {
       }
 
       final currentGame = await _gameRepository.getGameById(game.id!);
-      if (currentGame != null && currentGame.intro != null) {
-        var updatedIntro = currentGame.intro!;
-        if (updatedIntro.contains(oldPath)) {
-          updatedIntro = updatedIntro.replaceAll(oldPath, newPath);
-          await _gameRepository.updateGame(currentGame.copyWith(intro: updatedIntro));
+      if (currentGame != null) {
+        final replacements = {oldPath: newPath};
+        final updatedIntro =
+            PathReferenceRewriter.replace(currentGame.intro, replacements);
+        final updatedFeatures =
+            PathReferenceRewriter.replace(currentGame.features, replacements);
+        final updatedChangelog =
+            PathReferenceRewriter.replace(currentGame.changelog, replacements);
+        final updatedGuide =
+            PathReferenceRewriter.replace(currentGame.guide, replacements);
+        if (updatedIntro != currentGame.intro ||
+            updatedFeatures != currentGame.features ||
+            updatedChangelog != currentGame.changelog ||
+            updatedGuide != currentGame.guide) {
+          await _gameRepository.updateGame(currentGame.copyWith(
+            intro: updatedIntro,
+            features: updatedFeatures,
+            changelog: updatedChangelog,
+            guide: updatedGuide,
+          ));
         }
       }
 
       try {
-        final metadataFile = File(path.join(newPath, 'metadata.json'));
+        final metadataFile = await GameDataPaths.existingMetadataFile(newPath);
         if (await metadataFile.exists()) {
           final content = await metadataFile.readAsString();
-          if (content.contains(oldPath)) {
-            final updatedContent = content.replaceAll(oldPath, newPath);
+          final updatedContent =
+              PathReferenceRewriter.replacePath(content, oldPath, newPath);
+          if (updatedContent != content) {
             await metadataFile.writeAsString(updatedContent, flush: true);
           }
         }

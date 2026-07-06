@@ -9,6 +9,7 @@ import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/services/folder_rename_service.dart';
 import '../../../core/utils/app_settings.dart';
+import '../../../core/utils/game_data_paths.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../../scraper/html_parser.dart';
 import '../../../scraper/parse_utils.dart';
@@ -74,10 +75,12 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         children: [
           Row(
             children: [
-              Icon(Icons.cloud_download_outlined, color: AppTheme.primaryColor, size: 22),
+              Icon(Icons.cloud_download_outlined,
+                  color: AppTheme.primaryColor, size: 22),
               const SizedBox(width: 12),
               ShaderMask(
-                shaderCallback: (bounds) => AppTheme.primaryGradient.createShader(bounds),
+                shaderCallback: (bounds) =>
+                    AppTheme.primaryGradient.createShader(bounds),
                 child: const Text(
                   '刮削中心',
                   style: TextStyle(
@@ -89,13 +92,9 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               ),
             ],
           ),
-
           const SizedBox(height: 24),
-
           _buildProcessStatus(),
-
           const SizedBox(height: 20),
-
           _buildActionButton(
             icon: Icons.search,
             label: '扫描游戏库',
@@ -103,9 +102,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             isEnabled: !_isProcessing,
             onPressed: _startScan,
           ),
-
           const SizedBox(height: 12),
-
           _buildActionButton(
             icon: Icons.description_outlined,
             label: '刮削元数据',
@@ -113,14 +110,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             isEnabled: !_isProcessing && _gameItems.isNotEmpty,
             onPressed: _startScrape,
           ),
-
           const SizedBox(height: 12),
-
           _buildThreadCountSelector(),
-
           if (_isProcessing) ...[
             const SizedBox(height: 12),
-
             _buildActionButton(
               icon: Icons.stop,
               label: '取消',
@@ -129,9 +122,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               onPressed: _cancelProcess,
             ),
           ],
-
           const Spacer(),
-
           _buildStatsPanel(),
         ],
       ),
@@ -159,13 +150,17 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             Icon(
               isRunning ? Icons.sync : Icons.circle_outlined,
               size: 18,
-              color: isRunning ? AppTheme.successColor : AppTheme.getDisabledColor(context),
+              color: isRunning
+                  ? AppTheme.successColor
+                  : AppTheme.getDisabledColor(context),
             ),
             const SizedBox(width: 8),
             Text(
               _processStatus,
               style: TextStyle(
-                color: isRunning ? AppTheme.successColor : AppTheme.getDisabledColor(context),
+                color: isRunning
+                    ? AppTheme.successColor
+                    : AppTheme.getDisabledColor(context),
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -195,21 +190,29 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             duration: GlassConstants.animFast,
             padding: const EdgeInsets.symmetric(vertical: 14),
             decoration: BoxDecoration(
-              color: isEnabled ? color.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.1),
+              color: isEnabled
+                  ? color.withValues(alpha: 0.15)
+                  : Colors.grey.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
               border: Border.all(
-                color: isEnabled ? color.withValues(alpha: 0.3) : Colors.grey.withValues(alpha: 0.2),
+                color: isEnabled
+                    ? color.withValues(alpha: 0.3)
+                    : Colors.grey.withValues(alpha: 0.2),
               ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: isEnabled ? color : AppTheme.getDisabledColor(context), size: 18),
+                Icon(icon,
+                    color:
+                        isEnabled ? color : AppTheme.getDisabledColor(context),
+                    size: 18),
                 const SizedBox(width: 8),
                 Text(
                   label,
                   style: TextStyle(
-                    color: isEnabled ? color : AppTheme.getDisabledColor(context),
+                    color:
+                        isEnabled ? color : AppTheme.getDisabledColor(context),
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -228,17 +231,26 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       child: GlassContainer(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         color: AppTheme.getGlassFillColor(context),
-        border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.15)),
+        border: Border.all(
+            color: AppTheme.getBorderColor(context).withValues(alpha: 0.15)),
         enableBlur: false,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('线程数', style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 13, fontWeight: FontWeight.w500)),
+            Text('线程数',
+                style: TextStyle(
+                    color: AppTheme.getTextSecondary(context),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500)),
             Row(
               children: [
                 _buildThreadButton(-1),
                 const SizedBox(width: 8),
-                Text('$_threadCount', style: TextStyle(color: AppTheme.primaryColor, fontSize: 15, fontWeight: FontWeight.w700)),
+                Text('$_threadCount',
+                    style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700)),
                 const SizedBox(width: 8),
                 _buildThreadButton(1),
               ],
@@ -251,21 +263,32 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
   Widget _buildThreadButton(int delta) {
     return GestureDetector(
-      onTap: _isProcessing ? null : () {
-        setState(() {
-          _threadCount = (_threadCount + delta).clamp(1, 8);
-        });
-      },
+      onTap: _isProcessing
+          ? null
+          : () {
+              setState(() {
+                _threadCount = (_threadCount + delta).clamp(1, 8);
+              });
+            },
       child: Container(
         width: 24,
         height: 24,
         decoration: BoxDecoration(
-          color: _isProcessing ? Colors.grey.withValues(alpha: 0.1) : AppTheme.primaryColor.withValues(alpha: 0.1),
+          color: _isProcessing
+              ? Colors.grey.withValues(alpha: 0.1)
+              : AppTheme.primaryColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: _isProcessing ? Colors.grey.withValues(alpha: 0.3) : AppTheme.primaryColor.withValues(alpha: 0.3)),
+          border: Border.all(
+              color: _isProcessing
+                  ? Colors.grey.withValues(alpha: 0.3)
+                  : AppTheme.primaryColor.withValues(alpha: 0.3)),
         ),
         child: Center(
-          child: Text(delta > 0 ? '+' : '-', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _isProcessing ? Colors.grey : AppTheme.primaryColor)),
+          child: Text(delta > 0 ? '+' : '-',
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: _isProcessing ? Colors.grey : AppTheme.primaryColor)),
         ),
       ),
     );
@@ -277,19 +300,34 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       child: GlassContainer(
         padding: const EdgeInsets.all(16),
         color: AppTheme.getGlassFillColor(context),
-        border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.15)),
+        border: Border.all(
+            color: AppTheme.getBorderColor(context).withValues(alpha: 0.15)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('统计信息', style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 13, fontWeight: FontWeight.w600)),
+            Text('统计信息',
+                style: TextStyle(
+                    color: AppTheme.getTextSecondary(context),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
-            _StatRow(label: '已扫描', value: '${_stats.total}', color: AppTheme.getTextPrimary(context)),
+            _StatRow(
+                label: '已扫描',
+                value: '${_stats.total}',
+                color: AppTheme.getTextPrimary(context)),
             const SizedBox(height: 8),
-            _StatRow(label: '待处理', value: '${_stats.pending}', color: Colors.orange),
+            _StatRow(
+                label: '待处理', value: '${_stats.pending}', color: Colors.orange),
             const SizedBox(height: 8),
-            _StatRow(label: '成功', value: '${_stats.success}', color: AppTheme.successColor),
+            _StatRow(
+                label: '成功',
+                value: '${_stats.success}',
+                color: AppTheme.successColor),
             const SizedBox(height: 8),
-            _StatRow(label: '失败', value: '${_stats.failed}', color: AppTheme.errorColor),
+            _StatRow(
+                label: '失败',
+                value: '${_stats.failed}',
+                color: AppTheme.errorColor),
           ],
         ),
       ),
@@ -320,7 +358,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         children: [
           Row(
             children: [
-              Icon(Icons.list_alt_outlined, color: AppTheme.primaryColor, size: 20),
+              Icon(Icons.list_alt_outlined,
+                  color: AppTheme.primaryColor, size: 20),
               const SizedBox(width: 8),
               Text(
                 '待刮削游戏',
@@ -351,40 +390,56 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               ],
             ],
           ),
-
           const SizedBox(height: 16),
-
           if (_isProcessing) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(3),
               child: LinearProgressIndicator(
-                value: _gameItems.isEmpty ? 0 : _gameItems.where((i) => i.progress >= 1).length / _gameItems.length,
-                backgroundColor: AppTheme.getTextSecondary(context).withValues(alpha: 0.1),
+                value: _gameItems.isEmpty
+                    ? 0
+                    : _gameItems.where((i) => i.progress >= 1).length /
+                        _gameItems.length,
+                backgroundColor:
+                    AppTheme.getTextSecondary(context).withValues(alpha: 0.1),
                 valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
                 minHeight: 6,
               ),
             ),
             const SizedBox(height: 12),
           ],
-
           Expanded(
             child: _gameItems.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.cloud_off_outlined, size: 48, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
+                        Icon(Icons.cloud_off_outlined,
+                            size: 48,
+                            color: AppTheme.getTextSecondary(context)
+                                .withValues(alpha: 0.3)),
                         const SizedBox(height: 12),
-                        Text('暂无待刮削游戏', style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5), fontSize: 14)),
+                        Text('暂无待刮削游戏',
+                            style: TextStyle(
+                                color: AppTheme.getTextSecondary(context)
+                                    .withValues(alpha: 0.5),
+                                fontSize: 14)),
                         const SizedBox(height: 8),
-                        Text('点击左侧"扫描游戏库"开始', style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3), fontSize: 12)),
+                        Text('点击左侧"扫描游戏库"开始',
+                            style: TextStyle(
+                                color: AppTheme.getTextSecondary(context)
+                                    .withValues(alpha: 0.3),
+                                fontSize: 12)),
                       ],
                     ),
                   )
                 : ListView.separated(
                     itemCount: _gameItems.length,
-                    separatorBuilder: (_, __) => Divider(height: 1, color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
-                    itemBuilder: (_, index) => _buildGameListItem(_gameItems[index]),
+                    separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        color: AppTheme.getBorderColor(context)
+                            .withValues(alpha: 0.3)),
+                    itemBuilder: (_, index) =>
+                        _buildGameListItem(_gameItems[index]),
                   ),
           ),
         ],
@@ -410,15 +465,21 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _stripVersionFromTitle(item.game.title ?? path.basename(item.game.path), item.game.version),
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.getTextPrimary(context)),
+                  _stripVersionFromTitle(
+                      item.game.title ?? path.basename(item.game.path),
+                      item.game.version),
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.getTextPrimary(context)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   item.game.sourceUrl ?? '',
-                  style: TextStyle(fontSize: 11, color: AppTheme.getTextSecondary(context)),
+                  style: TextStyle(
+                      fontSize: 11, color: AppTheme.getTextSecondary(context)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -433,7 +494,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 borderRadius: BorderRadius.circular(3),
                 child: LinearProgressIndicator(
                   value: item.progress,
-                  backgroundColor: AppTheme.getTextSecondary(context).withValues(alpha: 0.1),
+                  backgroundColor:
+                      AppTheme.getTextSecondary(context).withValues(alpha: 0.1),
                   valueColor: AlwaysStoppedAnimation(statusColor),
                   minHeight: 6,
                 ),
@@ -452,7 +514,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 child: Text(
                   item.status,
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: statusColor, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: statusColor,
+                      fontWeight: FontWeight.w500),
                 ),
               ),
             ),
@@ -479,7 +544,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         children: [
           Row(
             children: [
-              Icon(Icons.terminal_outlined, color: AppTheme.primaryColor, size: 20),
+              Icon(Icons.terminal_outlined,
+                  color: AppTheme.primaryColor, size: 20),
               const SizedBox(width: 8),
               Text(
                 '运行日志',
@@ -494,17 +560,18 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 onPressed: () => setState(() => _logs.clear()),
                 icon: const Icon(Icons.delete_sweep, size: 16),
                 label: const Text('清空'),
-                style: TextButton.styleFrom(foregroundColor: AppTheme.getTextSecondary(context)),
+                style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.getTextSecondary(context)),
               ),
             ],
           ),
-
           const SizedBox(height: 12),
-
           Expanded(
             child: GlassContainer(
               color: Colors.black.withValues(alpha: 0.04),
-              border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+              border: Border.all(
+                  color:
+                      AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
               enableBlur: false,
               padding: const EdgeInsets.all(12),
               child: _logs.isEmpty
@@ -512,9 +579,16 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.nights_stay_outlined, size: 40, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.25)),
+                          Icon(Icons.nights_stay_outlined,
+                              size: 40,
+                              color: AppTheme.getTextSecondary(context)
+                                  .withValues(alpha: 0.25)),
                           const SizedBox(height: 8),
-                          Text('暂无日志', style: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.4), fontSize: 13)),
+                          Text('暂无日志',
+                              style: TextStyle(
+                                  color: AppTheme.getTextSecondary(context)
+                                      .withValues(alpha: 0.4),
+                                  fontSize: 13)),
                         ],
                       ),
                     )
@@ -522,15 +596,21 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                       itemCount: _logs.length,
                       itemBuilder: (_, i) {
                         final log = _logs[i];
-                        final isError = log.contains('失败') || log.contains('错误');
-                        final isSuccess = log.contains('成功') && !log.contains('失败');
+                        final isError =
+                            log.contains('失败') || log.contains('错误');
+                        final isSuccess =
+                            log.contains('成功') && !log.contains('失败');
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 1),
                           child: SelectableText(
                             log,
                             style: TextStyle(
                               fontSize: 11.5,
-                              color: isError ? AppTheme.errorColor : isSuccess ? AppTheme.successColor : AppTheme.getTextPrimary(context),
+                              color: isError
+                                  ? AppTheme.errorColor
+                                  : isSuccess
+                                      ? AppTheme.successColor
+                                      : AppTheme.getTextPrimary(context),
                             ),
                           ),
                         );
@@ -562,7 +642,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       List<String> libraryPaths;
       if (rawLib.startsWith('[')) {
         try {
-          libraryPaths = (jsonDecode(rawLib) as List).whereType<String>().where((s) => s.isNotEmpty).toList();
+          libraryPaths = (jsonDecode(rawLib) as List)
+              .whereType<String>()
+              .where((s) => s.isNotEmpty)
+              .toList();
         } catch (_) {
           libraryPaths = rawLib.isNotEmpty ? [rawLib] : [];
         }
@@ -580,7 +663,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       }
 
       final scrapeIgnoreStr = prefs.getString('scrape_ignore_folders') ?? '';
-      final scrapeIgnoreFolders = scrapeIgnoreStr.split(',').where((s) => s.trim().isNotEmpty).toList();
+      final scrapeIgnoreFolders =
+          scrapeIgnoreStr.split(',').where((s) => s.trim().isNotEmpty).toList();
 
       if (scrapeIgnoreFolders.isNotEmpty) {
         _addLog('刮削忽略文件夹: ${scrapeIgnoreFolders.join(", ")}');
@@ -590,7 +674,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
       final gamesToScrape = <Game>[];
       for (final libraryPath in libraryPaths) {
-        final found = await _scanForSourceUrlFiles(libraryPath, scrapeIgnoreFolders);
+        final found =
+            await _scanForSourceUrlFiles(libraryPath, scrapeIgnoreFolders);
         gamesToScrape.addAll(found);
       }
 
@@ -616,7 +701,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     }
   }
 
-  Future<List<Game>> _scanForSourceUrlFiles(String rootPath, List<String> ignoreFolders) async {
+  Future<List<Game>> _scanForSourceUrlFiles(
+      String rootPath, List<String> ignoreFolders) async {
     final games = <Game>[];
     final dir = Directory(rootPath);
     if (!await dir.exists()) return games;
@@ -625,12 +711,18 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       if (entity is Directory) {
         final folderName = path.basename(entity.path);
 
-        if (ignoreFolders.any((ig) => ig.toLowerCase() == folderName.toLowerCase())) {
+        if (ignoreFolders
+            .any((ig) => ig.toLowerCase() == folderName.toLowerCase())) {
           _addLog('忽略文件夹: $folderName');
           continue;
         }
+        if (folderName.toLowerCase() ==
+            GameDataPaths.dataDirName.toLowerCase()) {
+          continue;
+        }
 
-        final sourceUrlFile = File(path.join(entity.path, 'source_url.txt'));
+        final sourceUrlFile =
+            await GameDataPaths.existingSourceUrlFile(entity.path);
         if (await sourceUrlFile.exists()) {
           try {
             final sourceUrl = (await sourceUrlFile.readAsString()).trim();
@@ -647,7 +739,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             _addLog('读取source_url.txt失败: ${entity.path} - $e');
           }
         } else {
-          games.addAll(await _scanForSourceUrlFiles(entity.path, ignoreFolders));
+          games
+              .addAll(await _scanForSourceUrlFiles(entity.path, ignoreFolders));
         }
       }
     }
@@ -674,7 +767,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       }
     });
 
-    _addLog('========== 开始刮削 ${_gameItems.length} 个游戏 (线程数: $_threadCount) ==========');
+    _addLog(
+        '========== 开始刮削 ${_gameItems.length} 个游戏 (线程数: $_threadCount) ==========');
 
     try {
       final gameRepo = ref.read(gameRepositoryProvider);
@@ -708,7 +802,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       await completer.future;
 
       _addLog('========== 刮削完成 ==========');
-      _addLog('总计: ${_gameItems.length}, 成功: ${_stats.success}, 失败: ${_stats.failed}');
+      _addLog(
+          '总计: ${_gameItems.length}, 成功: ${_stats.success}, 失败: ${_stats.failed}');
       ref.invalidate(allGamesProvider);
       ref.invalidate(favoriteGamesProvider);
       ref.invalidate(playedGamesProvider);
@@ -724,7 +819,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     }
   }
 
-  Future<void> _scrapeSingleGame(int i, dynamic gameRepo, dynamic tagRepo) async {
+  Future<void> _scrapeSingleGame(
+      int i, dynamic gameRepo, dynamic tagRepo) async {
     final item = _gameItems[i];
     final game = item.game;
 
@@ -733,18 +829,32 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       item.progress = 0.1;
     });
 
-    _addLog('[${i + 1}/${_gameItems.length}] 刮削: ${game.title ?? path.basename(game.path)}');
+    _addLog(
+        '[${i + 1}/${_gameItems.length}] 刮削: ${game.title ?? path.basename(game.path)}');
     _addLog('  URL: ${game.sourceUrl}');
 
     final parser = ParserRegistry.getParserForUrl(game.sourceUrl!);
-    _addLog('  解析器: ${parser?.runtimeType.toString().replaceAll("Parser", "") ?? "无匹配"}');
+    _addLog(
+        '  解析器: ${parser?.runtimeType.toString().replaceAll("Parser", "") ?? "无匹配"}');
 
     try {
-      final client = await createProxyClientFromPrefs(domain: Uri.parse(game.sourceUrl!).host);
+      if (game.id != null) {
+        await ref
+            .read(gameDataMigrationServiceProvider)
+            .migrateGameDirectory(game.path, gameId: game.id);
+      } else {
+        await ref
+            .read(gameDataMigrationServiceProvider)
+            .migrateGameDirectory(game.path);
+      }
+
+      final client = await createProxyClientFromPrefs(
+          domain: Uri.parse(game.sourceUrl!).host);
       http.Response response;
       try {
         final headers = await buildScrapeHeaders(game.sourceUrl!);
-        response = await client.get(Uri.parse(game.sourceUrl!), headers: headers);
+        response =
+            await client.get(Uri.parse(game.sourceUrl!), headers: headers);
       } finally {
         client.close();
       }
@@ -774,7 +884,9 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 tags: steamInfo.tags,
                 screenshots: steamInfo.screenshots,
                 sourceUrl: steamInfo.sourceUrl,
-                maker: steamInfo.developers.isNotEmpty ? steamInfo.developers.join(', ') : null,
+                maker: steamInfo.developers.isNotEmpty
+                    ? steamInfo.developers.join(', ')
+                    : null,
               );
             }
           }
@@ -789,15 +901,21 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             title: displayTitle ?? game.title,
             version: gameInfo.version ?? game.version,
             intro: gameInfo.description ?? game.intro,
-            features: gameInfo.features.isNotEmpty ? gameInfo.features.join('\n') : game.features,
+            features: gameInfo.features.isNotEmpty
+                ? gameInfo.features.join('\n')
+                : game.features,
             changelog: gameInfo.changelog ?? game.changelog,
-            downloadUrl: gameInfo.downloadUrl.isNotEmpty ? gameInfo.downloadUrl : game.downloadUrl,
+            downloadUrl: gameInfo.downloadUrl.isNotEmpty
+                ? gameInfo.downloadUrl
+                : game.downloadUrl,
             maker: gameInfo.maker,
             makerUrl: gameInfo.makerUrl,
           );
 
-          final metadataFile = File(path.join(game.path, 'metadata.json'));
-          await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()), flush: true);
+          final metadataFile = GameDataPaths.metadataFile(game.path);
+          await GameDataPaths.ensureDataDir(game.path);
+          await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()),
+              flush: true);
 
           int gameId;
           if (game.id != null) {
@@ -814,18 +932,23 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             await gameRepo.addTagToGame(gameId, tagId);
           }
           if (gameInfo.category != null) {
-            final tagId = await tagRepo.insertOrGetTag(gameInfo.category!, Tag.typeSeries);
+            final tagId = await tagRepo.insertOrGetTag(
+                gameInfo.category!, Tag.typeSeries);
             await gameRepo.addTagToGame(gameId, tagId);
           }
 
           final allTags = await tagRepo.getAllTags();
-          final gameTagNames = [...gameInfo.tags, if (gameInfo.category != null) gameInfo.category!];
+          final gameTagNames = [
+            ...gameInfo.tags,
+            if (gameInfo.category != null) gameInfo.category!
+          ];
           for (final existingTag in allTags) {
-            final alreadyHas = gameTagNames.any((t) => t.toLowerCase() == existingTag.name.toLowerCase());
+            final alreadyHas = gameTagNames
+                .any((t) => t.toLowerCase() == existingTag.name.toLowerCase());
             if (alreadyHas) continue;
-            final isOverlapping = gameTagNames.any(
-              (t) => t.toLowerCase().contains(existingTag.name.toLowerCase()) && t.toLowerCase() != existingTag.name.toLowerCase()
-            );
+            final isOverlapping = gameTagNames.any((t) =>
+                t.toLowerCase().contains(existingTag.name.toLowerCase()) &&
+                t.toLowerCase() != existingTag.name.toLowerCase());
             if (isOverlapping) {
               await gameRepo.addTagToGame(gameId, existingTag.id!);
               _addLog('  -> 智能关联标签: ${existingTag.name}');
@@ -839,12 +962,16 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             _addLog('  -> 下载 ${gameInfo.screenshots.length} 张配图...');
             final cookie = await getCookieForSite(game.sourceUrl!);
             final imgHeaders = {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-              'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+              'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+              'Accept':
+                  'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
               'Referer': game.sourceUrl!,
               if (cookie.isNotEmpty) 'Cookie': cookie,
             };
-            urlToLocal = await _downloadImages(updated.copyWith(id: gameId), gameInfo.screenshots, game.sourceUrl!, headers: imgHeaders);
+            urlToLocal = await _downloadImages(updated.copyWith(id: gameId),
+                gameInfo.screenshots, game.sourceUrl!,
+                headers: imgHeaders);
           }
 
           if (urlToLocal.isNotEmpty) {
@@ -852,7 +979,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             if (gameInfo.description != null) {
               var desc = gameInfo.description!;
               for (final entry in urlToLocal.entries) {
-                desc = desc.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
+                desc =
+                    desc.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
               }
               updated = updated.copyWith(intro: desc);
               metaJson['intro'] = desc;
@@ -862,7 +990,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               for (final entry in urlToLocal.entries) {
                 html = html.replaceAll(entry.key, entry.value);
                 if (entry.key.startsWith('https:')) {
-                  html = html.replaceAll(entry.key.replaceFirst('https:', ''), entry.value);
+                  html = html.replaceAll(
+                      entry.key.replaceFirst('https:', ''), entry.value);
                 }
               }
               metaJson['intro_html'] = html;
@@ -880,8 +1009,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
           try {
             final configs = ref.read(scrapeModeConfigsProvider);
-            if (configs.shouldRename(ScrapeMode.scraperCenter) && item.game.id != null) {
-              final renameService = FolderRenameService(gameRepository: gameRepo);
+            if (configs.shouldRename(ScrapeMode.scraperCenter) &&
+                item.game.id != null) {
+              final renameService =
+                  FolderRenameService(gameRepository: gameRepo);
               final newPath = await renameService.renameGameFolder(item.game);
               if (newPath != null) {
                 _addLog('  -> 文件夹已重命名: ${path.basename(newPath)}');
@@ -944,9 +1075,11 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     }
   }
 
-  Future<Map<String, String>> _downloadImages(Game game, List<String> imageUrls, String sourceUrl, {Map<String, String>? headers}) async {
+  Future<Map<String, String>> _downloadImages(
+      Game game, List<String> imageUrls, String sourceUrl,
+      {Map<String, String>? headers}) async {
     final gameRepo = ref.read(gameRepositoryProvider);
-    final imagesDir = Directory(path.join(game.path, 'images'));
+    final imagesDir = await GameDataPaths.ensureImagesDir(game.path);
 
     // 1. 记录旧图片信息（按排序索引）
     final oldImagePaths = <int, String>{};
@@ -992,12 +1125,14 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         }
         urlToLocal[url] = finalPath;
 
-        finalImages.add(GameImage(gameId: game.id!, imagePath: finalPath, sortOrder: i));
+        finalImages.add(
+            GameImage(gameId: game.id!, imagePath: finalPath, sortOrder: i));
       } else {
         // 下载失败：保留旧图片
         final oldPath = oldImagePaths[i + 1];
         if (oldPath != null) {
-          finalImages.add(GameImage(gameId: game.id!, imagePath: oldPath, sortOrder: i));
+          finalImages.add(
+              GameImage(gameId: game.id!, imagePath: oldPath, sortOrder: i));
         }
       }
     }
@@ -1018,7 +1153,16 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     return urlToLocal;
   }
 
-  static const _categoryOrder = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS', '3D'];
+  static const _categoryOrder = [
+    'RPG',
+    'ADV',
+    'ACT',
+    'SLG',
+    'AVG',
+    'FPS',
+    'TPS',
+    '3D'
+  ];
 
   String _resolveCategory(List<Tag> tags) {
     final allNames = tags.map((t) => t.name.toUpperCase()).toList();
@@ -1042,9 +1186,11 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     final categoryName = _resolveCategory(tags);
 
     final folderName = path.basename(game.path);
-    final targetDir = Directory(path.join(sortedPath, categoryName, folderName));
+    final targetDir =
+        Directory(path.join(sortedPath, categoryName, folderName));
     if (!await Directory(path.join(sortedPath, categoryName)).exists()) {
-      await Directory(path.join(sortedPath, categoryName)).create(recursive: true);
+      await Directory(path.join(sortedPath, categoryName))
+          .create(recursive: true);
     }
 
     try {
@@ -1066,12 +1212,15 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       // Update image paths in database after moving the directory
       final images = await gameRepo.getGameImages(game.id!);
       if (images.isNotEmpty) {
-        final updatedImages = images.map((img) => GameImage(
-          id: img.id,
-          gameId: img.gameId,
-          imagePath: img.imagePath.replaceFirst(game.path, targetDir.path),
-          sortOrder: img.sortOrder,
-        )).toList();
+        final updatedImages = images
+            .map((img) => GameImage(
+                  id: img.id,
+                  gameId: img.gameId,
+                  imagePath:
+                      img.imagePath.replaceFirst(game.path, targetDir.path),
+                  sortOrder: img.sortOrder,
+                ))
+            .toList();
         await gameRepo.setGameImages(game.id!, updatedImages);
       }
 
@@ -1087,11 +1236,13 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
       // Update metadata.json paths
       try {
-        final metadataFile = File('${targetDir.path}${Platform.pathSeparator}metadata.json');
+        final metadataFile =
+            await GameDataPaths.existingMetadataFile(targetDir.path);
         if (await metadataFile.exists()) {
           final content = await metadataFile.readAsString();
           if (content.contains(game.path)) {
-            final updatedContent = content.replaceAll(game.path, targetDir.path);
+            final updatedContent =
+                content.replaceAll(game.path, targetDir.path);
             await metadataFile.writeAsString(updatedContent, flush: true);
           }
         }
@@ -1099,18 +1250,31 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         _addLog('  -> 更新metadata路径失败: $e');
       }
 
+      await ref
+          .read(gameDataMigrationServiceProvider)
+          .rewriteGamePathReferences(
+            gameId: game.id!,
+            oldPath: game.path,
+            newPath: targetDir.path,
+          );
+
       // Update gameLauncher and savePath
       final updatedGame = await gameRepo.getGameById(game.id!);
       if (updatedGame != null) {
-        if (updatedGame.gameLauncher != null && updatedGame.gameLauncher!.startsWith(game.path)) {
-          final relative = updatedGame.gameLauncher!.substring(game.path.length);
+        if (updatedGame.gameLauncher != null &&
+            updatedGame.gameLauncher!.startsWith(game.path)) {
+          final relative =
+              updatedGame.gameLauncher!.substring(game.path.length);
           final newLauncher = '${targetDir.path}$relative';
-          await gameRepo.updateGameLauncher(game.id!, newLauncher, updatedGame.launcherLocked);
+          await gameRepo.updateGameLauncher(
+              game.id!, newLauncher, updatedGame.launcherLocked);
         }
-        if (updatedGame.savePath != null && updatedGame.savePath!.startsWith(game.path)) {
+        if (updatedGame.savePath != null &&
+            updatedGame.savePath!.startsWith(game.path)) {
           final relative = updatedGame.savePath!.substring(game.path.length);
           final newSavePath = '${targetDir.path}$relative';
-          await gameRepo.updateGame(updatedGame.copyWith(savePath: newSavePath));
+          await gameRepo
+              .updateGame(updatedGame.copyWith(savePath: newSavePath));
         }
       }
 
@@ -1134,7 +1298,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       context: context,
       child: StatefulBuilder(
         builder: (context, setDialogState) {
-          final controller = TextEditingController(text: item.game.sourceUrl ?? '');
+          final controller =
+              TextEditingController(text: item.game.sourceUrl ?? '');
           return SizedBox(
             width: GlassConstants.dialogWidth,
             child: Padding(
@@ -1143,7 +1308,11 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('编辑来源链接', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+                  Text('编辑来源链接',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.getTextPrimary(context))),
                   const SizedBox(height: 16),
                   TextField(
                     controller: controller,
@@ -1186,7 +1355,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         item.game = item.game.copyWith(sourceUrl: newUrl);
       });
       try {
-        final sourceUrlFile = File(path.join(item.game.path, 'source_url.txt'));
+        final sourceUrlFile = GameDataPaths.sourceUrlFile(item.game.path);
+        await GameDataPaths.ensureDataDir(item.game.path);
         await sourceUrlFile.writeAsString(newUrl, flush: true);
       } catch (e) {
         debugPrint('[Scraper] 写入source_url.txt失败: $e');
@@ -1194,13 +1364,17 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     }
   }
 
-  static final _versionPattern = RegExp(r'\s+(?:build|v(?:er(?:sion)?)?)\s*\.?\d+(?:[\d.]*\d+)?\s*', caseSensitive: false);
+  static final _versionPattern = RegExp(
+      r'\s+(?:build|v(?:er(?:sion)?)?)\s*\.?\d+(?:[\d.]*\d+)?\s*',
+      caseSensitive: false);
 
   String _stripVersionFromTitle(String title, [String? version]) {
     var result = title;
     if (version != null && version.isNotEmpty) {
       final escaped = RegExp.escape(version);
-      final precisePattern = RegExp(r'\s+(?:build|v(?:er(?:sion)?)?)?\s*' + escaped + r'\s*', caseSensitive: false);
+      final precisePattern = RegExp(
+          r'\s+(?:build|v(?:er(?:sion)?)?)?\s*' + escaped + r'\s*',
+          caseSensitive: false);
       result = result.replaceAll(precisePattern, ' ');
     }
     result = result.replaceAll(_versionPattern, ' ');
@@ -1219,15 +1393,20 @@ class _StatRow extends StatelessWidget {
   final String value;
   final Color color;
 
-  const _StatRow({required this.label, required this.value, this.color = Colors.black});
+  const _StatRow(
+      {required this.label, required this.value, this.color = Colors.black});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 12)),
-        Text(value, style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w700)),
+        Text(label,
+            style: TextStyle(
+                color: AppTheme.getTextSecondary(context), fontSize: 12)),
+        Text(value,
+            style: TextStyle(
+                color: color, fontSize: 14, fontWeight: FontWeight.w700)),
       ],
     );
   }

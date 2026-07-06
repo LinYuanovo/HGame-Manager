@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 import '../utils/app_paths.dart';
+import '../utils/game_data_paths.dart';
 
 class ImageService {
   static const _uuid = Uuid();
@@ -72,12 +73,9 @@ class ImageService {
     return destPath;
   }
 
-  /// 复制本地图片到游戏目录的 images 文件夹
+  /// 复制本地图片到游戏目录的 HGMDatas/images 文件夹
   Future<String> copyImageToGameDir(String sourcePath, String gamePath) async {
-    final imageDir = Directory('$gamePath${Platform.pathSeparator}images');
-    if (!await imageDir.exists()) {
-      await imageDir.create(recursive: true);
-    }
+    final imageDir = await GameDataPaths.ensureImagesDir(gamePath);
     final extension = sourcePath.split('.').last;
     final fileName = '${_uuid.v4()}.$extension';
     final destPath = '${imageDir.path}${Platform.pathSeparator}$fileName';
@@ -87,13 +85,16 @@ class ImageService {
   }
 
   /// 从URL下载图片
-  Future<String?> downloadImageFromUrl(String url, {Map<String, String>? headers}) async {
+  Future<String?> downloadImageFromUrl(String url,
+      {Map<String, String>? headers}) async {
     try {
       final response = await http.get(Uri.parse(url), headers: headers);
       if (response.statusCode != 200) return null;
 
       final storageDir = await getImageStorageDir();
-      final extension = _getExtensionFromContentType(response.headers['content-type']) ?? 'jpg';
+      final extension =
+          _getExtensionFromContentType(response.headers['content-type']) ??
+              'jpg';
       final fileName = '${_uuid.v4()}.$extension';
       final destPath = '$storageDir${Platform.pathSeparator}$fileName';
 

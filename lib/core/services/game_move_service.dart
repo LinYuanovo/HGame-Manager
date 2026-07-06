@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:path/path.dart' as path;
 import '../repositories/game_repository.dart';
+import 'game_data_migration_service.dart';
 
 class GameMoveService {
   final GameRepository _gameRepository;
@@ -38,16 +39,27 @@ class GameMoveService {
 
     await _gameRepository.updateGamePath(gameId, newPath);
     await _gameRepository.updateImagePaths(gameId, oldPath, newPath);
+    await GameDataMigrationService(gameRepository: _gameRepository)
+        .rewriteGamePathReferences(
+      gameId: gameId,
+      oldPath: oldPath,
+      newPath: newPath,
+    );
 
     final game = await _gameRepository.getGameById(gameId);
-    if (game != null && game.gameLauncher != null && game.gameLauncher!.startsWith(oldPath)) {
+    if (game != null &&
+        game.gameLauncher != null &&
+        game.gameLauncher!.startsWith(oldPath)) {
       final relativeLauncher = game.gameLauncher!.substring(oldPath.length);
       final newLauncher = '$newPath$relativeLauncher';
-      await _gameRepository.updateGameLauncher(gameId, newLauncher, game.launcherLocked);
+      await _gameRepository.updateGameLauncher(
+          gameId, newLauncher, game.launcherLocked);
       debugPrint('[GameMove] Launcher path updated: $newLauncher');
     }
 
-    if (game != null && game.savePath != null && game.savePath!.startsWith(oldPath)) {
+    if (game != null &&
+        game.savePath != null &&
+        game.savePath!.startsWith(oldPath)) {
       final relativeSave = game.savePath!.substring(oldPath.length);
       final newSave = '$newPath$relativeSave';
       await _gameRepository.updateSavePath(gameId, newSave);
@@ -92,15 +104,26 @@ class GameMoveService {
 
     await _gameRepository.updateGamePath(gameId, newPath);
     await _gameRepository.updateImagePaths(gameId, oldPath, newPath);
+    await GameDataMigrationService(gameRepository: _gameRepository)
+        .rewriteGamePathReferences(
+      gameId: gameId,
+      oldPath: oldPath,
+      newPath: newPath,
+    );
 
     final game = await _gameRepository.getGameById(gameId);
-    if (game != null && game.gameLauncher != null && game.gameLauncher!.startsWith(oldPath)) {
+    if (game != null &&
+        game.gameLauncher != null &&
+        game.gameLauncher!.startsWith(oldPath)) {
       final relativeLauncher = game.gameLauncher!.substring(oldPath.length);
       final newLauncher = '$newPath$relativeLauncher';
-      await _gameRepository.updateGameLauncher(gameId, newLauncher, game.launcherLocked);
+      await _gameRepository.updateGameLauncher(
+          gameId, newLauncher, game.launcherLocked);
     }
 
-    if (game != null && game.savePath != null && game.savePath!.startsWith(oldPath)) {
+    if (game != null &&
+        game.savePath != null &&
+        game.savePath!.startsWith(oldPath)) {
       final relativeSave = game.savePath!.substring(oldPath.length);
       final newSave = '$newPath$relativeSave';
       await _gameRepository.updateSavePath(gameId, newSave);

@@ -10,6 +10,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../../core/models/models.dart';
 import '../../../core/models/context_menu_config.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/services/game_data_migration_service.dart';
 import '../../../core/services/image_service.dart';
 import '../../../core/services/folder_rename_service.dart';
 import '../../../core/services/game_launch_service.dart';
@@ -18,6 +19,7 @@ import '../pages/games/game_detail_page.dart';
 import '../../../core/services/play_time_tracker.dart';
 import '../pages/games/save_management_dialog.dart';
 import '../../../core/utils/app_settings.dart';
+import '../../../core/utils/game_data_paths.dart';
 import 'multi_select_controller.dart';
 import 'image_preloader.dart';
 
@@ -2526,40 +2528,31 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         await backupGameDir.create(recursive: true);
       }
 
+      await GameDataPaths.ensureDataDir(backupGameDir.path);
+
       // 复制metadata.json到备份
-      final metadataFile =
-          File('${game.path}${Platform.pathSeparator}metadata.json');
+      final metadataFile = await GameDataPaths.existingMetadataFile(game.path);
       if (await metadataFile.exists()) {
-        await metadataFile.copy(
-            '${backupGameDir.path}${Platform.pathSeparator}metadata.json');
+        await metadataFile
+            .copy(GameDataPaths.metadataFile(backupGameDir.path).path);
       }
 
       // 复制source_url.txt到备份
       final sourceUrlFile =
-          File('${game.path}${Platform.pathSeparator}source_url.txt');
+          await GameDataPaths.existingSourceUrlFile(game.path);
       if (await sourceUrlFile.exists()) {
-        await sourceUrlFile.copy(
-            '${backupGameDir.path}${Platform.pathSeparator}source_url.txt');
+        await sourceUrlFile
+            .copy(GameDataPaths.sourceUrlFile(backupGameDir.path).path);
       }
 
       // 复制images目录到备份
-      final imagesDir =
-          Directory('${game.path}${Platform.pathSeparator}images');
+      final imagesDir = await GameDataPaths.existingImagesDir(game.path);
       final backupImagesDir =
-          Directory('${backupGameDir.path}${Platform.pathSeparator}images');
-      if (!await backupImagesDir.exists()) {
-        await backupImagesDir.create(recursive: true);
-      }
+          await GameDataPaths.ensureImagesDir(backupGameDir.path);
 
       // 复制游戏目录下的images文件夹
       if (await imagesDir.exists()) {
-        await for (final entity in imagesDir.list()) {
-          if (entity is File) {
-            final fileName = path.basename(entity.path);
-            await entity.copy(
-                '${backupImagesDir.path}${Platform.pathSeparator}$fileName');
-          }
-        }
+        await _copyDirectoryContents(imagesDir, backupImagesDir);
       }
 
       // 复制game_images目录中用户手动添加的图片
@@ -2633,6 +2626,13 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         await repo.setGameImages(game.id!, updatedImages);
       }
 
+      await GameDataMigrationService(gameRepository: repo)
+          .rewriteGamePathReferences(
+        gameId: game.id!,
+        oldPath: game.path,
+        newPath: newPath,
+      );
+
       _refreshGames();
       _refreshCleared();
       _refreshPlayed();
@@ -2647,6 +2647,32 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             message: '操作失败: $e',
             icon: Icons.error_outline,
             iconColor: AppTheme.errorColor);
+      }
+    }
+  }
+
+  Future<void> _copyDirectoryContents(
+    Directory source,
+    Directory destination,
+  ) async {
+    if (!await destination.exists()) {
+      await destination.create(recursive: true);
+    }
+
+    await for (final entity in source.list(
+      recursive: true,
+      followLinks: false,
+    )) {
+      if (entity is! File) continue;
+      final relativePath = path.relative(entity.path, from: source.path);
+      final targetPath = path.join(destination.path, relativePath);
+      final targetFile = File(targetPath);
+      final parent = Directory(path.dirname(targetPath));
+      if (!await parent.exists()) {
+        await parent.create(recursive: true);
+      }
+      if (!await targetFile.exists()) {
+        await entity.copy(targetPath);
       }
     }
   }
@@ -2853,8 +2879,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
       // 读取 metadata.json 中的 series 字段
       String targetCategory = 'Unclassified';
-      final metadataFile =
-          File('${game.path}${Platform.pathSeparator}metadata.json');
+      final metadataFile = await GameDataPaths.existingMetadataFile(game.path);
       if (await metadataFile.exists()) {
         try {
           final content = await metadataFile.readAsString();
@@ -2920,6 +2945,13 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         }).toList();
         await repo.setGameImages(game.id!, updatedImages);
       }
+
+      await GameDataMigrationService(gameRepository: repo)
+          .rewriteGamePathReferences(
+        gameId: game.id!,
+        oldPath: game.path,
+        newPath: newPath,
+      );
 
       // 删除对应的 Backup 目录
       final backupDir =

@@ -5,22 +5,29 @@ import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter/foundation.dart';
 import '../models/backup_entry.dart';
+import '../utils/game_data_paths.dart';
+import 'game_data_migration_service.dart';
 
 /// 存档备份服务
 /// 负责本地备份的创建、还原、删除、重命名、导入
 class BackupService {
-  /// 备份文件夹名称
-  static const String _backupFolderName = 'HGMBackup';
   /// zip 内的存档位置元数据文件名
   static const String _metaFileName = 'save_location.txt';
+
   /// 自动导入的"存档"文件夹备份名称（不含 .zip）
   static const String _autoImportName = '导入存档';
+
   /// 还原前自动备份的名称前缀
   static const String _preRestorePrefix = '还原前备份';
 
-  /// 获取游戏的 HGMBackup 目录
+  /// 获取游戏的 HGMDatas/backup 目录
   Directory getBackupDir(String gamePath) {
-    return Directory(p.join(gamePath, _backupFolderName));
+    return GameDataPaths.backupDir(gamePath);
+  }
+
+  Future<Directory> _ensureBackupDir(String gamePath) async {
+    await GameDataMigrationService().migrateGameDirectory(gamePath);
+    return GameDataPaths.ensureBackupDir(gamePath);
   }
 
   /// 将实际存档路径编码为带占位符的便携格式
@@ -73,6 +80,7 @@ class BackupService {
 
   /// 列出游戏的所有本地备份
   Future<List<BackupEntry>> listBackups(String gamePath) async {
+    await GameDataMigrationService().migrateGameDirectory(gamePath);
     final backupDir = getBackupDir(gamePath);
     if (!await backupDir.exists()) return [];
 
@@ -99,14 +107,18 @@ class BackupService {
         DateTime? date;
         // 尝试从文件名解析日期，格式：YYYY-MM-DD HH-MM
         try {
-          final dateMatch = RegExp(r'^(\d{4}-\d{2}-\d{2} \d{2}-\d{2})').firstMatch(name);
+          final dateMatch =
+              RegExp(r'^(\d{4}-\d{2}-\d{2} \d{2}-\d{2})').firstMatch(name);
           if (dateMatch != null) {
             final parts = dateMatch.group(1)!.split(' ');
             final dateParts = parts[0].split('-');
             final timeParts = parts[1].split('-');
             date = DateTime(
-              int.parse(dateParts[0]), int.parse(dateParts[1]), int.parse(dateParts[2]),
-              int.parse(timeParts[0]), int.parse(timeParts[1]),
+              int.parse(dateParts[0]),
+              int.parse(dateParts[1]),
+              int.parse(dateParts[2]),
+              int.parse(timeParts[0]),
+              int.parse(timeParts[1]),
             );
           }
         } catch (_) {
@@ -127,7 +139,8 @@ class BackupService {
     }
 
     // 按日期降序排列
-    entries.sort((a, b) => (b.date ?? DateTime(2000)).compareTo(a.date ?? DateTime(2000)));
+    entries.sort((a, b) =>
+        (b.date ?? DateTime(2000)).compareTo(a.date ?? DateTime(2000)));
     return entries;
   }
 
@@ -144,14 +157,12 @@ class BackupService {
       return null;
     }
 
-    final backupDir = getBackupDir(gamePath);
-    if (!await backupDir.exists()) {
-      await backupDir.create(recursive: true);
-    }
+    final backupDir = await _ensureBackupDir(gamePath);
 
     // 生成备份名称
     final now = DateTime.now();
-    final timestamp = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}-${now.minute.toString().padLeft(2, '0')}';
+    final timestamp =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}-${now.minute.toString().padLeft(2, '0')}';
     final name = customName ?? timestamp;
     final fileName = '$name.zip';
     final filePath = p.join(backupDir.path, fileName);
@@ -172,7 +183,8 @@ class BackupService {
         final stat = await entity.stat();
         totalSize += stat.size;
         if (totalSize > 500 * 1024 * 1024) {
-          debugPrint('[BackupService] 存档文件夹过大，无法内存压缩: ${totalSize ~/ (1024*1024)}MB');
+          debugPrint(
+              '[BackupService] 存档文件夹过大，无法内存压缩: ${totalSize ~/ (1024 * 1024)}MB');
           return null;
         }
       }
@@ -203,7 +215,9 @@ class BackupService {
         fileName: fileName,
         sizeBytes: zipBytes.length,
         date: now,
-        source: customName == _preRestorePrefix ? BackupSource.preRestore : BackupSource.manual,
+        source: customName == _preRestorePrefix
+            ? BackupSource.preRestore
+            : BackupSource.manual,
         filePath: filePath,
       );
     } catch (e) {
@@ -318,10 +332,7 @@ class BackupService {
     required String sourcePath,
     String? targetName,
   }) async {
-    final backupDir = getBackupDir(gamePath);
-    if (!await backupDir.exists()) {
-      await backupDir.create(recursive: true);
-    }
+    final backupDir = await _ensureBackupDir(gamePath);
 
     final sourceEntity = FileSystemEntity.typeSync(sourcePath);
 
@@ -414,11 +425,14 @@ class BackupService {
     if (!hasContent) return null;
 
     // 检查是否已经导入过（固定文件名为"导入存档.zip"）
-    final backupDir = getBackupDir(gamePath);
+    final backupDir = await _ensureBackupDir(gamePath);
     final importFile = File(p.join(backupDir.path, '$_autoImportName.zip'));
     if (await importFile.exists()) return null;
 
-    return importBackup(gamePath: gamePath, sourcePath: saveDir.path, targetName: _autoImportName);
+    return importBackup(
+        gamePath: gamePath,
+        sourcePath: saveDir.path,
+        targetName: _autoImportName);
   }
 
   /// 智能还原自定义/导入备份
@@ -457,7 +471,9 @@ class BackupService {
       if (archiveFiles.isEmpty) return false;
 
       // 策略 1：检查顶层文件是否直接存在于 savePath
-      final topLevelFiles = archiveFiles.where((f) => !f.name.contains('/') && !f.name.contains('\\')).toList();
+      final topLevelFiles = archiveFiles
+          .where((f) => !f.name.contains('/') && !f.name.contains('\\'))
+          .toList();
       if (topLevelFiles.isNotEmpty) {
         for (final file in topLevelFiles) {
           if (await File(p.join(savePath, file.name)).exists()) {
@@ -507,7 +523,8 @@ class BackupService {
   }
 
   /// 将压缩包文件解压到目标路径，保留目录结构
-  Future<void> _extractArchiveToPath(List<ArchiveFile> files, String targetPath) async {
+  Future<void> _extractArchiveToPath(
+      List<ArchiveFile> files, String targetPath) async {
     for (final file in files) {
       final filePath = p.join(targetPath, file.name);
       // 防止路径遍历攻击
@@ -528,11 +545,13 @@ class BackupService {
   bool _isPathSafe(String targetDir, String filePath) {
     final resolvedTarget = p.normalize(targetDir);
     final resolvedFile = p.normalize(filePath);
-    return p.isWithin(resolvedTarget, resolvedFile) || resolvedFile == resolvedTarget;
+    return p.isWithin(resolvedTarget, resolvedFile) ||
+        resolvedFile == resolvedTarget;
   }
 
   /// 递归将目录内容添加到压缩包
-  Future<void> _addDirectoryToArchive(Archive archive, Directory dir, String prefix) async {
+  Future<void> _addDirectoryToArchive(
+      Archive archive, Directory dir, String prefix) async {
     await for (final entity in dir.list()) {
       final name = prefix.isEmpty
           ? p.basename(entity.path)
@@ -540,7 +559,8 @@ class BackupService {
 
       if (entity is File) {
         final bytes = await entity.readAsBytes();
-        archive.addFile(ArchiveFile(name.replaceAll('\\', '/'), bytes.length, bytes));
+        archive.addFile(
+            ArchiveFile(name.replaceAll('\\', '/'), bytes.length, bytes));
       } else if (entity is Directory) {
         await _addDirectoryToArchive(archive, entity, name);
       }

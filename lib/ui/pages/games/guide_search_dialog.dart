@@ -6,6 +6,7 @@ import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/services/pilipili_service.dart';
 import '../../../core/services/fan2d_service.dart';
+import '../../../core/utils/game_data_paths.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../theme/app_theme.dart';
 
@@ -15,7 +16,8 @@ class GuideSearchDialog extends ConsumerStatefulWidget {
   final Game game;
   final String initialKeyword;
 
-  const GuideSearchDialog({super.key, required this.game, required this.initialKeyword});
+  const GuideSearchDialog(
+      {super.key, required this.game, required this.initialKeyword});
 
   @override
   ConsumerState<GuideSearchDialog> createState() => _GuideSearchDialogState();
@@ -42,22 +44,36 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
   Future<void> _search() async {
     final keyword = _searchController.text.trim();
     if (keyword.isEmpty) return;
-    setState(() { _isSearching = true; _results = []; });
+    setState(() {
+      _isSearching = true;
+      _results = [];
+    });
     try {
       if (_selectedSource == GuideSource.pilipili) {
         final service = PilipiliService();
         final results = await service.searchArticles(keyword);
-        if (mounted) setState(() { _results = results; _isSearching = false; });
+        if (mounted)
+          setState(() {
+            _results = results;
+            _isSearching = false;
+          });
       } else {
         final service = ref.read(fan2dServiceProvider);
         final results = await service.searchGuides(keyword);
-        if (mounted) setState(() { _results = results; _isSearching = false; });
+        if (mounted)
+          setState(() {
+            _results = results;
+            _isSearching = false;
+          });
       }
     } catch (e) {
       final errorMsg = e.toString().replaceFirst('Exception: ', '');
       if (mounted) {
         setState(() => _isSearching = false);
-        AppTheme.showGlassToast(context, message: errorMsg, icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        AppTheme.showGlassToast(context,
+            message: errorMsg,
+            icon: Icons.error_outline,
+            iconColor: AppTheme.errorColor);
       }
     }
   }
@@ -75,10 +91,14 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
         // 如果有多个walkthrough，让用户选择
         if (scrapeResult.hasWalkthroughs) {
           if (!mounted) return;
-          final selectedWalkthrough = await _showWalkthroughDialog(scrapeResult.walkthroughs);
+          final selectedWalkthrough =
+              await _showWalkthroughDialog(scrapeResult.walkthroughs);
           if (selectedWalkthrough == null) {
             if (mounted) {
-              AppTheme.showGlassToast(context, message: '未选择攻略', icon: Icons.info_outline, iconColor: AppTheme.getTextSecondary(context));
+              AppTheme.showGlassToast(context,
+                  message: '未选择攻略',
+                  icon: Icons.info_outline,
+                  iconColor: AppTheme.getTextSecondary(context));
             }
             return;
           }
@@ -96,7 +116,10 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
     } catch (e) {
       final errorMsg = e.toString().replaceFirst('Exception: ', '');
       if (mounted) {
-        AppTheme.showGlassToast(context, message: errorMsg, icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        AppTheme.showGlassToast(context,
+            message: errorMsg,
+            icon: Icons.error_outline,
+            iconColor: AppTheme.errorColor);
       }
       return;
     }
@@ -104,7 +127,10 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
     if (content != null && mounted) {
       Navigator.of(context).pop(content);
     } else if (mounted && content == null) {
-      AppTheme.showGlassToast(context, message: '获取攻略内容失败', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+      AppTheme.showGlassToast(context,
+          message: '获取攻略内容失败',
+          icon: Icons.error_outline,
+          iconColor: AppTheme.errorColor);
     }
   }
 
@@ -127,15 +153,15 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
     if (imageUrls.isEmpty) return content;
 
     if (mounted) {
-      AppTheme.showGlassToast(context, message: '正在下载 ${imageUrls.length} 张图片...', icon: Icons.cloud_download, iconColor: AppTheme.getPrimaryColor(context));
+      AppTheme.showGlassToast(context,
+          message: '正在下载 ${imageUrls.length} 张图片...',
+          icon: Icons.cloud_download,
+          iconColor: AppTheme.getPrimaryColor(context));
     }
 
     // 创建图片目录
     final gamePath = widget.game.path;
-    final imagesDir = Directory('$gamePath${Platform.pathSeparator}images');
-    if (!await imagesDir.exists()) {
-      await imagesDir.create(recursive: true);
-    }
+    final imagesDir = await GameDataPaths.ensureImagesDir(gamePath);
 
     // 下载图片并保存为 guide_xx.xx 格式
     final localPaths = <String>[];
@@ -147,7 +173,8 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
           final response = await client.get(
             Uri.parse(url),
             headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
               'Referer': 'https://www.bilibili.com/',
             },
           ).timeout(const Duration(seconds: 30));
@@ -165,11 +192,14 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
             }
 
             final fileName = 'guide_${(i + 1).toString().padLeft(2, '0')}$ext';
-            final imagesDirPath = '$gamePath${Platform.pathSeparator}images';
-            final filePath = '$imagesDirPath${Platform.pathSeparator}$fileName';
-            if (kDebugMode) debugPrint('[Guide] 保存到: $filePath (${response.bodyBytes.length} bytes)');
+            final filePath =
+                '${imagesDir.path}${Platform.pathSeparator}$fileName';
+            if (kDebugMode)
+              debugPrint(
+                  '[Guide] 保存到: $filePath (${response.bodyBytes.length} bytes)');
             try {
-              await File(filePath).writeAsBytes(response.bodyBytes, flush: true);
+              await File(filePath)
+                  .writeAsBytes(response.bodyBytes, flush: true);
               final exists = await File(filePath).exists();
               if (kDebugMode) debugPrint('[Guide] 文件存在: $exists');
               localPaths.add(filePath);
@@ -204,7 +234,8 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
     return result;
   }
 
-  Future<Fan2dWalkthrough?> _showWalkthroughDialog(List<Fan2dWalkthrough> walkthroughs) async {
+  Future<Fan2dWalkthrough?> _showWalkthroughDialog(
+      List<Fan2dWalkthrough> walkthroughs) async {
     return showGlassDialog<Fan2dWalkthrough>(
       context: context,
       child: SizedBox(
@@ -217,13 +248,20 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.menu_book, color: AppTheme.primaryColor, size: 22),
+                  const Icon(Icons.menu_book,
+                      color: AppTheme.primaryColor, size: 22),
                   const SizedBox(width: 10),
-                  Text('选择攻略', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+                  Text('选择攻略',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.getDetailTextPrimary(context))),
                 ],
               ),
               const SizedBox(height: 8),
-              Text('找到 ${walkthroughs.length} 个攻略，请选择：', style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 13)),
+              Text('找到 ${walkthroughs.length} 个攻略，请选择：',
+                  style: TextStyle(
+                      color: AppTheme.getTextSecondary(context), fontSize: 13)),
               const SizedBox(height: 16),
               Expanded(
                 child: ListView.builder(
@@ -234,23 +272,40 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                       margin: const EdgeInsets.only(bottom: 8),
                       child: Material(
                         color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                        borderRadius:
+                            BorderRadius.circular(GlassConstants.radiusMedium),
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                          borderRadius: BorderRadius.circular(
+                              GlassConstants.radiusMedium),
                           onTap: () => Navigator.pop(context, wt),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
                             decoration: BoxDecoration(
-                              color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
-                              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                              border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.5)),
+                              color: AppTheme.getBackgroundColor(context)
+                                  .withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(
+                                  GlassConstants.radiusMedium),
+                              border: Border.all(
+                                  color: AppTheme.getBorderColor(context)
+                                      .withValues(alpha: 0.5)),
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.article_outlined, size: 18, color: AppTheme.primaryColor),
+                                Icon(Icons.article_outlined,
+                                    size: 18, color: AppTheme.primaryColor),
                                 const SizedBox(width: 12),
-                                Expanded(child: Text(wt.title, style: TextStyle(fontSize: 14, color: AppTheme.getDetailTextPrimary(context)), overflow: TextOverflow.ellipsis)),
-                                Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.getTextSecondary(context)),
+                                Expanded(
+                                    child: Text(wt.title,
+                                        style: TextStyle(
+                                            fontSize: 14,
+                                            color:
+                                                AppTheme.getDetailTextPrimary(
+                                                    context)),
+                                        overflow: TextOverflow.ellipsis)),
+                                Icon(Icons.arrow_forward_ios,
+                                    size: 14,
+                                    color: AppTheme.getTextSecondary(context)),
                               ],
                             ),
                           ),
@@ -263,7 +318,11 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
-                children: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消'))],
+                children: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('取消'))
+                ],
               ),
             ],
           ),
@@ -303,12 +362,20 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
       padding: const EdgeInsets.fromLTRB(24, 20, 16, 12),
       child: Row(
         children: [
-          Icon(Icons.menu_book, color: AppTheme.getPrimaryColor(context), size: 24),
+          Icon(Icons.menu_book,
+              color: AppTheme.getPrimaryColor(context), size: 24),
           const SizedBox(width: 10),
           Expanded(
-            child: Text('搜索攻略', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+            child: Text('搜索攻略',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.getDetailTextPrimary(context))),
           ),
-          IconButton(icon: const Icon(Icons.close, size: 20), color: AppTheme.getTextSecondary(context), onPressed: () => Navigator.pop(context)),
+          IconButton(
+              icon: const Icon(Icons.close, size: 20),
+              color: AppTheme.getTextSecondary(context),
+              onPressed: () => Navigator.pop(context)),
         ],
       ),
     );
@@ -323,9 +390,12 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
             height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
+              color:
+                  AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+              border: Border.all(
+                  color:
+                      AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<GuideSource>(
@@ -334,10 +404,15 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                 dropdownColor: AppTheme.getSurfaceColor(context),
                 borderRadius: BorderRadius.circular(8),
                 items: const [
-                  DropdownMenuItem(value: GuideSource.pilipili, child: Text('pilipili', style: TextStyle(fontSize: 13))),
-                  DropdownMenuItem(value: GuideSource.fan2d, child: Text('2DFan', style: TextStyle(fontSize: 13))),
+                  DropdownMenuItem(
+                      value: GuideSource.pilipili,
+                      child: Text('pilipili', style: TextStyle(fontSize: 13))),
+                  DropdownMenuItem(
+                      value: GuideSource.fan2d,
+                      child: Text('2DFan', style: TextStyle(fontSize: 13))),
                 ],
-                onChanged: (v) => setState(() => _selectedSource = v ?? GuideSource.pilipili),
+                onChanged: (v) =>
+                    setState(() => _selectedSource = v ?? GuideSource.pilipili),
               ),
             ),
           ),
@@ -347,14 +422,31 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
               height: 40,
               child: TextField(
                 controller: _searchController,
-                style: TextStyle(fontSize: 14, color: AppTheme.getDetailTextPrimary(context)),
+                style: TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.getDetailTextPrimary(context)),
                 decoration: InputDecoration(
                   hintText: '输入游戏名搜索攻略...',
-                  hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3))),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3))),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.5))),
+                  hintStyle: TextStyle(
+                      color: AppTheme.getTextSecondary(context)
+                          .withValues(alpha: 0.5)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                          color: AppTheme.getBorderColor(context)
+                              .withValues(alpha: 0.3))),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                          color: AppTheme.getBorderColor(context)
+                              .withValues(alpha: 0.3))),
+                  focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                          color: AppTheme.getPrimaryColor(context)
+                              .withValues(alpha: 0.5))),
                 ),
                 onSubmitted: (_) => _search(),
               ),
@@ -365,9 +457,16 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
             height: 40,
             child: ElevatedButton.icon(
               onPressed: _isSearching ? null : _search,
-              icon: _isSearching ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.search, size: 18),
+              icon: _isSearching
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.search, size: 18),
               label: const Text('搜索'),
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.getPrimaryColor(context), foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.getPrimaryColor(context),
+                  foregroundColor: Colors.white),
             ),
           ),
         ],
@@ -377,14 +476,20 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
 
   Widget _buildResults() {
     if (_isSearching) return const Center(child: CircularProgressIndicator());
-    if (_results.isEmpty) return Center(child: Text('无搜索结果', style: TextStyle(color: AppTheme.getTextSecondary(context))));
+    if (_results.isEmpty)
+      return Center(
+          child: Text('无搜索结果',
+              style: TextStyle(color: AppTheme.getTextSecondary(context))));
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       itemCount: _results.length,
       itemBuilder: (context, index) {
         final result = _results[index];
-        final title = result is PilipiliSearchResult ? result.title : (result as Fan2dGuideResult).title;
-        final subtitle = result is PilipiliSearchResult ? result.summary : '2DFan攻略';
+        final title = result is PilipiliSearchResult
+            ? result.title
+            : (result as Fan2dGuideResult).title;
+        final subtitle =
+            result is PilipiliSearchResult ? result.summary : '2DFan攻略';
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           child: Material(
@@ -394,30 +499,48 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
               onTap: () => _selectResult(result),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                  border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.5)),
+                  color: AppTheme.getBackgroundColor(context)
+                      .withValues(alpha: 0.5),
+                  borderRadius:
+                      BorderRadius.circular(GlassConstants.radiusMedium),
+                  border: Border.all(
+                      color: AppTheme.getBorderColor(context)
+                          .withValues(alpha: 0.5)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.menu_book, size: 18, color: AppTheme.primaryColor),
+                    Icon(Icons.menu_book,
+                        size: 18, color: AppTheme.primaryColor),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(title, style: TextStyle(fontSize: 14, color: AppTheme.getDetailTextPrimary(context)), overflow: TextOverflow.ellipsis),
+                          Text(title,
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  color:
+                                      AppTheme.getDetailTextPrimary(context)),
+                              overflow: TextOverflow.ellipsis),
                           if (subtitle.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
-                              child: Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)), maxLines: 2, overflow: TextOverflow.ellipsis),
+                              child: Text(subtitle,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color:
+                                          AppTheme.getTextSecondary(context)),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis),
                             ),
                         ],
                       ),
                     ),
-                    Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.getTextSecondary(context)),
+                    Icon(Icons.arrow_forward_ios,
+                        size: 14, color: AppTheme.getTextSecondary(context)),
                   ],
                 ),
               ),

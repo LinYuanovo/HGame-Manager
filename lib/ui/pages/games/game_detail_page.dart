@@ -24,6 +24,8 @@ import '../../../core/services/folder_rename_service.dart';
 import '../../../core/services/game_launch_service.dart';
 import '../../../core/services/play_time_tracker.dart';
 import '../../../core/utils/app_settings.dart';
+import '../../../core/utils/game_data_paths.dart';
+import '../../../core/utils/path_reference_rewriter.dart';
 import '../../widgets/image_manager_dialog.dart';
 import '../../widgets/markdown_editor.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -265,6 +267,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _contentScrollController = ScrollController();
     _contentScrollController.addListener(_onScroll);
     _repo = ref.read(gameRepositoryProvider);
+    Future.microtask(_migrateCurrentGameData);
     _checkIsLocal();
     _forceReloadImages();
     Future.wait([_preloadMediaFiles(), _loadMetadataHtml()]);
@@ -283,7 +286,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   Future<void> _checkIsLocal() async {
     final sourceUrlFile =
-        File('${_currentGame.path}${Platform.pathSeparator}source_url.txt');
+        await GameDataPaths.existingSourceUrlFile(_currentGame.path);
     final exists = await sourceUrlFile.exists();
     if (mounted) {
       setState(() {
@@ -333,7 +336,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   Future<void> _loadMetadataHtml() async {
     try {
       final metadataFile =
-          File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
+          await GameDataPaths.existingMetadataFile(_currentGame.path);
       if (await metadataFile.exists()) {
         final json = jsonDecode(await metadataFile.readAsString());
         _introHtml = json['intro_html'] as String?;
@@ -366,6 +369,30 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _makerController.dispose();
     _guideController.dispose();
     super.dispose();
+  }
+
+  Future<void> _migrateCurrentGameData() async {
+    if (_currentGame.id == null) return;
+    try {
+      await ref
+          .read(gameDataMigrationServiceProvider)
+          .migrateGameDirectory(_currentGame.path, gameId: _currentGame.id);
+      final GameRepository repo = _repo ?? ref.read(gameRepositoryProvider);
+      final fresh = await repo.getGameById(_currentGame.id!);
+      if (fresh != null && mounted) {
+        setState(() {
+          _currentGame = fresh;
+          _introController.text = fresh.intro ?? '';
+          _featuresController.text = fresh.features ?? '';
+          _changelogController.text = fresh.changelog ?? '';
+          _guideController.text = fresh.guide ?? '';
+        });
+        await _loadMetadataHtml();
+        await _preloadMediaFiles();
+      }
+    } catch (e) {
+      debugPrint('[GameDetail] 数据迁移失败: $e');
+    }
   }
 
   @override
@@ -2372,8 +2399,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   /// 删除攻略相关的图片文件
   Future<void> _deleteGuideImages() async {
-    final imagesDir =
-        Directory('${_currentGame.path}${Platform.pathSeparator}images');
+    final imagesDir = await GameDataPaths.existingImagesDir(_currentGame.path);
     if (!await imagesDir.exists()) return;
 
     await for (final entity in imagesDir.list()) {
@@ -2402,7 +2428,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   void _syncGuideToMetadata(String? guide) async {
     try {
       final metadataFile =
-          File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
+          await GameDataPaths.existingMetadataFile(_currentGame.path);
       Map<String, dynamic> metadata;
       if (await metadataFile.exists()) {
         metadata = jsonDecode(await metadataFile.readAsString())
@@ -2415,6 +2441,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       } else {
         metadata.remove('guide');
       }
+      await GameDataPaths.ensureDataDir(_currentGame.path);
       await metadataFile.writeAsString(jsonEncode(metadata), flush: true);
     } catch (e) {
       debugPrint('[Edit] Failed to sync guide to metadata.json: $e');
@@ -3444,16 +3471,16 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       final newVersion = _versionController.text.trim().isEmpty
           ? null
           : _versionController.text.trim();
-      final newIntro = _introController.text.trim().isEmpty
+      var newIntro = _introController.text.trim().isEmpty
           ? null
           : _introController.text.trim();
-      final newFeatures = _featuresController.text.trim().isEmpty
+      var newFeatures = _featuresController.text.trim().isEmpty
           ? null
           : _featuresController.text.trim();
-      final newChangelog = _changelogController.text.trim().isEmpty
+      var newChangelog = _changelogController.text.trim().isEmpty
           ? null
           : _changelogController.text.trim();
-      final newGuide = _guideController.text.trim().isEmpty
+      var newGuide = _guideController.text.trim().isEmpty
           ? null
           : _guideController.text.trim();
       final newDownloadUrl = _downloadUrlController.text.trim().isEmpty
@@ -3527,7 +3554,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             await for (final entity in backupDir.list()) {
               if (entity is Directory) {
                 // 检查这个备份目录是否与当前游戏匹配（通过 metadata.json 中的标题）
-                final metadataFile = File('${entity.path}${sep}metadata.json');
+                final metadataFile =
+                    await GameDataPaths.existingMetadataFile(entity.path);
                 if (await metadataFile.exists()) {
                   try {
                     final content = await metadataFile.readAsString();
@@ -3561,6 +3589,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   // Update image paths in database
                   await repo.updateImagePaths(
                       gameId, oldBackupDir.path, newBackupDir.path);
+                  await ref
+                      .read(gameDataMigrationServiceProvider)
+                      .rewriteGamePathReferences(
+                        gameId: gameId,
+                        oldPath: oldBackupDir.path,
+                        newPath: newBackupDir.path,
+                      );
                   // Update current game object for subsequent operations
                   _currentGame = _currentGame.copyWith(path: newBackupDir.path);
                 }
@@ -3586,7 +3621,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               await for (final entity in backupDir2.list()) {
                 if (entity is Directory) {
                   final metadataFile =
-                      File('${entity.path}${sep}metadata.json');
+                      await GameDataPaths.existingMetadataFile(entity.path);
                   if (await metadataFile.exists()) {
                     try {
                       final content = await metadataFile.readAsString();
@@ -3616,6 +3651,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     await repo.updateGamePath(gameId, newBackupDir2.path);
                     await repo.updateImagePaths(
                         gameId, oldBackupDir2.path, newBackupDir2.path);
+                    await ref
+                        .read(gameDataMigrationServiceProvider)
+                        .rewriteGamePathReferences(
+                          gameId: gameId,
+                          oldPath: oldBackupDir2.path,
+                          newPath: newBackupDir2.path,
+                        );
                     _currentGame =
                         _currentGame.copyWith(path: newBackupDir2.path);
                   }
@@ -3681,6 +3723,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 await repo.updateGamePath(g.id!, newBackupDir.path);
                 await repo.updateImagePaths(
                     g.id!, oldBackupDir.path, newBackupDir.path);
+                await ref
+                    .read(gameDataMigrationServiceProvider)
+                    .rewriteGamePathReferences(
+                      gameId: g.id!,
+                      oldPath: oldBackupDir.path,
+                      newPath: newBackupDir.path,
+                    );
                 break;
               }
             }
@@ -3734,6 +3783,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     await repo.updateGamePath(g.id!, newBackupDir3.path);
                     await repo.updateImagePaths(
                         g.id!, oldBackupDir3.path, newBackupDir3.path);
+                    await ref
+                        .read(gameDataMigrationServiceProvider)
+                        .rewriteGamePathReferences(
+                          gameId: g.id!,
+                          oldPath: oldBackupDir3.path,
+                          newPath: newBackupDir3.path,
+                        );
                     break;
                   }
                 }
@@ -3807,16 +3863,28 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
         if (pathConfirm == true) {
           try {
+            final oldPath = _currentGame.path;
             final moveService = ref.read(gameMoveServiceProvider);
             await moveService.moveGameFolderCrossDrive(
               gameId: _currentGame.id!,
-              oldPath: _currentGame.path,
+              oldPath: oldPath,
               newPath: newPath,
             );
+            final replacements = {oldPath: newPath};
+            newIntro = PathReferenceRewriter.replace(newIntro, replacements);
+            newFeatures =
+                PathReferenceRewriter.replace(newFeatures, replacements);
+            newChangelog =
+                PathReferenceRewriter.replace(newChangelog, replacements);
+            newGuide = PathReferenceRewriter.replace(newGuide, replacements);
             final refreshed = await repo.getGameById(_currentGame.id!);
             if (refreshed != null) {
               _currentGame = refreshed;
               _pathController.text = refreshed.path;
+              _introController.text = newIntro ?? '';
+              _featuresController.text = newFeatures ?? '';
+              _changelogController.text = newChangelog ?? '';
+              _guideController.text = newGuide ?? '';
             }
           } catch (e) {
             if (mounted) {
@@ -3866,8 +3934,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
       // Sync metadata.json
       try {
-        final metadataFile =
-            File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
+        final metadataFile = GameDataPaths.metadataFile(_currentGame.path);
+        await GameDataPaths.ensureDataDir(_currentGame.path);
         Map<String, dynamic> metadata;
 
         if (await metadataFile.exists()) {
@@ -3904,8 +3972,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       // Sync source_url.txt
       if (newSourceUrl != null) {
         try {
-          final sourceUrlFile = File(
-              '${_currentGame.path}${Platform.pathSeparator}source_url.txt');
+          final sourceUrlFile = GameDataPaths.sourceUrlFile(_currentGame.path);
+          await GameDataPaths.ensureDataDir(_currentGame.path);
           await sourceUrlFile.writeAsString(newSourceUrl, flush: true);
           debugPrint('[Edit] source_url.txt updated: $newSourceUrl');
         } catch (e) {
@@ -4319,8 +4387,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           makerUrl: gameInfo.makerUrl ?? _currentGame.makerUrl,
         );
 
-        final metadataFile =
-            File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
+        final metadataFile = GameDataPaths.metadataFile(_currentGame.path);
+        await GameDataPaths.ensureDataDir(_currentGame.path);
         await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()),
             flush: true);
         await repo.updateGame(updated);
@@ -4588,16 +4656,16 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       );
 
       try {
-        final metadataFile =
-            File('${_currentGame.path}${Platform.pathSeparator}metadata.json');
+        final metadataFile = GameDataPaths.metadataFile(_currentGame.path);
+        await GameDataPaths.ensureDataDir(_currentGame.path);
         await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()),
             flush: true);
       } catch (e) {
         debugPrint('[QuickScrape] Failed to write metadata.json: $e');
       }
       try {
-        final sourceUrlFile =
-            File('${_currentGame.path}${Platform.pathSeparator}source_url.txt');
+        final sourceUrlFile = GameDataPaths.sourceUrlFile(_currentGame.path);
+        await GameDataPaths.ensureDataDir(_currentGame.path);
         await sourceUrlFile.writeAsString(url, flush: true);
       } catch (e) {
         debugPrint('[QuickScrape] Failed to write source_url.txt: $e');
@@ -4671,8 +4739,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               metaJson['intro_html'] = html;
             }
             try {
-              final metadataFile = File(
-                  '${_currentGame.path}${Platform.pathSeparator}metadata.json');
+              final metadataFile =
+                  GameDataPaths.metadataFile(_currentGame.path);
+              await GameDataPaths.ensureDataDir(_currentGame.path);
               await metadataFile.writeAsString(jsonEncode(metaJson),
                   flush: true);
             } catch (e) {
@@ -4747,10 +4816,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ? Uri.tryParse(game.sourceUrl!)?.host
             : null);
     try {
-      final imageDir = Directory('${game.path}${Platform.pathSeparator}images');
-      if (!await imageDir.exists()) {
-        await imageDir.create(recursive: true);
-      }
+      await ref
+          .read(gameDataMigrationServiceProvider)
+          .migrateGameDirectory(game.path, gameId: game.id);
+      final imageDir = await GameDataPaths.ensureImagesDir(game.path);
 
       await ref.read(gameRepositoryProvider).deleteGameImagesByGameId(game.id!);
 
@@ -4808,12 +4877,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   Future<void> _fixImageUrlsInMetadata(Game game) async {
     try {
-      final metadataFile =
-          File('${game.path}${Platform.pathSeparator}metadata.json');
+      final metadataFile = await GameDataPaths.existingMetadataFile(game.path);
       if (!await metadataFile.exists()) return;
 
       final metaJson = jsonDecode(await metadataFile.readAsString());
-      final imageDir = Directory('${game.path}${Platform.pathSeparator}images');
+      final imageDir = await GameDataPaths.existingImagesDir(game.path);
       if (!await imageDir.exists()) return;
 
       final localImages = <String>[];
@@ -4885,10 +4953,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     void Function(int current, int total)? onProgress,
   }) async {
     final urlToLocal = <String, String>{};
-    final imageDir = Directory('${game.path}${Platform.pathSeparator}images');
-    if (!await imageDir.exists()) {
-      await imageDir.create(recursive: true);
-    }
+    await ref
+        .read(gameDataMigrationServiceProvider)
+        .migrateGameDirectory(game.path, gameId: game.id);
+    final imageDir = await GameDataPaths.ensureImagesDir(game.path);
 
     final sourceUrl = game.sourceUrl ?? '';
     final cookie =
@@ -5001,28 +5069,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       await repo.setGameImages(game.id!, updatedImages);
     }
 
-    final currentGame = await repo.getGameById(game.id!);
-    if (currentGame != null && currentGame.intro != null) {
-      var updatedIntro = currentGame.intro!;
-      if (updatedIntro.contains(game.path)) {
-        updatedIntro = updatedIntro.replaceAll(game.path, targetDir.path);
-        await repo.updateGame(currentGame.copyWith(intro: updatedIntro));
-      }
-    }
-
-    try {
-      final metadataFile =
-          File('${targetDir.path}${Platform.pathSeparator}metadata.json');
-      if (await metadataFile.exists()) {
-        final content = await metadataFile.readAsString();
-        if (content.contains(game.path)) {
-          final updatedContent = content.replaceAll(game.path, targetDir.path);
-          await metadataFile.writeAsString(updatedContent, flush: true);
-        }
-      }
-    } catch (e) {
-      debugPrint('[GameDetail] 更新metadata路径失败: $e');
-    }
+    await ref.read(gameDataMigrationServiceProvider).rewriteGamePathReferences(
+          gameId: game.id!,
+          oldPath: game.path,
+          newPath: targetDir.path,
+        );
 
     final updatedGame = await repo.getGameById(game.id!);
     if (updatedGame != null) {

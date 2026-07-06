@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import '../utils/game_data_paths.dart';
 import '../utils/proxy_client.dart';
 import '../../scraper/steam_html_converter.dart';
 import 'app_logger.dart';
@@ -67,7 +68,8 @@ class SteamService {
 
   String _cleanGameName(String name) {
     var cleaned = name.replaceAll(
-      RegExp(r'\s*(?:[Vv](?:er(?:sion)?)?|build)\s*\.?\d+(?:[\d.]*\d+)?\s*', caseSensitive: false),
+      RegExp(r'\s*(?:[Vv](?:er(?:sion)?)?|build)\s*\.?\d+(?:[\d.]*\d+)?\s*',
+          caseSensitive: false),
       ' ',
     );
     cleaned = cleaned.replaceAll(RegExp(r'[\[【\(（].*?[\]】\)）]'), '');
@@ -100,29 +102,34 @@ class SteamService {
   }
 
   Future<List<SteamSearchResult>> search(String keyword) async {
-    final url = 'https://store.steampowered.com/api/storesearch/?term=${Uri.encodeComponent(keyword)}&l=zh&cc=US';
+    final url =
+        'https://store.steampowered.com/api/storesearch/?term=${Uri.encodeComponent(keyword)}&l=zh&cc=US';
 
     _log.info('SteamService', '[search] 搜索关键词: "$keyword"');
 
-    final client = await createProxyClientFromPrefs(domain: 'store.steampowered.com');
+    final client =
+        await createProxyClientFromPrefs(domain: 'store.steampowered.com');
     try {
       final response = await client.get(Uri.parse(url), headers: {
         'Accept-Language': 'zh-CN,zh;q=0.9',
       }).timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) {
-        _log.warning('SteamService', '[search] 搜索失败: HTTP ${response.statusCode}');
+        _log.warning(
+            'SteamService', '[search] 搜索失败: HTTP ${response.statusCode}');
         return [];
       }
 
       final data = jsonDecode(response.body);
       final items = data['items'] as List<dynamic>? ?? [];
 
-      final results = items.map((item) => SteamSearchResult(
-        id: item['id'].toString(),
-        name: item['name'] as String?,
-        tinyImage: item['tiny_image'] as String?,
-      )).toList();
+      final results = items
+          .map((item) => SteamSearchResult(
+                id: item['id'].toString(),
+                name: item['name'] as String?,
+                tinyImage: item['tiny_image'] as String?,
+              ))
+          .toList();
 
       _log.info('SteamService', '[search] 找到 ${results.length} 个结果');
       return results;
@@ -135,7 +142,8 @@ class SteamService {
   }
 
   Future<List<SteamSearchResult>> searchWithFallback(String folderPath) async {
-    _log.info('SteamService', '[searchWithFallback] ========== 开始搜索 ==========');
+    _log.info(
+        'SteamService', '[searchWithFallback] ========== 开始搜索 ==========');
 
     final gameName = await extractGameName(folderPath);
     if (gameName == null || gameName.isEmpty) {
@@ -156,7 +164,8 @@ class SteamService {
     // Step 2: Smart name construction
     final smartName = buildSmartSearchName(gameName);
     if (smartName != gameName) {
-      _log.info('SteamService', '[searchWithFallback] 第2轮搜索(智能构建): "$smartName"');
+      _log.info(
+          'SteamService', '[searchWithFallback] 第2轮搜索(智能构建): "$smartName"');
       results = await search(smartName);
       if (results.isNotEmpty) {
         _log.info('SteamService', '[searchWithFallback] 第2轮命中，搜索结束');
@@ -173,7 +182,8 @@ class SteamService {
 
     for (int i = parts.length - 1; i >= 1; i--) {
       final shortened = parts.sublist(0, i).join(' ');
-      _log.info('SteamService', '[searchWithFallback] 第${parts.length - i + 2}轮搜索: "$shortened"');
+      _log.info('SteamService',
+          '[searchWithFallback] 第${parts.length - i + 2}轮搜索: "$shortened"');
       results = await search(shortened);
       if (results.isNotEmpty) {
         _log.info('SteamService', '[searchWithFallback] 命中，搜索结束');
@@ -181,23 +191,27 @@ class SteamService {
       }
     }
 
-    _log.info('SteamService', '[searchWithFallback] ========== 所有轮次均无结果 ==========');
+    _log.info(
+        'SteamService', '[searchWithFallback] ========== 所有轮次均无结果 ==========');
     return [];
   }
 
   Future<SteamGameInfo?> fetchById(String id) async {
-    final url = 'https://store.steampowered.com/api/appdetails/?appids=$id&l=zh';
+    final url =
+        'https://store.steampowered.com/api/appdetails/?appids=$id&l=zh';
 
     _log.info('SteamService', '[fetchById] 获取游戏信息: $id');
 
-    final client = await createProxyClientFromPrefs(domain: 'store.steampowered.com');
+    final client =
+        await createProxyClientFromPrefs(domain: 'store.steampowered.com');
     try {
       final response = await client.get(Uri.parse(url), headers: {
         'Accept-Language': 'zh-CN,zh;q=0.9',
       }).timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) {
-        _log.warning('SteamService', '[fetchById] 获取失败: HTTP ${response.statusCode}');
+        _log.warning(
+            'SteamService', '[fetchById] 获取失败: HTTP ${response.statusCode}');
         return null;
       }
 
@@ -214,7 +228,8 @@ class SteamService {
       final shortDesc = d['short_description'] as String? ?? '';
       final detailedDesc = d['detailed_description'] as String? ?? '';
 
-      final description = '$shortDesc\n\n${SteamHtmlConverter.convertToPlainText(detailedDesc)}';
+      final description =
+          '$shortDesc\n\n${SteamHtmlConverter.convertToPlainText(detailedDesc)}';
 
       final genres = (d['genres'] as List<dynamic>? ?? [])
           .map((g) => g['description'] as String)
@@ -238,7 +253,8 @@ class SteamService {
           .map((e) => e.toString())
           .toList();
 
-      _log.info('SteamService', '[fetchById] 解析成功: $title, 标签${genres.length}个, 截图${screenshots.length}张');
+      _log.info('SteamService',
+          '[fetchById] 解析成功: $title, 标签${genres.length}个, 截图${screenshots.length}张');
 
       return SteamGameInfo(
         title: title,
@@ -256,10 +272,13 @@ class SteamService {
     }
   }
 
-  Future<Map<String, String>> downloadAllImages(List<String> imageUrls, String saveDir) async {
+  Future<Map<String, String>> downloadAllImages(
+      List<String> imageUrls, String saveDir) async {
     final imageHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+      'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept':
+          'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
       'Referer': 'https://store.steampowered.com/',
     };
     return await ConcurrentImageDownloader.downloadAll(
@@ -283,15 +302,12 @@ class SteamService {
     final urlToLocal = <String, String>{};
     if (videoUrls.isEmpty) return urlToLocal;
 
-    final imagesDir = Directory(path.join(saveDir, 'images'));
-    if (!await imagesDir.exists()) {
-      await imagesDir.create(recursive: true);
-    }
+    final imagesDir = await GameDataPaths.ensureImagesDir(saveDir);
 
-    _log.info('SteamService',
-        '[downloadVideos] 开始下载 ${videoUrls.length} 个视频');
+    _log.info('SteamService', '[downloadVideos] 开始下载 ${videoUrls.length} 个视频');
 
-    final client = await createProxyClientFromPrefs(domain: 'store.steampowered.com');
+    final client =
+        await createProxyClientFromPrefs(domain: 'store.steampowered.com');
     try {
       for (int i = 0; i < videoUrls.length; i++) {
         final videoUrl = videoUrls[i];
@@ -306,12 +322,11 @@ class SteamService {
             final filePath = path.join(imagesDir.path, fileName);
             await File(filePath).writeAsBytes(response.bodyBytes, flush: true);
             urlToLocal[videoUrl] = filePath;
-            _log.info('SteamService',
-                '[downloadVideos] 视频${i + 1} 下载成功: $fileName');
+            _log.info(
+                'SteamService', '[downloadVideos] 视频${i + 1} 下载成功: $fileName');
           }
         } catch (e) {
-          _log.warning(
-              'SteamService', '[downloadVideos] 视频${i + 1} 下载异常: $e');
+          _log.warning('SteamService', '[downloadVideos] 视频${i + 1} 下载异常: $e');
         }
       }
     } finally {

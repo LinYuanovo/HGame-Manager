@@ -14,6 +14,7 @@ import '../services/save_path_service.dart';
 import '../services/webdav_service.dart';
 import '../services/backup_service.dart';
 import '../services/game_move_service.dart';
+import '../services/game_data_migration_service.dart';
 import '../services/folder_rename_service.dart';
 import '../services/dlsite_service.dart';
 import '../services/steam_service.dart';
@@ -23,6 +24,7 @@ import '../models/models.dart';
 import '../../scraper/parse_utils.dart';
 import '../models/context_menu_config.dart';
 import '../services/process_probe.dart';
+import '../utils/game_data_paths.dart';
 
 final sharedPreferencesProvider = Provider<AppSettings>((ref) {
   throw UnimplementedError('AppSettings not initialized');
@@ -84,6 +86,13 @@ final webdavServiceProvider = Provider<WebdavService>((ref) {
 /// 存档备份服务 Provider
 final backupServiceProvider = Provider<BackupService>((ref) {
   return BackupService();
+});
+
+final gameDataMigrationServiceProvider =
+    Provider<GameDataMigrationService>((ref) {
+  return GameDataMigrationService(
+    gameRepository: ref.read(gameRepositoryProvider),
+  );
 });
 
 final gameMoveServiceProvider = Provider<GameMoveService>((ref) {
@@ -194,7 +203,8 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
       if (await dir.exists()) {
         String title = game.title ?? path.basename(game.path);
         try {
-          final metadataFile = File('${game.path}${sep}metadata.json');
+          final metadataFile =
+              await GameDataPaths.existingMetadataFile(game.path);
           if (await metadataFile.exists()) {
             final content = await metadataFile.readAsString();
             final metadata = jsonDecode(content) as Map<String, dynamic>;
@@ -401,7 +411,8 @@ Future<Game?> _loadGameFromBackup(
     return null;
   }
 
-  final metadataFile = File('${backupGameDir.path}${sep}metadata.json');
+  final metadataFile =
+      await GameDataPaths.existingMetadataFile(backupGameDir.path);
   Map<String, dynamic>? metadata;
   if (await metadataFile.exists()) {
     try {
@@ -412,13 +423,14 @@ Future<Game?> _loadGameFromBackup(
     }
   }
 
-  final sourceUrlFile = File('${backupGameDir.path}${sep}source_url.txt');
+  final sourceUrlFile =
+      await GameDataPaths.existingSourceUrlFile(backupGameDir.path);
   String? sourceUrl;
   if (await sourceUrlFile.exists()) {
     sourceUrl = (await sourceUrlFile.readAsString()).trim();
   }
 
-  final imageDir = Directory('${backupGameDir.path}${sep}images');
+  final imageDir = await GameDataPaths.existingImagesDir(backupGameDir.path);
   final List<String> imagePaths = [];
   if (await imageDir.exists()) {
     await for (final entity in imageDir.list()) {

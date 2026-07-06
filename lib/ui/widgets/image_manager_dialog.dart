@@ -1,9 +1,9 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/models.dart';
 import '../../core/providers/providers.dart';
 import '../../core/services/image_service.dart';
+import '../../core/utils/game_data_paths.dart';
 import '../../core/utils/proxy_client.dart';
 import '../theme/app_theme.dart';
 import 'draggable_image_grid.dart';
@@ -34,7 +34,8 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
-      final imagePaths = await _imageService.pickAndCopyImagesToGameDir(widget.game.path);
+      final imagePaths =
+          await _imageService.pickAndCopyImagesToGameDir(widget.game.path);
       if (!mounted) return;
       if (imagePaths.isNotEmpty) {
         setState(() {
@@ -85,8 +86,11 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
     setState(() => _isLoading = true);
     try {
       final sourceUrl = widget.game.sourceUrl ?? '';
-      final headers = sourceUrl.isNotEmpty ? await buildScrapeHeaders(sourceUrl) : <String, String>{};
-      final imagePath = await _imageService.downloadImageFromUrl(url, headers: headers);
+      final headers = sourceUrl.isNotEmpty
+          ? await buildScrapeHeaders(sourceUrl)
+          : <String, String>{};
+      final imagePath =
+          await _imageService.downloadImageFromUrl(url, headers: headers);
       if (!mounted) return;
       if (imagePath != null) {
         final newImage = GameImage(
@@ -112,9 +116,8 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
     if (image.imagePath.startsWith(storageDir)) {
       await _imageService.deleteImageFile(image.imagePath);
     }
-    // 删除游戏目录 images 文件夹下的图片（刮削下载的图片）
-    final gameImagesDir = '${widget.game.path}${Platform.pathSeparator}images';
-    if (image.imagePath.startsWith(gameImagesDir)) {
+    // 删除游戏目录 HGMDatas/images 或旧 images 文件夹下的图片
+    if (GameDataPaths.isManagedImagePath(widget.game.path, image.imagePath)) {
       await _imageService.deleteImageFile(image.imagePath);
     }
     if (!mounted) return;
@@ -184,12 +187,16 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
           children: [
             Row(
               children: [
-                Icon(Icons.photo_library, color: AppTheme.getPrimaryColor(context), size: 24),
+                Icon(Icons.photo_library,
+                    color: AppTheme.getPrimaryColor(context), size: 24),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     '图片管理 - ${widget.game.title ?? "未命名游戏"}',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context)),
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.getTextPrimary(context)),
                   ),
                 ),
                 IconButton(
@@ -209,7 +216,9 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                     label: const Text('本地图片'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.getPrimaryColor(context),
-                      side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
+                      side: BorderSide(
+                          color: AppTheme.getPrimaryColor(context)
+                              .withValues(alpha: 0.3)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
@@ -222,7 +231,9 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                     label: const Text('URL图片'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.getPrimaryColor(context),
-                      side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
+                      side: BorderSide(
+                          color: AppTheme.getPrimaryColor(context)
+                              .withValues(alpha: 0.3)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
@@ -232,7 +243,8 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
             const SizedBox(height: 8),
             Text(
               '点击图片设为封面，封面将显示在第一张',
-              style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
+              style: TextStyle(
+                  fontSize: 12, color: AppTheme.getTextSecondary(context)),
             ),
             const SizedBox(height: 16),
             Expanded(
@@ -254,7 +266,9 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
               children: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text('取消', style: TextStyle(color: AppTheme.getTextSecondary(context))),
+                  child: Text('取消',
+                      style:
+                          TextStyle(color: AppTheme.getTextSecondary(context))),
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton.icon(
@@ -264,7 +278,8 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.getPrimaryColor(context),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
                   ),
                 ),
               ],

@@ -95,6 +95,15 @@ app_logs/
 web/
 rebuild_link.bat
 test/
+!test/
+test/*
+!test/services/
+test/services/*
+!test/services/backup_service_test.dart
+!test/services/game_data_migration_service_test.dart
+!test/utils/
+test/utils/*
+!test/utils/game_data_paths_test.dart
 hgame-manager-creative-proposal/
 
 # Environment files

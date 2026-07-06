@@ -10,10 +10,12 @@ import '../../../core/models/models.dart';
 import '../../../core/models/scrape_mode_config.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/utils/app_settings.dart';
+import '../../../core/utils/game_data_paths.dart';
 import '../../../core/services/folder_rename_service.dart';
 import '../../../core/repositories/game_repository.dart';
 import '../../../core/repositories/tag_repository.dart';
 import '../../../core/services/dlsite_service.dart';
+import '../../../core/services/game_data_migration_service.dart';
 import '../../../core/services/steam_service.dart';
 import '../../../core/services/version_check_service.dart';
 import '../../theme/app_theme.dart';
@@ -27,7 +29,8 @@ class GamesPage extends ConsumerStatefulWidget {
   ConsumerState<GamesPage> createState() => _GamesPageState();
 }
 
-class _GamesPageState extends ConsumerState<GamesPage> with AutomaticKeepAliveClientMixin {
+class _GamesPageState extends ConsumerState<GamesPage>
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
@@ -42,9 +45,7 @@ class _GamesPageState extends ConsumerState<GamesPage> with AutomaticKeepAliveCl
       children: [
         GlassAppBar(
           title: const Text('游戏库',
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600)),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           actions: [
             IconButton(
               icon: Icon(Icons.add_circle_outline,
@@ -62,7 +63,8 @@ class _GamesPageState extends ConsumerState<GamesPage> with AutomaticKeepAliveCl
                 ? GestureDetector(
                     onTap: null,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: AppTheme.primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -80,7 +82,9 @@ class _GamesPageState extends ConsumerState<GamesPage> with AutomaticKeepAliveCl
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            _refreshProgress.isNotEmpty ? _refreshProgress : '扫描中',
+                            _refreshProgress.isNotEmpty
+                                ? _refreshProgress
+                                : '扫描中',
                             style: TextStyle(
                               fontSize: 13,
                               color: AppTheme.primaryColor,
@@ -104,7 +108,10 @@ class _GamesPageState extends ConsumerState<GamesPage> with AutomaticKeepAliveCl
                         if (rawLib.startsWith('[')) {
                           try {
                             final List<dynamic> list = jsonDecode(rawLib);
-                            libraryPaths = list.whereType<String>().where((s) => s.isNotEmpty).toList();
+                            libraryPaths = list
+                                .whereType<String>()
+                                .where((s) => s.isNotEmpty)
+                                .toList();
                           } catch (_) {
                             libraryPaths = rawLib.isNotEmpty ? [rawLib] : [];
                           }
@@ -115,53 +122,74 @@ class _GamesPageState extends ConsumerState<GamesPage> with AutomaticKeepAliveCl
                         final rawSorted = prefs.getString('sorted_paths') ?? '';
                         if (rawSorted.startsWith('{')) {
                           try {
-                            final decoded = jsonDecode(rawSorted) as Map<String, dynamic>;
+                            final decoded =
+                                jsonDecode(rawSorted) as Map<String, dynamic>;
                             for (final v in decoded.values) {
                               final sp = v?.toString() ?? '';
                               if (sp.isNotEmpty && !libraryPaths.contains(sp)) {
                                 // 检查是否已被库路径覆盖（是某个库路径的子目录）
-                                final normalizedSp = sp.replaceAll('/', '\\').toLowerCase();
+                                final normalizedSp =
+                                    sp.replaceAll('/', '\\').toLowerCase();
                                 final isCovered = libraryPaths.any((lib) {
-                                  final normalizedLib = lib.replaceAll('/', '\\').toLowerCase();
-                                  return normalizedSp.startsWith('$normalizedLib\\');
+                                  final normalizedLib =
+                                      lib.replaceAll('/', '\\').toLowerCase();
+                                  return normalizedSp
+                                      .startsWith('$normalizedLib\\');
                                 });
                                 if (!isCovered) {
                                   libraryPaths.add(sp);
                                 }
                               }
                             }
-                           } catch (e) {
+                          } catch (e) {
                             debugPrint('[GamesPage] 解析整理目录配置失败: $e');
                           }
                         }
 
                         if (libraryPaths.isEmpty) {
                           if (mounted) {
-                            AppTheme.showGlassToast(context, message: '请先在设置中配置游戏库路径', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
+                            AppTheme.showGlassToast(context,
+                                message: '请先在设置中配置游戏库路径',
+                                icon: Icons.warning_amber,
+                                iconColor: AppTheme.warningColor);
                           }
                           return;
                         }
 
                         final scanner = ref.read(gameScannerServiceProvider);
-                        final ignoreStr = prefs.getString('scan_ignore_folders') ?? '';
-                        final ignoreFolders = ignoreStr.split(',').where((s) => s.trim().isNotEmpty).toList();
-                        final blacklistStr = prefs.getString('game_blacklist') ?? '';
-                        final blacklistPaths = blacklistStr.split('\n').where((s) => s.trim().isNotEmpty).toList();
+                        final ignoreStr =
+                            prefs.getString('scan_ignore_folders') ?? '';
+                        final ignoreFolders = ignoreStr
+                            .split(',')
+                            .where((s) => s.trim().isNotEmpty)
+                            .toList();
+                        final blacklistStr =
+                            prefs.getString('game_blacklist') ?? '';
+                        final blacklistPaths = blacklistStr
+                            .split('\n')
+                            .where((s) => s.trim().isNotEmpty)
+                            .toList();
 
                         scanner.onProgress = (processed, total) {
                           if (mounted) {
-                            setState(() => _refreshProgress = '$processed/$total');
+                            setState(
+                                () => _refreshProgress = '$processed/$total');
                           }
                         };
 
-                        await scanner.scanMultipleLibraries(libraryPaths, ignoreFolders: ignoreFolders, blacklistPaths: blacklistPaths);
+                        await scanner.scanMultipleLibraries(libraryPaths,
+                            ignoreFolders: ignoreFolders,
+                            blacklistPaths: blacklistPaths);
 
                         ref.invalidate(allGamesProvider);
                         ref.invalidate(favoriteGamesProvider);
                         ref.invalidate(playedGamesProvider);
                       } catch (e) {
                         if (mounted) {
-                          AppTheme.showGlassToast(context, message: '扫描失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+                          AppTheme.showGlassToast(context,
+                              message: '扫描失败: $e',
+                              icon: Icons.error_outline,
+                              iconColor: AppTheme.errorColor);
                         }
                       } finally {
                         if (mounted) {
@@ -184,8 +212,8 @@ class _GamesPageState extends ConsumerState<GamesPage> with AutomaticKeepAliveCl
               onTagTap: (tag) {
                 Navigator.of(context)
                     .push(MaterialPageRoute(
-                        builder: (_) => TagGamesPage(
-                            tagId: tag.id!, tagName: tag.name)))
+                        builder: (_) =>
+                            TagGamesPage(tagId: tag.id!, tagName: tag.name)))
                     .then((_) {
                   if (mounted) ref.invalidate(allGamesProvider);
                 });
@@ -212,11 +240,15 @@ class _GamesPageState extends ConsumerState<GamesPage> with AutomaticKeepAliveCl
     }
     imagePaths.sort();
     if (imagePaths.isNotEmpty) {
-      final images = imagePaths.asMap().entries.map((e) => GameImage(
-            gameId: gameId,
-            imagePath: e.value,
-            sortOrder: e.key,
-          )).toList();
+      final images = imagePaths
+          .asMap()
+          .entries
+          .map((e) => GameImage(
+                gameId: gameId,
+                imagePath: e.value,
+                sortOrder: e.key,
+              ))
+          .toList();
       await repo.setGameImages(gameId, images);
     }
   }
@@ -251,7 +283,8 @@ class _BatchImportDialog extends StatefulWidget {
   final VoidCallback onImportComplete;
   final String userFont;
 
-  const _BatchImportDialog({required this.onImportComplete, required this.userFont});
+  const _BatchImportDialog(
+      {required this.onImportComplete, required this.userFont});
 
   @override
   State<_BatchImportDialog> createState() => _BatchImportDialogState();
@@ -281,7 +314,10 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
       await for (final entity in parent.list(followLinks: false)) {
         if (entity is Directory) dirs.add(entity);
       }
-      dirs.sort((a, b) => path.basename(a.path).toLowerCase().compareTo(path.basename(b.path).toLowerCase()));
+      dirs.sort((a, b) => path
+          .basename(a.path)
+          .toLowerCase()
+          .compareTo(path.basename(b.path).toLowerCase()));
 
       final items = <_BatchGameItem>[];
       for (final dir in dirs) {
@@ -305,7 +341,8 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     }
   }
 
-  Future<String?> _findFirstExe(String folderPath, {bool foundAnyExe = false}) async {
+  Future<String?> _findFirstExe(String folderPath,
+      {bool foundAnyExe = false}) async {
     final dir = Directory(folderPath);
     if (!await dir.exists()) return null;
 
@@ -313,7 +350,8 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
 
     for (final entity in entities) {
       if (entity is File && entity.path.toLowerCase().endsWith('.exe')) {
-        final exeName = path.basenameWithoutExtension(entity.path).toLowerCase();
+        final exeName =
+            path.basenameWithoutExtension(entity.path).toLowerCase();
         final isGeneric = kGenericGameNames.any((w) => exeName.contains(w));
         if (!isGeneric) {
           return path.basenameWithoutExtension(entity.path);
@@ -326,7 +364,8 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
 
     for (final entity in entities) {
       if (entity is Directory) {
-        final result = await _findFirstExe(entity.path, foundAnyExe: foundAnyExe);
+        final result =
+            await _findFirstExe(entity.path, foundAnyExe: foundAnyExe);
         if (result != null) return result;
       }
     }
@@ -397,7 +436,8 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     }
   }
 
-  Future<void> _postImportProcess(GameRepository repo, _BatchGameItem item) async {
+  Future<void> _postImportProcess(
+      GameRepository repo, _BatchGameItem item) async {
     if (item.status != '导入完成') return;
     final initialGame = await repo.getGameByPath(item.folder.path);
     if (initialGame == null) return;
@@ -436,7 +476,16 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
           final sourceDir = Directory(game.path);
           if (await sourceDir.exists()) {
             final tags = await repo.getGameTags(game.id!);
-            const categoryOrder = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS', '3D'];
+            const categoryOrder = [
+              'RPG',
+              'ADV',
+              'ACT',
+              'SLG',
+              'AVG',
+              'FPS',
+              'TPS',
+              '3D'
+            ];
             String categoryName = 'Unclassified';
             final allNames = tags.map((t) => t.name.toUpperCase()).toList();
             for (final cat in categoryOrder) {
@@ -446,7 +495,8 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
               }
             }
             final folderName = path.basename(game.path);
-            final targetDir = Directory(path.join(sortedPath, categoryName, folderName));
+            final targetDir =
+                Directory(path.join(sortedPath, categoryName, folderName));
             if (!await targetDir.exists()) {
               final catDir = Directory(path.join(sortedPath, categoryName));
               if (!await catDir.exists()) await catDir.create(recursive: true);
@@ -454,14 +504,23 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
               await repo.updateGamePath(game.id!, targetDir.path);
               final images = await repo.getGameImages(game.id!);
               if (images.isNotEmpty) {
-                final updatedImages = images.map((img) => GameImage(
-                  id: img.id,
-                  gameId: img.gameId,
-                  imagePath: img.imagePath.replaceFirst(game.path, targetDir.path),
-                  sortOrder: img.sortOrder,
-                )).toList();
+                final updatedImages = images
+                    .map((img) => GameImage(
+                          id: img.id,
+                          gameId: img.gameId,
+                          imagePath: img.imagePath
+                              .replaceFirst(game.path, targetDir.path),
+                          sortOrder: img.sortOrder,
+                        ))
+                    .toList();
                 await repo.setGameImages(game.id!, updatedImages);
               }
+              await GameDataMigrationService(gameRepository: repo)
+                  .rewriteGamePathReferences(
+                gameId: game.id!,
+                oldPath: game.path,
+                newPath: targetDir.path,
+              );
               debugPrint('[BatchImport] Folder moved: ${targetDir.path}');
             }
           }
@@ -476,6 +535,8 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     final folderPath = item.folder.path;
     final existing = await repo.getGameByPath(folderPath);
     if (existing != null) {
+      await GameDataMigrationService(gameRepository: repo)
+          .migrateGameDirectory(folderPath, gameId: existing.id);
       item.status = '已存在，跳过';
       if (mounted) setState(() {});
       return;
@@ -483,13 +544,15 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
 
     item.status = '正在导入...';
     if (mounted) setState(() {});
+    await GameDataMigrationService(gameRepository: repo)
+        .migrateGameDirectory(folderPath);
 
     String? title;
     String? version;
     String? intro;
     String? sourceUrl;
 
-    final metadataFile = File(path.join(folderPath, 'metadata.json'));
+    final metadataFile = await GameDataPaths.existingMetadataFile(folderPath);
     if (await metadataFile.exists()) {
       try {
         final content = await metadataFile.readAsString();
@@ -503,7 +566,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
       }
     }
 
-    final sourceUrlFile = File(path.join(folderPath, 'source_url.txt'));
+    final sourceUrlFile = await GameDataPaths.existingSourceUrlFile(folderPath);
     if (sourceUrl == null && await sourceUrlFile.exists()) {
       try {
         sourceUrl = (await sourceUrlFile.readAsString()).trim();
@@ -522,7 +585,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     );
     await repo.insertGame(game);
 
-    final imageDir = Directory(path.join(folderPath, 'images'));
+    final imageDir = GameDataPaths.imagesDir(folderPath);
     if (await imageDir.exists()) {
       final imagePaths = <String>[];
       await for (final entity in imageDir.list()) {
@@ -537,11 +600,15 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
       if (imagePaths.isNotEmpty) {
         final gameId = await repo.getGameByPath(folderPath);
         if (gameId != null) {
-          final images = imagePaths.asMap().entries.map((e) => GameImage(
-            gameId: gameId.id!,
-            imagePath: e.value,
-            sortOrder: e.key,
-          )).toList();
+          final images = imagePaths
+              .asMap()
+              .entries
+              .map((e) => GameImage(
+                    gameId: gameId.id!,
+                    imagePath: e.value,
+                    sortOrder: e.key,
+                  ))
+              .toList();
           await repo.setGameImages(gameId.id!, images);
         }
       }
@@ -554,7 +621,8 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
 
   /// 检测关键词是否为 DLsite ID
   String? _detectDlsiteId(String keyword) {
-    final match = RegExp(r'(RJ|RE|VJ)\d{4,}', caseSensitive: false).firstMatch(keyword);
+    final match =
+        RegExp(r'(RJ|RE|VJ)\d{4,}', caseSensitive: false).firstMatch(keyword);
     return match?.group(0)?.toUpperCase();
   }
 
@@ -565,9 +633,15 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     cleaned = cleaned.replaceAll(RegExp(r'\[[^\]]*\]'), '');
     cleaned = cleaned.replaceAll(RegExp(r'【[^】]*】'), '');
     // 去除版本号 (V1.0.1, v1.02, ver1.0, build123 等)
-    cleaned = cleaned.replaceAll(RegExp(r'\s*[Vv](?:er(?:sion)?)?\s*\.?\d+(?:[\d.]*\d+)?\s*', caseSensitive: false), ' ');
+    cleaned = cleaned.replaceAll(
+        RegExp(r'\s*[Vv](?:er(?:sion)?)?\s*\.?\d+(?:[\d.]*\d+)?\s*',
+            caseSensitive: false),
+        ' ');
     // 去除常见后缀
-    cleaned = cleaned.replaceAll(RegExp(r'\s*(?:官方中文版|官方中文|中文版|汉化版|汉化|steam|fixed|patch)\s*', caseSensitive: false), ' ');
+    cleaned = cleaned.replaceAll(
+        RegExp(r'\s*(?:官方中文版|官方中文|中文版|汉化版|汉化|steam|fixed|patch)\s*',
+            caseSensitive: false),
+        ' ');
     // 清理多余空格
     cleaned = cleaned.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
     return cleaned;
@@ -615,7 +689,8 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     // 纯数字
     if (RegExp(r'^\d+$').hasMatch(keyword)) return keyword;
     // Steam URL
-    final urlMatch = RegExp(r'store\.steampowered\.com/app/(\d+)').firstMatch(keyword);
+    final urlMatch =
+        RegExp(r'store\.steampowered\.com/app/(\d+)').firstMatch(keyword);
     return urlMatch?.group(1);
   }
 
@@ -627,13 +702,15 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
   ) async {
     final folderPath = item.folder.path;
     final existing = await repo.getGameByPath(folderPath);
+    await GameDataMigrationService(gameRepository: repo)
+        .migrateGameDirectory(folderPath, gameId: existing?.id);
 
     item.status = '搜索中...';
     if (mounted) setState(() {});
 
     // 先检测是否为 Steam ID
     final steamId = _detectSteamId(item.keyword);
-    
+
     List<SteamSearchResult> results;
     if (steamId != null) {
       // 直接使用 ID
@@ -701,16 +778,19 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     String? description = gameInfo.description;
     if (description != null && urlToLocal.isNotEmpty) {
       for (final entry in urlToLocal.entries) {
-        description = description!.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
+        description =
+            description!.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
       }
     }
 
     if (description != null && description.contains('[视频:')) {
       item.status = '下载视频...';
       if (mounted) setState(() {});
-      final videoMap = await steamService.downloadVideosFromDescription(description, folderPath);
+      final videoMap = await steamService.downloadVideosFromDescription(
+          description, folderPath);
       for (final entry in videoMap.entries) {
-        description = description!.replaceAll('[视频:${entry.key}]', '[视频:${entry.value}]');
+        description =
+            description!.replaceAll('[视频:${entry.key}]', '[视频:${entry.value}]');
       }
     }
 
@@ -742,12 +822,13 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
 
     final metadata = <String, dynamic>{
       if (gameInfo.title != null) 'title': gameInfo.title,
-      if (gameInfo.description != null) 'intro': gameInfo.description,
+      if (description != null) 'intro': description,
       if (gameInfo.tags.isNotEmpty) 'tags': gameInfo.tags,
       'source_url': gameInfo.sourceUrl,
       if (gameInfo.screenshots.isNotEmpty) 'image_urls': gameInfo.screenshots,
     };
-    await _saveImagesAndMetadata(folderPath, gameId, gameInfo.sourceUrl, metadata, repo);
+    await _saveImagesAndMetadata(
+        folderPath, gameId, gameInfo.sourceUrl, metadata, repo);
 
     item.status = '导入完成';
     item.progress = 1.0;
@@ -762,20 +843,23 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
   ) async {
     final folderPath = item.folder.path;
     final existing = await repo.getGameByPath(folderPath);
+    await GameDataMigrationService(gameRepository: repo)
+        .migrateGameDirectory(folderPath, gameId: existing?.id);
 
     item.status = '搜索中...';
     if (mounted) setState(() {});
 
     // 先检测是否为 DLsite ID
     final dlsiteId = _detectDlsiteId(item.keyword);
-    
+
     List<DlsiteSearchResult> results;
     if (dlsiteId != null) {
       // 直接使用 ID
       results = [DlsiteSearchResult(id: dlsiteId, name: 'ID: $dlsiteId')];
     } else if (item.keyword.isNotEmpty) {
       // 使用带回退的搜索
-      results = await _searchDlsiteWithFallback(dlsiteService, item.keyword, folderPath);
+      results = await _searchDlsiteWithFallback(
+          dlsiteService, item.keyword, folderPath);
     } else {
       results = await dlsiteService.searchWithFallback(folderPath);
     }
@@ -831,7 +915,8 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
 
     String? description = gameInfo.description;
     if (description != null && urlToLocal.isNotEmpty) {
-      description = dlsiteService.replaceImageUrlsInDescription(description, urlToLocal);
+      description =
+          dlsiteService.replaceImageUrlsInDescription(description, urlToLocal);
     }
 
     item.status = '保存数据...';
@@ -860,7 +945,17 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
       await repo.addTagToGame(gameId, tagId);
     }
 
-    await _saveImagesAndMetadata(folderPath, gameId, gameInfo.sourceUrl, gameInfo.toJson(), repo);
+    final metadata = gameInfo.toJson();
+    if (description != null) metadata['intro'] = description;
+    if (metadata['intro_html'] is String && urlToLocal.isNotEmpty) {
+      var introHtml = metadata['intro_html'] as String;
+      for (final entry in urlToLocal.entries) {
+        introHtml = introHtml.replaceAll(entry.key, entry.value);
+      }
+      metadata['intro_html'] = introHtml;
+    }
+    await _saveImagesAndMetadata(
+        folderPath, gameId, gameInfo.sourceUrl, metadata, repo);
 
     item.status = '导入完成';
     item.progress = 1.0;
@@ -874,7 +969,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     Map<String, dynamic> metadataJson,
     GameRepository repo,
   ) async {
-    final imageDir = Directory(path.join(folderPath, 'images'));
+    final imageDir = GameDataPaths.imagesDir(folderPath);
     if (await imageDir.exists()) {
       final imagePaths = <String>[];
       await for (final entity in imageDir.list()) {
@@ -887,19 +982,24 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
       }
       imagePaths.sort();
       if (imagePaths.isNotEmpty) {
-        final images = imagePaths.asMap().entries.map((e) => GameImage(
-          gameId: gameId,
-          imagePath: e.value,
-          sortOrder: e.key,
-        )).toList();
+        final images = imagePaths
+            .asMap()
+            .entries
+            .map((e) => GameImage(
+                  gameId: gameId,
+                  imagePath: e.value,
+                  sortOrder: e.key,
+                ))
+            .toList();
         await repo.setGameImages(gameId, images);
       }
     }
 
-    final metadataFile = File(path.join(folderPath, 'metadata.json'));
+    final metadataFile = GameDataPaths.metadataFile(folderPath);
+    await GameDataPaths.ensureDataDir(folderPath);
     await metadataFile.writeAsString(jsonEncode(metadataJson), flush: true);
 
-    final sourceUrlFile = File(path.join(folderPath, 'source_url.txt'));
+    final sourceUrlFile = GameDataPaths.sourceUrlFile(folderPath);
     await sourceUrlFile.writeAsString(sourceUrl, flush: true);
   }
 
@@ -913,23 +1013,34 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('批量添加游戏', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+            Text('批量添加游戏',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.getTextPrimary(context))),
             const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                      border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                      color: AppTheme.getSurfaceColor(context)
+                          .withValues(alpha: 0.5),
+                      borderRadius:
+                          BorderRadius.circular(GlassConstants.radiusMedium),
+                      border: Border.all(
+                          color: AppTheme.getBorderColor(context)
+                              .withValues(alpha: 0.3)),
                     ),
                     child: Text(
                       _parentPath ?? '未选择文件夹',
                       style: TextStyle(
                         fontSize: 13,
-                        color: _parentPath != null ? AppTheme.getTextPrimary(context) : AppTheme.getTextSecondary(context),
+                        color: _parentPath != null
+                            ? AppTheme.getTextPrimary(context)
+                            : AppTheme.getTextSecondary(context),
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -962,7 +1073,9 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                 child: Center(
                   child: Text(
                     _parentPath != null ? '未找到子文件夹' : '选择一个包含游戏子文件夹的目录',
-                    style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 14),
+                    style: TextStyle(
+                        color: AppTheme.getTextSecondary(context),
+                        fontSize: 14),
                   ),
                 ),
               )
@@ -971,7 +1084,9 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                 children: [
                   Text(
                     '找到 ${_items.length} 个文件夹，已选 ${_items.where((i) => i.selected).length} 个',
-                    style: TextStyle(fontSize: 13, color: AppTheme.getTextSecondary(context)),
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.getTextSecondary(context)),
                   ),
                   const Spacer(),
                   TextButton(
@@ -979,7 +1094,8 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                         ? null
                         : () {
                             setState(() {
-                              final allSelected = _items.every((i) => i.selected);
+                              final allSelected =
+                                  _items.every((i) => i.selected);
                               for (final item in _items) {
                                 item.selected = !allSelected;
                               }
@@ -987,7 +1103,9 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                           },
                     child: Text(
                       _items.every((i) => i.selected) ? '取消全选' : '全选',
-                      style: TextStyle(fontSize: 13, color: AppTheme.getPrimaryColor(context)),
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.getPrimaryColor(context)),
                     ),
                   ),
                 ],
@@ -996,42 +1114,59 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                    border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.2)),
+                    color: AppTheme.getSurfaceColor(context)
+                        .withValues(alpha: 0.3),
+                    borderRadius:
+                        BorderRadius.circular(GlassConstants.radiusMedium),
+                    border: Border.all(
+                        color: AppTheme.getBorderColor(context)
+                            .withValues(alpha: 0.2)),
                   ),
                   child: ListView.builder(
-                    itemCount: _importing ? _items.where((i) => i.selected).length : _items.length,
+                    itemCount: _importing
+                        ? _items.where((i) => i.selected).length
+                        : _items.length,
                     itemBuilder: (context, index) {
-                      final item = _importing ? _items.where((i) => i.selected).toList()[index] : _items[index];
+                      final item = _importing
+                          ? _items.where((i) => i.selected).toList()[index]
+                          : _items[index];
                       final name = path.basename(item.folder.path);
                       if (_importing) {
                         return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
                           child: Row(
                             children: [
                               SizedBox(
                                 width: 100,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: item.source == _BatchScrapeSource.none
-                                        ? AppTheme.getTextSecondary(context).withValues(alpha: 0.1)
-                                        : AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+                                    color:
+                                        item.source == _BatchScrapeSource.none
+                                            ? AppTheme.getTextSecondary(context)
+                                                .withValues(alpha: 0.1)
+                                            : AppTheme.getPrimaryColor(context)
+                                                .withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
                                     item.source == _BatchScrapeSource.none
                                         ? '不刮削'
-                                        : item.source == _BatchScrapeSource.steam
+                                        : item.source ==
+                                                _BatchScrapeSource.steam
                                             ? 'Steam'
                                             : 'DLsite',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: item.source == _BatchScrapeSource.none
+                                      color: item.source ==
+                                              _BatchScrapeSource.none
                                           ? AppTheme.getTextSecondary(context)
                                           : AppTheme.primaryColor,
-                                      fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null,
+                                      fontFamily: widget.userFont.isNotEmpty
+                                          ? widget.userFont
+                                          : null,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -1042,7 +1177,12 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                                 width: 220,
                                 child: Text(
                                   name,
-                                  style: TextStyle(fontSize: 13, color: AppTheme.getTextPrimary(context), fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.getTextPrimary(context),
+                                      fontFamily: widget.userFont.isNotEmpty
+                                          ? widget.userFont
+                                          : null),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -1053,7 +1193,14 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                                     Flexible(
                                       child: Text(
                                         item.status,
-                                        style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context), fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppTheme.getTextSecondary(
+                                                context),
+                                            fontFamily:
+                                                widget.userFont.isNotEmpty
+                                                    ? widget.userFont
+                                                    : null),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
@@ -1062,12 +1209,18 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                                       SizedBox(
                                         width: 200,
                                         child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(3),
+                                          borderRadius:
+                                              BorderRadius.circular(3),
                                           child: LinearProgressIndicator(
                                             value: item.progress,
-                                            backgroundColor: AppTheme.getTextSecondary(context).withValues(alpha: 0.1),
+                                            backgroundColor:
+                                                AppTheme.getTextSecondary(
+                                                        context)
+                                                    .withValues(alpha: 0.1),
                                             valueColor: AlwaysStoppedAnimation(
-                                              item.progress >= 1.0 ? AppTheme.successColor : AppTheme.primaryColor,
+                                              item.progress >= 1.0
+                                                  ? AppTheme.successColor
+                                                  : AppTheme.primaryColor,
                                             ),
                                             minHeight: 6,
                                           ),
@@ -1082,7 +1235,8 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                         );
                       }
                       return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
                         child: Row(
                           children: [
                             Checkbox(
@@ -1090,41 +1244,62 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                               onChanged: _importing
                                   ? null
                                   : (checked) {
-                                      setState(() => item.selected = checked ?? false);
+                                      setState(() =>
+                                          item.selected = checked ?? false);
                                     },
                               activeColor: AppTheme.primaryColor,
-                              visualDensity: VisualDensity(horizontal: -4, vertical: -4),
+                              visualDensity:
+                                  VisualDensity(horizontal: -4, vertical: -4),
                             ),
                             Container(
                               width: 80,
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.8),
-                                borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
-                                border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.5)),
+                                color: AppTheme.getSurfaceColor(context)
+                                    .withValues(alpha: 0.8),
+                                borderRadius: BorderRadius.circular(
+                                    GlassConstants.radiusSmall),
+                                border: Border.all(
+                                    color: AppTheme.getBorderColor(context)
+                                        .withValues(alpha: 0.5)),
                               ),
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<_BatchScrapeSource>(
                                   value: item.source,
                                   isExpanded: true,
                                   isDense: true,
-                                  icon: Icon(Icons.arrow_drop_down, size: 18, color: AppTheme.getTextSecondary(context)),
-                                  borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
-                                  dropdownColor: AppTheme.getSurfaceColor(context),
+                                  icon: Icon(Icons.arrow_drop_down,
+                                      size: 18,
+                                      color:
+                                          AppTheme.getTextSecondary(context)),
+                                  borderRadius: BorderRadius.circular(
+                                      GlassConstants.radiusSmall),
+                                  dropdownColor:
+                                      AppTheme.getSurfaceColor(context),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: AppTheme.getTextPrimary(context),
-                                    fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null,
+                                    fontFamily: widget.userFont.isNotEmpty
+                                        ? widget.userFont
+                                        : null,
                                   ),
                                   items: const [
-                                    DropdownMenuItem(value: _BatchScrapeSource.none, child: Text('不刮削')),
-                                    DropdownMenuItem(value: _BatchScrapeSource.steam, child: Text('Steam')),
-                                    DropdownMenuItem(value: _BatchScrapeSource.dlsite, child: Text('DLsite')),
+                                    DropdownMenuItem(
+                                        value: _BatchScrapeSource.none,
+                                        child: Text('不刮削')),
+                                    DropdownMenuItem(
+                                        value: _BatchScrapeSource.steam,
+                                        child: Text('Steam')),
+                                    DropdownMenuItem(
+                                        value: _BatchScrapeSource.dlsite,
+                                        child: Text('DLsite')),
                                   ],
                                   onChanged: _importing
                                       ? null
                                       : (val) {
-                                          if (val != null) setState(() => item.source = val);
+                                          if (val != null)
+                                            setState(() => item.source = val);
                                         },
                                 ),
                               ),
@@ -1134,7 +1309,12 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                               width: 220,
                               child: Text(
                                 name,
-                                style: TextStyle(fontSize: 13, color: AppTheme.getTextPrimary(context), fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.getTextPrimary(context),
+                                    fontFamily: widget.userFont.isNotEmpty
+                                        ? widget.userFont
+                                        : null),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -1142,14 +1322,25 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                             Expanded(
                               child: TextFormField(
                                 initialValue: item.keyword,
-                                style: TextStyle(fontSize: 13, fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null),
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    fontFamily: widget.userFont.isNotEmpty
+                                        ? widget.userFont
+                                        : null),
                                 decoration: InputDecoration(
                                   hintText: '搜索关键词',
-                                  hintStyle: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                  hintStyle: TextStyle(
+                                      fontSize: 12,
+                                      color:
+                                          AppTheme.getTextSecondary(context)),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 8),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(4),
-                                    borderSide: BorderSide(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
+                                    borderSide: BorderSide(
+                                        color:
+                                            AppTheme.getTextSecondary(context)
+                                                .withValues(alpha: 0.3)),
                                   ),
                                   isDense: true,
                                 ),
@@ -1172,7 +1363,8 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                   color: _failCount > 0
                       ? AppTheme.warningColor.withValues(alpha: 0.1)
                       : AppTheme.successColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
+                  borderRadius:
+                      BorderRadius.circular(GlassConstants.radiusSmall),
                   border: Border.all(
                     color: _failCount > 0
                         ? AppTheme.warningColor.withValues(alpha: 0.3)
@@ -1182,8 +1374,12 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                 child: Row(
                   children: [
                     Icon(
-                      _failCount > 0 ? Icons.warning_amber : Icons.check_circle_outline,
-                      color: _failCount > 0 ? AppTheme.warningColor : AppTheme.successColor,
+                      _failCount > 0
+                          ? Icons.warning_amber
+                          : Icons.check_circle_outline,
+                      color: _failCount > 0
+                          ? AppTheme.warningColor
+                          : AppTheme.successColor,
                       size: 20,
                     ),
                     const SizedBox(width: 8),
@@ -1194,7 +1390,9 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
-                        color: _failCount > 0 ? AppTheme.warningColor : AppTheme.successColor,
+                        color: _failCount > 0
+                            ? AppTheme.warningColor
+                            : AppTheme.successColor,
                       ),
                     ),
                   ],
@@ -1224,7 +1422,8 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                     padding: EdgeInsets.only(bottom: 12),
                     child: Text(
                       '请不要退出该页面',
-                      style: TextStyle(fontSize: 13, color: AppTheme.warningColor),
+                      style:
+                          TextStyle(fontSize: 13, color: AppTheme.warningColor),
                     ),
                   ),
                 ),
@@ -1232,20 +1431,32 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: _importing ? null : () => Navigator.of(context).pop(),
+                    onPressed:
+                        _importing ? null : () => Navigator.of(context).pop(),
                     child: const Text('取消'),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
-                    onPressed: _items.isEmpty || _importing || !_items.any((i) => i.selected) ? null : _startImport,
+                    onPressed: _items.isEmpty ||
+                            _importing ||
+                            !_items.any((i) => i.selected)
+                        ? null
+                        : _startImport,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
-                      disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.4),
+                      disabledBackgroundColor:
+                          AppTheme.primaryColor.withValues(alpha: 0.4),
                     ),
                     child: _importing
-                        ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.getTextColorOnPrimary(context)))
-                        : Text('导入 (${_items.where((i) => i.selected).length})'),
+                        ? SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppTheme.getTextColorOnPrimary(context)))
+                        : Text(
+                            '导入 (${_items.where((i) => i.selected).length})'),
                   ),
                 ],
               ),
@@ -1352,7 +1563,16 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           final sourceDir = Directory(game.path);
           if (await sourceDir.exists()) {
             final tags = await repo.getGameTags(game.id!);
-            const categoryOrder = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS', '3D'];
+            const categoryOrder = [
+              'RPG',
+              'ADV',
+              'ACT',
+              'SLG',
+              'AVG',
+              'FPS',
+              'TPS',
+              '3D'
+            ];
             String categoryName = 'Unclassified';
             final allNames = tags.map((t) => t.name.toUpperCase()).toList();
             for (final cat in categoryOrder) {
@@ -1362,7 +1582,8 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
               }
             }
             final folderName = path.basename(game.path);
-            final targetDir = Directory(path.join(sortedPath, categoryName, folderName));
+            final targetDir =
+                Directory(path.join(sortedPath, categoryName, folderName));
             if (!await targetDir.exists()) {
               final catDir = Directory(path.join(sortedPath, categoryName));
               if (!await catDir.exists()) await catDir.create(recursive: true);
@@ -1370,14 +1591,23 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
               await repo.updateGamePath(game.id!, targetDir.path);
               final images = await repo.getGameImages(game.id!);
               if (images.isNotEmpty) {
-                final updatedImages = images.map((img) => GameImage(
-                  id: img.id,
-                  gameId: img.gameId,
-                  imagePath: img.imagePath.replaceFirst(game.path, targetDir.path),
-                  sortOrder: img.sortOrder,
-                )).toList();
+                final updatedImages = images
+                    .map((img) => GameImage(
+                          id: img.id,
+                          gameId: img.gameId,
+                          imagePath: img.imagePath
+                              .replaceFirst(game.path, targetDir.path),
+                          sortOrder: img.sortOrder,
+                        ))
+                    .toList();
                 await repo.setGameImages(game.id!, updatedImages);
               }
+              await GameDataMigrationService(gameRepository: repo)
+                  .rewriteGamePathReferences(
+                gameId: game.id!,
+                oldPath: game.path,
+                newPath: targetDir.path,
+              );
               debugPrint('[SingleImport] Folder moved: ${targetDir.path}');
             }
           }
@@ -1445,13 +1675,21 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     try {
       final repo = GameRepository();
       final existingGame = await repo.getGameByPath(_folderPath!);
+      if (existingGame != null) {
+        await GameDataMigrationService(gameRepository: repo)
+            .migrateGameDirectory(_folderPath!, gameId: existingGame.id);
+      } else {
+        await GameDataMigrationService(gameRepository: repo)
+            .migrateGameDirectory(_folderPath!);
+      }
 
       String? title;
       String? version;
       String? intro;
       String? sourceUrl;
 
-      final metadataFile = File(path.join(_folderPath!, 'metadata.json'));
+      final metadataFile =
+          await GameDataPaths.existingMetadataFile(_folderPath!);
       if (await metadataFile.exists()) {
         try {
           final content = await metadataFile.readAsString();
@@ -1465,7 +1703,8 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         }
       }
 
-      final sourceUrlFile = File(path.join(_folderPath!, 'source_url.txt'));
+      final sourceUrlFile =
+          await GameDataPaths.existingSourceUrlFile(_folderPath!);
       if (sourceUrl == null && await sourceUrlFile.exists()) {
         try {
           sourceUrl = (await sourceUrlFile.readAsString()).trim();
@@ -1521,7 +1760,9 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       final normalizedId = _dlsiteService.normalizeId(inputText);
       if (normalizedId != null) {
         // 输入的是ID，直接使用
-        results = [DlsiteSearchResult(id: normalizedId, name: 'ID: $normalizedId')];
+        results = [
+          DlsiteSearchResult(id: normalizedId, name: 'ID: $normalizedId')
+        ];
       } else {
         // 输入的不是ID，当作关键词搜索
         results = await _dlsiteService.searchWithKeyword(inputText);
@@ -1573,7 +1814,8 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
   /// Accepts: pure numeric ID, or Steam store URL like
   /// https://store.steampowered.com/app/413150/Stardew_Valley/
   static String? _parseSteamId(String input) {
-    final urlMatch = RegExp(r'store\.steampowered\.com/app/(\d+)').firstMatch(input);
+    final urlMatch =
+        RegExp(r'store\.steampowered\.com/app/(\d+)').firstMatch(input);
     if (urlMatch != null) return urlMatch.group(1);
     if (RegExp(r'^\d+$').hasMatch(input)) return input;
     return null;
@@ -1614,6 +1856,8 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     final repo = GameRepository();
     final tagRepo = TagRepository();
     final existingGame = await repo.getGameByPath(_folderPath!);
+    await GameDataMigrationService(gameRepository: repo)
+        .migrateGameDirectory(_folderPath!, gameId: existingGame?.id);
 
     if (!mounted) return;
     setState(() => _statusText = '正在通过ID获取: ${_selectedResult.id}');
@@ -1633,7 +1877,8 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
 
     String? description = gameInfo.description;
     if (description != null && urlToLocal.isNotEmpty) {
-      description = _dlsiteService.replaceImageUrlsInDescription(description, urlToLocal);
+      description =
+          _dlsiteService.replaceImageUrlsInDescription(description, urlToLocal);
     }
 
     if (!mounted) return;
@@ -1662,7 +1907,16 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       await repo.addTagToGame(gameId, tagId);
     }
 
-    await _saveImagesAndMetadata(gameId, gameInfo.sourceUrl, gameInfo.toJson());
+    final metadata = gameInfo.toJson();
+    if (description != null) metadata['intro'] = description;
+    if (metadata['intro_html'] is String && urlToLocal.isNotEmpty) {
+      var introHtml = metadata['intro_html'] as String;
+      for (final entry in urlToLocal.entries) {
+        introHtml = introHtml.replaceAll(entry.key, entry.value);
+      }
+      metadata['intro_html'] = introHtml;
+    }
+    await _saveImagesAndMetadata(gameId, gameInfo.sourceUrl, metadata);
 
     final savedGame = await repo.getGameByPath(_folderPath!);
     if (savedGame != null) {
@@ -1685,6 +1939,8 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     final repo = GameRepository();
     final tagRepo = TagRepository();
     final existingGame = await repo.getGameByPath(_folderPath!);
+    await GameDataMigrationService(gameRepository: repo)
+        .migrateGameDirectory(_folderPath!, gameId: existingGame?.id);
 
     if (!mounted) return;
     setState(() => _statusText = '正在通过ID获取: ${_selectedResult.id}');
@@ -1705,7 +1961,8 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     String? description = gameInfo.description;
     if (description != null && urlToLocal.isNotEmpty) {
       for (final entry in urlToLocal.entries) {
-        description = description!.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
+        description =
+            description!.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
       }
     }
 
@@ -1718,7 +1975,8 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         _folderPath!,
       );
       for (final entry in videoMap.entries) {
-        description = description!.replaceAll('[视频:${entry.key}]', '[视频:${entry.value}]');
+        description =
+            description!.replaceAll('[视频:${entry.key}]', '[视频:${entry.value}]');
       }
     }
 
@@ -1749,7 +2007,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
 
     final metadata = <String, dynamic>{
       if (gameInfo.title != null) 'title': gameInfo.title,
-      if (gameInfo.description != null) 'intro': gameInfo.description,
+      if (description != null) 'intro': description,
       if (gameInfo.tags.isNotEmpty) 'tags': gameInfo.tags,
       'source_url': gameInfo.sourceUrl,
       if (gameInfo.screenshots.isNotEmpty) 'image_urls': gameInfo.screenshots,
@@ -1773,8 +2031,9 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     }
   }
 
-  Future<void> _saveImagesAndMetadata(int gameId, String sourceUrl, Map<String, dynamic> metadataJson) async {
-    final imageDir = Directory(path.join(_folderPath!, 'images'));
+  Future<void> _saveImagesAndMetadata(
+      int gameId, String sourceUrl, Map<String, dynamic> metadataJson) async {
+    final imageDir = GameDataPaths.imagesDir(_folderPath!);
     if (await imageDir.exists()) {
       final imagePaths = <String>[];
       await for (final entity in imageDir.list()) {
@@ -1787,19 +2046,24 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       }
       imagePaths.sort();
       if (imagePaths.isNotEmpty) {
-        final images = imagePaths.asMap().entries.map((e) => GameImage(
-          gameId: gameId,
-          imagePath: e.value,
-          sortOrder: e.key,
-        )).toList();
+        final images = imagePaths
+            .asMap()
+            .entries
+            .map((e) => GameImage(
+                  gameId: gameId,
+                  imagePath: e.value,
+                  sortOrder: e.key,
+                ))
+            .toList();
         await GameRepository().setGameImages(gameId, images);
       }
     }
 
-    final metadataFile = File(path.join(_folderPath!, 'metadata.json'));
+    final metadataFile = GameDataPaths.metadataFile(_folderPath!);
+    await GameDataPaths.ensureDataDir(_folderPath!);
     await metadataFile.writeAsString(jsonEncode(metadataJson), flush: true);
 
-    final sourceUrlFile = File(path.join(_folderPath!, 'source_url.txt'));
+    final sourceUrlFile = GameDataPaths.sourceUrlFile(_folderPath!);
     await sourceUrlFile.writeAsString(sourceUrl, flush: true);
   }
 
@@ -1847,17 +2111,24 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
               children: [
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                      border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+                      color: AppTheme.getSurfaceColor(context)
+                          .withValues(alpha: 0.5),
+                      borderRadius:
+                          BorderRadius.circular(GlassConstants.radiusMedium),
+                      border: Border.all(
+                          color: AppTheme.getBorderColor(context)
+                              .withValues(alpha: 0.3)),
                     ),
                     child: Text(
                       _folderPath ?? '未选择文件夹',
                       style: TextStyle(
                         fontSize: 13,
-                        color: _folderPath != null ? AppTheme.getTextPrimary(context) : AppTheme.getTextSecondary(context),
+                        color: _folderPath != null
+                            ? AppTheme.getTextPrimary(context)
+                            : AppTheme.getTextSecondary(context),
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1888,11 +2159,15 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                         hintText: _source == ImportSource.dlsite
                             ? '输入DLsite ID (如 RJ123456)，留空则自动按游戏名称搜索'
                             : '输入Steam App ID或商店链接，留空按名称搜索',
-                        hintStyle: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
+                        hintStyle: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.getTextSecondary(context)),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+                          borderRadius: BorderRadius.circular(
+                              GlassConstants.radiusMedium),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
                       ),
                       style: const TextStyle(fontSize: 13),
                     ),
@@ -1920,9 +2195,10 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                   _statusText,
                   style: TextStyle(
                     fontSize: 12,
-                    color: _statusText.contains('失败') || _statusText.contains('无效')
-                        ? AppTheme.errorColor
-                        : AppTheme.getTextSecondary(context),
+                    color:
+                        _statusText.contains('失败') || _statusText.contains('无效')
+                            ? AppTheme.errorColor
+                            : AppTheme.getTextSecondary(context),
                   ),
                 ),
               ),
@@ -1931,15 +2207,21 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
             if (_showSearchResults && _searchResults.isNotEmpty) ...[
               Text(
                 '选择游戏:',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.getTextPrimary(context)),
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.getTextPrimary(context)),
               ),
               const SizedBox(height: 8),
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
                     color: AppTheme.surfaceColor.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-                    border: Border.all(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.15)),
+                    borderRadius:
+                        BorderRadius.circular(GlassConstants.radiusMedium),
+                    border: Border.all(
+                        color: AppTheme.getTextSecondary(context)
+                            .withValues(alpha: 0.15)),
                   ),
                   child: ListView.builder(
                     itemCount: _searchResults.length,
@@ -1959,45 +2241,52 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
-                  onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                  onPressed:
+                      _isLoading ? null : () => Navigator.of(context).pop(),
                   child: const Text('取消'),
                 ),
                 const SizedBox(width: 12),
                 if (_source == ImportSource.none)
                   ElevatedButton(
-                    onPressed: (_isLoading || _folderPath == null) ? null : _importNone,
+                    onPressed: (_isLoading || _folderPath == null)
+                        ? null
+                        : _importNone,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
-                      disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.4),
+                      disabledBackgroundColor:
+                          AppTheme.primaryColor.withValues(alpha: 0.4),
                     ),
                     child: _isLoading
                         ? SizedBox(
                             width: 16,
                             height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppTheme.getTextColorOnPrimary(context),
-                              ),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.getTextColorOnPrimary(context),
+                            ),
                           )
                         : const Text('导入'),
                   )
                 else
                   ElevatedButton(
-                    onPressed: (_isLoading || _selectedResult == null) ? null : _import,
+                    onPressed: (_isLoading || _selectedResult == null)
+                        ? null
+                        : _import,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
-                      disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.4),
+                      disabledBackgroundColor:
+                          AppTheme.primaryColor.withValues(alpha: 0.4),
                     ),
                     child: _isLoading
                         ? SizedBox(
                             width: 16,
                             height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppTheme.getTextColorOnPrimary(context),
-                              ),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.getTextColorOnPrimary(context),
+                            ),
                           )
                         : const Text('导入选中'),
                   ),
@@ -2012,23 +2301,29 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
   Widget _buildSourceChip(ImportSource source, String label) {
     final isSelected = _source == source;
     return GestureDetector(
-      onTap: _isLoading ? null : () {
-        setState(() {
-          _source = source;
-          _searchResults = [];
-          _selectedResult = null;
-          _showSearchResults = false;
-          _statusText = '';
-          _idController.clear();
-        });
-      },
+      onTap: _isLoading
+          ? null
+          : () {
+              setState(() {
+                _source = source;
+                _searchResults = [];
+                _selectedResult = null;
+                _showSearchResults = false;
+                _statusText = '';
+                _idController.clear();
+              });
+            },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.15) : Colors.transparent,
+          color: isSelected
+              ? AppTheme.primaryColor.withValues(alpha: 0.15)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
           border: Border.all(
-            color: isSelected ? AppTheme.primaryColor : AppTheme.getTextSecondary(context).withValues(alpha: 0.3),
+            color: isSelected
+                ? AppTheme.primaryColor
+                : AppTheme.getTextSecondary(context).withValues(alpha: 0.3),
           ),
         ),
         child: Text(
@@ -2036,7 +2331,9 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            color: isSelected ? AppTheme.primaryColor : AppTheme.getTextSecondary(context),
+            color: isSelected
+                ? AppTheme.primaryColor
+                : AppTheme.getTextSecondary(context),
           ),
         ),
       ),
@@ -2056,12 +2353,17 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: CachedNetworkImage(
-              imageUrl: 'https://img.dlsite.jp/resize/images2/work/doujin/${result.id.substring(0, result.id.length - 4)}0000/${result.id}_img_main_240x240.jpg',
+              imageUrl:
+                  'https://img.dlsite.jp/resize/images2/work/doujin/${result.id.substring(0, result.id.length - 4)}0000/${result.id}_img_main_240x240.jpg',
               fit: BoxFit.cover,
               placeholder: (context, url) => const Center(
-                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2)),
               ),
-              errorWidget: (context, url, error) => Icon(Icons.gamepad, color: AppTheme.getTextSecondary(context)),
+              errorWidget: (context, url, error) => Icon(Icons.gamepad,
+                  color: AppTheme.getTextSecondary(context)),
             ),
           ),
         ),
@@ -2070,14 +2372,17 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? AppTheme.primaryColor : AppTheme.getTextPrimary(context),
+            color: isSelected
+                ? AppTheme.primaryColor
+                : AppTheme.getTextPrimary(context),
           ),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(
           result.id,
-          style: TextStyle(fontSize: 11, color: AppTheme.getTextSecondary(context)),
+          style: TextStyle(
+              fontSize: 11, color: AppTheme.getTextSecondary(context)),
         ),
         selected: isSelected,
         selectedTileColor: AppTheme.primaryColor.withValues(alpha: 0.1),
@@ -2099,11 +2404,16 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                     imageUrl: result.tinyImage!,
                     fit: BoxFit.cover,
                     placeholder: (context, url) => const Center(
-                      child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                      child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2)),
                     ),
-                    errorWidget: (context, url, error) => Icon(Icons.gamepad, color: AppTheme.getTextSecondary(context)),
+                    errorWidget: (context, url, error) => Icon(Icons.gamepad,
+                        color: AppTheme.getTextSecondary(context)),
                   )
-                : Icon(Icons.gamepad, color: AppTheme.getTextSecondary(context)),
+                : Icon(Icons.gamepad,
+                    color: AppTheme.getTextSecondary(context)),
           ),
         ),
         title: Text(
@@ -2111,14 +2421,17 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? AppTheme.primaryColor : AppTheme.getTextPrimary(context),
+            color: isSelected
+                ? AppTheme.primaryColor
+                : AppTheme.getTextPrimary(context),
           ),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(
           'Steam App ID: ${result.id}',
-          style: TextStyle(fontSize: 11, color: AppTheme.getTextSecondary(context)),
+          style: TextStyle(
+              fontSize: 11, color: AppTheme.getTextSecondary(context)),
         ),
         selected: isSelected,
         selectedTileColor: AppTheme.primaryColor.withValues(alpha: 0.1),

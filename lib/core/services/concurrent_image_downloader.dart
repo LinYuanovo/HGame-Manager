@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import '../utils/game_data_paths.dart';
 import '../utils/proxy_client.dart';
 import 'app_logger.dart';
 
@@ -18,12 +19,10 @@ class ConcurrentImageDownloader {
     final urlToLocal = <String, String>{};
     if (imageUrls.isEmpty) return urlToLocal;
 
-    final imagesDir = Directory(path.join(saveDir, 'images'));
-    if (!await imagesDir.exists()) {
-      await imagesDir.create(recursive: true);
-    }
+    final imagesDir = await GameDataPaths.ensureImagesDir(saveDir);
 
-    _log.info('ImageDownloader', '开始并发下载 ${imageUrls.length} 张图片，并发数: $maxConcurrency');
+    _log.info('ImageDownloader',
+        '开始并发下载 ${imageUrls.length} 张图片，并发数: $maxConcurrency');
 
     int activeCount = 0;
     int completedCount = 0;
@@ -45,7 +44,8 @@ class ConcurrentImageDownloader {
       final suffix = useTempFiles ? '.tmp' : '';
       _downloadSingle(
         url: imageUrls[idx],
-        savePath: path.join(imagesDir.path, '${idx + 1 + startIndex}$suffix$ext'),
+        savePath:
+            path.join(imagesDir.path, '${idx + 1 + startIndex}$suffix$ext'),
         headers: headers,
       ).then((success) {
         activeCount--;
@@ -76,7 +76,8 @@ class ConcurrentImageDownloader {
     }
 
     await completer.future;
-    _log.info('ImageDownloader', '下载完成: ${urlToLocal.length}/${imageUrls.length}');
+    _log.info(
+        'ImageDownloader', '下载完成: ${urlToLocal.length}/${imageUrls.length}');
     return urlToLocal;
   }
 
@@ -90,23 +91,32 @@ class ConcurrentImageDownloader {
       final domain = uri?.host;
       final client = await createProxyClientFromPrefs(domain: domain);
       try {
-        final response = await client.get(
-          Uri.parse(url),
-          headers: headers ?? {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-          },
-        ).timeout(const Duration(seconds: 30));
+        final response = await client
+            .get(
+              Uri.parse(url),
+              headers: headers ??
+                  {
+                    'User-Agent':
+                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept':
+                        'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                  },
+            )
+            .timeout(const Duration(seconds: 30));
 
         if (response.statusCode == 429) {
           _log.warning('ImageDownloader', '429 限流: $url');
           await Future.delayed(const Duration(seconds: 5));
-          final retryResponse = await client.get(
-            Uri.parse(url),
-            headers: headers,
-          ).timeout(const Duration(seconds: 30));
-          if (retryResponse.statusCode == 200 && retryResponse.bodyBytes.isNotEmpty) {
-            await File(savePath).writeAsBytes(retryResponse.bodyBytes, flush: true);
+          final retryResponse = await client
+              .get(
+                Uri.parse(url),
+                headers: headers,
+              )
+              .timeout(const Duration(seconds: 30));
+          if (retryResponse.statusCode == 200 &&
+              retryResponse.bodyBytes.isNotEmpty) {
+            await File(savePath)
+                .writeAsBytes(retryResponse.bodyBytes, flush: true);
             return savePath;
           }
           return null;

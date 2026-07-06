@@ -8,7 +8,9 @@ import '../models/models.dart';
 import '../repositories/game_repository.dart';
 import '../repositories/tag_repository.dart';
 import '../utils/app_settings.dart';
+import '../utils/game_data_paths.dart';
 import 'app_logger.dart';
+import 'game_data_migration_service.dart';
 
 class _ParsedGameData {
   final String folderPath;
@@ -71,7 +73,12 @@ class GameScannerService {
     this.shouldCancel,
   }) : _gameRepository = gameRepository ?? GameRepository();
 
-  Future<void> scanGameLibrary(String libraryPath, {List<String> ignoreFolders = const [], List<String> blacklistPaths = const []}) async {
+  GameDataMigrationService get _migrationService =>
+      GameDataMigrationService(gameRepository: _gameRepository);
+
+  Future<void> scanGameLibrary(String libraryPath,
+      {List<String> ignoreFolders = const [],
+      List<String> blacklistPaths = const []}) async {
     if (_isScanning) {
       _log.info('Scan', 'Already scanning, skipping duplicate request');
       return;
@@ -91,7 +98,9 @@ class GameScannerService {
       _log.info('Scan', 'Phase 1: Scanning folders...');
       final allFolders = await _scanGameFolders(libraryPath, ignoreFolders);
       // 规范化黑名单路径进行比较（统一反斜杠、转小写）
-      final normalizedBlacklist = blacklistPaths.map((p) => p.replaceAll('/', '\\').toLowerCase()).toSet();
+      final normalizedBlacklist = blacklistPaths
+          .map((p) => p.replaceAll('/', '\\').toLowerCase())
+          .toSet();
       final filteredFolders = allFolders.where((f) {
         final normalized = f.replaceAll('/', '\\').toLowerCase();
         return !normalizedBlacklist.contains(normalized);
@@ -107,8 +116,8 @@ class GameScannerService {
       for (final folder in filteredFolders) {
         if (shouldCancel?.call() == true) break;
         final existing = gamePathMap[folder];
-        final metadataFile = File(path.join(folder, 'metadata.json'));
-        
+        final metadataFile = await GameDataPaths.existingMetadataFile(folder);
+
         // 如果游戏已存在
         if (existing != null) {
           // 如果 addedTime 为空（旧数据），跳过扫描
@@ -127,9 +136,11 @@ class GameScannerService {
       }
 
       final skippedCount = filteredFolders.length - foldersToProcess.length;
-      _log.info('Scan', 'Phase 1 done: ${filteredFolders.length} total, ${foldersToProcess.length} to process, $skippedCount skipped');
+      _log.info('Scan',
+          'Phase 1 done: ${filteredFolders.length} total, ${foldersToProcess.length} to process, $skippedCount skipped');
       if (kDebugMode) {
-        debugPrint('[Scan] Phase 1: ${filteredFolders.length} folders found, ${foldersToProcess.length} need processing, $skippedCount skipped (unchanged)');
+        debugPrint(
+            '[Scan] Phase 1: ${filteredFolders.length} folders found, ${foldersToProcess.length} need processing, $skippedCount skipped (unchanged)');
       }
 
       if (foldersToProcess.isEmpty) {
@@ -149,7 +160,8 @@ class GameScannerService {
         if (shouldCancel?.call() == true) break;
 
         final batch = foldersToProcess.skip(i).take(parseBatchSize).toList();
-        final results = await Future.wait(batch.map((f) => _parseFolder(f, gamePathMap)));
+        final results =
+            await Future.wait(batch.map((f) => _parseFolder(f, gamePathMap)));
         for (final r in results) {
           if (r != null) parsedGames.add(r);
         }
@@ -173,7 +185,8 @@ class GameScannerService {
       // Clean up missing folders
       await _removeStaleEntries(existingGames);
 
-      _log.info('Scan', 'Scan Complete: processed ${parsedGames.length}/${foldersToProcess.length}, skipped $skippedCount (unchanged)');
+      _log.info('Scan',
+          'Scan Complete: processed ${parsedGames.length}/${foldersToProcess.length}, skipped $skippedCount (unchanged)');
     } catch (e, stackTrace) {
       _log.error('Scan', 'FATAL ERROR in Game Scan', e, stackTrace);
       rethrow;
@@ -189,11 +202,13 @@ class GameScannerService {
     List<String> blacklistPaths = const [],
   }) async {
     for (final libraryPath in libraryPaths) {
-      await scanGameLibrary(libraryPath, ignoreFolders: ignoreFolders, blacklistPaths: blacklistPaths);
+      await scanGameLibrary(libraryPath,
+          ignoreFolders: ignoreFolders, blacklistPaths: blacklistPaths);
     }
   }
 
-  Future<List<String>> _scanGameFolders(String rootPath, List<String> ignoreFolders) async {
+  Future<List<String>> _scanGameFolders(
+      String rootPath, List<String> ignoreFolders) async {
     final folders = <String>[];
     final dir = Directory(rootPath);
     if (!await dir.exists()) return folders;
@@ -203,12 +218,15 @@ class GameScannerService {
         final folderName = path.basename(entity.path);
         final folderNameLower = folderName.toLowerCase();
         // 忽略用户设置的文件夹、Cleared目录（已通关）和Backup目录（已通关备份）
-        if (ignoreFolders.any((f) => f.toLowerCase() == folderNameLower) || 
-            folderNameLower == 'backup' || 
+        if (ignoreFolders.any((f) => f.toLowerCase() == folderNameLower) ||
+            folderNameLower == GameDataPaths.dataDirName.toLowerCase() ||
+            folderNameLower == 'backup' ||
             folderNameLower == 'cleared') {
           continue;
         }
-        if (await File(path.join(entity.path, 'metadata.json')).exists()) {
+        final metadataFile =
+            await GameDataPaths.existingMetadataFile(entity.path);
+        if (await metadataFile.exists()) {
           folders.add(entity.path);
         } else {
           folders.addAll(await _scanGameFolders(entity.path, ignoreFolders));
@@ -218,31 +236,40 @@ class GameScannerService {
     return folders;
   }
 
-  Future<_ParsedGameData?> _parseFolder(String folderPath, Map<String, Game> existingGameMap) async {
+  Future<_ParsedGameData?> _parseFolder(
+      String folderPath, Map<String, Game> existingGameMap) async {
     try {
-      final metadataFile = File(path.join(folderPath, 'metadata.json'));
+      final existingGame = existingGameMap[folderPath];
+      await _migrationService.migrateGameDirectory(
+        folderPath,
+        gameId: existingGame?.id,
+      );
+
+      final metadataFile = await GameDataPaths.existingMetadataFile(folderPath);
       Map<String, dynamic>? metadata;
       if (await metadataFile.exists()) {
         final content = await metadataFile.readAsString();
         metadata = jsonDecode(content) as Map<String, dynamic>;
       }
 
-      final sourceUrlFile = File(path.join(folderPath, 'source_url.txt'));
+      final sourceUrlFile =
+          await GameDataPaths.existingSourceUrlFile(folderPath);
       String? sourceUrl;
       if (await sourceUrlFile.exists()) {
         sourceUrl = (await sourceUrlFile.readAsString()).trim();
       }
 
-      var imageDir = Directory(path.join(folderPath, 'images'));
-      if (!await imageDir.exists()) {
-        imageDir = Directory(path.join(folderPath, 'image'));
-      }
+      final imageDir = await GameDataPaths.existingImagesDir(folderPath);
       final List<String> imagePaths = [];
       if (await imageDir.exists()) {
         await for (final entity in imageDir.list(followLinks: false)) {
           if (entity is File) {
             final ext = path.extension(entity.path).toLowerCase();
-            if (ext == '.jpg' || ext == '.jpeg' || ext == '.png' || ext == '.gif' || ext == '.webp') {
+            if (ext == '.jpg' ||
+                ext == '.jpeg' ||
+                ext == '.png' ||
+                ext == '.gif' ||
+                ext == '.webp') {
               imagePaths.add(entity.path);
             }
           }
@@ -250,7 +277,6 @@ class GameScannerService {
         imagePaths.sort();
       }
 
-      final existingGame = existingGameMap[folderPath];
       final folderName = path.basename(folderPath);
 
       String? title = metadata?['title'] as String?;
@@ -292,7 +318,8 @@ class GameScannerService {
     }
   }
 
-  Future<void> _batchWriteToDatabase(List<_ParsedGameData> parsedGames, Map<String, Game> existingGameMap) async {
+  Future<void> _batchWriteToDatabase(List<_ParsedGameData> parsedGames,
+      Map<String, Game> existingGameMap) async {
     final db = await DatabaseHelper.database;
 
     await db.transaction((txn) async {
@@ -310,12 +337,15 @@ class GameScannerService {
       // Insert all tags (INSERT OR IGNORE)
       for (final entry in allTags.entries) {
         final parts = entry.key.split(':');
-        await txn.insert('tags', {
-          'name': entry.value,
-          'type': parts[0],
-          'display_name': entry.value,
-          'is_favorite': 0,
-        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+        await txn.insert(
+            'tags',
+            {
+              'name': entry.value,
+              'type': parts[0],
+              'display_name': entry.value,
+              'is_favorite': 0,
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore);
       }
 
       // Get all tag IDs
@@ -348,7 +378,8 @@ class GameScannerService {
         int gameId;
         if (existing != null) {
           // 更新游戏时保留原有的 added_time
-          await txn.update('games', gameMap, where: 'id = ?', whereArgs: [existing.id]);
+          await txn.update('games', gameMap,
+              where: 'id = ?', whereArgs: [existing.id]);
           gameId = existing.id!;
         } else {
           // 新游戏插入时设置 added_time
@@ -360,35 +391,52 @@ class GameScannerService {
         for (final tagName in data.tagNames) {
           final tagId = tagIdMap['${Tag.typeCustom}:$tagName'];
           if (tagId != null) {
-            await txn.insert('game_tag_relation', {
-              'game_id': gameId,
-              'tag_id': tagId,
-            }, conflictAlgorithm: ConflictAlgorithm.ignore);
+            await txn.insert(
+                'game_tag_relation',
+                {
+                  'game_id': gameId,
+                  'tag_id': tagId,
+                },
+                conflictAlgorithm: ConflictAlgorithm.ignore);
           }
         }
         if (data.seriesName != null && data.seriesName!.isNotEmpty) {
           final tagId = tagIdMap['${Tag.typeSeries}:${data.seriesName}'];
           if (tagId != null) {
-            await txn.insert('game_tag_relation', {
-              'game_id': gameId,
-              'tag_id': tagId,
-            }, conflictAlgorithm: ConflictAlgorithm.ignore);
+            await txn.insert(
+                'game_tag_relation',
+                {
+                  'game_id': gameId,
+                  'tag_id': tagId,
+                },
+                conflictAlgorithm: ConflictAlgorithm.ignore);
           }
         }
 
         // Batch insert game images
         // 保留外部图片（URL图片/应用存储目录图片，非游戏目录下的图片）
         final sep = Platform.pathSeparator;
-        final gameImagesDir1 = '${data.folderPath}${sep}images$sep';
-        final gameImagesDir2 = '${data.folderPath}${sep}image$sep';
+        final gameImagesDir1 =
+            '${GameDataPaths.imagesDir(data.folderPath).path}$sep';
+        final gameImagesDir2 =
+            '${GameDataPaths.legacyImagesDir(data.folderPath).path}$sep';
+        final gameImagesDir3 =
+            '${GameDataPaths.legacySingularImageDir(data.folderPath).path}$sep';
         final externalImages = await txn.query(
           'game_images',
-          where: 'game_id = ? AND image_path NOT LIKE ? AND image_path NOT LIKE ?',
-          whereArgs: [gameId, '$gameImagesDir1%', '$gameImagesDir2%'],
+          where:
+              'game_id = ? AND image_path NOT LIKE ? AND image_path NOT LIKE ? AND image_path NOT LIKE ?',
+          whereArgs: [
+            gameId,
+            '$gameImagesDir1%',
+            '$gameImagesDir2%',
+            '$gameImagesDir3%'
+          ],
         );
 
         // 删除所有图片
-        await txn.delete('game_images', where: 'game_id = ?', whereArgs: [gameId]);
+        await txn
+            .delete('game_images', where: 'game_id = ?', whereArgs: [gameId]);
 
         // 合并本地图片和外部图片，按原有 sort_order 排序后插入
         final allImages = <Map<String, dynamic>>[];
@@ -396,9 +444,13 @@ class GameScannerService {
           allImages.add({'image_path': data.imagePaths[i], 'sort_order': i});
         }
         for (final img in externalImages) {
-          allImages.add({'image_path': img['image_path'], 'sort_order': img['sort_order']});
+          allImages.add({
+            'image_path': img['image_path'],
+            'sort_order': img['sort_order']
+          });
         }
-        allImages.sort((a, b) => (a['sort_order'] as int).compareTo(b['sort_order'] as int));
+        allImages.sort((a, b) =>
+            (a['sort_order'] as int).compareTo(b['sort_order'] as int));
 
         if (allImages.isNotEmpty) {
           final batch = txn.batch();
@@ -439,10 +491,12 @@ class GameScannerService {
         }
         // 新格式：路径在 cleared_paths 目录下的游戏
         bool isInClearedPath = false;
-        final normalizedGamePath = game.path.replaceAll('\\', '/').toLowerCase();
+        final normalizedGamePath =
+            game.path.replaceAll('\\', '/').toLowerCase();
         for (final cp in clearedPathList) {
           final normalizedCleared = cp.replaceAll('\\', '/').toLowerCase();
-          if (normalizedGamePath.startsWith(normalizedCleared) && !game.path.contains('${sep}Backup$sep')) {
+          if (normalizedGamePath.startsWith(normalizedCleared) &&
+              !game.path.contains('${sep}Backup$sep')) {
             isInClearedPath = true;
             break;
           }
@@ -452,7 +506,9 @@ class GameScannerService {
         final dir = Directory(game.path);
         if (!await dir.exists()) {
           await _gameRepository.deleteGame(game.id!);
-          if (kDebugMode) debugPrint('[Scan] Removed DB entry for missing folder: ${game.path}');
+          if (kDebugMode)
+            debugPrint(
+                '[Scan] Removed DB entry for missing folder: ${game.path}');
         }
       } catch (e) {
         if (kDebugMode) debugPrint('[Scan] Error checking game folder: $e');
