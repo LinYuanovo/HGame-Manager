@@ -2,6 +2,7 @@ import 'package:html/dom.dart';
 import 'html_parser.dart';
 import 'parse_utils.dart';
 import 'dlsite_parser.dart';
+import 'rich_text_extractor.dart';
 import '../core/services/app_logger.dart';
 import '../core/utils/app_settings.dart';
 
@@ -21,7 +22,20 @@ String _elementText(Element element) {
   return buffer.toString();
 }
 
-final _copyrightPattern = RegExp(r'Copyright\s*©|All\s+rights\s+reserved|版权所有|ICP备|粤ICP|京ICP', caseSensitive: false);
+List<String> _dedupeStrings(Iterable<String> values) {
+  final result = <String>[];
+  final seen = <String>{};
+  for (final value in values) {
+    if (value.isNotEmpty && seen.add(value)) {
+      result.add(value);
+    }
+  }
+  return result;
+}
+
+final _copyrightPattern = RegExp(
+    r'Copyright\s*©|All\s+rights\s+reserved|版权所有|ICP备|粤ICP|京ICP',
+    caseSensitive: false);
 final _unzipPattern = RegExp(r'(?:默认)?解压(?:码|密码)|(?<!提取)密码[：:]?\s*\S+');
 
 bool _isCopyrightText(String text) => _copyrightPattern.hasMatch(text);
@@ -68,10 +82,12 @@ class AcgYingParser extends SiteParser {
         .trim();
 
     final version = extractVersion(cleanTitle);
-    final titleWithoutVersion = version != null ? removeVersionFromTitle(cleanTitle) : cleanTitle;
+    final titleWithoutVersion =
+        version != null ? removeVersionFromTitle(cleanTitle) : cleanTitle;
 
     final postContent = document.querySelector('div.post-content');
     String? description;
+    String? descriptionHtml;
     List<String> features = [];
     String? changelog;
     final screenshots = <String>[];
@@ -79,10 +95,14 @@ class AcgYingParser extends SiteParser {
     String? unzipCode;
 
     if (postContent != null) {
+      final richIntro = RichTextExtractor.extractDescription(postContent, url);
       final fullText = _extractTextWithImages(postContent);
       final sections = _splitSections(fullText);
 
-      description = sections['游戏介绍'];
+      description = richIntro.plainText.isNotEmpty
+          ? richIntro.plainText
+          : sections['游戏介绍'];
+      descriptionHtml = richIntro.html.isNotEmpty ? richIntro.html : null;
       final featuresText = sections['游戏特点'];
       if (featuresText != null) {
         features = featuresText
@@ -102,20 +122,21 @@ class AcgYingParser extends SiteParser {
 
       final images = postContent.querySelectorAll('img');
       for (final img in images) {
-        final src = img.attributes['src'] ?? '';
-        if (src.isNotEmpty &&
-            src.contains('wp-content/uploads') &&
-            !src.endsWith('.svg') &&
-            !src.endsWith('.ico')) {
+        final src = RichTextExtractor.resolveImageUrl(img, url) ?? '';
+        if (src.isNotEmpty && src.contains('wp-content/uploads')) {
           screenshots.add(src);
         }
+      }
+      for (final imgUrl in richIntro.imageUrls) {
+        if (!screenshots.contains(imgUrl)) screenshots.add(imgUrl);
       }
     }
 
     final postMeta = document.querySelector('div.post-meta');
     String? publishDate;
     if (postMeta != null) {
-      final dateMatch = RegExp(r'(\d{4}-\d{2}-\d{2})').firstMatch(postMeta.text);
+      final dateMatch =
+          RegExp(r'(\d{4}-\d{2}-\d{2})').firstMatch(postMeta.text);
       if (dateMatch != null) {
         publishDate = dateMatch.group(1);
       }
@@ -138,9 +159,10 @@ class AcgYingParser extends SiteParser {
       tags: tags,
       category: category,
       description: description,
+      descriptionHtml: descriptionHtml,
       features: features,
       changelog: changelog,
-      screenshots: screenshots,
+      screenshots: _dedupeStrings(screenshots),
       downloads: downloads,
       publishDate: publishDate,
       sourceUrl: url,
@@ -157,11 +179,11 @@ class AcgYingParser extends SiteParser {
 
     // Extract tags and series from title brackets like 【ACT/中文/全动态】
     if (metadata.title != null) {
-      final bracketMatch =
-          RegExp(r'【([^】]+)】').firstMatch(metadata.title!);
+      final bracketMatch = RegExp(r'【([^】]+)】').firstMatch(metadata.title!);
       if (bracketMatch != null) {
         final parts = bracketMatch.group(1)!.split('/');
-        final tagList = parts.map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+        final tagList =
+            parts.map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
         if (tagList.isNotEmpty) {
           metadata.series = normalizeSeries(tagList.first); // e.g. "ACT"
         }
@@ -177,8 +199,10 @@ class AcgYingParser extends SiteParser {
 
     // Extract version from title pattern like "V1.5", "ver2.1", "Build123", "version3.0"
     if (metadata.title != null) {
-      final versionMatch =
-          RegExp(r'(?:[Vv](?:er(?:sion)?)?|build)\s*(\d[\w.]*)', caseSensitive: false).firstMatch(metadata.title!);
+      final versionMatch = RegExp(
+              r'(?:[Vv](?:er(?:sion)?)?|build)\s*(\d[\w.]*)',
+              caseSensitive: false)
+          .firstMatch(metadata.title!);
       if (versionMatch != null) {
         metadata.version = 'V${versionMatch.group(1)}';
         metadata.title = removeVersionFromTitle(metadata.title!);
@@ -200,7 +224,9 @@ class AcgYingParser extends SiteParser {
       if (linksSection != null) {
         final downloadUrls = <String>[];
         // Match URL followed by optional extract code on same or next line
-        final linkPattern = RegExp(r'(https?://[^\s<>"\u3000]+)[\s]*(?:提取码|密码)[：:]\s*(\w+)?', multiLine: true);
+        final linkPattern = RegExp(
+            r'(https?://[^\s<>"\u3000]+)[\s]*(?:提取码|密码)[：:]\s*(\w+)?',
+            multiLine: true);
         for (final match in linkPattern.allMatches(linksSection)) {
           final link = match.group(1)!;
           if (_isDownloadLink(link)) {
@@ -213,15 +239,18 @@ class AcgYingParser extends SiteParser {
           }
         }
         // Also find standalone URLs that weren't matched above
-        final standaloneMatches = RegExp(r'https?://[^\s<>"\u3000]+').allMatches(linksSection);
+        final standaloneMatches =
+            RegExp(r'https?://[^\s<>"\u3000]+').allMatches(linksSection);
         for (final match in standaloneMatches) {
           final link = match.group(0)!;
-          if (_isDownloadLink(link) && !downloadUrls.any((u) => u.contains(link))) {
+          if (_isDownloadLink(link) &&
+              !downloadUrls.any((u) => u.contains(link))) {
             downloadUrls.add(link);
           }
         }
         // Find remaining extract codes not yet paired
-        final codeMatches = RegExp(r'(?:提取码|密码)[：:]\s*(\w+)').allMatches(linksSection);
+        final codeMatches =
+            RegExp(r'(?:提取码|密码)[：:]\s*(\w+)').allMatches(linksSection);
         final unpairedCodes = <String>[];
         for (final m in codeMatches) {
           final code = m.group(1)!;
@@ -240,11 +269,13 @@ class AcgYingParser extends SiteParser {
       }
 
       // Check for unzip code anywhere in post content
-      final unzipMatch = RegExp(r'解压(?:码|密码)[：:]\s*(.{1,50})', multiLine: true).firstMatch(fullText);
+      final unzipMatch = RegExp(r'解压(?:码|密码)[：:]\s*(.{1,50})', multiLine: true)
+          .firstMatch(fullText);
       if (unzipMatch != null) {
         final unzipCode = unzipMatch.group(1)?.trim() ?? '';
         if (unzipCode.isNotEmpty) {
-          if (metadata.downloadUrl != null && metadata.downloadUrl!.isNotEmpty) {
+          if (metadata.downloadUrl != null &&
+              metadata.downloadUrl!.isNotEmpty) {
             metadata.downloadUrl = '${metadata.downloadUrl}\n解压码: $unzipCode';
           } else {
             metadata.downloadUrl = '解压码: $unzipCode';
@@ -289,7 +320,9 @@ class AcgYingParser extends SiteParser {
 
     if (tag == 'img') {
       final src = element.attributes['src'] ?? '';
-      if (src.isNotEmpty && src.contains('wp-content/uploads') && !src.endsWith('.svg')) {
+      if (src.isNotEmpty &&
+          src.contains('wp-content/uploads') &&
+          !src.endsWith('.svg')) {
         buffer.writeln('[图片:$src]');
       }
     } else if (tag == 'br') {
@@ -298,7 +331,9 @@ class AcgYingParser extends SiteParser {
       final img = element.querySelector('img');
       if (img != null) {
         final src = img.attributes['src'] ?? '';
-        if (src.isNotEmpty && src.contains('wp-content/uploads') && !src.endsWith('.svg')) {
+        if (src.isNotEmpty &&
+            src.contains('wp-content/uploads') &&
+            !src.endsWith('.svg')) {
           final text = element.text.trim();
           if (text.isNotEmpty && text != src) {
             buffer.writeln(text);
@@ -343,9 +378,8 @@ class AcgYingParser extends SiteParser {
     // Extract content between markers
     for (var i = 0; i < positions.length; i++) {
       final contentStart = positions[i].pos + positions[i].marker.length;
-      final contentEnd = i + 1 < positions.length
-          ? positions[i + 1].pos
-          : fullText.length;
+      final contentEnd =
+          i + 1 < positions.length ? positions[i + 1].pos : fullText.length;
       final content = fullText.substring(contentStart, contentEnd).trim();
       if (content.isNotEmpty) {
         // Store with marker name (without colon)
@@ -402,7 +436,8 @@ class FeiXueAcgParser extends SiteParser {
         .trim();
 
     final version = extractVersion(cleanTitle);
-    final titleWithoutVersion = version != null ? removeVersionFromTitle(cleanTitle) : cleanTitle;
+    final titleWithoutVersion =
+        version != null ? removeVersionFromTitle(cleanTitle) : cleanTitle;
 
     final typeOption = document.querySelector('div.typeoption table');
     final platforms = <String>[];
@@ -433,6 +468,7 @@ class FeiXueAcgParser extends SiteParser {
 
     final postContent = document.querySelector('td.t_f');
     String? description;
+    String? descriptionHtml;
     String? changelog;
     final screenshots = <String>[];
     final downloads = <DownloadLink>[];
@@ -445,7 +481,8 @@ class FeiXueAcgParser extends SiteParser {
     }
 
     if (postContent != null) {
-      for (final tipDiv in postContent.querySelectorAll('div.tip, div.tip_4, div.aimg_tip')) {
+      for (final tipDiv
+          in postContent.querySelectorAll('div.tip, div.tip_4, div.aimg_tip')) {
         tipDiv.remove();
       }
       for (final script in postContent.querySelectorAll('script')) {
@@ -458,12 +495,14 @@ class FeiXueAcgParser extends SiteParser {
         showhideText = showhideText.replaceAll('本帖隱藏的內容', '').trim();
 
         // 过滤掉优惠码、VIP相关文本
-        final lines = showhideText.split('\n').where((l) => l.trim().isNotEmpty).toList();
+        final lines =
+            showhideText.split('\n').where((l) => l.trim().isNotEmpty).toList();
         final filteredLines = <String>[];
         for (final line in lines) {
           final trimmedLine = line.trim();
           if (trimmedLine.contains('优惠码')) continue;
-          if (trimmedLine.contains('VIP') || trimmedLine.contains('免飞猫')) continue;
+          if (trimmedLine.contains('VIP') || trimmedLine.contains('免飞猫'))
+            continue;
           filteredLines.add(trimmedLine);
         }
         showhideText = filteredLines.join('\n');
@@ -479,10 +518,15 @@ class FeiXueAcgParser extends SiteParser {
       }
 
       var fullText = _extractTextWithImages(postContent);
-      fullText = fullText.replaceAll(RegExp(r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件[^\n]*(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳'), '');
-      fullText = fullText.replaceAll(RegExp(r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件'), '');
+      fullText = fullText.replaceAll(
+          RegExp(
+              r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件[^\n]*(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳'),
+          '');
+      fullText = fullText.replaceAll(
+          RegExp(r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件'), '');
 
-      final uploadMarker = RegExp(r'(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳');
+      final uploadMarker =
+          RegExp(r'(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳');
       final allMarkers = uploadMarker.allMatches(fullText).toList();
       if (allMarkers.isNotEmpty) {
         fullText = fullText.substring(allMarkers.last.end).trim();
@@ -493,19 +537,27 @@ class FeiXueAcgParser extends SiteParser {
       // 应用基本噪音过滤
       fullText = filterCommonNoise(fullText);
 
+      final richIntro = RichTextExtractor.extractDescription(postContent, url);
+      if (richIntro.isNotEmpty) {
+        description = filterDescription(
+          richIntro.plainText,
+          unzipCodeFromSign: unzipCode,
+        );
+        if (description.isEmpty) description = null;
+        descriptionHtml = richIntro.html.isNotEmpty ? richIntro.html : null;
+      }
+
       final images = postContent.querySelectorAll('img.zoom, ignore_js_op img');
-      final imageList = images.isEmpty ? postContent.querySelectorAll('img') : images;
+      final imageList =
+          images.isEmpty ? postContent.querySelectorAll('img') : images;
       for (final img in imageList) {
-        final src = img.attributes['zoomfile'] ??
-            img.attributes['file'] ??
-            img.attributes['src'] ??
-            '';
-        if (src.isNotEmpty &&
-            !src.contains('static/image/common') &&
-            !src.endsWith('.svg') &&
-            !src.endsWith('.ico')) {
+        final src = RichTextExtractor.resolveImageUrl(img, url) ?? '';
+        if (src.isNotEmpty && !screenshots.contains(src)) {
           screenshots.add(src);
         }
+      }
+      for (final imgUrl in richIntro.imageUrls) {
+        if (!screenshots.contains(imgUrl)) screenshots.add(imgUrl);
       }
 
       if (downloads.isEmpty) {
@@ -514,17 +566,20 @@ class FeiXueAcgParser extends SiteParser {
 
       // 先提取解压码，然后在过滤描述时排除它
       // 尝试多个可能的section名称
-      description = _extractSection(fullText, '概要') ??
-                    _extractSection(fullText, '游戏介绍') ??
-                    _extractSection(fullText, '简介');
+      description ??= _extractSection(fullText, '概要') ??
+          _extractSection(fullText, '游戏介绍') ??
+          _extractSection(fullText, '游戏简介') ??
+          _extractSection(fullText, '简介');
       if (description != null) {
-        description = filterDescription(description, unzipCodeFromSign: unzipCode);
+        description =
+            filterDescription(description, unzipCodeFromSign: unzipCode);
         if (description.isEmpty) description = null;
       }
 
       // 兜底：如果没有匹配到任何section，使用过滤后的全文作为游戏介绍
       if (description == null && fullText.trim().isNotEmpty) {
-        final filtered = filterDescription(fullText.trim(), unzipCodeFromSign: unzipCode);
+        final filtered =
+            filterDescription(fullText.trim(), unzipCodeFromSign: unzipCode);
         if (filtered.trim().length > 20) {
           description = filtered;
         }
@@ -532,7 +587,7 @@ class FeiXueAcgParser extends SiteParser {
 
       // 提取更新日志
       changelog = _extractSection(fullText, '更新日志') ??
-                  _extractSection(fullText, '更新内容');
+          _extractSection(fullText, '更新内容');
       if (changelog != null) {
         changelog = filterCommonNoise(changelog);
         if (changelog.isEmpty) changelog = null;
@@ -564,8 +619,9 @@ class FeiXueAcgParser extends SiteParser {
       tags: tags,
       category: category,
       description: description,
+      descriptionHtml: descriptionHtml,
       changelog: changelog,
-      screenshots: screenshots,
+      screenshots: _dedupeStrings(screenshots),
       downloads: downloads,
       platforms: platforms,
       sourceUrl: url,
@@ -584,11 +640,11 @@ class FeiXueAcgParser extends SiteParser {
 
     // Extract tags and series from title brackets like 【SLG/汉化/NTR】
     if (metadata.title != null) {
-      final bracketMatch =
-          RegExp(r'【([^】]+)】').firstMatch(metadata.title!);
+      final bracketMatch = RegExp(r'【([^】]+)】').firstMatch(metadata.title!);
       if (bracketMatch != null) {
         final parts = bracketMatch.group(1)!.split('/');
-        final tagList = parts.map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+        final tagList =
+            parts.map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
         if (tagList.isNotEmpty) {
           metadata.series = normalizeSeries(tagList.first); // e.g. "SLG"
         }
@@ -604,8 +660,10 @@ class FeiXueAcgParser extends SiteParser {
 
     // Extract version from title
     if (metadata.title != null) {
-      final versionMatch =
-          RegExp(r'(?:[Vv](?:er(?:sion)?)?|build)\s*(\d[\w.]*)', caseSensitive: false).firstMatch(metadata.title!);
+      final versionMatch = RegExp(
+              r'(?:[Vv](?:er(?:sion)?)?|build)\s*(\d[\w.]*)',
+              caseSensitive: false)
+          .firstMatch(metadata.title!);
       if (versionMatch != null) {
         metadata.version = 'V${versionMatch.group(1)}';
         metadata.title = removeVersionFromTitle(metadata.title!);
@@ -647,7 +705,8 @@ class FeiXueAcgParser extends SiteParser {
     final postContent = document.querySelector('td.t_f');
     if (postContent != null) {
       // Remove hidden tooltip divs that contain attachment metadata
-      for (final tipDiv in postContent.querySelectorAll('div.tip, div.tip_4, div.aimg_tip')) {
+      for (final tipDiv
+          in postContent.querySelectorAll('div.tip, div.tip_4, div.aimg_tip')) {
         tipDiv.remove();
       }
       // Remove script elements
@@ -665,16 +724,19 @@ class FeiXueAcgParser extends SiteParser {
         showhideText = showhideText.replaceAll('本帖隱藏的內容', '').trim();
 
         // Parse each line
-        final lines = showhideText.split('\n').where((l) => l.trim().isNotEmpty).toList();
+        final lines =
+            showhideText.split('\n').where((l) => l.trim().isNotEmpty).toList();
         for (final line in lines) {
           final trimmedLine = line.trim();
           // Skip promotional codes
           if (trimmedLine.contains('优惠码')) continue;
           // Skip VIP-related text
-          if (trimmedLine.contains('VIP') || trimmedLine.contains('免飞猫')) continue;
+          if (trimmedLine.contains('VIP') || trimmedLine.contains('免飞猫'))
+            continue;
 
           // Parse labeled download links like "飞猫直链①：https://..."
-          final labeledMatch = RegExp(r'^([^：:]+)[：:]\s*(https?://.+)$').firstMatch(trimmedLine);
+          final labeledMatch =
+              RegExp(r'^([^：:]+)[：:]\s*(https?://.+)$').firstMatch(trimmedLine);
           if (labeledMatch != null) {
             final label = labeledMatch.group(1)!.trim();
             final url = labeledMatch.group(2)!.trim();
@@ -688,7 +750,8 @@ class FeiXueAcgParser extends SiteParser {
           final urlMatch = RegExp(r'https?://\S+').firstMatch(trimmedLine);
           if (urlMatch != null) {
             final url = urlMatch.group(0)!;
-            if (_isDownloadLink(url) && !downloadUrls.any((u) => u.contains(url))) {
+            if (_isDownloadLink(url) &&
+                !downloadUrls.any((u) => u.contains(url))) {
               downloadUrls.add(url);
             }
           }
@@ -706,11 +769,16 @@ class FeiXueAcgParser extends SiteParser {
       var fullText = _extractTextWithImages(postContent);
 
       // Filter out image attachment patterns
-      fullText = fullText.replaceAll(RegExp(r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件[^\n]*(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳'), '');
-      fullText = fullText.replaceAll(RegExp(r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件'), '');
+      fullText = fullText.replaceAll(
+          RegExp(
+              r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件[^\n]*(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳'),
+          '');
+      fullText = fullText.replaceAll(
+          RegExp(r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件'), '');
 
       // Find the last upload marker and take content after it
-      final uploadMarker = RegExp(r'(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳');
+      final uploadMarker =
+          RegExp(r'(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳');
       final allMarkers = uploadMarker.allMatches(fullText).toList();
       if (allMarkers.isNotEmpty) {
         final lastMarker = allMarkers.last;
@@ -782,10 +850,12 @@ class FeiXueAcgParser extends SiteParser {
             RegExp(r'https?://[^\s<>"\u3000\]]+').allMatches(fullText);
         for (final match in linkMatches) {
           final link = match.group(0)!;
-          if (_isDownloadLink(link) && !downloadUrls.any((u) => u.startsWith(link))) {
+          if (_isDownloadLink(link) &&
+              !downloadUrls.any((u) => u.startsWith(link))) {
             // Look for extract code right after this URL
             final afterUrl = fullText.substring(match.end).trim();
-            final codeMatch = RegExp(r'^(?:提取码|密码)[：:]\s*(\w+)').firstMatch(afterUrl);
+            final codeMatch =
+                RegExp(r'^(?:提取码|密码)[：:]\s*(\w+)').firstMatch(afterUrl);
             if (codeMatch != null) {
               downloadUrls.add('$link 提取码: ${codeMatch.group(1)}');
             } else {
@@ -803,11 +873,13 @@ class FeiXueAcgParser extends SiteParser {
     // Extract unzip code from signature (div.sign)
     final signDiv = document.querySelector('div.sign');
     if (signDiv != null) {
-      final unzipMatch = RegExp(r'解压(?:码|密码)[：:]\s*(.{1,50})', multiLine: true).firstMatch(signDiv.text);
+      final unzipMatch = RegExp(r'解压(?:码|密码)[：:]\s*(.{1,50})', multiLine: true)
+          .firstMatch(signDiv.text);
       if (unzipMatch != null) {
         final unzipCode = unzipMatch.group(1)?.trim() ?? '';
         if (unzipCode.isNotEmpty) {
-          if (metadata.downloadUrl != null && metadata.downloadUrl!.isNotEmpty) {
+          if (metadata.downloadUrl != null &&
+              metadata.downloadUrl!.isNotEmpty) {
             metadata.downloadUrl = '${metadata.downloadUrl}\n解压码: $unzipCode';
           } else {
             metadata.downloadUrl = '解压码: $unzipCode';
@@ -848,8 +920,14 @@ class FeiXueAcgParser extends SiteParser {
       if (node is Element) {
         final tag = node.localName;
         if (tag == 'img') {
-          final src = node.attributes['zoomfile'] ?? node.attributes['file'] ?? node.attributes['src'] ?? '';
-          if (src.isNotEmpty && !src.contains('static/image') && !src.endsWith('.svg') && !src.endsWith('.ico')) {
+          final src = node.attributes['zoomfile'] ??
+              node.attributes['file'] ??
+              node.attributes['src'] ??
+              '';
+          if (src.isNotEmpty &&
+              !src.contains('static/image') &&
+              !src.endsWith('.svg') &&
+              !src.endsWith('.ico')) {
             buffer.writeln('[图片:$src]');
           }
         } else if (tag == 'br') {
@@ -858,8 +936,14 @@ class FeiXueAcgParser extends SiteParser {
           final imgs = node.querySelectorAll('img');
           if (imgs.isNotEmpty) {
             for (final img in imgs) {
-              final src = img.attributes['zoomfile'] ?? img.attributes['file'] ?? img.attributes['src'] ?? '';
-              if (src.isNotEmpty && !src.contains('static/image') && !src.endsWith('.svg') && !src.endsWith('.ico')) {
+              final src = img.attributes['zoomfile'] ??
+                  img.attributes['file'] ??
+                  img.attributes['src'] ??
+                  '';
+              if (src.isNotEmpty &&
+                  !src.contains('static/image') &&
+                  !src.endsWith('.svg') &&
+                  !src.endsWith('.ico')) {
                 buffer.writeln('[图片:$src]');
               }
             }
@@ -958,7 +1042,8 @@ class VikAcgParser extends SiteParser {
         .trim();
 
     final version = extractVersion(cleanTitle);
-    final titleWithoutVersion = version != null ? removeVersionFromTitle(cleanTitle) : cleanTitle;
+    final titleWithoutVersion =
+        version != null ? removeVersionFromTitle(cleanTitle) : cleanTitle;
 
     final ogDesc = document.querySelector('meta[property="og:description"]') ??
         document.querySelector('meta[name="description"]');
@@ -1001,6 +1086,12 @@ class VikAcgParser extends SiteParser {
     }
 
     final contentContainer = _findContentContainer(document);
+    final richIntro =
+        RichTextExtractor.extractDescription(contentContainer, url);
+    String? descriptionHtml = richIntro.html.isNotEmpty ? richIntro.html : null;
+    for (final imgUrl in richIntro.imageUrls) {
+      if (!screenshots.contains(imgUrl)) screenshots.add(imgUrl);
+    }
     final paragraphs = contentContainer.querySelectorAll('p, div.arco-image');
     final introBuffer = StringBuffer();
     bool collecting = false;
@@ -1047,7 +1138,8 @@ class VikAcgParser extends SiteParser {
           collecting = false;
           continue;
         }
-        if (text.isNotEmpty && !_containsUnzipCode(text)) introBuffer.writeln(text);
+        if (text.isNotEmpty && !_containsUnzipCode(text))
+          introBuffer.writeln(text);
       }
     }
     // Fallback: if no start marker found, collect all text before first stop marker
@@ -1068,14 +1160,20 @@ class VikAcgParser extends SiteParser {
             RegExp(r'^链接[：:]?\s*$').hasMatch(text)) {
           break;
         }
-        if (text.isNotEmpty && !_containsUnzipCode(text)) introBuffer.writeln(text);
+        if (text.isNotEmpty && !_containsUnzipCode(text))
+          introBuffer.writeln(text);
       }
     }
     if (introBuffer.isNotEmpty) {
       final collected = introBuffer.toString().trim();
-      if (description == null || description.isEmpty || collected.length > description.length) {
+      if (description == null ||
+          description.isEmpty ||
+          collected.length > description.length) {
         description = collected;
       }
+    }
+    if (richIntro.plainText.isNotEmpty) {
+      description = richIntro.plainText;
     }
 
     final downloads = <DownloadLink>[];
@@ -1094,7 +1192,8 @@ class VikAcgParser extends SiteParser {
       tags: tags,
       category: category,
       description: description,
-      screenshots: screenshots,
+      descriptionHtml: descriptionHtml,
+      screenshots: _dedupeStrings(screenshots),
       downloads: downloads,
       sourceUrl: url,
     );
@@ -1119,11 +1218,11 @@ class VikAcgParser extends SiteParser {
 
     // Extract tags and series from title brackets like [SLG/中文]
     if (metadata.title != null) {
-      final bracketMatch =
-          RegExp(r'\[([^\]]+)\]').firstMatch(metadata.title!);
+      final bracketMatch = RegExp(r'\[([^\]]+)\]').firstMatch(metadata.title!);
       if (bracketMatch != null) {
         final parts = bracketMatch.group(1)!.split('/');
-        final tagList = parts.map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+        final tagList =
+            parts.map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
         if (tagList.isNotEmpty) {
           metadata.series = normalizeSeries(tagList.first); // e.g. "SLG"
         }
@@ -1139,8 +1238,10 @@ class VikAcgParser extends SiteParser {
 
     // Extract version from title
     if (metadata.title != null) {
-      final versionMatch =
-          RegExp(r'(?:[Vv](?:er(?:sion)?)?|build)\s*(\d[\w.]*)', caseSensitive: false).firstMatch(metadata.title!);
+      final versionMatch = RegExp(
+              r'(?:[Vv](?:er(?:sion)?)?|build)\s*(\d[\w.]*)',
+              caseSensitive: false)
+          .firstMatch(metadata.title!);
       if (versionMatch != null) {
         metadata.version = 'V${versionMatch.group(1)}';
         metadata.title = removeVersionFromTitle(metadata.title!);
@@ -1148,9 +1249,8 @@ class VikAcgParser extends SiteParser {
     }
 
     // Description from og:description or meta description
-    final ogDesc =
-        document.querySelector('meta[property="og:description"]') ??
-            document.querySelector('meta[name="description"]');
+    final ogDesc = document.querySelector('meta[property="og:description"]') ??
+        document.querySelector('meta[name="description"]');
     if (ogDesc != null) {
       metadata.intro = ogDesc.attributes['content']?.trim();
     }
@@ -1277,22 +1377,29 @@ class VikAcgParser extends SiteParser {
             RegExp(r'^链接[：:]?\s*$').hasMatch(text)) {
           break;
         }
-        if (text.isNotEmpty && !_containsUnzipCode(text)) introBuffer.writeln(text);
+        if (text.isNotEmpty && !_containsUnzipCode(text))
+          introBuffer.writeln(text);
       }
     }
     if (introBuffer.isNotEmpty) {
       final collected = introBuffer.toString().trim();
       // Prefer paragraph-collected intro over meta description if it's longer
-      if (metadata.intro == null || metadata.intro!.isEmpty || collected.length > metadata.intro!.length) {
+      if (metadata.intro == null ||
+          metadata.intro!.isEmpty ||
+          collected.length > metadata.intro!.length) {
         metadata.intro = collected;
       }
     }
 
     // Extract unzip code from content container
     final contentText = _elementText(contentContainer);
-    final unzipMatch = RegExp(r'(?:默认)?解压(?:码|密码)[：:]?\s*(.{1,50})|(?<!提取)密码[：:]?\s*(\S+)', multiLine: true).firstMatch(contentText);
+    final unzipMatch = RegExp(
+            r'(?:默认)?解压(?:码|密码)[：:]?\s*(.{1,50})|(?<!提取)密码[：:]?\s*(\S+)',
+            multiLine: true)
+        .firstMatch(contentText);
     if (unzipMatch != null) {
-      final unzipCode = (unzipMatch.group(1) ?? unzipMatch.group(2))?.trim() ?? '';
+      final unzipCode =
+          (unzipMatch.group(1) ?? unzipMatch.group(2))?.trim() ?? '';
       if (unzipCode.isNotEmpty) {
         if (metadata.downloadUrl != null && metadata.downloadUrl!.isNotEmpty) {
           metadata.downloadUrl = '${metadata.downloadUrl}\n解压码: $unzipCode';
@@ -1309,14 +1416,22 @@ class VikAcgParser extends SiteParser {
 /// Register all site parsers into the ParserRegistry.
 /// Called by HtmlScraper._ensureRegistered() to guarantee registration.
 void registerAllParsers() {
-  final existingDomains = ParserRegistry.allParsers.map((p) => p.domain).toSet();
-  if (!existingDomains.contains('acgyyg')) ParserRegistry.register(AcgYingParser());
-  if (!existingDomains.contains('vikacg')) ParserRegistry.register(VikAcgParser());
-  if (!existingDomains.contains('feixueacg')) ParserRegistry.register(FeiXueAcgParser());
-  if (!existingDomains.contains('dlsite')) ParserRegistry.register(DlsiteParser());
-  if (!existingDomains.contains('yyg')) ParserRegistry.register(_AliasParser('acgying', AcgYingParser()));
-  if (!existingDomains.contains('vik')) ParserRegistry.register(_AliasParser('weika', VikAcgParser()));
-  AppLogger.instance.info('Scraper', 'Registered ${ParserRegistry.allParsers.length} site parsers (including aliases): AcgYing/acgying, VikAcg/weika, FeiXueAcg, Dlsite');
+  final existingDomains =
+      ParserRegistry.allParsers.map((p) => p.domain).toSet();
+  if (!existingDomains.contains('acgyyg'))
+    ParserRegistry.register(AcgYingParser());
+  if (!existingDomains.contains('vikacg'))
+    ParserRegistry.register(VikAcgParser());
+  if (!existingDomains.contains('feixueacg'))
+    ParserRegistry.register(FeiXueAcgParser());
+  if (!existingDomains.contains('dlsite'))
+    ParserRegistry.register(DlsiteParser());
+  if (!existingDomains.contains('yyg'))
+    ParserRegistry.register(_AliasParser('acgying', AcgYingParser()));
+  if (!existingDomains.contains('vik'))
+    ParserRegistry.register(_AliasParser('weika', VikAcgParser()));
+  AppLogger.instance.info('Scraper',
+      'Registered ${ParserRegistry.allParsers.length} site parsers (including aliases): AcgYing/acgying, VikAcg/weika, FeiXueAcg, Dlsite');
 }
 
 Future<void> registerCustomDomainParsers() async {
@@ -1324,20 +1439,26 @@ Future<void> registerCustomDomainParsers() async {
 
   final domainAcgying = prefs.getString('domain_acgying') ?? '';
   if (domainAcgying.isNotEmpty) {
-    ParserRegistry.register(_AliasParser(domainAcgying.toLowerCase(), AcgYingParser()));
-    AppLogger.instance.info('Scraper', 'Registered custom domain for AcgYing: $domainAcgying');
+    ParserRegistry.register(
+        _AliasParser(domainAcgying.toLowerCase(), AcgYingParser()));
+    AppLogger.instance.info(
+        'Scraper', 'Registered custom domain for AcgYing: $domainAcgying');
   }
 
   final domainFeixue = prefs.getString('domain_feixue') ?? '';
   if (domainFeixue.isNotEmpty) {
-    ParserRegistry.register(_AliasParser(domainFeixue.toLowerCase(), FeiXueAcgParser()));
-    AppLogger.instance.info('Scraper', 'Registered custom domain for FeiXue: $domainFeixue');
+    ParserRegistry.register(
+        _AliasParser(domainFeixue.toLowerCase(), FeiXueAcgParser()));
+    AppLogger.instance
+        .info('Scraper', 'Registered custom domain for FeiXue: $domainFeixue');
   }
 
   final domainVikacg = prefs.getString('domain_vikacg') ?? '';
   if (domainVikacg.isNotEmpty) {
-    ParserRegistry.register(_AliasParser(domainVikacg.toLowerCase(), VikAcgParser()));
-    AppLogger.instance.info('Scraper', 'Registered custom domain for VikAcg: $domainVikacg');
+    ParserRegistry.register(
+        _AliasParser(domainVikacg.toLowerCase(), VikAcgParser()));
+    AppLogger.instance
+        .info('Scraper', 'Registered custom domain for VikAcg: $domainVikacg');
   }
 }
 
@@ -1352,8 +1473,10 @@ class _AliasParser extends SiteParser {
   String get domain => _domain;
 
   @override
-  GameInfo? parseGameInfo(Document document, String url) => _delegate.parseGameInfo(document, url);
+  GameInfo? parseGameInfo(Document document, String url) =>
+      _delegate.parseGameInfo(document, url);
 
   @override
-  GameMetadata parse(Document document, String url) => _delegate.parse(document, url);
+  GameMetadata parse(Document document, String url) =>
+      _delegate.parse(document, url);
 }

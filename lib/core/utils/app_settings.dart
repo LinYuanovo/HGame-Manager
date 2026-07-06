@@ -24,11 +24,16 @@ class AppSettings {
   static const String autoMoveToSortedKey = 'auto_move_to_sorted';
   static const String scrapeModeConfigsKey = 'scrape_mode_configs';
   static const String renameRulesKey = 'rename_rules';
+  static const String startupMigratedGameIdsKey =
+      'startup_migrated_game_ids_v1';
+  static const String scanMetadataFingerprintsKey =
+      'scan_metadata_fingerprints_v1';
 
   Map<String, dynamic> _data = {};
   final String _filePath;
   bool _dirty = false;
-  final Debouncer _saveDebouncer = Debouncer(delay: const Duration(milliseconds: 500));
+  final Debouncer _saveDebouncer =
+      Debouncer(delay: const Duration(milliseconds: 500));
 
   static AppSettings? _cachedInstance;
 
@@ -91,7 +96,7 @@ class AppSettings {
       if (!await dir.exists()) {
         await dir.create(recursive: true);
       }
-      
+
       // 保存前创建备份
       if (await file.exists()) {
         final backupFile = File('$_filePath.bak');
@@ -101,7 +106,7 @@ class AppSettings {
           // 备份创建失败时继续保存
         }
       }
-      
+
       final tempFile = File('$_filePath.tmp');
       // 清理可能残留的旧临时文件
       if (await tempFile.exists()) {
@@ -112,7 +117,7 @@ class AppSettings {
         }
       }
       await tempFile.writeAsString(jsonEncode(_data), flush: true);
-      
+
       try {
         await tempFile.rename(_filePath);
       } catch (e) {

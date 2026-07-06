@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -75,6 +76,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   Map<String, String> _mediaPathAliases = {};
 
   String? _introHtml;
+  List<String> _metadataImageUrls = [];
   bool _showGuide = false;
   late TextEditingController _guideController;
 
@@ -336,6 +338,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       html: _introHtml,
       images: _currentGame.images,
     );
+    final metadataAliases = _buildMetadataImageAliases();
+    aliases.addAll(metadataAliases);
 
     final existing = <String>{};
     for (final mediaPath in paths) {
@@ -356,36 +360,79 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   String? _resolveExistingMediaPath(String mediaPath) {
+    if (!_isRemoteMediaPath(mediaPath) && File(mediaPath).existsSync()) {
+      return mediaPath;
+    }
     if (_existingMediaFiles.contains(mediaPath) &&
         File(mediaPath).existsSync()) {
       return mediaPath;
     }
     final alias = _mediaPathAliases[mediaPath];
-    if (alias != null &&
-        _existingMediaFiles.contains(alias) &&
-        File(alias).existsSync()) {
+    if (alias != null && File(alias).existsSync()) {
       return alias;
     }
     return null;
   }
 
+  Map<String, String> _buildMetadataImageAliases() {
+    final aliases = <String, String>{};
+    final images = _currentGame.images;
+    final count = _metadataImageUrls.length < images.length
+        ? _metadataImageUrls.length
+        : images.length;
+
+    for (var i = 0; i < count; i++) {
+      final remoteUrl = _metadataImageUrls[i];
+      final localPath = images[i].imagePath;
+      if (remoteUrl.isEmpty || localPath.isEmpty) continue;
+      aliases[remoteUrl] = localPath;
+      if (remoteUrl.startsWith('https:')) {
+        aliases[remoteUrl.replaceFirst('https:', '')] = localPath;
+      } else if (remoteUrl.startsWith('http:')) {
+        aliases[remoteUrl.replaceFirst('http:', '')] = localPath;
+      } else if (remoteUrl.startsWith('//')) {
+        aliases['https:$remoteUrl'] = localPath;
+        aliases['http:$remoteUrl'] = localPath;
+      }
+    }
+
+    return aliases;
+  }
+
+  bool _isRemoteMediaPath(String mediaPath) =>
+      mediaPath.startsWith('http://') ||
+      mediaPath.startsWith('https://') ||
+      mediaPath.startsWith('//');
+
+  String _canonicalRemoteMediaPath(String mediaPath) =>
+      mediaPath.startsWith('//') ? 'https:$mediaPath' : mediaPath;
+
   String _normalizeMediaPathKey(String mediaPath) =>
-      path.normalize(mediaPath).toLowerCase();
+      _isRemoteMediaPath(mediaPath)
+          ? _canonicalRemoteMediaPath(mediaPath).toLowerCase()
+          : path.normalize(mediaPath).toLowerCase();
 
   String _mediaStemKey(String mediaPath) {
-    final fileName = path.basename(mediaPath).toLowerCase();
+    final normalized =
+        _isRemoteMediaPath(mediaPath) ? Uri.tryParse(mediaPath)?.path : null;
+    final fileName = path.basename(normalized ?? mediaPath).toLowerCase();
     final extension = path.extension(fileName);
     if (extension.isEmpty) return fileName;
-    return fileName.substring(0, fileName.length - extension.length);
+    final stem = fileName.substring(0, fileName.length - extension.length);
+    return stem.replaceFirst(RegExp(r'-\d+x\d+$'), '');
   }
 
   Future<void> _loadMetadataHtml() async {
     try {
+      _introHtml = null;
+      _metadataImageUrls = [];
       final metadataFile =
           await GameDataPaths.existingMetadataFile(_currentGame.path);
       if (await metadataFile.exists()) {
         final json = jsonDecode(await metadataFile.readAsString());
         _introHtml = json['intro_html'] as String?;
+        _metadataImageUrls =
+            (json['image_urls'] as List<dynamic>?)?.cast<String>() ?? [];
       }
     } catch (e) {
       debugPrint('[GameDetail] 加载metadata HTML失败: $e');
@@ -2607,14 +2654,22 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       final document = html_parser.parse(html);
       final blocks = <_ContentBlock>[];
       _parseElement(document.body ?? document.documentElement!, blocks);
-      return blocks;
+      return _compactContentBlocks(blocks);
     } catch (_) {
       return [_ContentBlock.text(fallbackText)];
     }
   }
 
   void _parseElement(dynamic element, List<_ContentBlock> blocks) {
-    for (final child in element.children) {
+    final nodes = element is dom.Element ? element.nodes : const [];
+    for (final node in nodes) {
+      if (node is dom.Text) {
+        final text = node.text.trim();
+        if (text.isNotEmpty) blocks.add(_ContentBlock.text(text));
+        continue;
+      }
+      if (node is! dom.Element) continue;
+      final child = node;
       final tag = child.localName;
       final cls = child.className;
 
@@ -2671,32 +2726,155 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           _parseElement(area, blocks);
         }
       }
+      // Generic image support for non-DLsite intro_html.
+      else if (tag == 'img') {
+        final imgSrc = _resolveImgSrc(child);
+        if (imgSrc.isNotEmpty) {
+          blocks.add(_ContentBlock.imageWithText(imgSrc, ''));
+        }
+      }
       // Pattern 3: type_text — plain text
       else if (tag == 'p') {
         final imgEl = child.querySelector('img');
-        if (imgEl != null) {
+        if (imgEl != null && child.text.trim().isEmpty) {
           final imgSrc = _resolveImgSrc(imgEl);
           if (imgSrc.isNotEmpty) {
             blocks.add(_ContentBlock.imageWithText(imgSrc, ''));
           }
         } else {
-          final text = child.text.trim();
-          if (text.isNotEmpty) {
-            blocks.add(_ContentBlock.text(text));
-          }
+          _parseInlineElement(child, blocks);
         }
-      } else if (tag == 'h3' || tag == 'h4') {
+      } else if (tag == 'br') {
+        if (blocks.isEmpty || blocks.last.text.isNotEmpty) {
+          blocks.add(_ContentBlock.text('\n'));
+        }
+      } else if (tag == 'h1' ||
+          tag == 'h2' ||
+          tag == 'h3' ||
+          tag == 'h4' ||
+          tag == 'h5' ||
+          tag == 'h6') {
         blocks.add(_ContentBlock.heading(child.text.trim()));
-      } else if (tag == 'div') {
+      } else if (tag == 'div' ||
+          tag == 'span' ||
+          tag == 'font' ||
+          tag == 'strong' ||
+          tag == 'em' ||
+          tag == 'section' ||
+          tag == 'article' ||
+          tag == 'li' ||
+          tag == 'ul' ||
+          tag == 'ol') {
         _parseElement(child, blocks);
+      } else {
+        final text = child.text.trim();
+        if (text.isNotEmpty && child.querySelector('img') == null) {
+          blocks.add(_ContentBlock.text(text));
+        } else {
+          _parseElement(child, blocks);
+        }
       }
     }
+  }
+
+  void _parseInlineElement(dom.Element element, List<_ContentBlock> blocks) {
+    final textBuffer = StringBuffer();
+
+    void flushText() {
+      final text = _normalizeInlineText(textBuffer.toString());
+      textBuffer.clear();
+      if (text.isNotEmpty) {
+        blocks.add(_ContentBlock.text(text));
+      }
+    }
+
+    void walk(dom.Node node) {
+      if (node is dom.Text) {
+        textBuffer.write(node.text);
+        return;
+      }
+      if (node is! dom.Element) return;
+
+      final tag = node.localName;
+      if (tag == 'script' || tag == 'style' || tag == 'noscript') return;
+      if (tag == 'br') {
+        textBuffer.write('\n');
+        return;
+      }
+      if (tag == 'img') {
+        flushText();
+        final imgSrc = _resolveImgSrc(node);
+        if (imgSrc.isNotEmpty) {
+          blocks.add(_ContentBlock.imageWithText(imgSrc, ''));
+        }
+        return;
+      }
+
+      for (final child in node.nodes) {
+        walk(child);
+      }
+    }
+
+    for (final node in element.nodes) {
+      walk(node);
+    }
+    flushText();
+  }
+
+  String _normalizeInlineText(String text) {
+    return text
+        .replaceAll('\u00A0', ' ')
+        .replaceAll(RegExp(r'[ \t\r\f]+'), ' ')
+        .replaceAll(RegExp(r' *\n *'), '\n')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .trim();
+  }
+
+  List<_ContentBlock> _compactContentBlocks(List<_ContentBlock> blocks) {
+    final compacted = <_ContentBlock>[];
+    final textBuffer = StringBuffer();
+
+    void flushText() {
+      final text = _normalizeInlineText(textBuffer.toString());
+      textBuffer.clear();
+      if (text.isNotEmpty) {
+        compacted.add(_ContentBlock.text(text));
+      }
+    }
+
+    void appendTextBlock(String text) {
+      final normalized = _normalizeInlineText(text);
+      if (normalized.isEmpty) return;
+      if (textBuffer.isNotEmpty && !textBuffer.toString().endsWith('\n')) {
+        textBuffer.write('\n');
+      }
+      textBuffer.write(normalized);
+    }
+
+    for (final block in blocks) {
+      switch (block.type) {
+        case _ContentBlockType.text:
+          appendTextBlock(block.text);
+        case _ContentBlockType.heading:
+          flushText();
+          if (block.text.trim().isNotEmpty) {
+            compacted.add(block);
+          }
+        case _ContentBlockType.imageWithText:
+          flushText();
+          compacted.add(block);
+      }
+    }
+    flushText();
+    return compacted;
   }
 
   String _resolveImgSrc(dynamic imgEl) {
     if (imgEl == null) return '';
     final src = imgEl.attributes['data-original'] ??
         imgEl.attributes['data-src'] ??
+        imgEl.attributes['zoomfile'] ??
+        imgEl.attributes['file'] ??
         imgEl.attributes['src'] ??
         '';
     return src.startsWith('//') ? 'https:$src' : src;
@@ -2741,8 +2919,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     for (final block in blocks) {
       final textLines = block.text.split('\n');
       final startLine = lineAccum;
-      final hasText =
-          textLines.length >= 1 && textLines.any((l) => l.isNotEmpty);
+      final hasText = textLines.any((l) => l.isNotEmpty);
       if (hasText) lineAccum += textLines.length;
 
       Widget buildRichTextWidget(
@@ -2850,49 +3027,42 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Widget _buildBlockImage(String imageUrl) {
-    if (!imageUrl.startsWith('http://') &&
-        !imageUrl.startsWith('https://') &&
-        !imageUrl.startsWith('//')) {
-      final resolvedPath = _resolveExistingMediaPath(imageUrl);
-      if (resolvedPath != null) {
-        return GestureDetector(
-          onTap: () => _openImageViewer(resolvedPath),
-          child: Image.file(
-            File(resolvedPath),
-            key: ValueKey('img_${_imageVersion}_$resolvedPath'),
-            fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fallbackWidth = MediaQuery.of(context).size.width * 0.8;
+        final availableWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : fallbackWidth;
+        final maxImageWidth = availableWidth * 0.8;
+
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxImageWidth),
+            child: GestureDetector(
+              onTap: () => _openImageViewer(imageUrl),
+              child: _buildMediaImage(imageUrl),
+            ),
           ),
         );
-      }
-      return const SizedBox.shrink();
-    }
-    final url = imageUrl.startsWith('//') ? 'https:$imageUrl' : imageUrl;
-    return CachedNetworkImage(
-      imageUrl: url,
-      fit: BoxFit.contain,
-      placeholder: (_, __) => const SizedBox(
-        height: 100,
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      ),
-      errorWidget: (_, __, ___) => const SizedBox.shrink(),
-      httpHeaders: const {
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://www.dlsite.com/',
       },
     );
   }
 
   void _openImageViewer(String imagePath) {
     final allImages = _currentGame.images;
+    final resolvedPath = _resolveExistingMediaPath(imagePath);
+    final viewerPath = resolvedPath ??
+        (_isRemoteMediaPath(imagePath)
+            ? _canonicalRemoteMediaPath(imagePath)
+            : imagePath);
+
     // 查找点击的图片在所有图片中的索引
-    int initialIndex =
-        allImages.indexWhere((img) => img.imagePath == imagePath);
+    int initialIndex = _findImageIndexForMedia(viewerPath, original: imagePath);
     if (initialIndex < 0) {
       // 如果找不到，创建一个临时列表
       final image =
-          GameImage(gameId: _currentGame.id ?? 0, imagePath: imagePath);
+          GameImage(gameId: _currentGame.id ?? 0, imagePath: viewerPath);
       setState(() => _isImageViewerOpen = true);
       showDialog(
         context: context,
@@ -3026,6 +3196,65 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     );
   }
 
+  Widget _buildMediaImage(String mediaPath) {
+    final resolvedPath = _resolveExistingMediaPath(mediaPath);
+    if (resolvedPath != null) {
+      return Image.file(
+        File(resolvedPath),
+        key: ValueKey('img_${_imageVersion}_$resolvedPath'),
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+      );
+    }
+
+    if (_isRemoteMediaPath(mediaPath)) {
+      final url = _canonicalRemoteMediaPath(mediaPath);
+      return CachedNetworkImage(
+        imageUrl: url,
+        fit: BoxFit.contain,
+        placeholder: (_, __) => const SizedBox(
+          height: 100,
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+        errorWidget: (_, __, ___) => const SizedBox.shrink(),
+        httpHeaders: const {
+          'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': 'https://www.dlsite.com/',
+        },
+      );
+    }
+
+    if (File(mediaPath).existsSync()) {
+      return Image.file(
+        File(mediaPath),
+        key: ValueKey('img_${_imageVersion}_$mediaPath'),
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  int _findImageIndexForMedia(String mediaPath, {String? original}) {
+    final candidates = <String>{
+      mediaPath,
+      if (original != null) original,
+      if (_mediaPathAliases[mediaPath] != null) _mediaPathAliases[mediaPath]!,
+      if (original != null && _mediaPathAliases[original] != null)
+        _mediaPathAliases[original]!,
+    };
+    final normalizedCandidates = candidates.map(_normalizeMediaPathKey).toSet();
+    final stemCandidates = candidates.map(_mediaStemKey).toSet();
+
+    return _currentGame.images.indexWhere((img) {
+      final imagePath = img.imagePath;
+      return normalizedCandidates.contains(_normalizeMediaPathKey(imagePath)) ||
+          stemCandidates.contains(_mediaStemKey(imagePath));
+    });
+  }
+
   List<TextSpan> _buildHighlightedSpans(
       String line, List<ContentSearchMatch> matches, TextStyle baseStyle) {
     final spans = <TextSpan>[];
@@ -3121,22 +3350,35 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           widgets.add(
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: GestureDetector(
-                onTap: () => _openImageViewerFromList(
-                    contentImages, imageIndex >= 0 ? imageIndex : 0),
-                child: ClipRRect(
-                  borderRadius:
-                      BorderRadius.circular(GlassConstants.radiusMedium),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 800),
-                    child: Image.file(
-                      File(resolvedPath),
-                      key: ValueKey('img_${_imageVersion}_$resolvedPath'),
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final fallbackWidth = MediaQuery.of(context).size.width * 0.8;
+                  final availableWidth = constraints.maxWidth.isFinite
+                      ? constraints.maxWidth
+                      : fallbackWidth;
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: ConstrainedBox(
+                      constraints:
+                          BoxConstraints(maxWidth: availableWidth * 0.8),
+                      child: GestureDetector(
+                        onTap: () => _openImageViewerFromList(
+                            contentImages, imageIndex >= 0 ? imageIndex : 0),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(
+                              GlassConstants.radiusMedium),
+                          child: Image.file(
+                            File(resolvedPath),
+                            key: ValueKey('img_${_imageVersion}_$resolvedPath'),
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) =>
+                                const SizedBox.shrink(),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
           );
@@ -5953,18 +6195,9 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                                                   _offset.dx, _offset.dy)
                                               ..scale(_scale),
                                             alignment: Alignment.center,
-                                            child: Image.file(
-                                              File(widget.images[_currentIndex]
-                                                  .imagePath!),
-                                              fit: BoxFit.contain,
-                                              errorBuilder: (_, __, ___) => Icon(
-                                                  Icons.broken_image,
-                                                  size: 64,
-                                                  color: AppTheme
-                                                          .getDetailTextPrimary(
-                                                              context)
-                                                      .withValues(alpha: 0.3)),
-                                            ),
+                                            child: _buildViewerImage(widget
+                                                .images[_currentIndex]
+                                                .imagePath),
                                           )
                                         : const SizedBox.shrink(),
                                   ),
@@ -6086,6 +6319,44 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
       ),
     );
   }
+
+  Widget _buildViewerImage(String imagePath) {
+    if (_isRemoteImagePath(imagePath)) {
+      final url = imagePath.startsWith('//') ? 'https:$imagePath' : imagePath;
+      return CachedNetworkImage(
+        imageUrl: url,
+        fit: BoxFit.contain,
+        placeholder: (_, __) => const Center(
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        errorWidget: (_, __, ___) => _buildBrokenImageIcon(),
+        httpHeaders: const {
+          'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': 'https://www.dlsite.com/',
+        },
+      );
+    }
+
+    return Image.file(
+      File(imagePath),
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) => _buildBrokenImageIcon(),
+    );
+  }
+
+  Widget _buildBrokenImageIcon() {
+    return Icon(
+      Icons.broken_image,
+      size: 64,
+      color: AppTheme.getDetailTextPrimary(context).withValues(alpha: 0.3),
+    );
+  }
+
+  bool _isRemoteImagePath(String imagePath) =>
+      imagePath.startsWith('http://') ||
+      imagePath.startsWith('https://') ||
+      imagePath.startsWith('//');
 }
 
 class _ImageSelectionDialog extends StatelessWidget {

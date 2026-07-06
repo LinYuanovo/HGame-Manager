@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -146,29 +147,173 @@ class HGameManagerApp extends ConsumerStatefulWidget {
 }
 
 class _HGameManagerAppState extends ConsumerState<HGameManagerApp> {
+  static const int _startupMigrationBatchSize = 5;
+  static const Duration _startupMigrationTimeout = Duration(seconds: 5);
+
   String _lastFontFamily = '';
   ThemeData? _cachedLightTheme;
   ThemeData? _cachedDarkTheme;
+  Timer? _startupMigrationTimer;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(_migrateExistingGameData);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startupMigrationTimer =
+          Timer(const Duration(seconds: 5), _migrateExistingGameData);
+    });
+  }
+
+  @override
+  void dispose() {
+    _startupMigrationTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _migrateExistingGameData() async {
+    final log = AppLogger.instance;
     try {
+      if (!mounted) return;
       final repository = ref.read(gameRepositoryProvider);
       final migrationService = ref.read(gameDataMigrationServiceProvider);
+      final prefs = ref.read(sharedPreferencesProvider);
       final games = await repository.getAllGames();
-      await migrationService.migrateExistingGames(games);
+      final currentIds = games
+          .map((game) => game.id)
+          .whereType<int>()
+          .map((id) => id.toString())
+          .toSet();
+      final migratedIds =
+          prefs.getStringList(AppSettings.startupMigratedGameIdsKey)?.toSet() ??
+              <String>{};
+      final originalMigratedCount = migratedIds.length;
+      migratedIds.removeWhere((id) => !currentIds.contains(id));
+
+      final pendingGames = games.where((game) {
+        final id = game.id;
+        return id != null && !migratedIds.contains(id.toString());
+      }).toList()
+        ..sort((a, b) => a.id!.compareTo(b.id!));
+
+      log.info(
+        'GameDataMigration',
+        '启动增量迁移检查: total=${games.length}, completed=${migratedIds.length}, '
+            'pending=${pendingGames.length}, pruned=${originalMigratedCount - migratedIds.length}',
+      );
+
+      if (pendingGames.isEmpty) {
+        if (migratedIds.length != originalMigratedCount) {
+          await _saveStartupMigrationIds(prefs, migratedIds);
+          log.info('GameDataMigration', '已清理不存在游戏的迁移记录');
+        }
+        return;
+      }
+
+      var changed = false;
+      var successCount = 0;
+      var missingCount = 0;
+      var timeoutCount = 0;
+      var failedCount = 0;
+      var progressDirty = migratedIds.length != originalMigratedCount;
+
+      for (var i = 0; i < pendingGames.length; i++) {
+        if (!mounted) return;
+        final game = pendingGames[i];
+        final gameId = game.id!;
+        try {
+          log.info(
+            'GameDataMigration',
+            '开始迁移检查: id=$gameId, index=${i + 1}/${pendingGames.length}, path=${game.path}',
+          );
+          final result = await migrationService
+              .migrateGameDirectory(game.path, gameId: gameId)
+              .timeout(_startupMigrationTimeout);
+          changed |= result.changed;
+          if (result.gameDirectoryExists) {
+            migratedIds.add(gameId.toString());
+            progressDirty = true;
+            successCount++;
+          } else {
+            missingCount++;
+            log.warning(
+              'GameDataMigration',
+              '游戏目录不存在，未记录为已迁移: id=$gameId, path=${game.path}',
+            );
+          }
+          log.info(
+            'GameDataMigration',
+            '迁移检查完成: id=$gameId, changed=${result.changed}, '
+                'movedImages=${result.imagePathMap.length}, path=${game.path}',
+          );
+        } on TimeoutException {
+          timeoutCount++;
+          log.warning(
+            'GameDataMigration',
+            '启动迁移超时，保留待下次重试: id=$gameId, path=${game.path}',
+          );
+        } catch (e, stackTrace) {
+          failedCount++;
+          log.error(
+            'GameDataMigration',
+            '迁移失败，保留待下次重试: id=$gameId, path=${game.path}',
+            e,
+            stackTrace,
+          );
+        }
+
+        if (i % _startupMigrationBatchSize == _startupMigrationBatchSize - 1) {
+          if (progressDirty) {
+            await _saveStartupMigrationIds(prefs, migratedIds);
+            progressDirty = false;
+            log.info(
+              'GameDataMigration',
+              '已保存迁移进度: completed=${migratedIds.length}, '
+                  'processed=${i + 1}/${pendingGames.length}',
+            );
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 16));
+        }
+      }
+
+      if (progressDirty) {
+        await _saveStartupMigrationIds(prefs, migratedIds);
+        log.info(
+          'GameDataMigration',
+          '已保存最终迁移进度: completed=${migratedIds.length}',
+        );
+      }
+
+      log.info(
+        'GameDataMigration',
+        '启动增量迁移结束: success=$successCount, missing=$missingCount, '
+            'timeout=$timeoutCount, failed=$failedCount, changed=$changed',
+      );
+
+      if (!mounted || !changed) return;
       ref.invalidate(allGamesProvider);
       ref.invalidate(playedGamesProvider);
       ref.invalidate(favoriteGamesProvider);
       ref.invalidate(clearedGamesProvider);
-    } catch (e) {
-      debugPrint('[GameDataMigration] 启动迁移失败: $e');
+    } catch (e, stackTrace) {
+      log.error('GameDataMigration', '启动迁移失败', e, stackTrace);
     }
+  }
+
+  Future<void> _saveStartupMigrationIds(
+    AppSettings prefs,
+    Set<String> migratedIds,
+  ) async {
+    final sortedIds = migratedIds.toList()
+      ..sort((left, right) {
+        final leftId = int.tryParse(left);
+        final rightId = int.tryParse(right);
+        if (leftId != null && rightId != null) {
+          return leftId.compareTo(rightId);
+        }
+        return left.compareTo(right);
+      });
+    await prefs.setStringList(AppSettings.startupMigratedGameIdsKey, sortedIds);
+    await prefs.flush();
   }
 
   ThemeData _getLightTheme(String fontFamily) {

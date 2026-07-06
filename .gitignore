@@ -107,6 +107,7 @@ test/utils/*
 !test/utils/cleared_game_path_utils_test.dart
 !test/utils/game_data_paths_test.dart
 !test/utils/media_reference_parser_test.dart
+!test/scraper_rich_text_test.dart
 hgame-manager-creative-proposal/
 
 # Environment files

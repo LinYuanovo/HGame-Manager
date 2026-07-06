@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:path/path.dart' as path;
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../database/database_helper.dart';
 import '../models/models.dart';
 import '../repositories/game_repository.dart';
@@ -31,6 +31,8 @@ class _ParsedGameData {
   final bool isFavorite;
   final bool isPlayed;
   final String? guide;
+  final String metadataFingerprint;
+  final bool migrationChecked;
 
   _ParsedGameData({
     required this.folderPath,
@@ -51,6 +53,8 @@ class _ParsedGameData {
     this.isFavorite = false,
     this.isPlayed = false,
     this.guide,
+    required this.metadataFingerprint,
+    required this.migrationChecked,
   });
 }
 
@@ -106,6 +110,14 @@ class GameScannerService {
         return !normalizedBlacklist.contains(normalized);
       }).toList();
 
+      final prefs = await AppSettings.load();
+      final scanFingerprints = _loadScanMetadataFingerprints(prefs);
+      final migratedIds =
+          prefs.getStringList(AppSettings.startupMigratedGameIdsKey)?.toSet() ??
+              <String>{};
+      var scanFingerprintsDirty = false;
+      var migratedIdsDirty = false;
+
       final existingGames = await _gameRepository.getAllGames();
       final gamePathMap = <String, Game>{};
       for (final g in existingGames) {
@@ -117,22 +129,40 @@ class GameScannerService {
         if (shouldCancel?.call() == true) break;
         final existing = gamePathMap[folder];
         final metadataFile = await GameDataPaths.existingMetadataFile(folder);
+        final fingerprint = await _metadataFingerprint(metadataFile);
+        final folderKey = _normalizedPathKey(folder);
 
         // 如果游戏已存在
         if (existing != null) {
-          // 如果 addedTime 为空（旧数据），跳过扫描
-          if (existing.addedTime == null) {
+          if (fingerprint != null) {
+            final cachedFingerprint = scanFingerprints[folderKey];
+            if (cachedFingerprint == fingerprint) {
+              continue;
+            }
+
+            // 兼容旧数据：没有扫描缓存时，仍沿用 addedTime 的跳过逻辑，
+            // 同时补齐缓存，避免后续扫描重复比较到旧字段。
+            if (cachedFingerprint == null && existing.addedTime != null) {
+              final stat = await metadataFile.stat();
+              if (!stat.modified.isAfter(existing.addedTime!)) {
+                scanFingerprints[folderKey] = fingerprint;
+                scanFingerprintsDirty = true;
+                continue;
+              }
+            }
+          } else if (existing.addedTime == null) {
             continue;
-          }
-          // 如果 metadata.json 存在，检查是否被修改过
-          if (await metadataFile.exists()) {
-            final stat = await metadataFile.stat();
-            if (!stat.modified.isAfter(existing.addedTime!)) {
+          } else {
+            if (!await metadataFile.exists()) {
               continue;
             }
           }
         }
         foldersToProcess.add(folder);
+      }
+
+      if (scanFingerprintsDirty) {
+        await _saveScanMetadataFingerprints(prefs, scanFingerprints);
       }
 
       final skippedCount = filteredFolders.length - foldersToProcess.length;
@@ -145,35 +175,57 @@ class GameScannerService {
 
       if (foldersToProcess.isEmpty) {
         // Still need to clean up missing folders
-        await _removeStaleEntries(existingGames);
+        await _removeStaleEntries(existingGames, libraryPath);
         _log.info('Scan', 'Scan Complete: nothing to process');
         return;
       }
 
       onProgress?.call(0, foldersToProcess.length);
 
-      // ── Phase 2: Parse metadata in parallel (50 per batch) ──
+      // ── Phase 2: Parse metadata in small batches to avoid disk I/O spikes ──
       _log.info('Scan', 'Phase 2: Parsing metadata...');
       final parsedGames = <_ParsedGameData>[];
-      const parseBatchSize = 50;
+      const parseBatchSize = 8;
       for (int i = 0; i < foldersToProcess.length; i += parseBatchSize) {
         if (shouldCancel?.call() == true) break;
 
         final batch = foldersToProcess.skip(i).take(parseBatchSize).toList();
-        final results =
-            await Future.wait(batch.map((f) => _parseFolder(f, gamePathMap)));
+        final results = await Future.wait(batch.map((f) => _parseFolder(
+              f,
+              gamePathMap,
+              migratedIds,
+            )));
         for (final r in results) {
-          if (r != null) parsedGames.add(r);
+          if (r == null) continue;
+          parsedGames.add(r);
+          scanFingerprints[_normalizedPathKey(r.folderPath)] =
+              r.metadataFingerprint;
+          final id = r.existingGameId;
+          if (id != null &&
+              r.migrationChecked &&
+              !migratedIds.contains(id.toString())) {
+            migratedIds.add(id.toString());
+            migratedIdsDirty = true;
+          }
         }
+        scanFingerprintsDirty =
+            scanFingerprintsDirty || results.any((r) => r != null);
 
         onProgress?.call(i + batch.length, foldersToProcess.length);
         onGameProcessed?.call();
+        await Future<void>.delayed(const Duration(milliseconds: 16));
       }
 
       _log.info('Scan', 'Phase 2 done: parsed ${parsedGames.length} games');
 
       if (parsedGames.isEmpty) {
-        await _removeStaleEntries(existingGames);
+        if (scanFingerprintsDirty) {
+          await _saveScanMetadataFingerprints(prefs, scanFingerprints);
+        }
+        if (migratedIdsDirty) {
+          await _saveMigratedIds(prefs, migratedIds);
+        }
+        await _removeStaleEntries(existingGames, libraryPath);
         _log.info('Scan', 'Scan Complete: no valid metadata found');
         return;
       }
@@ -181,9 +233,15 @@ class GameScannerService {
       // ── Phase 3: Batch DB write in a single transaction ──
       _log.info('Scan', 'Phase 3: Writing to database...');
       await _batchWriteToDatabase(parsedGames, gamePathMap);
+      if (scanFingerprintsDirty) {
+        await _saveScanMetadataFingerprints(prefs, scanFingerprints);
+      }
+      if (migratedIdsDirty) {
+        await _saveMigratedIds(prefs, migratedIds);
+      }
 
       // Clean up missing folders
-      await _removeStaleEntries(existingGames);
+      await _removeStaleEntries(existingGames, libraryPath);
 
       _log.info('Scan',
           'Scan Complete: processed ${parsedGames.length}/${foldersToProcess.length}, skipped $skippedCount (unchanged)');
@@ -206,6 +264,55 @@ class GameScannerService {
           ignoreFolders: ignoreFolders, blacklistPaths: blacklistPaths);
     }
   }
+
+  Map<String, String> _loadScanMetadataFingerprints(AppSettings prefs) {
+    final raw = prefs.getString(AppSettings.scanMetadataFingerprintsKey) ?? '';
+    if (raw.isEmpty) return <String, String>{};
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      return decoded.map((key, value) => MapEntry(key, value.toString()));
+    } catch (e) {
+      _log.warning('Scan', '扫描缓存解析失败，将重建缓存: $e');
+      return <String, String>{};
+    }
+  }
+
+  Future<void> _saveScanMetadataFingerprints(
+    AppSettings prefs,
+    Map<String, String> fingerprints,
+  ) async {
+    await prefs.setString(
+      AppSettings.scanMetadataFingerprintsKey,
+      jsonEncode(fingerprints),
+    );
+    await prefs.flush();
+  }
+
+  Future<void> _saveMigratedIds(
+    AppSettings prefs,
+    Set<String> migratedIds,
+  ) async {
+    final sortedIds = migratedIds.toList()
+      ..sort((left, right) {
+        final leftId = int.tryParse(left);
+        final rightId = int.tryParse(right);
+        if (leftId != null && rightId != null) {
+          return leftId.compareTo(rightId);
+        }
+        return left.compareTo(right);
+      });
+    await prefs.setStringList(AppSettings.startupMigratedGameIdsKey, sortedIds);
+    await prefs.flush();
+  }
+
+  Future<String?> _metadataFingerprint(File metadataFile) async {
+    if (!await metadataFile.exists()) return null;
+    final stat = await metadataFile.stat();
+    return '${stat.modified.millisecondsSinceEpoch}:${stat.size}';
+  }
+
+  String _normalizedPathKey(String value) =>
+      path.normalize(value).replaceAll('/', '\\').toLowerCase();
 
   Future<List<String>> _scanGameFolders(
       String rootPath, List<String> ignoreFolders) async {
@@ -237,15 +344,37 @@ class GameScannerService {
   }
 
   Future<_ParsedGameData?> _parseFolder(
-      String folderPath, Map<String, Game> existingGameMap) async {
+    String folderPath,
+    Map<String, Game> existingGameMap,
+    Set<String> migratedIds,
+  ) async {
     try {
       final existingGame = existingGameMap[folderPath];
-      await _migrationService.migrateGameDirectory(
-        folderPath,
-        gameId: existingGame?.id,
-      );
+      final existingId = existingGame?.id;
+      final migrationAlreadyDone =
+          existingId != null && migratedIds.contains(existingId.toString());
+      final hasLegacyGameData =
+          await _migrationService.hasLegacyGameData(folderPath);
+      var migrationChecked = migrationAlreadyDone;
+      if (hasLegacyGameData) {
+        final result = await _migrationService.migrateGameDirectory(
+          folderPath,
+          gameId: existingId,
+          logNoop: false,
+        );
+        migrationChecked = result.gameDirectoryExists;
+        if (result.changed) {
+          _log.info(
+            'Scan',
+            '迁移旧版工作目录后继续解析: id=${existingId ?? '-'}, path=$folderPath',
+          );
+        }
+      }
 
       final metadataFile = await GameDataPaths.existingMetadataFile(folderPath);
+      final fingerprint = await _metadataFingerprint(metadataFile);
+      if (fingerprint == null) return null;
+
       Map<String, dynamic>? metadata;
       if (await metadataFile.exists()) {
         final content = await metadataFile.readAsString();
@@ -311,6 +440,8 @@ class GameScannerService {
         isFavorite: existingGame?.isFavorite ?? false,
         isPlayed: existingGame?.isPlayed ?? false,
         guide: metadata?['guide'] as String?,
+        metadataFingerprint: fingerprint,
+        migrationChecked: migrationChecked,
       );
     } catch (e) {
       if (kDebugMode) debugPrint('[Scan] Error parsing $folderPath: $e');
@@ -467,7 +598,10 @@ class GameScannerService {
     });
   }
 
-  Future<void> _removeStaleEntries(List<Game> existingGames) async {
+  Future<void> _removeStaleEntries(
+    List<Game> existingGames,
+    String libraryPath,
+  ) async {
     final prefs = await AppSettings.load();
     final rawCleared = prefs.getString('cleared_paths') ?? '';
     final clearedPathList = <String>[];
@@ -481,8 +615,14 @@ class GameScannerService {
       } catch (_) {}
     }
 
+    final normalizedLibraryPath = _normalizedPathKey(libraryPath);
+
     for (final game in existingGames) {
       try {
+        if (!_normalizedPathKey(game.path).startsWith(normalizedLibraryPath)) {
+          continue;
+        }
+
         final sep = Platform.pathSeparator;
         // 旧格式：路径包含 /Cleared/ 的游戏
         if (game.path.contains('${sep}Cleared$sep') &&
@@ -506,9 +646,10 @@ class GameScannerService {
         final dir = Directory(game.path);
         if (!await dir.exists()) {
           await _gameRepository.deleteGame(game.id!);
-          if (kDebugMode)
+          if (kDebugMode) {
             debugPrint(
                 '[Scan] Removed DB entry for missing folder: ${game.path}');
+          }
         }
       } catch (e) {
         if (kDebugMode) debugPrint('[Scan] Error checking game folder: $e');

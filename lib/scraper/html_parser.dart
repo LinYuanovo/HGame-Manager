@@ -6,6 +6,7 @@ import '../core/services/app_logger.dart';
 import '../core/utils/app_settings.dart';
 import 'site_parsers.dart';
 import 'parse_utils.dart';
+import 'rich_text_extractor.dart';
 import 'xpath_evaluator.dart';
 
 /// Base class for site-specific parsers
@@ -106,7 +107,8 @@ class HtmlScraper {
     registerCustomDomainParsers();
     final countAfter = ParserRegistry.allParsers.length;
     if (countAfter != countBefore) {
-      _log.info('Scraper', '[ensureRegistered] parsers: $countBefore -> $countAfter, domains: ${ParserRegistry.allParsers.map((p) => '${p.runtimeType}(${p.domain})').toList()}');
+      _log.info('Scraper',
+          '[ensureRegistered] parsers: $countBefore -> $countAfter, domains: ${ParserRegistry.allParsers.map((p) => '${p.runtimeType}(${p.domain})').toList()}');
     }
   }
 
@@ -124,7 +126,17 @@ class HtmlScraper {
         final domain = item['domain'] as String? ?? '';
         if (domain.isEmpty) continue;
         final xpathMap = <String, String>{};
-        for (final key in ['title', 'description', 'images', 'downloadLinks', 'tags', 'signUnzipCode', 'version', 'changelog', 'features']) {
+        for (final key in [
+          'title',
+          'description',
+          'images',
+          'downloadLinks',
+          'tags',
+          'signUnzipCode',
+          'version',
+          'changelog',
+          'features'
+        ]) {
           final val = item[key] as String?;
           if (val != null && val.isNotEmpty) {
             xpathMap[key] = val;
@@ -132,7 +144,8 @@ class HtmlScraper {
         }
         if (xpathMap.isNotEmpty) {
           final cookie = item['cookie'] as String?;
-          ParserRegistry.register(XpathParser(domain, xpathMap, cookie: cookie));
+          ParserRegistry.register(
+              XpathParser(domain, xpathMap, cookie: cookie));
           _log.info('Scraper', 'Loaded XPath parser for domain: $domain');
         }
       }
@@ -177,18 +190,21 @@ class HtmlScraper {
 
     var parser = ParserRegistry.getParserForUrl(url);
     if (parser != null) {
-      _log.info('Scraper', 'Using built-in parser: ${parser.runtimeType} for: $url');
+      _log.info(
+          'Scraper', 'Using built-in parser: ${parser.runtimeType} for: $url');
     }
 
     if (parser == null) {
       if (!_xpathLoaded) {
-        _log.warning('Scraper', 'XPath parsers not yet loaded (async), returning null for: $url');
+        _log.warning('Scraper',
+            'XPath parsers not yet loaded (async), returning null for: $url');
         return null;
       }
       parser = ParserRegistry.getParserForUrl(url);
       if (parser == null) {
         _log.warning('Scraper', 'No parser found for URL: $url');
-        _log.warning('Scraper', '  Registered parsers: ${ParserRegistry.allParsers.map((p) => '${p.runtimeType}(domain=${p.domain})').toList()}');
+        _log.warning('Scraper',
+            '  Registered parsers: ${ParserRegistry.allParsers.map((p) => '${p.runtimeType}(domain=${p.domain})').toList()}');
         _log.warning('Scraper', '  Parsed host: ${Uri.tryParse(url)?.host}');
         return null;
       }
@@ -196,15 +212,19 @@ class HtmlScraper {
     }
 
     try {
-      _log.info('Scraper', 'HTML response: ${htmlContent.length} chars, url=$url');
-      _log.info('Scraper', 'HTML preview (first 500 chars): ${htmlContent.substring(0, htmlContent.length.clamp(0, 500))}');
+      _log.info(
+          'Scraper', 'HTML response: ${htmlContent.length} chars, url=$url');
+      _log.info('Scraper',
+          'HTML preview (first 500 chars): ${htmlContent.substring(0, htmlContent.length.clamp(0, 500))}');
       final document = html_parser.parse(htmlContent);
       final root = document.documentElement;
       if (root != null) {
-        _log.info('Scraper', 'Parsed document root: <${root.localName}>, children: ${root.children.length}');
+        _log.info('Scraper',
+            'Parsed document root: <${root.localName}>, children: ${root.children.length}');
         final body = root.querySelector('body');
         if (body != null) {
-          _log.info('Scraper', 'Body element: <body>, children: ${body.children.length}, direct child tags: ${body.children.take(10).map((c) => c.localName).join(", ")}');
+          _log.info('Scraper',
+              'Body element: <body>, children: ${body.children.length}, direct child tags: ${body.children.take(10).map((c) => c.localName).join(", ")}');
         } else {
           _log.info('Scraper', 'No <body> element found in document');
         }
@@ -251,7 +271,8 @@ class HtmlScraper {
 
     var parser = ParserRegistry.getParserForUrl(url);
     if (parser == null) {
-      _log.warning('Scraper', 'No specific parser found for URL: $url, using generic fallback');
+      _log.warning('Scraper',
+          'No specific parser found for URL: $url, using generic fallback');
       parser = GenericParser();
     } else {
       _log.info('Scraper', 'Using parser: ${parser.runtimeType} for: $url');
@@ -265,17 +286,17 @@ class HtmlScraper {
       // Fallback: if intro is empty, try to find article content area
       if (metadata.intro == null || metadata.intro!.trim().isEmpty) {
         final contentSelectors = [
-          'td.t_f',           // Discuz! forums (飞雪ACG etc.)
-          'div.t_fsz',        // Discuz! post content wrapper
-          'div.pcb',          // Discuz! post content block
+          'td.t_f', // Discuz! forums (飞雪ACG etc.)
+          'div.t_fsz', // Discuz! post content wrapper
+          'div.pcb', // Discuz! post content block
           'div.post-content', // WordPress post content
-          'div.entry-content',// WordPress/standard entry content
-          'div.article-content',// Common article content
-          'article',          // HTML5 article element
-          'div.content',      // Generic content div
-          'main',             // HTML5 main element
+          'div.entry-content', // WordPress/standard entry content
+          'div.article-content', // Common article content
+          'article', // HTML5 article element
+          'div.content', // Generic content div
+          'main', // HTML5 main element
           'div.main-content', // Common main content
-          'div.post-body',    // Blog post body
+          'div.post-body', // Blog post body
         ];
 
         String? contentText;
@@ -285,19 +306,24 @@ class HtmlScraper {
             final text = element.text.trim();
             if (text.length > 50) {
               contentText = text;
-              _log.info('Scraper', 'Found content in "$selector" (${text.length} chars)');
+              _log.info('Scraper',
+                  'Found content in "$selector" (${text.length} chars)');
               break;
             }
           }
         }
 
         if (contentText != null) {
-          metadata.intro = contentText.substring(0, contentText.length > 1500 ? 1500 : contentText.length) + (contentText.length > 1500 ? '...' : '');
+          metadata.intro = contentText.substring(
+                  0, contentText.length > 1500 ? 1500 : contentText.length) +
+              (contentText.length > 1500 ? '...' : '');
         } else if (document.body != null) {
           // Last resort: use body text
           final bodyText = document.body!.text.trim();
           if (bodyText.length > 50) {
-            metadata.intro = bodyText.substring(0, bodyText.length > 1500 ? 1500 : bodyText.length) + (bodyText.length > 1500 ? '...' : '');
+            metadata.intro = bodyText.substring(
+                    0, bodyText.length > 1500 ? 1500 : bodyText.length) +
+                (bodyText.length > 1500 ? '...' : '');
             _log.info('Scraper', 'Using body text as fallback intro');
           }
         }
@@ -346,7 +372,8 @@ class XpathParser extends SiteParser {
     String? rawTitle;
     if (titleXpath != null) {
       rawTitle = XPathEvaluator.queryTextWithFallback(document, titleXpath);
-      AppLogger.instance.info('Scraper', '[XpathParser] title xpath=$titleXpath -> ${rawTitle?.substring(0, rawTitle.length.clamp(0, 60)) ?? "null"}');
+      AppLogger.instance.info('Scraper',
+          '[XpathParser] title xpath=$titleXpath -> ${rawTitle?.substring(0, rawTitle.length.clamp(0, 60)) ?? "null"}');
     }
     if (rawTitle == null || rawTitle.isEmpty) return null;
 
@@ -357,20 +384,33 @@ class XpathParser extends SiteParser {
         .replaceAll(RegExp(r'\[[^\]]*\]'), '')
         .trim();
     final version = extractVersion(cleanTitle);
-    final titleWithoutVersion = version != null ? removeVersionFromTitle(cleanTitle) : cleanTitle;
+    final titleWithoutVersion =
+        version != null ? removeVersionFromTitle(cleanTitle) : cleanTitle;
 
     String? description;
+    String? descriptionHtml;
+    RichTextExtraction? descriptionRichText;
     final descXpath = _xpaths['description'];
     if (descXpath != null) {
       // Try to get element for inline image processing
       final descElement = XPathEvaluator.query(document, descXpath);
       if (descElement != null) {
-        description = _extractTextWithImages(descElement);
-        AppLogger.instance.info('Scraper', '[XpathParser] description (with images) xpath=$descXpath -> ${description.length}chars');
+        descriptionRichText =
+            RichTextExtractor.extractDescription(descElement, url);
+        description = descriptionRichText.plainText.isNotEmpty
+            ? descriptionRichText.plainText
+            : _extractTextWithImages(descElement);
+        descriptionHtml = descriptionRichText.html.isNotEmpty
+            ? descriptionRichText.html
+            : null;
+        AppLogger.instance.info('Scraper',
+            '[XpathParser] description (rich) xpath=$descXpath -> ${description.length}chars, html=${descriptionHtml?.length ?? 0}chars');
       } else {
         // Fallback to plain text
-        final rawDesc = XPathEvaluator.queryTextWithFallback(document, descXpath);
-        AppLogger.instance.info('Scraper', '[XpathParser] description xpath=$descXpath -> ${rawDesc != null ? "${rawDesc.length}chars" : "null"}');
+        final rawDesc =
+            XPathEvaluator.queryTextWithFallback(document, descXpath);
+        AppLogger.instance.info('Scraper',
+            '[XpathParser] description xpath=$descXpath -> ${rawDesc != null ? "${rawDesc.length}chars" : "null"}');
         if (rawDesc != null && rawDesc.isNotEmpty) {
           description = rawDesc;
         }
@@ -378,6 +418,7 @@ class XpathParser extends SiteParser {
       if (description != null && description.isNotEmpty) {
         description = _extractSection(description, '概要') ??
             _extractSection(description, '游戏介绍') ??
+            _extractSection(description, '游戏简介') ??
             _extractSection(description, '简介') ??
             description;
         description = filterDescription(description);
@@ -388,8 +429,10 @@ class XpathParser extends SiteParser {
     List<String> features = [];
     final featuresXpath = _xpaths['features'];
     if (featuresXpath != null) {
-      final featuresText = XPathEvaluator.queryTextWithFallback(document, featuresXpath);
-      AppLogger.instance.info('Scraper', '[XpathParser] features xpath=$featuresXpath -> ${featuresText != null ? "${featuresText.length}chars" : "null"}');
+      final featuresText =
+          XPathEvaluator.queryTextWithFallback(document, featuresXpath);
+      AppLogger.instance.info('Scraper',
+          '[XpathParser] features xpath=$featuresXpath -> ${featuresText != null ? "${featuresText.length}chars" : "null"}');
       if (featuresText != null) {
         final filtered = filterCommonNoise(featuresText);
         features = filtered
@@ -403,8 +446,10 @@ class XpathParser extends SiteParser {
     String? changelog;
     final changelogXpath = _xpaths['changelog'];
     if (changelogXpath != null) {
-      changelog = XPathEvaluator.queryTextWithFallback(document, changelogXpath);
-      AppLogger.instance.info('Scraper', '[XpathParser] changelog xpath=$changelogXpath -> ${changelog != null ? "${changelog.length}chars" : "null"}');
+      changelog =
+          XPathEvaluator.queryTextWithFallback(document, changelogXpath);
+      AppLogger.instance.info('Scraper',
+          '[XpathParser] changelog xpath=$changelogXpath -> ${changelog != null ? "${changelog.length}chars" : "null"}');
       if (changelog != null) {
         changelog = filterCommonNoise(changelog);
         if (changelog.isEmpty) changelog = null;
@@ -414,36 +459,29 @@ class XpathParser extends SiteParser {
     final screenshots = <String>[];
     final imagesXpath = _xpaths['images'];
     if (imagesXpath != null && imagesXpath.isNotEmpty) {
-      screenshots.addAll(XPathEvaluator.queryAllAttributesWithFallback(document, imagesXpath));
-      AppLogger.instance.info('Scraper', '[XpathParser] images xpath=$imagesXpath -> ${screenshots.length} urls');
+      screenshots.addAll(
+          XPathEvaluator.queryAllAttributesWithFallback(document, imagesXpath));
+      AppLogger.instance.info('Scraper',
+          '[XpathParser] images xpath=$imagesXpath -> ${screenshots.length} urls');
     } else if (descXpath != null) {
       final contentEl = XPathEvaluator.query(document, descXpath);
       if (contentEl != null) {
-        for (final img in contentEl.querySelectorAll('img')) {
-          final src = img.attributes['data-original'] ??
-              img.attributes['zoomfile'] ??
-              img.attributes['file'] ??
-              img.attributes['src'] ??
-              img.attributes['data-src'] ??
-              '';
-          if (src.isNotEmpty &&
-              !src.contains('static/image/common') &&
-              !src.contains('smiley') &&
-              !src.endsWith('.svg') &&
-              !src.endsWith('.ico') &&
-              !screenshots.contains(src)) {
-            screenshots.add(src);
-          }
+        final imageUrls = descriptionRichText?.imageUrls ??
+            RichTextExtractor.extractImageUrls(contentEl, url);
+        for (final src in imageUrls) {
+          if (!screenshots.contains(src)) screenshots.add(src);
         }
       }
-      AppLogger.instance.info('Scraper', '[XpathParser] images from desc content -> ${screenshots.length} urls');
+      AppLogger.instance.info('Scraper',
+          '[XpathParser] images from desc content -> ${screenshots.length} urls');
     }
 
     final downloads = <DownloadLink>[];
     final dlXpath = _xpaths['downloadLinks'];
     if (dlXpath != null) {
       final dlText = XPathEvaluator.queryTextWithFallback(document, dlXpath);
-      AppLogger.instance.info('Scraper', '[XpathParser] downloadLinks xpath=$dlXpath -> ${dlText != null ? "${dlText.length}chars" : "null"}');
+      AppLogger.instance.info('Scraper',
+          '[XpathParser] downloadLinks xpath=$dlXpath -> ${dlText != null ? "${dlText.length}chars" : "null"}');
       if (dlText != null) {
         final filtered = dlText
             .replaceAll('本帖隱藏的內容', '')
@@ -458,7 +496,8 @@ class XpathParser extends SiteParser {
     final tagsXpath = _xpaths['tags'];
     if (tagsXpath != null) {
       tagList = XPathEvaluator.queryAllTexts(document, tagsXpath);
-      AppLogger.instance.info('Scraper', '[XpathParser] tags xpath=$tagsXpath -> ${tagList.length} tags');
+      AppLogger.instance.info('Scraper',
+          '[XpathParser] tags xpath=$tagsXpath -> ${tagList.length} tags');
     }
     for (final tag in tagList) {
       if (!tags.contains(tag)) tags.add(tag);
@@ -467,14 +506,17 @@ class XpathParser extends SiteParser {
     String? unzipCode;
     final signXpath = _xpaths['signUnzipCode'];
     if (signXpath != null) {
-      final signText = XPathEvaluator.queryTextWithFallback(document, signXpath);
-      AppLogger.instance.info('Scraper', '[XpathParser] signUnzipCode xpath=$signXpath -> ${signText != null ? "found" : "null"}');
+      final signText =
+          XPathEvaluator.queryTextWithFallback(document, signXpath);
+      AppLogger.instance.info('Scraper',
+          '[XpathParser] signUnzipCode xpath=$signXpath -> ${signText != null ? "found" : "null"}');
       if (signText != null) {
         unzipCode = extractUnzipCode(signText);
       }
     }
 
-    AppLogger.instance.info('Scraper', '[XpathParser] result: title=$titleWithoutVersion, version=$version, tags=${tags.length}, imgs=${screenshots.length}, dl=${downloads.length}');
+    AppLogger.instance.info('Scraper',
+        '[XpathParser] result: title=$titleWithoutVersion, version=$version, tags=${tags.length}, imgs=${screenshots.length}, dl=${downloads.length}');
 
     if (unzipCode != null && downloads.isNotEmpty) {
       final last = downloads.last;
@@ -493,6 +535,7 @@ class XpathParser extends SiteParser {
       tags: tags,
       category: category,
       description: description,
+      descriptionHtml: descriptionHtml,
       features: features,
       changelog: changelog,
       screenshots: screenshots,
@@ -509,7 +552,8 @@ class XpathParser extends SiteParser {
       title: gameInfo.title,
       version: gameInfo.version,
       intro: gameInfo.description,
-      features: gameInfo.features.isNotEmpty ? gameInfo.features.join('\n') : null,
+      features:
+          gameInfo.features.isNotEmpty ? gameInfo.features.join('\n') : null,
       changelog: gameInfo.changelog,
       downloadUrl: gameInfo.downloadUrl,
       sourceUrl: url,
@@ -562,7 +606,10 @@ class XpathParser extends SiteParser {
               node.attributes['file'] ??
               node.attributes['src'] ??
               '';
-          if (src.isNotEmpty && !src.contains('static/image') && !src.endsWith('.svg') && !src.endsWith('.ico')) {
+          if (src.isNotEmpty &&
+              !src.contains('static/image') &&
+              !src.endsWith('.svg') &&
+              !src.endsWith('.ico')) {
             final imgUrl = src.startsWith('//') ? 'https:$src' : src;
             buffer.writeln('[图片:$imgUrl]');
           }
@@ -608,9 +655,7 @@ class GenericParser extends SiteParser {
     metadata.imageUrls = images
         .map((img) => img.attributes['src'] ?? '')
         .where((src) =>
-            src.isNotEmpty &&
-            !src.endsWith('.svg') &&
-            !src.endsWith('.ico'))
+            src.isNotEmpty && !src.endsWith('.svg') && !src.endsWith('.ico'))
         .toList();
 
     return metadata;

@@ -112,9 +112,10 @@ build/windows/x64/runner/Release/hgame_manager.exe
 整理目录/
 ├── SLG/
 │   └── GameName/
-│       ├── source_url.txt
-│       ├── metadata.json
-│       └── images/
+│       └── HGMDatas/
+│         ├── source_url.txt
+│         ├── metadata.json
+│         └── images/
 ├── RPG/
 │   └── ...
 └── Unclassified/                     # 无系列标签的游戏
