@@ -1,7 +1,7 @@
 name: hgame_manager
 description: 黄油仓库 - 本地HGame管理工具
 publish_to: 'none'
-version: 1.4.4+25
+version: 1.4.5+26
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -29,6 +29,7 @@ dependencies:
   media_kit_libs_windows_video: ^1.0.11
   flutter_markdown: ^0.7.4
   crypto: ^3.0.3
+  flutter_inappwebview: ^6.1.5
 
 dev_dependencies:
   flutter_test:

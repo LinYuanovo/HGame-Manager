@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'app_settings.dart';
@@ -13,7 +13,9 @@ class _ClientEntry {
   Timer? idleTimer;
   bool inUse;
 
-  _ClientEntry(this.client) : refCount = 0, inUse = false;
+  _ClientEntry(this.client)
+      : refCount = 0,
+        inUse = false;
 
   void cancelIdleTimer() {
     idleTimer?.cancel();
@@ -29,6 +31,8 @@ class _DomainPool {
 
 final Map<String, _DomainPool> _clientPool = {};
 String _proxyConfigKey = '';
+const String defaultScrapeUserAgent =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
 
 Future<void> _updatePoolProxyConfig() async {
   final prefs = await AppSettings.load();
@@ -76,7 +80,8 @@ Future<String?> readWindowsSystemProxy() async {
       runInShell: true,
     );
     final serverOutput = serverResult.stdout.toString();
-    final match = RegExp(r'ProxyServer\s+REG_SZ\s+(.+)').firstMatch(serverOutput);
+    final match =
+        RegExp(r'ProxyServer\s+REG_SZ\s+(.+)').firstMatch(serverOutput);
     if (match != null) {
       final proxy = match.group(1)!.trim();
       AppLogger.instance.info('Proxy', 'System proxy found: $proxy');
@@ -89,7 +94,8 @@ Future<String?> readWindowsSystemProxy() async {
   }
 }
 
-Future<http.Client> createProxyClient({String? proxyMode, String? proxyUrl}) async {
+Future<http.Client> createProxyClient(
+    {String? proxyMode, String? proxyUrl}) async {
   final mode = proxyMode ?? 'none';
 
   if (mode == 'none') {
@@ -107,7 +113,8 @@ Future<http.Client> createProxyClient({String? proxyMode, String? proxyUrl}) asy
       AppLogger.instance.info('Proxy', 'Using system proxy: $systemProxy');
     } else {
       httpClient.findProxy = HttpClient.findProxyFromEnvironment;
-      AppLogger.instance.warning('Proxy', 'System proxy not set, falling back to environment variables');
+      AppLogger.instance.warning('Proxy',
+          'System proxy not set, falling back to environment variables');
     }
   } else if (mode == 'custom' && proxyUrl != null && proxyUrl.isNotEmpty) {
     httpClient.findProxy = (uri) => 'PROXY $proxyUrl';
@@ -165,7 +172,8 @@ Future<http.Client> createProxyClientFromPrefs({String? domain}) async {
     final prefs = await AppSettings.load();
     final proxyMode = prefs.getString('proxy_mode') ?? 'none';
     final proxyUrl = prefs.getString('proxy_url') ?? '';
-    final client = await createProxyClient(proxyMode: proxyMode, proxyUrl: proxyUrl);
+    final client =
+        await createProxyClient(proxyMode: proxyMode, proxyUrl: proxyUrl);
     idleEntry = _ClientEntry(client);
     pool.connections.add(idleEntry);
   }
@@ -219,11 +227,16 @@ Future<String> getEffectiveDomain(String siteKey) async {
   final customDomain = prefs.getString('domain_$siteKey') ?? '';
   if (customDomain.isNotEmpty) return customDomain;
   switch (siteKey) {
-    case 'acgying': return 'acgyyg.ru';
-    case 'feixue': return 'feixueacg.org';
-    case 'vikacg': return 'vikacg.com';
-    case '2dfan': return 'fan2d.top';
-    default: return '';
+    case 'acgying':
+      return 'acgyyg.ru';
+    case 'feixue':
+      return 'feixueacg.org';
+    case 'vikacg':
+      return 'vikacg.com';
+    case '2dfan':
+      return 'fan2d.top';
+    default:
+      return '';
   }
 }
 
@@ -233,21 +246,10 @@ Future<String> getCookieForSite(String url) async {
   if (uri == null) return '';
   final host = uri.host.toLowerCase();
 
-  final jsonStr = prefs.getString('xpath_parsers');
-  if (jsonStr != null && jsonStr.isNotEmpty) {
-    try {
-      final List<dynamic> list = jsonDecode(jsonStr);
-      for (final item in list) {
-        if (item is! Map<String, dynamic>) continue;
-        final domain = (item['domain'] as String? ?? '').toLowerCase();
-        final cookie = item['cookie'] as String? ?? '';
-        if (domain.isNotEmpty && cookie.isNotEmpty && host.contains(domain)) {
-          return cookie;
-        }
-      }
-    } catch (e) {
-      debugPrint('[Proxy] 解析Cookie配置失败: $e');
-    }
+  final customConfig = await getCustomXpathParserConfigForSite(url);
+  final customCookie = customConfig?['cookie'] ?? '';
+  if (customCookie.isNotEmpty) {
+    return customCookie;
   }
 
   final domainAcgying = prefs.getString('domain_acgying') ?? '';
@@ -281,13 +283,75 @@ Future<String> getCookieForSite(String url) async {
   return '';
 }
 
-Future<Map<String, String>> buildScrapeHeaders(String url) async {
-  final cookie = await getCookieForSite(url);
+Future<Map<String, String>?> getCustomXpathParserConfigForSite(
+    String url) async {
+  final prefs = await AppSettings.load();
+  final jsonStr = prefs.getString('xpath_parsers');
+  return customXpathParserConfigFromJson(url, jsonStr);
+}
+
+@visibleForTesting
+Map<String, String>? customXpathParserConfigFromJson(
+    String url, String? jsonStr) {
+  if (jsonStr == null || jsonStr.isEmpty) return null;
+  final uri = Uri.tryParse(url);
+  if (uri == null) return null;
+  final host = uri.host.toLowerCase();
+  try {
+    final List<dynamic> list = jsonDecode(jsonStr);
+    for (final item in list) {
+      if (item is! Map<String, dynamic>) continue;
+      final domain = _normalizeConfigDomain(item['domain']?.toString() ?? '');
+      if (domain.isEmpty || !host.contains(domain)) continue;
+      return item.map(
+          (key, value) => MapEntry(key.toString(), value?.toString() ?? ''));
+    }
+  } catch (e) {
+    debugPrint('[Proxy] 解析自定义解析器配置失败: $e');
+  }
+  return null;
+}
+
+@visibleForTesting
+String resolveScrapeUserAgentFromConfig(String url, String? jsonStr) {
+  final customConfig = customXpathParserConfigFromJson(url, jsonStr);
+  final userAgent = customConfig?['userAgent']?.trim() ?? '';
+  return userAgent.isNotEmpty ? userAgent : defaultScrapeUserAgent;
+}
+
+Future<String> getUserAgentForSite(String url) async {
+  final customConfig = await getCustomXpathParserConfigForSite(url);
+  final userAgent = customConfig?['userAgent']?.trim() ?? '';
+  return userAgent.isNotEmpty ? userAgent : defaultScrapeUserAgent;
+}
+
+String _normalizeConfigDomain(String domain) {
+  final trimmed = domain.trim().toLowerCase();
+  if (trimmed.isEmpty) return '';
+  final uri = Uri.tryParse(trimmed);
+  if (uri != null && uri.host.isNotEmpty) return uri.host.toLowerCase();
+  return trimmed
+      .replaceFirst(RegExp(r'^https?://'), '')
+      .split('/')
+      .first
+      .trim();
+}
+
+Future<Map<String, String>> buildScrapeHeaders(
+  String url, {
+  String? userAgentOverride,
+  String? cookieOverride,
+}) async {
+  final cookie = cookieOverride ?? await getCookieForSite(url);
+  final userAgent = userAgentOverride?.trim().isNotEmpty == true
+      ? userAgentOverride!.trim()
+      : await getUserAgentForSite(url);
   final uri = Uri.tryParse(url);
   final origin = uri != null ? '${uri.scheme}://${uri.host}' : '';
   final headers = <String, String>{
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'User-Agent': userAgent,
+    'Accept':
+        'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
     'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
     'Connection': 'keep-alive',
     'Sec-Fetch-Dest': 'document',
@@ -302,7 +366,8 @@ Future<Map<String, String>> buildScrapeHeaders(String url) async {
     final host = uri?.host.toLowerCase() ?? '';
     final prefs = await AppSettings.load();
     final domainVikacg = prefs.getString('domain_vikacg') ?? '';
-    final isVikacg = host.contains('vikacg') || host.contains('weika') ||
+    final isVikacg = host.contains('vikacg') ||
+        host.contains('weika') ||
         (domainVikacg.isNotEmpty && host.contains(domainVikacg.toLowerCase()));
     if (isVikacg) {
       headers['Authorization'] = cookie;
@@ -311,6 +376,18 @@ Future<Map<String, String>> buildScrapeHeaders(String url) async {
     }
   }
   return headers;
+}
+
+Future<Map<String, String>> buildScrapeImageHeaders(String sourceUrl) async {
+  if (sourceUrl.isEmpty) return {};
+  final cookie = await getCookieForSite(sourceUrl);
+  return {
+    'User-Agent': await getUserAgentForSite(sourceUrl),
+    'Accept':
+        'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+    'Referer': sourceUrl,
+    if (cookie.isNotEmpty) 'Cookie': cookie,
+  };
 }
 
 Future<bool> testProxyConnection(String testUrl) async {
@@ -324,13 +401,16 @@ Future<bool> testProxyConnection(String testUrl) async {
     ).timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200) {
-      AppLogger.instance.info('Proxy', 'Connection test SUCCESS (${response.statusCode}) for: $testUrl');
+      AppLogger.instance.info('Proxy',
+          'Connection test SUCCESS (${response.statusCode}) for: $testUrl');
     } else {
-      AppLogger.instance.warning('Proxy', 'Connection test returned ${response.statusCode} for: $testUrl');
+      AppLogger.instance.warning('Proxy',
+          'Connection test returned ${response.statusCode} for: $testUrl');
     }
     return response.statusCode == 200;
   } catch (e) {
-    AppLogger.instance.error('Proxy', 'Connection test FAILED for: $testUrl', e);
+    AppLogger.instance
+        .error('Proxy', 'Connection test FAILED for: $testUrl', e);
     return false;
   } finally {
     client.close();
@@ -347,13 +427,15 @@ Future<http.Response> httpGetWithRetry(
   final httpClient = client ?? http.Client();
   try {
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
-      final response = await httpClient.get(url, headers: headers)
+      final response = await httpClient
+          .get(url, headers: headers)
           .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 429) {
         if (attempt < maxRetries) {
           final delay = baseDelaySeconds * (attempt + 1);
-          AppLogger.instance.warning('HTTP', '429 限流，$delay秒后重试 (${attempt + 1}/$maxRetries): $url');
+          AppLogger.instance.warning(
+              'HTTP', '429 限流，$delay秒后重试 (${attempt + 1}/$maxRetries): $url');
           await Future.delayed(Duration(seconds: delay));
           continue;
         }
@@ -361,7 +443,8 @@ Future<http.Response> httpGetWithRetry(
 
       return response;
     }
-    return await httpClient.get(url, headers: headers)
+    return await httpClient
+        .get(url, headers: headers)
         .timeout(const Duration(seconds: 30));
   } finally {
     if (client == null) {

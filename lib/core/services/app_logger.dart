@@ -27,12 +27,13 @@ class AppLogger {
       await Directory(_logDir!).create(recursive: true);
 
       final now = DateTime.now();
-      final dateStr = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+      final dateStr =
+          '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
       _logFile = File(path.join(_logDir!, 'app_$dateStr.log'));
       _initialized = true;
 
       info('AppLogger', '日志系统初始化完成: ${_logFile?.path}');
-      info('AppLogger', '应用版本: 1.4.4, 平台: ${Platform.operatingSystem}');
+      info('AppLogger', '应用版本: 1.4.5, 平台: ${Platform.operatingSystem}');
 
       // 清理过期日志
       _cleanOldLogs();
@@ -50,7 +51,8 @@ class AppLogger {
     if (kDebugMode) debugPrint(line);
     if (_logFile != null) {
       try {
-        _logFile!.writeAsStringSync('$line\n', mode: FileMode.append, flush: true);
+        _logFile!
+            .writeAsStringSync('$line\n', mode: FileMode.append, flush: true);
       } catch (_) {
         // 日志写入失败时忽略，避免递归
       }
@@ -59,7 +61,8 @@ class AppLogger {
 
   void info(String tag, String message) => _write(tag, 'INFO', message);
   void warning(String tag, String message) => _write(tag, 'WARN', message);
-  void error(String tag, String message, [Object? error, StackTrace? stackTrace]) {
+  void error(String tag, String message,
+      [Object? error, StackTrace? stackTrace]) {
     _write(tag, 'ERROR', message);
     if (error != null) _write(tag, 'ERROR', error.toString());
     if (stackTrace != null) _write(tag, 'ERROR', stackTrace.toString());

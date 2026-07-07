@@ -9,12 +9,15 @@ import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/services/folder_rename_service.dart';
 import '../../../core/utils/app_settings.dart';
+import '../../../core/utils/cloudflare_challenge.dart';
 import '../../../core/utils/game_data_paths.dart';
 import '../../../core/utils/proxy_client.dart';
+import '../../../core/utils/scraped_image_reference_rewriter.dart';
 import '../../../scraper/html_parser.dart';
 import '../../../scraper/parse_utils.dart';
 import '../../../core/services/concurrent_image_downloader.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/cloudflare_browser_dialog.dart';
 
 class ScraperPage extends ConsumerStatefulWidget {
   const ScraperPage({super.key});
@@ -54,6 +57,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   final _ScrapeStats _stats = _ScrapeStats();
   final List<_GameScrapeItem> _gameItems = [];
   int _threadCount = 3;
+  Future<void> _browserFallbackTail = Future.value();
 
   @override
   Widget build(BuildContext context) {
@@ -819,6 +823,15 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     }
   }
 
+  Future<CloudflareBrowserResult?> _showQueuedCloudflareBrowser(String url) {
+    final task = _browserFallbackTail.then((_) async {
+      if (!mounted) return null;
+      return showCloudflareBrowserDialog(context: context, url: url);
+    });
+    _browserFallbackTail = task.then<void>((_) {}, onError: (_) {});
+    return task;
+  }
+
   Future<void> _scrapeSingleGame(
       int i, dynamic gameRepo, dynamic tagRepo) async {
     final item = _gameItems[i];
@@ -859,12 +872,26 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         client.close();
       }
 
-      if (response.statusCode == 200) {
-        GameInfo? gameInfo;
-        final sourceUrl = game.sourceUrl!;
-        final isDlsite = sourceUrl.contains('dlsite');
-        final isSteam = sourceUrl.contains('steam');
+      GameInfo? gameInfo;
+      final sourceUrl = game.sourceUrl!;
+      final isDlsite = sourceUrl.contains('dlsite');
+      final isSteam = sourceUrl.contains('steam');
+      String? html = response.statusCode == 200 ? response.body : null;
+      if (html == null &&
+          !isDlsite &&
+          !isSteam &&
+          isCloudflareChallengeResponse(response.statusCode, response.body)) {
+        _addLog('  -> 遇到 Cloudflare 403，打开内置浏览器验证...');
+        final browserResult = await _showQueuedCloudflareBrowser(sourceUrl);
+        html = browserResult?.html;
+        if (html != null) {
+          _addLog('  -> 已使用内置浏览器页面继续解析');
+        } else {
+          _addLog('  -> 内置浏览器验证已取消');
+        }
+      }
 
+      if (html != null) {
         if (isDlsite) {
           final dlsiteService = ref.read(dlsiteServiceProvider);
           final id = dlsiteService.normalizeId(sourceUrl);
@@ -891,7 +918,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             }
           }
         } else {
-          gameInfo = _scraper.scrapeGameInfo(response.body, sourceUrl);
+          gameInfo = _scraper.scrapeGameInfo(html, sourceUrl);
         }
         if (gameInfo != null) {
           final displayTitle = gameInfo.title != null
@@ -960,15 +987,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           Map<String, String> urlToLocal = {};
           if (gameInfo.screenshots.isNotEmpty) {
             _addLog('  -> 下载 ${gameInfo.screenshots.length} 张配图...');
-            final cookie = await getCookieForSite(game.sourceUrl!);
-            final imgHeaders = {
-              'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-              'Accept':
-                  'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-              'Referer': game.sourceUrl!,
-              if (cookie.isNotEmpty) 'Cookie': cookie,
-            };
+            final imgHeaders = await buildScrapeImageHeaders(game.sourceUrl!);
             urlToLocal = await _downloadImages(updated.copyWith(id: gameId),
                 gameInfo.screenshots, game.sourceUrl!,
                 headers: imgHeaders);
@@ -977,23 +996,14 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           if (urlToLocal.isNotEmpty) {
             var metaJson = gameInfo.toJson();
             if (gameInfo.description != null) {
-              var desc = gameInfo.description!;
-              for (final entry in urlToLocal.entries) {
-                desc =
-                    desc.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
-              }
+              final desc = ScrapedImageReferenceRewriter.replacePlainTextImages(
+                  gameInfo.description!, urlToLocal);
               updated = updated.copyWith(intro: desc);
               metaJson['intro'] = desc;
             }
             if (gameInfo.descriptionHtml != null) {
-              var html = gameInfo.descriptionHtml!;
-              for (final entry in urlToLocal.entries) {
-                html = html.replaceAll(entry.key, entry.value);
-                if (entry.key.startsWith('https:')) {
-                  html = html.replaceAll(
-                      entry.key.replaceFirst('https:', ''), entry.value);
-                }
-              }
+              final html = ScrapedImageReferenceRewriter.replaceHtmlImages(
+                  gameInfo.descriptionHtml!, urlToLocal);
               metaJson['intro_html'] = html;
             }
             await metadataFile.writeAsString(jsonEncode(metaJson), flush: true);

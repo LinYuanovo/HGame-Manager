@@ -393,7 +393,7 @@ class XpathParser extends SiteParser {
     final descXpath = _xpaths['description'];
     if (descXpath != null) {
       // Try to get element for inline image processing
-      final descElement = XPathEvaluator.query(document, descXpath);
+      final descElement = XPathEvaluator.queryWithFallback(document, descXpath);
       if (descElement != null) {
         descriptionRichText =
             RichTextExtractor.extractDescription(descElement, url);
@@ -464,7 +464,7 @@ class XpathParser extends SiteParser {
       AppLogger.instance.info('Scraper',
           '[XpathParser] images xpath=$imagesXpath -> ${screenshots.length} urls');
     } else if (descXpath != null) {
-      final contentEl = XPathEvaluator.query(document, descXpath);
+      final contentEl = XPathEvaluator.queryWithFallback(document, descXpath);
       if (contentEl != null) {
         final imageUrls = descriptionRichText?.imageUrls ??
             RichTextExtractor.extractImageUrls(contentEl, url);
@@ -499,8 +499,12 @@ class XpathParser extends SiteParser {
       AppLogger.instance.info('Scraper',
           '[XpathParser] tags xpath=$tagsXpath -> ${tagList.length} tags');
     }
-    for (final tag in tagList) {
-      if (!tags.contains(tag)) tags.add(tag);
+    for (final rawTag in tagList) {
+      for (final tag in _normalizeTagTexts(rawTag)) {
+        if (!tags.contains(tag)) {
+          tags.add(tag);
+        }
+      }
     }
 
     String? unzipCode;
@@ -527,6 +531,8 @@ class XpathParser extends SiteParser {
         password: last.password,
         unzipCode: unzipCode,
       );
+    } else if (unzipCode != null) {
+      downloads.add(DownloadLink(url: '', unzipCode: unzipCode));
     }
 
     return GameInfo(
@@ -542,6 +548,37 @@ class XpathParser extends SiteParser {
       downloads: downloads,
       sourceUrl: url,
     );
+  }
+
+  static Iterable<String> _normalizeTagTexts(String rawTag) sync* {
+    final hadLabel =
+        RegExp(r'(?:^|\s)(标签|分类|Tag|Tags)\s*[：:]', caseSensitive: false)
+            .hasMatch(rawTag);
+    final parts = rawTag
+        .replaceAll(
+            RegExp(r'(?:^|\s)(标签|分类|Tag|Tags)\s*[：:]', caseSensitive: false),
+            '\n')
+        .split(RegExp(r'[\n\r#、,，;；]+'));
+    for (final part in parts) {
+      final compact = part.replaceAll(RegExp(r'\s+'), ' ').trim();
+      if (compact.isEmpty) continue;
+      final candidates = hadLabel && compact.contains(' ')
+          ? compact.split(RegExp(r'\s+'))
+          : [compact];
+      for (final candidate in candidates) {
+        final tag = candidate.replaceAll(RegExp(r'^#+'), '').trim();
+        if (_isValidTagText(tag)) yield tag;
+      }
+    }
+  }
+
+  static bool _isValidTagText(String tag) {
+    if (tag.isEmpty) return false;
+    if (tag.length > 40) return false;
+    if (RegExp(r'https?://|下载|解压|提取码|游戏介绍|更新日志').hasMatch(tag)) {
+      return false;
+    }
+    return true;
   }
 
   @override

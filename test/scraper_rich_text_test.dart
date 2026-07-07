@@ -2,10 +2,12 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html_parser;
+import 'package:hgame_manager/core/utils/scraped_image_reference_rewriter.dart';
 import 'package:hgame_manager/scraper/html_parser.dart';
 import 'package:hgame_manager/scraper/parse_utils.dart';
 import 'package:hgame_manager/scraper/rich_text_extractor.dart';
 import 'package:hgame_manager/scraper/site_parsers.dart';
+import 'package:hgame_manager/scraper/xpath_evaluator.dart';
 
 void main() {
   group('非 Steam/DLsite 图文混排刮削', () {
@@ -113,6 +115,122 @@ void main() {
       expect(info.descriptionHtml,
           contains('<img src="https://cdn.example.com/b.jpg">'));
       expect(info.descriptionHtml, isNot(contains('下载链接')));
+      expect(info.downloadUrl, isEmpty);
+    });
+
+    test('自定义 XPath 未配置下载区域时不从内容 XPath 自动提取下载链接和解压码', () {
+      final document = html_parser.parse('''
+        <html>
+          <body>
+            <h1>[SLG/中文] 下载兜底测试 v1.0</h1>
+            <article id="content">
+              <p>游戏介绍：</p>
+              <p>正文内容</p>
+              <p>下载链接：</p>
+              <p>https://pan.baidu.com/s/fallback 提取码: efgh</p>
+              <p>解压码：zip123</p>
+            </article>
+          </body>
+        </html>
+      ''');
+      final parser = XpathParser('example.com', {
+        'title': '//h1',
+        'description': '//article[@id="content"]',
+      });
+
+      final info = parser.parseGameInfo(document, 'https://example.com/post/1');
+
+      expect(info, isNotNull);
+      expect(info!.description, contains('正文内容'));
+      expect(info.description, isNot(contains('下载链接')));
+      expect(info.downloadUrl, isEmpty);
+    });
+
+    test('自定义 XPath 标签忽略命中的整块区域文本', () {
+      final document = html_parser.parse('''
+        <html>
+          <body>
+            <h1>[SLG/中文] 标签测试 v1.0</h1>
+            <article id="content"><p>游戏介绍：</p><p>正文内容</p></article>
+            <div id="tags">
+              标签：
+              <a>RPG</a>
+              <a>动态CG</a>
+              <a>中文</a>
+            </div>
+          </body>
+        </html>
+      ''');
+      final parser = XpathParser('example.com', {
+        'title': '//h1',
+        'description': '//article[@id="content"]',
+        'tags': '//div[@id="tags"]',
+      });
+
+      final info = parser.parseGameInfo(document, 'https://example.com/post/1');
+
+      expect(info, isNotNull);
+      expect(info!.tags, containsAll(['SLG', '中文']));
+      expect(info.tags, contains('RPG'));
+      expect(info.tags, contains('动态CG'));
+      expect(info.tags.any((tag) => tag.length > 40), isFalse);
+    });
+
+    test('图片引用映射支持 HTML 转义后的 URL', () {
+      const remote = 'https://img.example.com/a.jpg?x=1&y=2';
+      const local = r'C:\Games\Test\HGMDatas\images\1.jpg';
+      const html =
+          '<p><img src="https://img.example.com/a.jpg?x=1&amp;y=2"></p>';
+
+      final rewritten = ScrapedImageReferenceRewriter.replaceHtmlImages(
+        html,
+        {remote: local},
+      );
+
+      expect(rewritten, contains(local));
+      expect(rewritten, isNot(contains('img.example.com')));
+    });
+
+    test('自定义 XPath 描述 fallback 命中时仍保留富文本和图片', () {
+      final document = html_parser.parse('''
+        <html>
+          <body>
+            <h1>[SLG/中文] 下标偏移测试 v1.0</h1>
+            <article id="content">
+              <p>游戏介绍：</p>
+              <p>正文<img src="/fallback.png">后续文本</p>
+            </article>
+          </body>
+        </html>
+      ''');
+      final parser = XpathParser('example.com', {
+        'title': '//h1',
+        'description': '//article[2]',
+      });
+
+      final info = parser.parseGameInfo(document, 'https://example.com/post/1');
+
+      expect(info, isNotNull);
+      expect(
+          info!.description, contains('[图片:https://example.com/fallback.png]'));
+      expect(info.descriptionHtml,
+          contains('<img src="https://example.com/fallback.png">'));
+      expect(info.screenshots, contains('https://example.com/fallback.png'));
+    });
+
+    test('XPath 图片属性 fallback 支持下标偏移', () {
+      final document = html_parser.parse('''
+        <html>
+          <body>
+            <div class="content"><img src="https://cdn.example.com/a.jpg"></div>
+          </body>
+        </html>
+      ''');
+
+      final images = XPathEvaluator.queryAllAttributesWithFallback(
+          document, '//div[2]//img/@src');
+
+      expect(images, ['https://cdn.example.com/a.jpg']);
     });
 
     test('富文本提取保留游戏介绍前正文并跳过顶部网盘噪音', () {

@@ -38,7 +38,7 @@ class GameInfo {
   String? publishDate;
   String? maker;
   String? makerUrl;
-  String? descriptionHtml;  // 原始HTML片段，用于保留布局
+  String? descriptionHtml; // 原始HTML片段，用于保留布局
   String sourceUrl;
 
   GameInfo({
@@ -61,8 +61,8 @@ class GameInfo {
   });
 
   String get downloadUrl {
-    final parts = downloads.map((d) {
-      final linkParts = <String>[d.url];
+    final parts = downloads.where((d) => d.url.trim().isNotEmpty).map((d) {
+      final linkParts = <String>[d.url.trim()];
       if (d.password != null) linkParts.add('提取码: ${d.password}');
       return linkParts.join(' ');
     }).toList();
@@ -156,7 +156,8 @@ String? extractVersion(String text) {
 String removeVersionFromTitle(String title) {
   return title
       .replaceAll(
-        RegExp(r'\s*(?:[Vv](?:er(?:sion)?)?|build)\s*\d[\w.]*', caseSensitive: false),
+        RegExp(r'\s*(?:[Vv](?:er(?:sion)?)?|build)\s*\d[\w.]*',
+            caseSensitive: false),
         '',
       )
       .replaceAll(RegExp(r'\s{2,}'), ' ')
@@ -165,7 +166,7 @@ String removeVersionFromTitle(String title) {
 
 String? extractUnzipCode(String text) {
   final match = RegExp(
-    r'(?:默认)?解压(?:码|密码)[：:]?\s*(.{1,50})|(?<!提取)密码[：:]?\s*(\S+)',
+    r'(?:默认)?解压(?:码|密码)(?:[：:]\s*|\s+)([^\n\r]{1,50})|(?<!提取)密码[：:]\s*(\S+)',
     multiLine: true,
   ).firstMatch(text);
   final code = (match?.group(1) ?? match?.group(2))?.trim();
@@ -239,7 +240,10 @@ List<DownloadLink> extractDownloadLinks(String text) {
 
 String filterCommonNoise(String text) {
   return text
-      .replaceAll(RegExp(r'本帖最后由\s*\S+\s*于\s*\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2}\s*编辑'), '')
+      .replaceAll(
+          RegExp(
+              r'本帖最后由\s*\S+\s*于\s*\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2}\s*编辑'),
+          '')
       .replaceAll(RegExp(r'本帖隱藏的內容'), '')
       .replaceAll(RegExp(r'[^\n]*(优惠码|折扣码|优惠卷)[^\n]*'), '')
       .replaceAll(RegExp(r'[^\n]*飞猫云[^\n]*'), '')
@@ -252,7 +256,10 @@ String filterCommonNoise(String text) {
 
 String filterDescription(String text, {String? unzipCodeFromSign}) {
   var result = text
-      .replaceAll(RegExp(r'本帖最后由\s*\S+\s*于\s*\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2}\s*编辑'), '')
+      .replaceAll(
+          RegExp(
+              r'本帖最后由\s*\S+\s*于\s*\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2}\s*编辑'),
+          '')
       .replaceAll(RegExp(r'本帖隱藏的內容'), '')
       .replaceAll(RegExp(r'[^\n]*(优惠码|折扣码|优惠卷)[^\n]*'), '')
       .replaceAll(RegExp(r'[^\n]*(解压码|解压密码|解压口令)[^\n]*'), '')

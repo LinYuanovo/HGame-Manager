@@ -16,6 +16,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/repositories/game_repository.dart';
+import '../../../core/utils/cloudflare_challenge.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../../scraper/html_parser.dart';
 import '../../../scraper/parse_utils.dart';
@@ -30,7 +31,9 @@ import '../../../core/utils/cleared_game_path_utils.dart';
 import '../../../core/utils/game_data_paths.dart';
 import '../../../core/utils/media_reference_parser.dart';
 import '../../../core/utils/path_reference_rewriter.dart';
+import '../../../core/utils/scraped_image_reference_rewriter.dart';
 import '../../widgets/image_manager_dialog.dart';
+import '../../widgets/cloudflare_browser_dialog.dart';
 import '../../widgets/markdown_editor.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:path/path.dart' as path;
@@ -4629,6 +4632,39 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     }
   }
 
+  Future<String?> _fetchScrapeHtmlWithCloudflareFallback(String url) async {
+    final headers = await buildScrapeHeaders(url);
+    final client =
+        await createProxyClientFromPrefs(domain: Uri.parse(url).host);
+    http.Response response;
+    try {
+      response = await httpGetWithRetry(Uri.parse(url),
+          headers: headers, client: client);
+    } finally {
+      client.close();
+    }
+
+    if (response.statusCode == 200) {
+      return response.body;
+    }
+    if (isCloudflareChallengeResponse(response.statusCode, response.body)) {
+      if (!mounted) return null;
+      AppTheme.showGlassToast(context,
+          message: '遇到 Cloudflare 验证，请在内置浏览器完成验证',
+          duration: const Duration(seconds: 5));
+      final browserResult =
+          await showCloudflareBrowserDialog(context: context, url: url);
+      return browserResult?.html;
+    }
+    if (mounted) {
+      AppTheme.showGlassToast(context,
+          message: '请求失败: HTTP ${response.statusCode}',
+          icon: Icons.error_outline,
+          iconColor: AppTheme.errorColor);
+    }
+    return null;
+  }
+
   Future<void> _rescrapeGame() async {
     if (_currentGame.sourceUrl == null || _currentGame.sourceUrl!.isEmpty)
       return;
@@ -4669,25 +4705,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       } else {
         final scraper = HtmlScraper();
         await scraper.ensureLoaded();
-        final headers = await buildScrapeHeaders(sourceUrl);
-        final client =
-            await createProxyClientFromPrefs(domain: Uri.parse(sourceUrl).host);
-        http.Response response;
-        try {
-          response = await httpGetWithRetry(Uri.parse(sourceUrl),
-              headers: headers, client: client);
-        } finally {
-          client.close();
-        }
-        if (response.statusCode == 200) {
-          gameInfo = scraper.scrapeGameInfo(response.body, sourceUrl);
-        } else {
-          if (mounted) {
-            AppTheme.showGlassToast(context,
-                message: '请求失败: HTTP ${response.statusCode}',
-                icon: Icons.error_outline,
-                iconColor: AppTheme.errorColor);
-          }
+        final html = await _fetchScrapeHtmlWithCloudflareFallback(sourceUrl);
+        if (html != null) {
+          gameInfo = scraper.scrapeGameInfo(html, sourceUrl);
         }
       }
 
@@ -4718,6 +4738,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             flush: true);
         await repo.updateGame(updated);
 
+        await repo.clearGameTags(_currentGame.id!);
         if (gameInfo.maker != null && gameInfo.maker!.isNotEmpty) {
           final makerTagId =
               await tagRepo.insertOrGetTag(gameInfo.maker!, Tag.typeCustom);
@@ -4775,32 +4796,20 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           });
           if (urlToLocal.isNotEmpty) {
             if (gameInfo.description != null) {
-              var desc = gameInfo.description!;
-              for (final entry in urlToLocal.entries) {
-                desc =
-                    desc.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
-              }
+              final desc = ScrapedImageReferenceRewriter.replacePlainTextImages(
+                  gameInfo.description!, urlToLocal);
               final finalUpdated = updated.copyWith(intro: desc);
               await repo.updateGame(finalUpdated);
             }
             final metaJson = gameInfo.toJson();
             if (gameInfo.description != null) {
-              var desc = gameInfo.description!;
-              for (final entry in urlToLocal.entries) {
-                desc =
-                    desc.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
-              }
+              final desc = ScrapedImageReferenceRewriter.replacePlainTextImages(
+                  gameInfo.description!, urlToLocal);
               metaJson['intro'] = desc;
             }
             if (gameInfo.descriptionHtml != null) {
-              var html = gameInfo.descriptionHtml!;
-              for (final entry in urlToLocal.entries) {
-                html = html.replaceAll(entry.key, entry.value);
-                if (entry.key.startsWith('https:')) {
-                  html = html.replaceAll(
-                      entry.key.replaceFirst('https:', ''), entry.value);
-                }
-              }
+              final html = ScrapedImageReferenceRewriter.replaceHtmlImages(
+                  gameInfo.descriptionHtml!, urlToLocal);
               metaJson['intro_html'] = html;
             }
             await metadataFile.writeAsString(jsonEncode(metaJson), flush: true);
@@ -4832,10 +4841,23 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         if (configs.shouldMove(ScrapeMode.rescrape)) {
           await _moveToSorted(updated);
         }
+
+        final freshGame = await repo.getGameById(_currentGame.id!);
+        if (freshGame != null) {
+          updated = freshGame;
+        }
         if (!mounted) return;
         setState(() {
           _currentGame = updated;
           _imageVersion++;
+          _titleController.text = updated.title ?? '';
+          _versionController.text = updated.version ?? '';
+          _introController.text = updated.intro ?? '';
+          _featuresController.text = updated.features ?? '';
+          _changelogController.text = updated.changelog ?? '';
+          _downloadUrlController.text = updated.downloadUrl ?? '';
+          _sourceUrlController.text = updated.sourceUrl ?? '';
+          _editedTags = List.from(updated.tags);
         });
         await _loadMetadataHtml();
         await _preloadMediaFiles();
@@ -4929,25 +4951,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         }
         final scraper = HtmlScraper();
         await scraper.ensureLoaded();
-        final headers = await buildScrapeHeaders(url);
-        final client =
-            await createProxyClientFromPrefs(domain: Uri.parse(url).host);
-        http.Response response;
-        try {
-          response = await httpGetWithRetry(Uri.parse(url),
-              headers: headers, client: client);
-        } finally {
-          client.close();
-        }
-        if (response.statusCode == 200) {
-          gameInfo = scraper.scrapeGameInfo(response.body, url);
+        final html = await _fetchScrapeHtmlWithCloudflareFallback(url);
+        if (html != null) {
+          gameInfo = scraper.scrapeGameInfo(html, url);
         } else {
-          if (mounted) {
-            AppTheme.showGlassToast(context,
-                message: '请求失败: HTTP ${response.statusCode}',
-                icon: Icons.error_outline,
-                iconColor: AppTheme.errorColor);
-          }
           return;
         }
       }
@@ -4999,6 +5006,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       await repo.updateGame(updatedGame);
 
       if (_currentGame.id != null) {
+        await repo.clearGameTags(_currentGame.id!);
         if (gameInfo.maker != null && gameInfo.maker!.isNotEmpty) {
           final makerTagId =
               await tagRepo.insertOrGetTag(gameInfo.maker!, Tag.typeCustom);
@@ -5023,7 +5031,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           });
           await repo.deleteGameImagesByGameId(_currentGame.id!);
           final urlToLocal = await _downloadImagesWithMapping(
-            _currentGame.copyWith(id: _currentGame.id!),
+            updatedGame.copyWith(id: _currentGame.id!),
             gameInfo.screenshots,
             onProgress: (current, total) {
               if (mounted) {
@@ -5044,23 +5052,15 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           if (urlToLocal.isNotEmpty) {
             var desc = gameInfo.description;
             if (desc != null) {
-              for (final entry in urlToLocal.entries) {
-                desc = desc!
-                    .replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
-              }
+              desc = ScrapedImageReferenceRewriter.replacePlainTextImages(
+                  desc, urlToLocal);
               await repo.updateGame(updatedGame.copyWith(intro: desc));
             }
             final metaJson = gameInfo.toJson();
             if (desc != null) metaJson['intro'] = desc;
             if (gameInfo.descriptionHtml != null) {
-              var html = gameInfo.descriptionHtml!;
-              for (final entry in urlToLocal.entries) {
-                html = html.replaceAll(entry.key, entry.value);
-                if (entry.key.startsWith('https:')) {
-                  html = html.replaceAll(
-                      entry.key.replaceFirst('https:', ''), entry.value);
-                }
-              }
+              final html = ScrapedImageReferenceRewriter.replaceHtmlImages(
+                  gameInfo.descriptionHtml!, urlToLocal);
               metaJson['intro_html'] = html;
             }
             try {
@@ -5157,8 +5157,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
       final repo = ref.read(gameRepositoryProvider);
       final sourceUrl = game.sourceUrl ?? '';
-      final cookie =
-          sourceUrl.isNotEmpty ? await getCookieForSite(sourceUrl) : '';
+      final imgHeaders = await buildScrapeImageHeaders(sourceUrl);
       for (int i = 0; i < imageUrls.length; i++) {
         try {
           final imageUrl = imageUrls[i];
@@ -5175,14 +5174,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           final file = File(filePath);
 
           if (!await file.exists()) {
-            final imgHeaders = {
-              'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-              'Accept':
-                  'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-              'Referer': sourceUrl,
-              if (cookie.isNotEmpty) 'Cookie': cookie,
-            };
             final response = await client
                 .get(uri, headers: imgHeaders)
                 .timeout(const Duration(seconds: 15));
@@ -5244,18 +5235,15 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
       var intro = metaJson['intro'] as String? ?? '';
       if (intro.isNotEmpty) {
-        for (final entry in urlToLocal.entries) {
-          intro = intro.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
-          intro = intro.replaceAll(entry.key, entry.value);
-        }
+        intro = ScrapedImageReferenceRewriter.replaceAllReferences(
+            intro, urlToLocal);
         metaJson['intro'] = intro;
       }
 
       var introHtml = metaJson['intro_html'] as String? ?? '';
       if (introHtml.isNotEmpty) {
-        for (final entry in urlToLocal.entries) {
-          introHtml = introHtml.replaceAll(entry.key, entry.value);
-        }
+        introHtml = ScrapedImageReferenceRewriter.replaceHtmlImages(
+            introHtml, urlToLocal);
         metaJson['intro_html'] = introHtml;
       }
 
@@ -5284,16 +5272,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     final imageDir = await GameDataPaths.ensureImagesDir(game.path);
 
     final sourceUrl = game.sourceUrl ?? '';
-    final cookie =
-        sourceUrl.isNotEmpty ? await getCookieForSite(sourceUrl) : '';
-    final imgHeaders = {
-      'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-      'Accept':
-          'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-      'Referer': sourceUrl,
-      if (cookie.isNotEmpty) 'Cookie': cookie,
-    };
+    final imgHeaders = await buildScrapeImageHeaders(sourceUrl);
 
     final repo = ref.read(gameRepositoryProvider);
     final existingImages = await repo.getGameImages(game.id!);
@@ -5320,10 +5299,12 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           await tmpFile.writeAsBytes(response.bodyBytes, flush: true);
           await tmpFile.rename(filePath);
         }
-        if (!existingPaths.contains(filePath)) {
-          await repo.addGameImage(game.id!, filePath, i);
+        if (await file.exists()) {
+          if (!existingPaths.contains(filePath)) {
+            await repo.addGameImage(game.id!, filePath, i);
+          }
+          urlToLocal[imageUrl] = filePath;
         }
-        urlToLocal[imageUrl] = filePath;
         onProgress?.call(i + 1, imageUrls.length);
       } catch (e) {
         debugPrint('[GameDetail] 下载截图失败: $e');
