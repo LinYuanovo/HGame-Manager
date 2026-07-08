@@ -2456,11 +2456,30 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                           color: AppTheme.getTextSecondary(context),
                           fontSize: 13)),
                   const SizedBox(height: 4),
-                  Text('HGame Manager',
-                      style: TextStyle(
-                          color: AppTheme.getTextPrimary(context),
+                  GestureDetector(
+                    onTap: () async {
+                      final uri = Uri.parse(
+                          'https://github.com/LinYuanovo/HGame-Manager');
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri,
+                            mode: LaunchMode.externalApplication);
+                      }
+                    },
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Text(
+                        'HGame Manager',
+                        style: TextStyle(
+                          color: AppTheme.primaryColor,
                           fontSize: 16,
-                          fontWeight: FontWeight.w600)),
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                          decorationColor:
+                              AppTheme.primaryColor.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
