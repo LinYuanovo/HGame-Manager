@@ -51,6 +51,7 @@ class _GameScrapeItem {
 
 class _ScraperPageState extends ConsumerState<ScraperPage> {
   final _scraper = HtmlScraper();
+  final ScrollController _logScrollController = ScrollController();
   bool _isProcessing = false;
   String _processStatus = '空闲';
   final List<String> _logs = [];
@@ -58,6 +59,13 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   final List<_GameScrapeItem> _gameItems = [];
   int _threadCount = 3;
   Future<void> _browserFallbackTail = Future.value();
+  bool _logScrollScheduled = false;
+
+  @override
+  void dispose() {
+    _logScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -597,6 +605,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                       ),
                     )
                   : ListView.builder(
+                      controller: _logScrollController,
                       itemCount: _logs.length,
                       itemBuilder: (_, i) {
                         final log = _logs[i];
@@ -823,10 +832,17 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     }
   }
 
-  Future<CloudflareBrowserResult?> _showQueuedCloudflareBrowser(String url) {
+  Future<CloudflareBrowserResult?> _showQueuedCloudflareBrowser(
+    String url, {
+    Map<String, String>? headers,
+  }) {
     final task = _browserFallbackTail.then((_) async {
       if (!mounted) return null;
-      return showCloudflareBrowserDialog(context: context, url: url);
+      return resolveCloudflareBrowserPage(
+        context: context,
+        url: url,
+        headers: headers,
+      );
     });
     _browserFallbackTail = task.then<void>((_) {}, onError: (_) {});
     return task;
@@ -864,8 +880,9 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       final client = await createProxyClientFromPrefs(
           domain: Uri.parse(game.sourceUrl!).host);
       http.Response response;
+      late final Map<String, String> headers;
       try {
-        final headers = await buildScrapeHeaders(game.sourceUrl!);
+        headers = await buildScrapeHeaders(game.sourceUrl!);
         response =
             await client.get(Uri.parse(game.sourceUrl!), headers: headers);
       } finally {
@@ -881,11 +898,14 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           !isDlsite &&
           !isSteam &&
           isCloudflareChallengeResponse(response.statusCode, response.body)) {
-        _addLog('  -> 遇到 Cloudflare 403，打开内置浏览器验证...');
-        final browserResult = await _showQueuedCloudflareBrowser(sourceUrl);
+        _addLog('  -> 遇到 Cloudflare 403，尝试内置浏览器静默加载...');
+        final browserResult =
+            await _showQueuedCloudflareBrowser(sourceUrl, headers: headers);
         html = browserResult?.html;
         if (html != null) {
-          _addLog('  -> 已使用内置浏览器页面继续解析');
+          _addLog(browserResult!.usedSilentMode
+              ? '  -> 已使用内置浏览器静默页面继续解析'
+              : '  -> 已使用内置浏览器页面继续解析');
         } else {
           _addLog('  -> 内置浏览器验证已取消');
         }
@@ -1394,6 +1414,19 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   void _addLog(String message) {
     setState(() {
       _logs.add('[${DateTime.now().toString().substring(11, 19)}] $message');
+    });
+    _scheduleLogScrollToBottom();
+  }
+
+  void _scheduleLogScrollToBottom() {
+    if (_logScrollScheduled) return;
+    _logScrollScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _logScrollScheduled = false;
+      if (!mounted || !_logScrollController.hasClients) return;
+      _logScrollController.jumpTo(
+        _logScrollController.position.maxScrollExtent,
+      );
     });
   }
 }

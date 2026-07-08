@@ -4650,10 +4650,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     if (isCloudflareChallengeResponse(response.statusCode, response.body)) {
       if (!mounted) return null;
       AppTheme.showGlassToast(context,
-          message: '遇到 Cloudflare 验证，请在内置浏览器完成验证',
+          message: '遇到 Cloudflare 验证，正在尝试内置浏览器加载',
           duration: const Duration(seconds: 5));
-      final browserResult =
-          await showCloudflareBrowserDialog(context: context, url: url);
+      final browserResult = await resolveCloudflareBrowserPage(
+          context: context, url: url, headers: headers);
       return browserResult?.html;
     }
     if (mounted) {

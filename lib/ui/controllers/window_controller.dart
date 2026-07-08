@@ -1,11 +1,16 @@
+import 'dart:async';
+import 'dart:ffi' as ffi;
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import '../../core/utils/app_settings.dart';
+import '../../core/utils/proxy_client.dart';
 
 class WindowController extends ChangeNotifier with WindowListener {
   final AppSettings _prefs;
   bool _isMaximized = false;
+  bool _isClosing = false;
   Size? _lastNormalSize;
   Offset? _lastNormalPosition;
 
@@ -69,8 +74,7 @@ class WindowController extends ChangeNotifier with WindowListener {
   }
 
   Future<void> close() async {
-    _saveWindowSettings();
-    exit(0);
+    await _closeWindow();
   }
 
   Future<void> toggleMaximize() async {
@@ -91,8 +95,41 @@ class WindowController extends ChangeNotifier with WindowListener {
 
   @override
   void onWindowClose() {
+    _closeWindow();
+  }
+
+  Future<void> _closeWindow() async {
+    if (_isClosing) return;
+    _isClosing = true;
     _saveWindowSettings();
-    exit(0);
+    closeAllClients();
+    if (Platform.isWindows) {
+      windowManager.removeListener(this);
+      _terminateWindowsProcess();
+      return;
+    }
+    unawaited(Future<void>.delayed(
+      const Duration(milliseconds: 250),
+      () => exit(0),
+    ));
+  }
+
+  void _terminateWindowsProcess() {
+    try {
+      final kernel32 = ffi.DynamicLibrary.open('kernel32.dll');
+      final getCurrentProcess = kernel32.lookupFunction<
+          ffi.IntPtr Function(),
+          int Function()>('GetCurrentProcess');
+      final terminateProcess = kernel32.lookupFunction<
+          ffi.Int32 Function(ffi.IntPtr, ffi.Uint32),
+          int Function(int, int)>('TerminateProcess');
+      terminateProcess(getCurrentProcess(), 0);
+    } catch (_) {
+      unawaited(Future<void>.delayed(
+        const Duration(milliseconds: 250),
+        () => exit(0),
+      ));
+    }
   }
 
   @override

@@ -1,35 +1,259 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
+import '../../core/utils/cloudflare_challenge.dart';
+import '../../core/utils/webview2_lifecycle.dart';
 import '../theme/app_theme.dart';
 
 class CloudflareBrowserResult {
   final String html;
   final String finalUrl;
+  final bool usedSilentMode;
 
   const CloudflareBrowserResult({
     required this.html,
     required this.finalUrl,
+    this.usedSilentMode = false,
   });
+}
+
+Future<CloudflareBrowserResult?> resolveCloudflareBrowserPage({
+  required BuildContext context,
+  required String url,
+  Map<String, String>? headers,
+}) async {
+  final silentResult = await tryReadCloudflareBrowserPageSilently(
+    context: context,
+    url: url,
+    headers: headers,
+  );
+  if (silentResult != null) return silentResult;
+  if (!context.mounted) return null;
+  return showCloudflareBrowserDialog(
+    context: context,
+    url: url,
+    headers: headers,
+  );
+}
+
+Future<CloudflareBrowserResult?> tryReadCloudflareBrowserPageSilently({
+  BuildContext? context,
+  required String url,
+  Map<String, String>? headers,
+  Duration timeout = const Duration(seconds: 12),
+  Duration settleDelay = const Duration(milliseconds: 1200),
+}) async {
+  if (context != null && context.mounted) {
+    final overlayResult = await _tryReadCloudflareBrowserPageInOverlay(
+      context: context,
+      url: url,
+      headers: headers,
+      timeout: timeout,
+      settleDelay: settleDelay,
+    );
+    if (overlayResult != null) return overlayResult;
+  }
+  return null;
+}
+
+Future<CloudflareBrowserResult?> _tryReadCloudflareBrowserPageInOverlay({
+  required BuildContext context,
+  required String url,
+  Map<String, String>? headers,
+  required Duration timeout,
+  required Duration settleDelay,
+}) async {
+  final overlay = Overlay.maybeOf(context, rootOverlay: true);
+  if (overlay == null) return null;
+
+  final completer = Completer<CloudflareBrowserResult?>();
+  OverlayEntry? entry;
+  void complete(CloudflareBrowserResult? result) {
+    if (completer.isCompleted) return;
+    entry?.remove();
+    completer.complete(result);
+  }
+
+  entry = OverlayEntry(
+    builder: (_) {
+      return Positioned.fill(
+        child: IgnorePointer(
+          child: Opacity(
+            opacity: 0.01,
+            child: _SilentCloudflareWebView(
+              url: url,
+              headers: headers,
+              timeout: timeout,
+              settleDelay: settleDelay,
+              onComplete: complete,
+            ),
+          ),
+        ),
+      );
+    },
+  );
+  overlay.insert(entry);
+  return completer.future;
 }
 
 Future<CloudflareBrowserResult?> showCloudflareBrowserDialog({
   required BuildContext context,
   required String url,
-}) {
+  Map<String, String>? headers,
+}) async {
+  await _prepareWebViewRequest(url, headers);
+  if (!context.mounted) return null;
   return showGlassDialog<CloudflareBrowserResult>(
     context: context,
     barrierDismissible: false,
-    child: CloudflareBrowserDialog(initialUrl: url),
+    child: CloudflareBrowserDialog(initialUrl: url, headers: headers),
   );
+}
+
+class _SilentCloudflareWebView extends StatefulWidget {
+  final String url;
+  final Map<String, String>? headers;
+  final Duration timeout;
+  final Duration settleDelay;
+  final ValueChanged<CloudflareBrowserResult?> onComplete;
+
+  const _SilentCloudflareWebView({
+    required this.url,
+    required this.headers,
+    required this.timeout,
+    required this.settleDelay,
+    required this.onComplete,
+  });
+
+  @override
+  State<_SilentCloudflareWebView> createState() =>
+      _SilentCloudflareWebViewState();
+}
+
+class _SilentCloudflareWebViewState extends State<_SilentCloudflareWebView> {
+  InAppWebViewController? _controller;
+  Timer? _timeoutTimer;
+  Timer? _settleTimer;
+  Timer? _pollTimer;
+  var _currentUrl = '';
+  var _ready = false;
+  var _completed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentUrl = widget.url;
+    _timeoutTimer = Timer(widget.timeout, () => _complete(null));
+    _prepareWebViewRequest(widget.url, widget.headers).whenComplete(() {
+      if (!mounted || _completed) return;
+      setState(() => _ready = true);
+      _pollTimer = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => _readPage(),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _timeoutTimer?.cancel();
+    _settleTimer?.cancel();
+    _pollTimer?.cancel();
+    final controller = _controller;
+    if (controller != null) {
+      unregisterWebViewController(controller);
+      unawaited(disposeWebViewController(controller));
+    }
+    super.dispose();
+  }
+
+  Future<void> _complete(CloudflareBrowserResult? result) async {
+    if (_completed) return;
+    _completed = true;
+    _timeoutTimer?.cancel();
+    _settleTimer?.cancel();
+    _pollTimer?.cancel();
+    final controller = _controller;
+    if (controller != null) {
+      unregisterWebViewController(controller);
+      _controller = null;
+      await disposeWebViewController(controller);
+    }
+    widget.onComplete(result);
+  }
+
+  void _scheduleRead() {
+    _settleTimer?.cancel();
+    _settleTimer = Timer(widget.settleDelay, _readPage);
+  }
+
+  Future<void> _readPage() async {
+    if (_completed) return;
+    final controller = _controller;
+    if (controller == null) return;
+    try {
+      final htmlResult = await controller.evaluateJavascript(
+        source: 'document.documentElement.outerHTML',
+      );
+      final textResult = await controller.evaluateJavascript(
+        source: 'document.body ? document.body.innerText : ""',
+      );
+      final html = htmlResult?.toString() ?? '';
+      final text = textResult?.toString() ?? '';
+      if (_isUsableScrapeHtml(html, text)) {
+        await _complete(
+          CloudflareBrowserResult(
+            html: html,
+            finalUrl: _currentUrl,
+            usedSilentMode: true,
+          ),
+        );
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_ready) return const SizedBox.shrink();
+    return InAppWebView(
+      initialUrlRequest: URLRequest(
+        url: WebUri(widget.url),
+        headers: _buildWebViewHeaders(widget.headers),
+      ),
+      initialSettings: InAppWebViewSettings(
+        javaScriptEnabled: true,
+        supportZoom: false,
+        userAgent: _extractUserAgent(widget.headers),
+      ),
+      onWebViewCreated: (controller) {
+        _controller = controller;
+        registerWebViewController(controller);
+      },
+      onLoadStart: (_, loadedUrl) {
+        _currentUrl = loadedUrl?.toString() ?? _currentUrl;
+      },
+      onLoadStop: (_, loadedUrl) {
+        _currentUrl = loadedUrl?.toString() ?? _currentUrl;
+        _scheduleRead();
+      },
+      onProgressChanged: (_, progress) {
+        if (progress >= 100) _scheduleRead();
+      },
+      onReceivedError: (_, __, ___) {},
+    );
+  }
 }
 
 class CloudflareBrowserDialog extends StatefulWidget {
   final String initialUrl;
+  final Map<String, String>? headers;
 
   const CloudflareBrowserDialog({
     super.key,
     required this.initialUrl,
+    this.headers,
   });
 
   @override
@@ -53,9 +277,24 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
 
   @override
   void dispose() {
-    _controller?.dispose();
+    unawaited(_disposeWebView());
     _controller = null;
     super.dispose();
+  }
+
+  Future<void> _disposeWebView() async {
+    final controller = _controller;
+    if (controller == null) return;
+    unregisterWebViewController(controller);
+    _controller = null;
+    await disposeWebViewController(controller);
+  }
+
+  Future<void> _closeDialog() async {
+    if (_isReadingHtml) return;
+    setState(() => _isReadingHtml = true);
+    await _disposeWebView();
+    if (mounted) Navigator.of(context).pop();
   }
 
   Future<void> _reload() async {
@@ -79,6 +318,7 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
         setState(() => _error = '当前页面 HTML 为空，请等待页面加载完成后重试');
         return;
       }
+      await _disposeWebView();
       if (!mounted) return;
       Navigator.of(context).pop(
         CloudflareBrowserResult(html: html, finalUrl: _currentUrl),
@@ -126,8 +366,7 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
                 ),
                 IconButton(
                   tooltip: '关闭',
-                  onPressed:
-                      _isReadingHtml ? null : () => Navigator.of(context).pop(),
+                  onPressed: _isReadingHtml ? null : _closeDialog,
                   icon: Icon(Icons.close,
                       color: AppTheme.getTextSecondary(context)),
                 ),
@@ -160,15 +399,19 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
                   child: Stack(
                     children: [
                       InAppWebView(
-                        initialUrlRequest:
-                            URLRequest(url: WebUri(widget.initialUrl)),
+                        initialUrlRequest: URLRequest(
+                          url: WebUri(widget.initialUrl),
+                          headers: _buildWebViewHeaders(widget.headers),
+                        ),
                         initialSettings: InAppWebViewSettings(
                           javaScriptEnabled: true,
                           transparentBackground: true,
                           supportZoom: true,
+                          userAgent: _extractUserAgent(widget.headers),
                         ),
                         onWebViewCreated: (controller) {
                           _controller = controller;
+                          registerWebViewController(controller);
                         },
                         onLoadStart: (controller, url) {
                           setState(() {
@@ -214,8 +457,7 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
-                  onPressed:
-                      _isReadingHtml ? null : () => Navigator.of(context).pop(),
+                  onPressed: _isReadingHtml ? null : _closeDialog,
                   child: const Text('取消'),
                 ),
                 const SizedBox(width: 12),
@@ -280,4 +522,68 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
       ),
     );
   }
+}
+
+Map<String, String>? _buildWebViewHeaders(Map<String, String>? headers) {
+  if (headers == null || headers.isEmpty) return null;
+  return {
+    for (final entry in headers.entries)
+      if (entry.value.trim().isNotEmpty) entry.key: entry.value,
+  };
+}
+
+String? _extractUserAgent(Map<String, String>? headers) {
+  if (headers == null) return null;
+  for (final entry in headers.entries) {
+    if (entry.key.toLowerCase() == 'user-agent') {
+      final value = entry.value.trim();
+      return value.isEmpty ? null : value;
+    }
+  }
+  return null;
+}
+
+Future<void> _prepareWebViewRequest(
+  String url,
+  Map<String, String>? headers,
+) async {
+  final cookieHeader = _extractHeader(headers, 'cookie');
+  if (cookieHeader == null || cookieHeader.isEmpty) return;
+  final uri = WebUri(url);
+  final manager = CookieManager.instance();
+  for (final rawCookie in cookieHeader.split(';')) {
+    final cookie = rawCookie.trim();
+    if (cookie.isEmpty) continue;
+    final separator = cookie.indexOf('=');
+    if (separator <= 0) continue;
+    final name = cookie.substring(0, separator).trim();
+    final value = cookie.substring(separator + 1).trim();
+    if (name.isEmpty) continue;
+    try {
+      await manager.setCookie(url: uri, name: name, value: value);
+    } catch (_) {}
+  }
+}
+
+String? _extractHeader(Map<String, String>? headers, String name) {
+  if (headers == null) return null;
+  for (final entry in headers.entries) {
+    if (entry.key.toLowerCase() == name.toLowerCase()) {
+      return entry.value.trim();
+    }
+  }
+  return null;
+}
+
+bool _isUsableScrapeHtml(String html, String text) {
+  final trimmedHtml = html.trim();
+  final trimmedText = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (trimmedHtml.length < 300) return false;
+  if (looksLikeCloudflareChallenge(trimmedHtml) ||
+      looksLikeCloudflareChallenge(trimmedText)) {
+    return false;
+  }
+  if (trimmedText.length >= 80) return true;
+  return RegExp(r'<(article|main|img|a)\b', caseSensitive: false)
+      .hasMatch(trimmedHtml);
 }

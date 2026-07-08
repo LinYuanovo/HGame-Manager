@@ -51,6 +51,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - CHANGELOG.md
     - app_icon.png
     - app_icon_dark.png
 

@@ -30,4 +30,24 @@ void main() {
       );
     });
   });
+
+  group('looksLikeCloudflareChallenge', () {
+    test('matches loaded browser challenge page body', () {
+      expect(
+        looksLikeCloudflareChallenge(
+          '<html><title>Just a moment...</title><body>cf-chl Cloudflare</body>',
+        ),
+        isTrue,
+      );
+    });
+
+    test('does not match ordinary page mentioning Cloudflare', () {
+      expect(
+        looksLikeCloudflareChallenge(
+          '<html><body>This site uses Cloudflare protected content.</body></html>',
+        ),
+        isFalse,
+      );
+    });
+  });
 }

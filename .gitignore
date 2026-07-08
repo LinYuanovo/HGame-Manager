@@ -110,6 +110,7 @@ test/utils/*
 !test/scraper_rich_text_test.dart
 !test/proxy_client_headers_test.dart
 !test/cloudflare_challenge_test.dart
+!test/changelog_parser_test.dart
 hgame-manager-creative-proposal/
 
 # Environment files

@@ -1,12 +1,14 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:archive/archive.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/database/database_helper.dart';
+import '../../../core/utils/changelog_parser.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/utils/app_paths.dart';
 import '../../../core/utils/cloudflare_challenge.dart';
@@ -73,6 +75,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   bool _keepPlayedInGames = false;
   bool _favoriteFirst = false;
   int _selectedSidebarIndex = 0;
+  List<ChangelogEntry> _changelogEntries = [];
+  bool _isChangelogExpanded = false;
 
   static const List<_SidebarCategory> _categories = [
     _SidebarCategory(
@@ -112,7 +116,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _SidebarCategory(
       label: '关于',
       icon: Icons.info_outline,
-      items: ['关于'],
+      items: ['关于', '更新日志'],
     ),
   ];
 
@@ -120,6 +124,19 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   void initState() {
     super.initState();
     _loadSettings();
+    _loadChangelog();
+  }
+
+  Future<void> _loadChangelog() async {
+    try {
+      final markdown = await rootBundle.loadString('CHANGELOG.md');
+      final entries = parseChangelogEntries(markdown);
+      if (!mounted) return;
+      setState(() => _changelogEntries = entries);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _changelogEntries = []);
+    }
   }
 
   void _loadSettings() {
@@ -445,6 +462,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         return _buildWebdavSection();
       case '关于':
         return _buildAboutSection();
+      case '更新日志':
+        return _buildChangelogSettingsSection();
       default:
         return const SizedBox.shrink();
     }
@@ -499,6 +518,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     required String title,
     required IconData icon,
     required List<Widget> children,
+    Widget? trailing,
   }) {
     return GlassContainer(
       padding: const EdgeInsets.all(20),
@@ -517,6 +537,10 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
+              if (trailing != null) ...[
+                const Spacer(),
+                trailing,
+              ],
             ],
           ),
           const SizedBox(height: 16),
@@ -2513,6 +2537,170 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     );
   }
 
+  Widget _buildChangelogSettingsSection() {
+    const currentVersion = '1.4.5';
+
+    return _buildSection(
+      title: '更新日志',
+      icon: Icons.history_outlined,
+      trailing: _changelogEntries.length > 1
+          ? TextButton.icon(
+              onPressed: () => setState(
+                () => _isChangelogExpanded = !_isChangelogExpanded,
+              ),
+              icon: Icon(
+                _isChangelogExpanded ? Icons.expand_less : Icons.expand_more,
+                size: 18,
+              ),
+              label: Text(_isChangelogExpanded ? '收起历史更新' : '查看历史更新'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.getPrimaryColor(context),
+              ),
+            )
+          : null,
+      children: [
+        _buildChangelogSection(currentVersion, showHeader: false),
+      ],
+    );
+  }
+
+  Widget _buildChangelogSection(
+    String currentVersion, {
+    bool showHeader = true,
+  }) {
+    ChangelogEntry? currentEntry;
+    for (final entry in _changelogEntries) {
+      if (entry.version == currentVersion) {
+        currentEntry = entry;
+        break;
+      }
+    }
+    final visibleEntries = _isChangelogExpanded
+        ? _changelogEntries
+        : [
+            if (currentEntry != null) currentEntry,
+          ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.getInputFillColor(context),
+        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+        border: Border.all(
+          color: AppTheme.getBorderColor(context).withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (showHeader)
+            InkWell(
+              borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
+              onTap: _changelogEntries.length <= 1
+                  ? null
+                  : () => setState(
+                        () => _isChangelogExpanded = !_isChangelogExpanded,
+                      ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Icon(Icons.history_outlined,
+                        size: 18, color: AppTheme.getPrimaryColor(context)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '更新日志',
+                        style: TextStyle(
+                          color: AppTheme.getTextPrimary(context),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (_changelogEntries.length > 1)
+                      Icon(
+                        _isChangelogExpanded
+                            ? Icons.expand_less
+                            : Icons.expand_more,
+                        color: AppTheme.getTextSecondary(context),
+                        size: 20,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          if (showHeader) const SizedBox(height: 10),
+          if (_changelogEntries.isEmpty)
+            Text(
+              '更新日志加载失败',
+              style: TextStyle(
+                color: AppTheme.getTextSecondary(context),
+                fontSize: 13,
+              ),
+            )
+          else
+            ...visibleEntries.map(_buildChangelogEntry),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChangelogEntry(ChangelogEntry entry) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            entry.date == null
+                ? 'v${entry.version}'
+                : 'v${entry.version} (${entry.date})',
+            style: TextStyle(
+              color: AppTheme.getTextPrimary(context),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildChangelogBody(entry.body),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChangelogBody(String body) {
+    final lines = body
+        .split(RegExp(r'\r?\n'))
+        .map((line) => line.trimRight())
+        .where((line) => line.trim().isNotEmpty)
+        .toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: lines.map((line) {
+        final trimmed = line.trimLeft();
+        final isHeading = trimmed.startsWith('###');
+        final text = isHeading
+            ? trimmed.replaceFirst(RegExp(r'^#+\s*'), '')
+            : trimmed.replaceFirst(RegExp(r'^-\s*'), '• ');
+        return Padding(
+          padding: EdgeInsets.only(bottom: isHeading ? 6 : 4),
+          child: Text(
+            text,
+            style: TextStyle(
+              color: isHeading
+                  ? AppTheme.getTextPrimary(context)
+                  : AppTheme.getTextSecondary(context),
+              fontSize: isHeading ? 13 : 12,
+              fontWeight: isHeading ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Future<void> _testProxy() async {
     final prefs = ref.read(sharedPreferencesProvider);
     await prefs.setString('proxy_mode', _proxyMode);
@@ -3792,9 +3980,10 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
       if (response.statusCode != 200) {
         if (isCloudflareChallengeResponse(response.statusCode, response.body)) {
           if (!mounted) return;
-          final browserResult = await showCloudflareBrowserDialog(
+          final browserResult = await resolveCloudflareBrowserPage(
             context: context,
             url: testUrl,
+            headers: headers,
           );
           stopwatch.stop();
           if (browserResult == null) {
@@ -3814,6 +4003,7 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
             statusCode: response.statusCode,
             elapsedMs: stopwatch.elapsedMilliseconds,
             usedBrowserMode: true,
+            usedSilentBrowserMode: browserResult.usedSilentMode,
           );
           return;
         }
@@ -3859,6 +4049,7 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
     required int statusCode,
     required int elapsedMs,
     bool usedBrowserMode = false,
+    bool usedSilentBrowserMode = false,
   }) {
     final uri = Uri.tryParse(testUrl);
     final config = _buildCurrentConfig(_domainController.text.trim().isEmpty
@@ -3879,6 +4070,7 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
         statusCode: statusCode,
         elapsedMs: elapsedMs,
         usedBrowserMode: usedBrowserMode,
+        usedSilentBrowserMode: usedSilentBrowserMode,
         title: info?.title,
         version: info?.version,
         summary: _buildDescriptionSummary(info?.description),
@@ -4156,7 +4348,8 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
               '状态',
               [
                 if (result.statusCode != null) 'HTTP ${result.statusCode}',
-                if (result.usedBrowserMode) '内置浏览器',
+                if (result.usedBrowserMode)
+                  result.usedSilentBrowserMode ? '内置浏览器静默' : '内置浏览器',
                 '${result.elapsedMs}ms',
               ].join(' / '),
               valueColor:
@@ -4225,6 +4418,7 @@ class _XpathPreviewResult {
   final int tagCount;
   final String? error;
   final bool usedBrowserMode;
+  final bool usedSilentBrowserMode;
 
   const _XpathPreviewResult({
     this.statusCode,
@@ -4239,5 +4433,6 @@ class _XpathPreviewResult {
     this.tagCount = 0,
     this.error,
     this.usedBrowserMode = false,
+    this.usedSilentBrowserMode = false,
   });
 }
