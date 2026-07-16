@@ -19,7 +19,12 @@ void main() async {
   // Suppress noisy Flutter accessibility logs
   final originalDebugPrint = debugPrint;
   debugPrint = (String? message, {int? wrapWidth}) {
-    if (message != null && message.contains('accessibility_bridge')) return;
+    if (message != null &&
+        (message.contains('accessibility_bridge') ||
+            message.contains(
+                'Unable to parse JSON message:\nThe document is empty'))) {
+      return;
+    }
     originalDebugPrint(message, wrapWidth: wrapWidth);
   };
 
@@ -118,7 +123,8 @@ void _setupErrorHandling() {
   FlutterError.onError = (FlutterErrorDetails details) {
     final message = details.toString();
     if (message.contains('accessibility_bridge.cc') ||
-        message.contains('Failed to update ui::AXTree')) {
+        message.contains('Failed to update ui::AXTree') ||
+        _isWindowsMetaKeyStateAssertion(details)) {
       return;
     }
     log.error('FlutterError', details.exceptionAsString(), null, details.stack);
@@ -135,6 +141,15 @@ void _setupErrorHandling() {
     log.error('PlatformError', error.toString(), error, stackTrace);
     return true;
   };
+}
+
+bool _isWindowsMetaKeyStateAssertion(FlutterErrorDetails details) {
+  if (!Platform.isWindows) return false;
+  final message = details.exceptionAsString();
+  return message.contains(
+        'Attempted to send a key down event when no keys are in keysPressed',
+      ) &&
+      message.contains('Meta Left');
 }
 
 class HGameManagerApp extends ConsumerStatefulWidget {

@@ -28,6 +28,7 @@ class AppSettings {
       'startup_migrated_game_ids_v1';
   static const String scanMetadataFingerprintsKey =
       'scan_metadata_fingerprints_v1';
+  static const String backupImagesKey = 'backup_images';
 
   Map<String, dynamic> _data = {};
   final String _filePath;

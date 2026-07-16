@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
+import 'backup_image_service.dart';
 
 class WebDavFile {
   final String name;
@@ -17,8 +18,10 @@ class WebDavFile {
 
   String get sizeFormatted {
     if (sizeBytes < 1024) return '$sizeBytes B';
-    if (sizeBytes < 1024 * 1024) return '${(sizeBytes / 1024).toStringAsFixed(1)} KB';
-    if (sizeBytes < 1024 * 1024 * 1024) return '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    if (sizeBytes < 1024 * 1024)
+      return '${(sizeBytes / 1024).toStringAsFixed(1)} KB';
+    if (sizeBytes < 1024 * 1024 * 1024)
+      return '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(sizeBytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }
@@ -27,12 +30,15 @@ class WebdavService {
   static const String _backupFolder = 'hgame_manager_backups';
 
   Uri _buildUri(String serverUrl, String path) {
-    final base = serverUrl.endsWith('/') ? serverUrl.substring(0, serverUrl.length - 1) : serverUrl;
+    final base = serverUrl.endsWith('/')
+        ? serverUrl.substring(0, serverUrl.length - 1)
+        : serverUrl;
     return Uri.parse('$base/$path');
   }
 
   Map<String, String> _authHeaders(String username, String password) {
-    final basicAuth = 'Basic ${base64Encode(utf8.encode('$username:$password'))}';
+    final basicAuth =
+        'Basic ${base64Encode(utf8.encode('$username:$password'))}';
     return {'Authorization': basicAuth};
   }
 
@@ -99,17 +105,196 @@ class WebdavService {
         body: bytes,
       );
 
-      if (response.statusCode == 201 || response.statusCode == 200 || response.statusCode == 204) {
+      if (response.statusCode == 201 ||
+          response.statusCode == 200 ||
+          response.statusCode == 204) {
         debugPrint('[WebDAV] Backup uploaded: $fileName');
         return true;
       } else {
-        debugPrint('[WebDAV] Upload failed: ${response.statusCode} ${response.body}');
+        debugPrint(
+            '[WebDAV] Upload failed: ${response.statusCode} ${response.body}');
         return false;
       }
     } catch (e) {
       debugPrint('[WebDAV] uploadBackup error: $e');
       return false;
     }
+  }
+
+  Future<bool> uploadMissingBackupImages({
+    required String serverUrl,
+    required String username,
+    required String password,
+    required List<BackupImageAsset> assets,
+  }) async {
+    if (assets.isEmpty) return true;
+
+    try {
+      await _createFolder(serverUrl, username, password);
+      await _createFolderAtPath(
+        serverUrl,
+        username,
+        password,
+        '$_backupFolder/images',
+      );
+      final existing = await _listBackupImageNames(
+        serverUrl,
+        username,
+        password,
+      );
+      final missing = assets
+          .where(
+              (asset) => !existing.contains(asset.archivePath.split('/').last))
+          .toList();
+      if (missing.isEmpty) return true;
+
+      var nextIndex = 0;
+      Future<bool> uploadWorker() async {
+        while (nextIndex < missing.length) {
+          final asset = missing[nextIndex++];
+          final uploaded = await _uploadFile(
+            serverUrl: serverUrl,
+            username: username,
+            password: password,
+            remotePath: '$_backupFolder/${asset.archivePath}',
+            localPath: asset.filePath,
+          );
+          if (!uploaded) return false;
+        }
+        return true;
+      }
+
+      final workerCount = missing.length < 3 ? missing.length : 3;
+      final results = await Future.wait(
+        List.generate(workerCount, (_) => uploadWorker()),
+      );
+      return results.every((result) => result);
+    } catch (e) {
+      debugPrint('[WebDAV] uploadMissingBackupImages error: $e');
+      return false;
+    }
+  }
+
+  Future<Map<String, String>?> downloadBackupImages({
+    required String serverUrl,
+    required String username,
+    required String password,
+    required Map<String, String> manifest,
+    required String destinationDir,
+  }) async {
+    if (manifest.isEmpty) return {};
+
+    try {
+      final destination = Directory(destinationDir);
+      if (!await destination.exists()) {
+        await destination.create(recursive: true);
+      }
+
+      final remotePaths = manifest.values.toSet().toList();
+      final localPaths = <String, String>{};
+      var nextIndex = 0;
+      var failed = false;
+
+      Future<void> downloadWorker() async {
+        while (!failed && nextIndex < remotePaths.length) {
+          final remotePath = remotePaths[nextIndex++];
+          final fileName = remotePath.split('/').last;
+          final localPath =
+              '${destination.path}${Platform.pathSeparator}$fileName';
+          final localFile = File(localPath);
+          if (!await localFile.exists()) {
+            final downloaded = await _downloadFile(
+              serverUrl: serverUrl,
+              username: username,
+              password: password,
+              remotePath: '$_backupFolder/$remotePath',
+              localPath: localPath,
+            );
+            if (!downloaded) {
+              failed = true;
+              return;
+            }
+          }
+          localPaths[remotePath] = localPath;
+        }
+      }
+
+      final workerCount = remotePaths.length < 3 ? remotePaths.length : 3;
+      await Future.wait(List.generate(workerCount, (_) => downloadWorker()));
+      if (failed) return null;
+
+      return {
+        for (final entry in manifest.entries)
+          if (localPaths[entry.value] != null)
+            entry.key: localPaths[entry.value]!,
+      };
+    } catch (e) {
+      debugPrint('[WebDAV] downloadBackupImages error: $e');
+      return null;
+    }
+  }
+
+  Future<Set<String>> _listBackupImageNames(
+    String serverUrl,
+    String username,
+    String password,
+  ) async {
+    final uri = _buildUri(serverUrl, '$_backupFolder/images');
+    final request = http.Request('PROPFIND', uri);
+    request.headers.addAll({
+      ..._authHeaders(username, password),
+      'Depth': '1',
+    });
+    final response = await request.send();
+    if (response.statusCode == 207) {
+      final body = await response.stream.bytesToString();
+      return _parsePropfindResponse(body).map((file) => file.name).toSet();
+    }
+    await response.stream.drain<void>();
+    return {};
+  }
+
+  Future<bool> _uploadFile({
+    required String serverUrl,
+    required String username,
+    required String password,
+    required String remotePath,
+    required String localPath,
+  }) async {
+    final file = File(localPath);
+    final request =
+        http.StreamedRequest('PUT', _buildUri(serverUrl, remotePath));
+    request.headers.addAll({
+      ..._authHeaders(username, password),
+      'Content-Type': 'application/octet-stream',
+    });
+    request.contentLength = await file.length();
+    final responseFuture = request.send();
+    await request.sink.addStream(file.openRead());
+    await request.sink.close();
+    final response = await responseFuture;
+    await response.stream.drain<void>();
+    return response.statusCode == 200 ||
+        response.statusCode == 201 ||
+        response.statusCode == 204;
+  }
+
+  Future<bool> _downloadFile({
+    required String serverUrl,
+    required String username,
+    required String password,
+    required String remotePath,
+    required String localPath,
+  }) async {
+    final request = http.Request('GET', _buildUri(serverUrl, remotePath));
+    request.headers.addAll(_authHeaders(username, password));
+    final response = await request.send();
+    if (response.statusCode != 200) {
+      await response.stream.drain<void>();
+      return false;
+    }
+    await response.stream.pipe(File(localPath).openWrite());
+    return true;
   }
 
   Future<bool> downloadBackup({
@@ -275,7 +460,9 @@ class WebdavService {
         body: bytes,
       );
 
-      if (response.statusCode == 201 || response.statusCode == 200 || response.statusCode == 204) {
+      if (response.statusCode == 201 ||
+          response.statusCode == 200 ||
+          response.statusCode == 204) {
         debugPrint('[WebDAV] 游戏备份已上传: $fileName -> $sanitizedFolder');
         return true;
       } else {
@@ -299,7 +486,8 @@ class WebdavService {
   }) async {
     try {
       final sanitizedFolder = sanitizeGameTitle(gameFolder);
-      final uri = _buildUri(serverUrl, '$_backupFolder/$sanitizedFolder/$remoteFileName');
+      final uri = _buildUri(
+          serverUrl, '$_backupFolder/$sanitizedFolder/$remoteFileName');
       final response = await http.get(
         uri,
         headers: _authHeaders(username, password),
@@ -334,7 +522,8 @@ class WebdavService {
   }) async {
     try {
       final sanitizedFolder = sanitizeGameTitle(gameFolder);
-      final uri = _buildUri(serverUrl, '$_backupFolder/$sanitizedFolder/$remoteFileName');
+      final uri = _buildUri(
+          serverUrl, '$_backupFolder/$sanitizedFolder/$remoteFileName');
       final response = await http.delete(
         uri,
         headers: _authHeaders(username, password),
@@ -354,7 +543,8 @@ class WebdavService {
   }
 
   /// 在 hgame_manager_backups/ 下创建子文件夹
-  Future<void> _createSubFolder(String serverUrl, String username, String password, String folderName) async {
+  Future<void> _createSubFolder(String serverUrl, String username,
+      String password, String folderName) async {
     try {
       // 确保父目录存在
       await _createFolder(serverUrl, username, password);
@@ -403,7 +593,8 @@ class WebdavService {
 
   /// 模糊匹配游戏标题与云端文件夹名
   /// 返回最佳匹配的文件夹名，无匹配返回 null
-  static String? fuzzyMatchGameFolder(String gameTitle, List<String> cloudFolders) {
+  static String? fuzzyMatchGameFolder(
+      String gameTitle, List<String> cloudFolders) {
     if (cloudFolders.isEmpty || gameTitle.isEmpty) return null;
 
     final normalizedTitle = gameTitle.toLowerCase().trim();
@@ -484,9 +675,24 @@ class WebdavService {
     }
   }
 
-  Future<void> _createFolder(String serverUrl, String username, String password) async {
+  Future<void> _createFolder(
+      String serverUrl, String username, String password) async {
+    await _createFolderAtPath(
+      serverUrl,
+      username,
+      password,
+      _backupFolder,
+    );
+  }
+
+  Future<void> _createFolderAtPath(
+    String serverUrl,
+    String username,
+    String password,
+    String remotePath,
+  ) async {
     try {
-      final uri = _buildUri(serverUrl, _backupFolder);
+      final uri = _buildUri(serverUrl, remotePath);
       final request = http.Request('MKCOL', uri);
       request.headers.addAll(_authHeaders(username, password));
       final response = await request.send();
@@ -516,17 +722,25 @@ class WebdavService {
         final name = href.split('/').last;
         if (name.isEmpty) continue;
 
-        final propstat = _findChild(response, ['D:propstat', 'd:propstat', 'lp1:propstat']);
+        final propstat =
+            _findChild(response, ['D:propstat', 'd:propstat', 'lp1:propstat']);
         if (propstat == null) continue;
 
-        final status = _findChildText(propstat, ['D:status', 'd:status', 'lp1:status']) ?? '';
+        final status =
+            _findChildText(propstat, ['D:status', 'd:status', 'lp1:status']) ??
+                '';
         if (!status.contains('200')) continue;
 
         final prop = _findChild(propstat, ['D:prop', 'd:prop', 'lp1:prop']);
         if (prop == null) continue;
 
-        final sizeStr = _findChildText(prop, ['D:getcontentlength', 'd:getcontentlength', 'lp1:getcontentlength']);
-        final dateStr = _findChildText(prop, ['D:getlastmodified', 'd:getlastmodified', 'lp1:getlastmodified']);
+        final sizeStr = _findChildText(prop, [
+          'D:getcontentlength',
+          'd:getcontentlength',
+          'lp1:getcontentlength'
+        ]);
+        final dateStr = _findChildText(prop,
+            ['D:getlastmodified', 'd:getlastmodified', 'lp1:getlastmodified']);
 
         final size = int.tryParse(sizeStr ?? '0') ?? 0;
         DateTime? date;
@@ -591,7 +805,8 @@ class WebdavService {
     final newMatch = RegExp(r'hgame_manager_(\d{14})\.zip').firstMatch(name);
     if (newMatch != null) {
       final s = newMatch.group(1)!;
-      return DateTime.tryParse('${s.substring(0, 4)}-${s.substring(4, 6)}-${s.substring(6, 8)} ${s.substring(8, 10)}:${s.substring(10, 12)}:${s.substring(12, 14)}');
+      return DateTime.tryParse(
+          '${s.substring(0, 4)}-${s.substring(4, 6)}-${s.substring(6, 8)} ${s.substring(8, 10)}:${s.substring(10, 12)}:${s.substring(12, 14)}');
     }
     final oldMatch = RegExp(r'hgame_manager_(\d{13,})\.db').firstMatch(name);
     if (oldMatch != null) {

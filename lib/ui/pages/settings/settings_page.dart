@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:archive/archive.dart';
 import 'package:html/parser.dart' as html_parser;
@@ -14,6 +15,10 @@ import '../../../core/utils/app_paths.dart';
 import '../../../core/utils/cloudflare_challenge.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../../core/services/webdav_service.dart';
+import '../../../core/services/backup_image_service.dart';
+import '../../../core/services/backup_image_record_service.dart';
+import '../../../core/services/image_service.dart';
+import '../../controllers/window_controller.dart';
 import '../../../scraper/html_parser.dart';
 import '../../theme/app_theme.dart';
 import '../../../core/utils/app_settings.dart';
@@ -69,6 +74,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   bool _webdavPasswordVisible = false;
   bool _isBackingUp = false;
   bool _isLoadingBackups = false;
+  bool _isImportingBackup = false;
+  bool _backupImages = false;
   List<WebDavFile>? _backupFiles;
   List<Map<String, String>> _xpathConfigs = [];
   bool _noImageMode = false;
@@ -226,6 +233,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _keepPlayedInGames =
         prefs.getBool(AppSettings.keepPlayedInGamesKey) ?? false;
     _favoriteFirst = prefs.getBool(AppSettings.favoriteFirstKey) ?? false;
+    _backupImages = prefs.getBool(AppSettings.backupImagesKey) ?? false;
 
     _loadXpathConfigs();
   }
@@ -457,7 +465,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       case '网络代理设置':
         return _buildProxySection();
       case '本地备份':
-        return _buildLocalBackupSection();
+        return _buildLocalBackupPage();
       case 'WebDav云备份':
         return _buildWebdavSection();
       case '关于':
@@ -2437,7 +2445,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   Widget _buildAboutSection() {
-    const currentVersion = '1.4.5';
+    const currentVersion = '1.4.6';
 
     return _buildSection(
       title: '关于',
@@ -2557,7 +2565,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   Widget _buildChangelogSettingsSection() {
-    const currentVersion = '1.4.5';
+    const currentVersion = '1.4.6';
 
     return _buildSection(
       title: '更新日志',
@@ -2690,33 +2698,38 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   Widget _buildChangelogBody(String body) {
-    final lines = body
-        .split(RegExp(r'\r?\n'))
-        .map((line) => line.trimRight())
-        .where((line) => line.trim().isNotEmpty)
-        .toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: lines.map((line) {
-        final trimmed = line.trimLeft();
-        final isHeading = trimmed.startsWith('###');
-        final text = isHeading
-            ? trimmed.replaceFirst(RegExp(r'^#+\s*'), '')
-            : trimmed.replaceFirst(RegExp(r'^-\s*'), '• ');
-        return Padding(
-          padding: EdgeInsets.only(bottom: isHeading ? 6 : 4),
-          child: Text(
-            text,
-            style: TextStyle(
-              color: isHeading
-                  ? AppTheme.getTextPrimary(context)
-                  : AppTheme.getTextSecondary(context),
-              fontSize: isHeading ? 13 : 12,
-              fontWeight: isHeading ? FontWeight.w600 : FontWeight.w400,
-            ),
-          ),
-        );
-      }).toList(),
+    final primaryColor = AppTheme.getTextPrimary(context);
+    final secondaryColor = AppTheme.getTextSecondary(context);
+    return MarkdownBody(
+      data: body,
+      selectable: true,
+      styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+        p: TextStyle(
+          color: secondaryColor,
+          fontSize: 12,
+          height: 1.5,
+        ),
+        h3: TextStyle(
+          color: primaryColor,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+        strong: TextStyle(
+          color: primaryColor,
+          fontWeight: FontWeight.w700,
+        ),
+        listBullet: TextStyle(
+          color: secondaryColor,
+          fontSize: 12,
+        ),
+        code: TextStyle(
+          color: primaryColor,
+          fontSize: 12,
+          backgroundColor: AppTheme.getSurfaceColor(context),
+        ),
+        blockSpacing: 6,
+        listIndent: 20,
+      ),
     );
   }
 
@@ -2899,6 +2912,48 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     }
   }
 
+  Widget _buildLocalBackupPage() {
+    return Column(
+      children: [
+        _buildBackupImageSection(),
+        const SizedBox(height: 16),
+        _buildLocalBackupSection(),
+      ],
+    );
+  }
+
+  Widget _buildBackupImageSection() {
+    return _buildSection(
+      title: '备份图片',
+      icon: Icons.image_outlined,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '开启后会将游戏图片加入本地和 WebDAV 备份，可能导致备份包很大。云端仅上传新增或变化的图片。',
+                style: TextStyle(
+                  color: AppTheme.getTextSecondary(context),
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            Switch(
+              value: _backupImages,
+              activeThumbColor: AppTheme.getPrimaryColor(context),
+              onChanged: (value) async {
+                setState(() => _backupImages = value);
+                final prefs = ref.read(sharedPreferencesProvider);
+                await prefs.setBool(AppSettings.backupImagesKey, value);
+                await prefs.flush();
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildLocalBackupSection() {
     return _buildSection(
       title: '本地备份',
@@ -2908,7 +2963,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
           children: [
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: _exportLocalBackup,
+                onPressed: _isImportingBackup ? null : _exportLocalBackup,
                 icon: const Icon(Icons.file_upload_outlined, size: 18),
                 label: const Text('导出备份'),
                 style: ElevatedButton.styleFrom(
@@ -2926,7 +2981,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: _importLocalBackup,
+                onPressed: _isImportingBackup ? null : _importLocalBackup,
                 icon: const Icon(Icons.file_download_outlined, size: 18),
                 label: const Text('导入备份'),
                 style: ElevatedButton.styleFrom(
@@ -2979,7 +3034,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: _isBackingUp ? null : _backupToWebdav,
+                onPressed:
+                    _isBackingUp || _isImportingBackup ? null : _backupToWebdav,
                 icon: _isBackingUp
                     ? const SizedBox(
                         width: 16,
@@ -3161,6 +3217,9 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         archive.addFile(
             ArchiveFile('settings.json', settingsBytes.length, settingsBytes));
       }
+      if (_backupImages) {
+        await _addReferencedImagesToArchive(archive);
+      }
 
       final zipBytes = ZipEncoder().encode(archive);
       await File(result).writeAsBytes(zipBytes);
@@ -3214,13 +3273,21 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     final sourcePath = result.files.single.path;
     if (sourcePath == null) return;
 
+    _beginBackupImport();
+    var preservedImages = <PreservedGameImages>[];
     try {
       final dbPath = await DatabaseHelper.getDatabasePath();
       final settingsPath = await AppPaths.settingsFile;
+      final recordService = BackupImageRecordService();
+      preservedImages = await recordService.capture(
+        await DatabaseHelper.database,
+      );
 
       if (sourcePath.endsWith('.zip')) {
         final zipBytes = await File(sourcePath).readAsBytes();
         final archive = ZipDecoder().decodeBytes(zipBytes);
+        final hasImageManifest =
+            BackupImageService().readManifest(archive).isNotEmpty;
 
         await DatabaseHelper.close();
 
@@ -3235,11 +3302,17 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             await ref.read(sharedPreferencesProvider).reload();
           }
         }
+        if (hasImageManifest) {
+          await _restoreLocalImagesFromArchive(archive);
+        } else {
+          await _mergePreservedImages(preservedImages);
+        }
       } else {
         await DatabaseHelper.close();
         final dbFile = File(dbPath);
         if (await dbFile.exists()) await dbFile.delete();
         await File(sourcePath).copy(dbPath);
+        await _mergePreservedImages(preservedImages);
       }
 
       if (mounted) {
@@ -3247,12 +3320,15 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       }
     } catch (e) {
       debugPrint('Import local backup error: $e');
+      await _mergePreservedImagesBestEffort(preservedImages);
       if (mounted) {
         AppTheme.showGlassToast(context,
             message: '导入失败',
             icon: Icons.error_outline,
             iconColor: AppTheme.errorColor);
       }
+    } finally {
+      _endBackupImport();
     }
   }
 
@@ -3445,6 +3521,10 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         archive.addFile(
             ArchiveFile('settings.json', settingsBytes.length, settingsBytes));
       }
+      List<BackupImageAsset> imageAssets = [];
+      if (_backupImages) {
+        imageAssets = await _addIncrementalImageManifestToArchive(archive);
+      }
       final zipBytes = ZipEncoder().encode(archive);
 
       final tempDir = Directory.systemTemp;
@@ -3456,12 +3536,19 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       await File(tempZipPath).writeAsBytes(zipBytes);
 
       final service = ref.read(webdavServiceProvider);
-      final ok = await service.uploadBackup(
+      final imagesOk = await service.uploadMissingBackupImages(
         serverUrl: url,
         username: username,
         password: password,
-        localFilePath: tempZipPath,
+        assets: imageAssets,
       );
+      final ok = imagesOk &&
+          await service.uploadBackup(
+            serverUrl: url,
+            username: username,
+            password: password,
+            localFilePath: tempZipPath,
+          );
 
       final tempFile = File(tempZipPath);
       if (await tempFile.exists()) await tempFile.delete();
@@ -3546,23 +3633,28 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
 
     if (confirmed != true) return;
 
-    final url = _webdavUrlController.text.trim();
-    final username = _webdavUsernameController.text.trim();
-    final password = _webdavPasswordController.text;
+    _beginBackupImport();
+    var preservedImages = <PreservedGameImages>[];
+    try {
+      final url = _webdavUrlController.text.trim();
+      final username = _webdavUsernameController.text.trim();
+      final password = _webdavPasswordController.text;
+      final dbPath = await DatabaseHelper.getDatabasePath();
+      final service = ref.read(webdavServiceProvider);
+      final recordService = BackupImageRecordService();
+      preservedImages = await recordService.capture(
+        await DatabaseHelper.database,
+      );
+      final tempPath = await service.importBackup(
+        serverUrl: url,
+        username: username,
+        password: password,
+        remoteFileName: fileName,
+        localDbPath: dbPath,
+      );
 
-    final dbPath = await DatabaseHelper.getDatabasePath();
-    final service = ref.read(webdavServiceProvider);
-    final tempPath = await service.importBackup(
-      serverUrl: url,
-      username: username,
-      password: password,
-      remoteFileName: fileName,
-      localDbPath: dbPath,
-    );
-
-    bool ok = false;
-    if (tempPath != null) {
-      try {
+      var ok = false;
+      if (tempPath != null) {
         final tempFile = File(tempPath);
         if (!await tempFile.exists()) {
           if (mounted) {
@@ -3571,56 +3663,210 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 icon: Icons.error_outline,
                 iconColor: AppTheme.errorColor);
           }
-          return;
-        }
-
-        await DatabaseHelper.close();
-
-        if (fileName.endsWith('.zip')) {
-          final zipBytes = await tempFile.readAsBytes();
-          final archive = ZipDecoder().decodeBytes(zipBytes);
-
-          for (final file in archive) {
-            if (file.name == 'database.db') {
-              final dbFile = File(dbPath);
-              if (await dbFile.exists()) await dbFile.delete();
-              await dbFile.writeAsBytes(file.content as List<int>);
-            } else if (file.name == 'settings.json') {
-              final settingsPath = await AppPaths.settingsFile;
-              final settingsFile = File(settingsPath);
-              await settingsFile.writeAsBytes(file.content as List<int>);
-              await ref.read(sharedPreferencesProvider).reload();
-            }
-          }
         } else {
-          final dbFile = File(dbPath);
-          if (await dbFile.exists()) await dbFile.delete();
-          await tempFile.copy(dbPath);
-        }
+          await DatabaseHelper.close();
 
-        if (await tempFile.exists()) await tempFile.delete();
+          if (fileName.endsWith('.zip')) {
+            final zipBytes = await tempFile.readAsBytes();
+            final archive = ZipDecoder().decodeBytes(zipBytes);
+            final hasImageManifest =
+                BackupImageService().readManifest(archive).isNotEmpty;
 
-        ok = true;
-      } catch (e) {
-        debugPrint('Failed to import backup: $e');
-        try {
-          final tempFile = File(tempPath);
+            for (final file in archive) {
+              if (file.name == 'database.db') {
+                final dbFile = File(dbPath);
+                if (await dbFile.exists()) await dbFile.delete();
+                await dbFile.writeAsBytes(file.content as List<int>);
+              } else if (file.name == 'settings.json') {
+                final settingsPath = await AppPaths.settingsFile;
+                final settingsFile = File(settingsPath);
+                await settingsFile.writeAsBytes(file.content as List<int>);
+                await ref.read(sharedPreferencesProvider).reload();
+              }
+            }
+            if (hasImageManifest) {
+              await _restoreWebdavImagesFromArchive(
+                archive,
+                service: service,
+                serverUrl: url,
+                username: username,
+                password: password,
+              );
+            } else {
+              await _mergePreservedImages(preservedImages);
+            }
+          } else {
+            final dbFile = File(dbPath);
+            if (await dbFile.exists()) await dbFile.delete();
+            await tempFile.copy(dbPath);
+            await _mergePreservedImages(preservedImages);
+          }
+
           if (await tempFile.exists()) await tempFile.delete();
-        } catch (_) {
-          // 临时文件清理失败时忽略
+          ok = true;
         }
       }
-    }
 
-    if (mounted) {
-      if (ok) {
-        AppTheme.showGlassToast(context, message: '导入成功！请重启应用使数据生效。');
-      } else {
+      if (mounted) {
+        if (ok) {
+          AppTheme.showGlassToast(context, message: '导入成功！请重启应用使数据生效。');
+        } else {
+          AppTheme.showGlassToast(context,
+              message: '导入失败',
+              icon: Icons.error_outline,
+              iconColor: AppTheme.errorColor);
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to import backup: $e');
+      await _mergePreservedImagesBestEffort(preservedImages);
+      if (mounted) {
         AppTheme.showGlassToast(context,
-            message: '导入失败',
+            message: '导入失败: $e',
             icon: Icons.error_outline,
             iconColor: AppTheme.errorColor);
       }
+    } finally {
+      _endBackupImport();
+    }
+  }
+
+  Future<void> _addReferencedImagesToArchive(Archive archive) async {
+    final imagePaths = await _getReferencedImagePaths();
+    await BackupImageService().addToArchive(archive, imagePaths);
+  }
+
+  Future<List<BackupImageAsset>> _addIncrementalImageManifestToArchive(
+    Archive archive,
+  ) async {
+    final imagePaths = await _getReferencedImagePaths();
+    return BackupImageService().addIncrementalManifestToArchive(
+      archive,
+      imagePaths,
+    );
+  }
+
+  Future<List<String>> _getReferencedImagePaths() async {
+    final db = await DatabaseHelper.database;
+    final rows = await db.query('game_images', columns: ['image_path']);
+    return rows
+        .map((row) => row['image_path'] as String?)
+        .whereType<String>()
+        .where((imagePath) => imagePath.isNotEmpty)
+        .toList();
+  }
+
+  Future<void> _restoreLocalImagesFromArchive(Archive archive) async {
+    final imageService = BackupImageService();
+    final manifest = imageService.readManifest(archive);
+    if (manifest.isEmpty) return;
+
+    final storageDir = await ImageService().getImageStorageDir();
+    final restoredPaths = await imageService.restoreFromArchive(
+      archive,
+      storageDir,
+    );
+    if (restoredPaths.length != manifest.length) {
+      throw const FormatException('该备份依赖 WebDAV 增量图片，请从 WebDAV 备份列表导入');
+    }
+    await _applyRestoredImagePaths(restoredPaths);
+  }
+
+  Future<void> _restoreWebdavImagesFromArchive(
+    Archive archive, {
+    required WebdavService service,
+    required String serverUrl,
+    required String username,
+    required String password,
+  }) async {
+    final imageService = BackupImageService();
+    final manifest = imageService.readManifest(archive);
+    if (manifest.isEmpty) return;
+
+    final storageDir = await ImageService().getImageStorageDir();
+    var restoredPaths = await imageService.restoreFromArchive(
+      archive,
+      storageDir,
+    );
+    if (restoredPaths.length != manifest.length) {
+      final downloadedPaths = await service.downloadBackupImages(
+        serverUrl: serverUrl,
+        username: username,
+        password: password,
+        manifest: manifest,
+        destinationDir: storageDir,
+      );
+      if (downloadedPaths == null ||
+          downloadedPaths.length != manifest.length) {
+        throw const FileSystemException('增量图片下载失败');
+      }
+      restoredPaths = downloadedPaths;
+    }
+    await _applyRestoredImagePaths(restoredPaths);
+  }
+
+  Future<void> _applyRestoredImagePaths(
+    Map<String, String> restoredPaths,
+  ) async {
+    if (restoredPaths.isEmpty) return;
+
+    final db = await DatabaseHelper.database;
+    await db.transaction((txn) async {
+      for (final entry in restoredPaths.entries) {
+        await txn.update(
+          'game_images',
+          {'image_path': entry.value},
+          where: 'image_path = ?',
+          whereArgs: [entry.key],
+        );
+        for (final column in ['intro', 'guide']) {
+          await txn.rawUpdate(
+            'UPDATE games SET $column = REPLACE($column, ?, ?) '
+            'WHERE instr($column, ?) > 0',
+            [entry.key, entry.value, entry.key],
+          );
+        }
+      }
+    });
+    await DatabaseHelper.close();
+  }
+
+  Future<void> _mergePreservedImages(
+    List<PreservedGameImages> preservedImages,
+  ) async {
+    if (preservedImages.isEmpty) return;
+    final db = await DatabaseHelper.database;
+    await BackupImageRecordService().merge(db, preservedImages);
+    await DatabaseHelper.close();
+  }
+
+  Future<void> _mergePreservedImagesBestEffort(
+    List<PreservedGameImages> preservedImages,
+  ) async {
+    try {
+      await _mergePreservedImages(preservedImages);
+    } catch (e) {
+      debugPrint('Failed to preserve current image records: $e');
+    }
+  }
+
+  void _beginBackupImport() {
+    WindowController.setCloseBlocked(true);
+    if (!mounted) return;
+    setState(() => _isImportingBackup = true);
+    AppTheme.showGlassToast(
+      context,
+      message: '正在导入备份，请勿关闭软件',
+      icon: Icons.hourglass_top,
+      iconColor: AppTheme.warningColor,
+      duration: const Duration(seconds: 5),
+    );
+  }
+
+  void _endBackupImport() {
+    WindowController.setCloseBlocked(false);
+    if (mounted) {
+      setState(() => _isImportingBackup = false);
     }
   }
 

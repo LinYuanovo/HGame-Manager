@@ -8,6 +8,8 @@ import '../../core/utils/app_settings.dart';
 import '../../core/utils/proxy_client.dart';
 
 class WindowController extends ChangeNotifier with WindowListener {
+  static bool _closeBlocked = false;
+
   final AppSettings _prefs;
   bool _isMaximized = false;
   bool _isClosing = false;
@@ -20,6 +22,10 @@ class WindowController extends ChangeNotifier with WindowListener {
   WindowController(this._prefs);
 
   bool get isMaximized => _isMaximized;
+
+  static void setCloseBlocked(bool blocked) {
+    _closeBlocked = blocked;
+  }
 
   Future<void> initialize() async {
     await windowManager.ensureInitialized();
@@ -99,6 +105,7 @@ class WindowController extends ChangeNotifier with WindowListener {
   }
 
   Future<void> _closeWindow() async {
+    if (_closeBlocked) return;
     if (_isClosing) return;
     _isClosing = true;
     _saveWindowSettings();
@@ -117,9 +124,9 @@ class WindowController extends ChangeNotifier with WindowListener {
   void _terminateWindowsProcess() {
     try {
       final kernel32 = ffi.DynamicLibrary.open('kernel32.dll');
-      final getCurrentProcess = kernel32.lookupFunction<
-          ffi.IntPtr Function(),
-          int Function()>('GetCurrentProcess');
+      final getCurrentProcess =
+          kernel32.lookupFunction<ffi.IntPtr Function(), int Function()>(
+              'GetCurrentProcess');
       final terminateProcess = kernel32.lookupFunction<
           ffi.Int32 Function(ffi.IntPtr, ffi.Uint32),
           int Function(int, int)>('TerminateProcess');

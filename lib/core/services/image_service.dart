@@ -87,16 +87,28 @@ class ImageService {
   /// 从URL下载图片
   Future<String?> downloadImageFromUrl(String url,
       {Map<String, String>? headers}) async {
+    final storageDir = await getImageStorageDir();
+    return _downloadImageToDir(url, storageDir, headers: headers);
+  }
+
+  /// 从URL下载图片到游戏目录的 HGMDatas/images 文件夹
+  Future<String?> downloadImageFromUrlToGameDir(String url, String gamePath,
+      {Map<String, String>? headers}) async {
+    final imageDir = await GameDataPaths.ensureImagesDir(gamePath);
+    return _downloadImageToDir(url, imageDir.path, headers: headers);
+  }
+
+  Future<String?> _downloadImageToDir(String url, String targetDir,
+      {Map<String, String>? headers}) async {
     try {
       final response = await http.get(Uri.parse(url), headers: headers);
       if (response.statusCode != 200) return null;
 
-      final storageDir = await getImageStorageDir();
       final extension =
           _getExtensionFromContentType(response.headers['content-type']) ??
               'jpg';
       final fileName = '${_uuid.v4()}.$extension';
-      final destPath = '$storageDir${Platform.pathSeparator}$fileName';
+      final destPath = '$targetDir${Platform.pathSeparator}$fileName';
 
       await File(destPath).writeAsBytes(response.bodyBytes);
       return destPath;

@@ -31,6 +31,7 @@ import '../../../core/utils/cleared_game_path_utils.dart';
 import '../../../core/utils/game_data_paths.dart';
 import '../../../core/utils/media_reference_parser.dart';
 import '../../../core/utils/path_reference_rewriter.dart';
+import '../../../core/utils/scraped_image_file_cleaner.dart';
 import '../../../core/utils/scraped_image_reference_rewriter.dart';
 import '../../widgets/image_manager_dialog.dart';
 import '../../widgets/cloudflare_browser_dialog.dart';
@@ -464,6 +465,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _pathController.dispose();
     _makerController.dispose();
     _guideController.dispose();
+    _PlayerCache.disposeAll();
     super.dispose();
   }
 
@@ -5310,6 +5312,17 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         debugPrint('[GameDetail] 下载截图失败: $e');
       }
     }
+
+    await ScrapedImageFileCleaner.cleanUnusedNumberedImages(
+      gamePath: game.path,
+      retainedImagePaths: urlToLocal.values,
+      referenceTexts: [
+        game.intro,
+        game.features,
+        game.changelog,
+        game.guide,
+      ],
+    );
 
     return urlToLocal;
   }

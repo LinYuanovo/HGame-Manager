@@ -13,6 +13,7 @@ import '../../../core/utils/cloudflare_challenge.dart';
 import '../../../core/utils/game_data_paths.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../../core/utils/scraped_image_reference_rewriter.dart';
+import '../../../core/utils/scraped_image_file_cleaner.dart';
 import '../../../scraper/html_parser.dart';
 import '../../../scraper/parse_utils.dart';
 import '../../../core/services/concurrent_image_downloader.dart';
@@ -1174,6 +1175,21 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           await entity.delete();
         }
       }
+    }
+
+    final deletedCount =
+        await ScrapedImageFileCleaner.cleanUnusedNumberedImages(
+      gamePath: game.path,
+      retainedImagePaths: finalImages.map((image) => image.imagePath),
+      referenceTexts: [
+        game.intro,
+        game.features,
+        game.changelog,
+        game.guide,
+      ],
+    );
+    if (deletedCount > 0) {
+      _addLog('  -> 清理旧配图: $deletedCount 张');
     }
 
     // 5. 使用事务更新数据库
