@@ -1,0 +1,2922 @@
+{
+  "code": 0,
+  "message": "OK",
+  "ttl": 1,
+  "data": {
+    "id": 48389703,
+    "category": {
+      "id": 15,
+      "parent_id": 3,
+      "name": "日常"
+    },
+    "categories": [
+      {
+        "id": 3,
+        "parent_id": 0,
+        "name": "生活"
+      },
+      {
+        "id": 15,
+        "parent_id": 3,
+        "name": "日常"
+      }
+    ],
+    "title": "绯月仙行录 主线全流程攻略（AI精简合规版）",
+    "summary": "本攻略仅包含战斗、装备、宠物、境界突破、地图探索及剧情分支指引，不含任何不当内容。 绯月新版本无法继承旧存档。 绯月新封面随角色心境阶段变化。 城主府全年开放。 琉璃塔全年开放。 望月阁无需特殊道具，等级足够即可上楼（共五层），升级迷宫在第三层进入。 衣服统一耐久度，损坏后需修复。换衣需在背包中使用帐篷，衣服位于珍贵物品栏。 青鸾和灵狐的立绘已更新。 可为凡人制药获取灵石、声望、功德（皇城功德堂兑换）。 通关一次后可解锁全部剧情回顾，并可继承物品和修为开启二周目。 四个难度：引气（简单）：2倍伤害；凝液（",
+    "banner_url": "",
+    "template_id": 4,
+    "state": 0,
+    "author": {
+      "mid": 42506020,
+      "name": "淡定菌DDJoker",
+      "face": "https://i1.hdslb.com/bfs/baselabs/0ee234c04b64c80c89adc8394f09ac173ae3776e.jpg",
+      "pendant": {
+        "pid": 0,
+        "name": "",
+        "image": "",
+        "expire": 0
+      },
+      "official_verify": {
+        "type": -1,
+        "desc": ""
+      },
+      "nameplate": {
+        "nid": 71,
+        "name": "资深委员",
+        "image": "https://i0.hdslb.com/bfs/face/5beecb936bd7422a5ac11c9c5c8df56f334b2a65.png",
+        "image_small": "https://i0.hdslb.com/bfs/face/9f8e0d5cd0201cf7177199d9365be562be1deb05.png",
+        "level": "高级勋章",
+        "condition": "风纪委员连任期数 >= 6"
+      },
+      "vip": {
+        "type": 2,
+        "status": 1,
+        "due_date": 0,
+        "vip_pay_type": 0,
+        "theme_type": 0,
+        "label": {
+          "path": "http://i0.hdslb.com/bfs/vip/label_annual.png",
+          "text": "年度大会员",
+          "label_theme": "annual_vip"
+        },
+        "avatar_subscript": 1,
+        "nickname_color": "#FB7299"
+      },
+      "fans": 6030,
+      "level": 6
+    },
+    "reprint": 0,
+    "image_urls": [
+      "https://i0.hdslb.com/bfs/new_dyn/7b576dbc95419442c62e595906cfcc8742506020.png"
+    ],
+    "publish_time": 1777600800,
+    "ctime": 1777569662,
+    "mtime": 1777694216,
+    "stats": {
+      "view": 126763,
+      "favorite": 3476,
+      "like": 1076,
+      "dislike": 0,
+      "reply": 891,
+      "share": 0,
+      "coin": 111,
+      "dynamic": 0
+    },
+    "words": 3841,
+    "origin_image_urls": [
+      "https://i0.hdslb.com/bfs/new_dyn/7b576dbc95419442c62e595906cfcc8742506020.png"
+    ],
+    "list": {
+      "id": 621606,
+      "mid": 42506020,
+      "name": "绯月仙行录游戏攻略",
+      "image_url": "https://i0.hdslb.com/bfs/article/96d2b3d2a72e6497a011c885ab9245c51507ce18.png",
+      "update_time": 1777569516,
+      "ctime": 1665061796,
+      "publish_time": 1777600800,
+      "summary": "",
+      "words": 34679,
+      "read": 0,
+      "articles_count": 0,
+      "state": 3,
+      "reason": "",
+      "apply_time": "",
+      "check_time": ""
+    },
+    "is_like": false,
+    "media": {
+      "score": 0,
+      "media_id": 0,
+      "title": "",
+      "cover": "",
+      "area": "",
+      "type_id": 0,
+      "type_name": "",
+      "spoiler": 0,
+      "season_id": 0
+    },
+    "apply_time": "",
+    "check_time": "",
+    "original": 1,
+    "act_id": 0,
+    "dispute": null,
+    "authenMark": null,
+    "cover_avid": 0,
+    "top_video_info": null,
+    "type": 4,
+    "check_state": 0,
+    "origin_template_id": 4,
+    "private_pub": 0,
+    "content_pic_list": null,
+    "content": "本攻略仅包含战斗、装备、宠物、境界突破、地图探索及剧情分支指引，不含任何不当内容。\n更新须知\n绯月新版本无法继承旧存档。\n绯月新封面随角色心境阶段变化。\n城主府全年开放。\n琉璃塔全年开放。\n望月阁无需特殊道具，等级足够即可上楼（共五层），升级迷宫在第三层进入。\n衣服统一耐久度，损坏后需修复。换衣需在背包中使用帐篷，衣服位于珍贵物品栏。\n青鸾和灵狐的立绘已更新。\n可为凡人制药获取灵石、声望、功德（皇城功德堂兑换）。\n通关一次后可解锁全部剧情回顾，并可继承物品和修为开启二周目。\n四个难度：引气（简单）：2倍伤害；凝液（普通）：1.5倍伤害；破丹（困难）：原版伤害；化神（地狱）：0.5倍伤害。难度仅影响战斗数值，与结局无关。\n以下按化神（地狱）难度开局撰写，其他难度可自行对比调整。\n新手村·流云城前期攻略（地狱难度）\n开局在母亲手镯→望月阁中兑换青霜丹丹方（筑基丹方·甲）。\n去城主府兑换青霜果。到后山获取坠龙藤×1。\n药店购买轻灵草×5，回房间炼丹。\n客栈二楼三个房间可拾取灵石。\n突破筑基后，建议去琉璃村花费1000灵石建房。可选择在屋内修炼（稳定升级）或历练（赚灵石）。\n前往黑鲛秘境。前期可故意输给普通怪物一次，会触发剧情，回城主府领取强力AOE技能 “烈火烹油”（基础伤害900），大幅降低前期战斗压力。注意：输给怪物不会导致特殊状态，放心战斗。\n通关秘境一层后，去红袖坊购买踏云靴。\n通关秘境二层后，商店更新，去武宝堂购买皓月（若打不过可先买绣花鞋、绿琉璃过渡）。\n在流云城野外及琉璃塔前刷小怪，用AOE技能清场，获取材料强化刺尾鞭和云霞衫。云霞衫可升级为离火灵甲，材料可用灵石补齐。\n强化足够后，可挑战青鸾。注意回血与技能循环，收服后喂食内丹升级。\n望月阁无需内丹升级，等级够即可上楼。\n秘境三层进四层需去赌场兑换破空戒，同时换10个坠龙藤备用。\n可选装备玉娇耳环，能有效提升生存能力。\n满20级可准备突破金丹。用妖丹在望月阁开启迷宫获取古币（迷宫在望月阁三楼，需30级进入）。\n望月阁二楼兑换丹方、韵灵果、技能书一品烈焰（强力单体技能）。\n城主府二楼兑换朝花玉露×6、固灵花×1，炼制突破金丹的丹药。\n升到25级后，每年4月和9月可去琉璃塔打怪升级装备。\n望月阁三楼兑换触手鞭（武器），防具升级为空镜宝甲。\n夏季可挑战九尾狐（20级带青鸾即可）。收服后喂内丹至30级，用于挑战琉璃塔。\n突破元婴后，学习冰天雪地技能。小怪用AOE法术清场，Boss用“月弥曲+三品烈焰+回血”循环。\n多刷材料强化武器和防具。至此，流云城前期攻略完结。\n地狱难度下，灵宠几乎必须出战。建议多刷内丹喂养灵宠。防御属性收益较低，优先提升血量。玉娇耳环为必备装备。\n心境逻辑说明\n仅保留数值与路线分支，不涉及任何不当内容。\n心境阶段随突破和剧情推进而提升。即使使用道具降低数值，已开启的阶段仍然存在。皇城剧情走向由数值判断。\n阶段划分：\n一阶段：99以下\n二阶段：100~499\n三阶段：500~999\n四阶段：1000~1499\n五阶段：1500~2000（上限）\n灵宠获取\n青鸾：琉璃村田地秋千处与女孩对话，得知后山深渊有青鸾，击败即可收服（新手推荐）。\n九尾狐：通关秘境三层后，夏季在流云城居士家附近找到男修周山（36,13），得知城外有白狐，击败获得。\n青浮游：秋季在琉璃塔外地图找到女修白兮兮，得知湖心岛有灵兽。需用城主令兑换龙心喂养进阶。\n出新手村后主线\n通关黑蛟秘境第五层后，开启大地图，前往凤临皇城。\n与墨轩对话时为剧情分支节点：心境值大于100进入居民线，小于100进入醉仙居线。\n黑蛟化龙支线：\n墨轩要求每次收集1000灵气+10功德。灵气通过与NPC互动或者部分地点获取，功德可在佛宗完成任务。完成5次后，前往迷失沼泽，打赢五毒教掌门，获得祭台使用权。若之前王爷存活，王爷会协助化龙。化龙状态会影响最终决战难度。\n大地图有随机事件，包含五行秘境、地下灵脉等，可获得装备材料、丹药药材、宠物属性道具等。具体请查阅相应表格。\n醉仙居线\n触发方式\n完成前期主线后，前往凤朝皇都的贫民区，与特定NPC对话，选择前往醉仙居工作。此为主线分支之一，与居民线互斥。\n主要玩法\n在醉仙居内通过日常工作提升声望值。\n声望值可通过与庭院内、大厅中的NPC互动获得（部分交互需要消耗道具或灵石）。\n声望值达到20时，解锁醉仙居商贩，可购买剧情推进道具及部分恢复类物品。\n声望值达到60和80时，分别解锁两位特殊NPC，可使用道具兑换剧情线索（如古董文玩、修士丹药等）。\n收集足够的线索后，可向醉仙居万仙儿询问关键信息。进入万仙儿房间需要特定道具（可在商贩处购买）。\n注：与万仙儿交互时，若好感度不足，会触发任务失败结局（仅文字提示，无不当内容）。可通过赠送特定道具（如驻颜丹）提升好感度。\n后续剧情\n完成醉仙居线的主要线索收集后，返回洞府与阿欢对话，开启桃花村剧情。\n若角色心境阶段达到三阶段及以上，后续返回醉仙居可触发额外对话（仅剧情文本，无不当内容）。\n居民线\n前往平民区，与馨月亲戚对话。\n前往贫民区击败混混，进入地下室清理敌人，最终击败首领，完成万恶阁事件。\n返回与馨月亲戚对话，接着清理乞丐（平民区右侧），进入地下继续战斗，最终击败首领。\n再次返回与馨月亲戚对话，结束此线。\n两条主线（居民线/醉仙居线）结束后，回洞府与阿欢对话，开启桃花村。\n桃花村\n与村长对话，满足五名村民需求：\n客栈：十份坠龙藤\n杨淑华（31,20）：十分烤肉（狸力掉落）\n吴华华（42,24）：一只猪、两只鸡、一坛酒（皇城购买）\n洪珊珊（7,22）：完成砍柴和洗衣\n杨絮家（14,28）：与屋内人对话\n完成后找村长，要求出战鸟类灵宠。\n往右找朱晓华（45,7），然后与徐长远（28,24）对话，接任务去琉璃村后山击败“鼓”（需大米×1、鸡×2、香×1）。\n取得紫英草后返回，再与杨伟男（23,28）对话，花费2000灵石进入虫洞。\n虫洞内连续击败村长两次（注意车轮战，提前补满状态）。洞穴中（9,32）可获得诅咒戒指（仅外观变化，无属性）。\n剧情结束后，与朱晓华对话获得服装，右边道具店开启，可领取魔女服。\n王爷府剧情\n回皇城找馨月亲戚，进入王爷府。连续跳月10个月降低守卫警觉。\n进入听雪阁调查（无警卫时与王爷对话开启调查）。\n左上角为印章，右下角为隐藏房间（可进入，不同时期剧情不同）。\n完成后前往军需馆（大地图），击败所有士兵和Boss。\n接着前往西北军营，同样清空所有敌人。\n随后分支：\n直接去凤临阁 → 魔界线\n先做完王爷存活剧情再去凤临阁 → 江南线\n江南线\n完成军需馆和西北军营剧情后，不要立即去凤临阁。\n前往皇城上方长龙道，左转至王太傅王府，身穿舞女服接任务。\n触发救助宇文景诚剧情（7月时长龙道左下角出现“情缘迷宫”，参加后与王爷相遇）。\n剧情完成后，前往凤临阁，王爷现身击退凤凰，开启江南地区（云霓大陆 88,55）。\n后续纯剧情，最终要求找姜子牙取打神鞭。\n魔界线\n直接去凤临阁，破解阵法上二楼，被凤凰击败后由宇文玉救下。\n宇文玉解散王府，假传死讯，带上官月前往某地献祭自身复活上官月。\n墨轩告知需前往魔界获取真相（需给墨轩10个六道碎片）。\n到魔界找魔尊，需要50功德、30功德碎片、10个金莲（可在魔界购买）开启天元镜。\n剧情后前往不周山找姜子牙取打神鞭。\n最终决战\n不周山击败姜子牙获得打神鞭，可在他处购买升级材料并强化。\n从王爷府左侧进入皇宫，击败皇帝。\n前往凤临阁与黑凤凰凤溪决战。\n难度参考：简单难度60级炼虚巅峰+黑蛟化龙即可；地狱难度建议升至劫境并完成化龙。\n战败进入坏结局（可重试）：\n魔界线打赢 → 飞升结局\n江南线+低心境 → 永无止境的追求结局\n江南线+高心境（三阶段以上） → 特定结局\n心境五阶段 → 红尘仙结局\n入魔线（合规版）\n入魔条件\n尚未开启魔界或江南主线（即未前往凤临阁触发对应剧情）\n心魔值达到 1000\n已完成黑蛟化龙支线\n心境阶段达到三阶段及以上\n满足以上条件后，返回洞府会出现是否“入魔”的选项。选择入魔后，角色将无法正常进入仙灵苑等正道区域，但可以正常前往合欢宗、血神阁、魔界、鬼蜮等地。\n注：入魔为剧情分支之一，不影响游戏机制完整性，可正常进行战斗、炼丹、装备升级等操作。\n入魔后主要玩法\n可自由选择加入合欢宗或血神阁（仅作为普通宗门，不涉具体不当内容）。\n加入后，宗门会指导你如何积累血煞之力（一种战斗资源，用于提升属性）。可通过击杀特定怪物或前往血神阁的血池修炼获得。\n与宗门对话，可获悉“鬼蜮”中存在一件法宝——万魂幡。前往鬼蜮，找到笑老头并击败他，进入地下室即可获得（此任务不强制，可自由探索）。\n入魔后，大地图上会出现正派修士追击。若战败，会被传送至灵兽宗（普通惩罚机制，无不当内容）。核心任务：魔界合作\n前往魔界，与魔尊对话。魔尊要求你突破至渡劫后期，并与他进行一场战斗测试实力。\n若战败：剧情分支结束，不会进入最终决战（可重试）。\n若战胜：魔尊认可你的实力，要求你继续突破至劫境。\n魔尊会提供一颗突破丹药（渡劫巅峰→劫境）。突破失败不消耗丹药。\n突破至劫境一阶后，前往魔界与魔尊对话，开启最终决战——攻打天庭。\n最终决战·天庭\n进入天庭地图后，先击败左右两侧的九天玄女（各一位）。\n左侧掉落顶级防具。\n右侧掉落顶级御兽环（用于灵宠）。\n击败两位玄女后，中央平台解锁，进入与天尊·天衍的最终战斗。\n战斗结果决定结局：\n战胜：上官月夺取天尊能力，但随后宇文卿被叛军杀死，大陆陷入动荡。仅墨轩和阿欢幸存。\n战败：天衍将上官月留在身边，监视其行动。\n入魔线总计三种结局走向（以上两种 + 魔界合作失败后的分支），均不涉及任何不当内容。\n入魔线境界突破说明\n炼虚期之前，可通过常规方式（母亲手镯、宗门药店丹方）突破。\n炼虚期后，无法前往焚天域，需在魔界购买突破丹方或从宗门学习对应技能。\n血煞值可通过战斗或血池修炼积累，用于永久提升角色属性。",
+    "keywords": "地狱难度,凤临阁,黑凤凰,九天玄女,绣花鞋,剧情回顾,江南地区,强化武器,桃花村,不周山,隐藏房间,NPC,新手推荐,五毒教,纯剧情,烈火烹油,简单难度,坏结局,装备升级,姜子牙,最终决战,刷材料,九尾狐,大地图,新手村,随机事件,永无止境,车轮战,10个,60级,AOE,打怪升级,冰天雪地,日常工作,任务失败,二周目,好感度,地下室,最终战,BOSS,游戏机制,新版本,打不过,二阶段,右下角,左下角,1.5倍",
+    "version_id": 0,
+    "opus": {
+      "opus_id": 1197275391403753476,
+      "opus_source": 2,
+      "title": "绯月仙行录 主线全流程攻略（AI精简合规版）",
+      "content": {
+        "paragraphs": [
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "本攻略仅包含战斗、装备、宠物、境界突破、地图探索及剧情分支指引，不含任何不当内容。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 1
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "更新须知",
+                    "font_size": 24,
+                    "style": {},
+                    "font_level": "xxLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "绯月新版本无法继承旧存档。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "绯月新封面随角色心境阶段变化。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "城主府全年开放。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "琉璃塔全年开放。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "望月阁无需特殊道具，等级足够即可上楼（共五层），升级迷宫在第三层进入。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "衣服统一耐久度，损坏后需修复。换衣需在背包中使用帐篷，衣服位于珍贵物品栏。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "青鸾和灵狐的立绘已更新。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "可为凡人制药获取灵石、声望、功德（皇城功德堂兑换）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "通关一次后可解锁全部剧情回顾，并可继承物品和修为开启二周目。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "四个难度：引气（简单）：2倍伤害；凝液（普通）：1.5倍伤害；破丹（困难）：原版伤害；化神（地狱）：0.5倍伤害。难度仅影响战斗数值，与结局无关。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "以下按化神（地狱）难度开局撰写，其他难度可自行对比调整。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 1
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "新手村·流云城前期攻略（地狱难度）",
+                    "font_size": 24,
+                    "style": {},
+                    "font_level": "xxLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "开局在母亲手镯→望月阁中兑换青霜丹丹方（筑基丹方·甲）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "去城主府兑换青霜果。到后山获取坠龙藤×1。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "药店购买轻灵草×5，回房间炼丹。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "客栈二楼三个房间可拾取灵石。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "突破筑基后，建议去琉璃村花费1000灵石建房。可选择在屋内修炼（稳定升级）或历练（赚灵石）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "前往黑鲛秘境。前期可故意输给普通怪物一次，会触发剧情，回城主府领取强力AOE技能 “烈火烹油”（基础伤害900），大幅降低前期战斗压力。注意：输给怪物不会导致特殊状态，放心战斗。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "通关秘境一层后，去红袖坊购买踏云靴。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "通关秘境二层后，商店更新，去武宝堂购买皓月（若打不过可先买绣花鞋、绿琉璃过渡）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "在流云城野外及琉璃塔前刷小怪，用AOE技能清场，获取材料强化刺尾鞭和云霞衫。云霞衫可升级为离火灵甲，材料可用灵石补齐。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "强化足够后，可挑战青鸾。注意回血与技能循环，收服后喂食内丹升级。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "望月阁无需内丹升级，等级够即可上楼。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "秘境三层进四层需去赌场兑换破空戒，同时换10个坠龙藤备用。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "可选装备玉娇耳环，能有效提升生存能力。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "满20级可准备突破金丹。用妖丹在望月阁开启迷宫获取古币（迷宫在望月阁三楼，需30级进入）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "望月阁二楼兑换丹方、韵灵果、技能书一品烈焰（强力单体技能）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "城主府二楼兑换朝花玉露×6、固灵花×1，炼制突破金丹的丹药。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "升到25级后，每年4月和9月可去琉璃塔打怪升级装备。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "望月阁三楼兑换触手鞭（武器），防具升级为空镜宝甲。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "夏季可挑战九尾狐（20级带青鸾即可）。收服后喂内丹至30级，用于挑战琉璃塔。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "突破元婴后，学习冰天雪地技能。小怪用AOE法术清场，Boss用“月弥曲+三品烈焰+回血”循环。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "多刷材料强化武器和防具。至此，流云城前期攻略完结。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "地狱难度下，灵宠几乎必须出战。建议多刷内丹喂养灵宠。防御属性收益较低，优先提升血量。玉娇耳环为必备装备。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 2
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "心境逻辑说明",
+                    "font_size": 22,
+                    "style": {},
+                    "font_level": "xLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "仅保留数值与路线分支，不涉及任何不当内容。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "心境阶段随突破和剧情推进而提升。即使使用道具降低数值，已开启的阶段仍然存在。皇城剧情走向由数值判断。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "阶段划分：",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "一阶段：99以下",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "二阶段：100~499",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "三阶段：500~999",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "四阶段：1000~1499",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "五阶段：1500~2000（上限）",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 2
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "灵宠获取",
+                    "font_size": 22,
+                    "style": {},
+                    "font_level": "xLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "青鸾：琉璃村田地秋千处与女孩对话，得知后山深渊有青鸾，击败即可收服（新手推荐）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "九尾狐：通关秘境三层后，夏季在流云城居士家附近找到男修周山（36,13），得知城外有白狐，击败获得。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "青浮游：秋季在琉璃塔外地图找到女修白兮兮，得知湖心岛有灵兽。需用城主令兑换龙心喂养进阶。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 1
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "出新手村后主线",
+                    "font_size": 24,
+                    "style": {},
+                    "font_level": "xxLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "通关黑蛟秘境第五层后，开启大地图，前往凤临皇城。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "与墨轩对话时为剧情分支节点：心境值大于100进入居民线，小于100进入醉仙居线。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 2
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "黑蛟化龙支线：",
+                    "font_size": 22,
+                    "style": {},
+                    "font_level": "xLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "墨轩要求每次收集1000灵气+10功德。灵气通过与NPC互动或者部分地点获取，功德可在佛宗完成任务。完成5次后，前往迷失沼泽，打赢五毒教掌门，获得祭台使用权。若之前王爷存活，王爷会协助化龙。化龙状态会影响最终决战难度。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "大地图有随机事件，包含五行秘境、地下灵脉等，可获得装备材料、丹药药材、宠物属性道具等。具体请查阅相应表格。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 2
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "醉仙居线",
+                    "font_size": 22,
+                    "style": {},
+                    "font_level": "xLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "触发方式",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "完成前期主线后，前往凤朝皇都的贫民区，与特定NPC对话，选择前往醉仙居工作。此为主线分支之一，与居民线互斥。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "主要玩法",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "在醉仙居内通过日常工作提升声望值。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "声望值可通过与庭院内、大厅中的NPC互动获得（部分交互需要消耗道具或灵石）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "声望值达到20时，解锁醉仙居商贩，可购买剧情推进道具及部分恢复类物品。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "声望值达到60和80时，分别解锁两位特殊NPC，可使用道具兑换剧情线索（如古董文玩、修士丹药等）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "收集足够的线索后，可向醉仙居万仙儿询问关键信息。进入万仙儿房间需要特定道具（可在商贩处购买）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "注：与万仙儿交互时，若好感度不足，会触发任务失败结局（仅文字提示，无不当内容）。可通过赠送特定道具（如驻颜丹）提升好感度。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "后续剧情",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "完成醉仙居线的主要线索收集后，返回洞府与阿欢对话，开启桃花村剧情。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "若角色心境阶段达到三阶段及以上，后续返回醉仙居可触发额外对话（仅剧情文本，无不当内容）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 2
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "居民线",
+                    "font_size": 22,
+                    "style": {},
+                    "font_level": "xLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "前往平民区，与馨月亲戚对话。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "前往贫民区击败混混，进入地下室清理敌人，最终击败首领，完成万恶阁事件。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "返回与馨月亲戚对话，接着清理乞丐（平民区右侧），进入地下继续战斗，最终击败首领。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "再次返回与馨月亲戚对话，结束此线。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "两条主线（居民线/醉仙居线）结束后，回洞府与阿欢对话，开启桃花村。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 2
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "桃花村",
+                    "font_size": 22,
+                    "style": {},
+                    "font_level": "xLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "与村长对话，满足五名村民需求：",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "客栈：十份坠龙藤",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "杨淑华（31,20）：十分烤肉（狸力掉落）",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "吴华华（42,24）：一只猪、两只鸡、一坛酒（皇城购买）",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "洪珊珊（7,22）：完成砍柴和洗衣",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "杨絮家（14,28）：与屋内人对话",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "完成后找村长，要求出战鸟类灵宠。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "往右找朱晓华（45,7），然后与徐长远（28,24）对话，接任务去琉璃村后山击败“鼓”（需大米×1、鸡×2、香×1）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "取得紫英草后返回，再与杨伟男（23,28）对话，花费2000灵石进入虫洞。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "虫洞内连续击败村长两次（注意车轮战，提前补满状态）。洞穴中（9,32）可获得诅咒戒指（仅外观变化，无属性）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "剧情结束后，与朱晓华对话获得服装，右边道具店开启，可领取魔女服。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 2
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "王爷府剧情",
+                    "font_size": 22,
+                    "style": {},
+                    "font_level": "xLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "回皇城找馨月亲戚，进入王爷府。连续跳月10个月降低守卫警觉。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "进入听雪阁调查（无警卫时与王爷对话开启调查）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "左上角为印章，右下角为隐藏房间（可进入，不同时期剧情不同）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "完成后前往军需馆（大地图），击败所有士兵和Boss。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "接着前往西北军营，同样清空所有敌人。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 3
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "随后分支：",
+                    "font_size": 20,
+                    "style": {},
+                    "font_level": "large"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "直接去凤临阁 → 魔界线",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "先做完王爷存活剧情再去凤临阁 → 江南线",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 2
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "江南线",
+                    "font_size": 22,
+                    "style": {},
+                    "font_level": "xLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "完成军需馆和西北军营剧情后，不要立即去凤临阁。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "前往皇城上方长龙道，左转至王太傅王府，身穿舞女服接任务。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "触发救助宇文景诚剧情（7月时长龙道左下角出现“情缘迷宫”，参加后与王爷相遇）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "剧情完成后，前往凤临阁，王爷现身击退凤凰，开启江南地区（云霓大陆 88,55）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "后续纯剧情，最终要求找姜子牙取打神鞭。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 2
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "魔界线",
+                    "font_size": 22,
+                    "style": {},
+                    "font_level": "xLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "直接去凤临阁，破解阵法上二楼，被凤凰击败后由宇文玉救下。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "宇文玉解散王府，假传死讯，带上官月前往某地献祭自身复活上官月。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "墨轩告知需前往魔界获取真相（需给墨轩10个六道碎片）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "到魔界找魔尊，需要50功德、30功德碎片、10个金莲（可在魔界购买）开启天元镜。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "剧情后前往不周山找姜子牙取打神鞭。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 2
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "最终决战",
+                    "font_size": 22,
+                    "style": {},
+                    "font_level": "xLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "不周山击败姜子牙获得打神鞭，可在他处购买升级材料并强化。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "从王爷府左侧进入皇宫，击败皇帝。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "前往凤临阁与黑凤凰凤溪决战。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "难度参考：简单难度60级炼虚巅峰+黑蛟化龙即可；地狱难度建议升至劫境并完成化龙。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "战败进入坏结局（可重试）：",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "魔界线打赢 → 飞升结局",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "江南线+低心境 → 永无止境的追求结局",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "江南线+高心境（三阶段以上） → 特定结局",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "心境五阶段 → 红尘仙结局",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 3,
+            "line": {
+              "line_type": 1
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 1
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "入魔线（合规版）",
+                    "font_size": 24,
+                    "style": {},
+                    "font_level": "xxLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 2
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "入魔条件",
+                    "font_size": 22,
+                    "style": {},
+                    "font_level": "xLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "尚未开启魔界或江南主线（即未前往凤临阁触发对应剧情）",
+                    "font_size": 13,
+                    "color": "#F85A54",
+                    "dark_color": "#D1403E",
+                    "style": {},
+                    "font_level": "small",
+                    "bili_theme": "Re5"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "心魔值达到 1000",
+                    "font_size": 13,
+                    "color": "#F85A54",
+                    "dark_color": "#D1403E",
+                    "style": {},
+                    "font_level": "small",
+                    "bili_theme": "Re5"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "已完成黑蛟化龙支线",
+                    "font_size": 13,
+                    "color": "#F85A54",
+                    "dark_color": "#D1403E",
+                    "style": {},
+                    "font_level": "small",
+                    "bili_theme": "Re5"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "心境阶段达到三阶段及以上",
+                    "font_size": 13,
+                    "color": "#F85A54",
+                    "dark_color": "#D1403E",
+                    "style": {},
+                    "font_level": "small",
+                    "bili_theme": "Re5"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "满足以上条件后，返回洞府会出现是否“入魔”的选项。选择入魔后，角色将无法正常进入仙灵苑等正道区域，但可以正常前往合欢宗、血神阁、魔界、鬼蜮等地。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "注：入魔为剧情分支之一，不影响游戏机制完整性，可正常进行战斗、炼丹、装备升级等操作。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 2
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "入魔后主要玩法",
+                    "font_size": 22,
+                    "style": {},
+                    "font_level": "xLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "可自由选择加入合欢宗或血神阁（仅作为普通宗门，不涉具体不当内容）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "加入后，宗门会指导你如何积累血煞之力（一种战斗资源，用于提升属性）。可通过击杀特定怪物或前往血神阁的血池修炼获得。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "与宗门对话，可获悉“鬼蜮”中存在一件法宝——万魂幡。前往鬼蜮，找到笑老头并击败他，进入地下室即可获得（此任务不强制，可自由探索）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "入魔后，大地图上会出现正派修士追击。若战败，会被传送至灵兽宗（普通惩罚机制，无不当内容）。核心任务：魔界合作",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "前往魔界，与魔尊对话。魔尊要求你突破至渡劫后期，并与他进行一场战斗测试实力。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "若战败：剧情分支结束，不会进入最终决战（可重试）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "若战胜：魔尊认可你的实力，要求你继续突破至劫境。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "魔尊会提供一颗突破丹药（渡劫巅峰→劫境）。突破失败不消耗丹药。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "突破至劫境一阶后，前往魔界与魔尊对话，开启最终决战——攻打天庭。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 2
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "最终决战·天庭",
+                    "font_size": 22,
+                    "style": {},
+                    "font_level": "xLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "进入天庭地图后，先击败左右两侧的九天玄女（各一位）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "左侧掉落顶级防具。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "右侧掉落顶级御兽环（用于灵宠）。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "击败两位玄女后，中央平台解锁，进入与天尊·天衍的最终战斗。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "战斗结果决定结局：",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "战胜：上官月夺取天尊能力，但随后宇文卿被叛军杀死，大陆陷入动荡。仅墨轩和阿欢幸存。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "战败：天衍将上官月留在身边，监视其行动。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "入魔线总计三种结局走向（以上两种 + 魔界合作失败后的分支），均不涉及任何不当内容。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 9,
+            "format": {
+              "indent": {},
+              "heading_type": 2
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "入魔线境界突破说明",
+                    "font_size": 22,
+                    "style": {},
+                    "font_level": "xLarge"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "indent": {}
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "炼虚期之前，可通过常规方式（母亲手镯、宗门药店丹方）突破。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "炼虚期后，无法前往焚天域，需在魔界购买突破丹方或从宗门学习对应技能。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {},
+                    "font_level": "regular"
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "血煞值可通过战斗或血池修炼积累，用于永久提升角色属性。",
+                    "font_size": 13,
+                    "style": {},
+                    "font_level": "small"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 3,
+            "line": {
+              "line_type": 1
+            }
+          }
+        ]
+      },
+      "pub_info": {
+        "uid": 42506020,
+        "pub_time": 1777600800,
+        "timer_pub_time": 1777600800,
+        "editor_version": "eva3-3.0.0"
+      },
+      "article": {
+        "category_id": 15,
+        "list_id": 621606,
+        "originality": 1,
+        "cover": [
+          {
+            "url": "http://i0.hdslb.com/bfs/new_dyn/7b576dbc95419442c62e595906cfcc8742506020.png",
+            "width": 1600,
+            "height": 900,
+            "size": 2076.572265625
+          }
+        ]
+      },
+      "version": {
+        "cvid": 48389703,
+        "version_id": 209358342366251008
+      },
+      "translate_result": {
+        "state": 3,
+        "lang_match_result": 2
+      }
+    },
+    "dyn_id_str": "1197275391403753476",
+    "total_art_num": 21
+  }
+}

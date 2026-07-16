@@ -1,0 +1,1175 @@
+{
+  "code": 0,
+  "message": "OK",
+  "ttl": 1,
+  "data": {
+    "id": 33842869,
+    "category": {
+      "id": 6,
+      "parent_id": 1,
+      "name": "单机游戏"
+    },
+    "categories": [
+      {
+        "id": 1,
+        "parent_id": 0,
+        "name": "游戏"
+      },
+      {
+        "id": 6,
+        "parent_id": 1,
+        "name": "单机游戏"
+      }
+    ],
+    "title": "ORCSOFT妃神会秘史 攻略",
+    "summary": "若不了解此作品的新人，不要入坑。若只为刺激但心理脆弱，不要入坑。此内容只存在于虚构世界，不要代入现实 。妃神会秘史由兽人社ORCSOFT制作的一款纯拔作SLG。英文名My Life as a Cult Leader。游戏结局一共5个，流程不是很长，但特殊的 多周目 玩法却很有意思。好，攻略开始了哈多周目一开始玩会很迷，上来选完后，根本不知道发生了什么就直接GG了。实际上，回到主菜单界面后，选择 '新游戏' 则会触发下一周目，而如果通过LOAD存档溯回则还是会停留在存档周目。第一周目是一定会GG的 因为毕竟",
+    "banner_url": "https://i0.hdslb.com/bfs/new_dyn/b6739267cf3c747995d1754e03a00ef81436440051.jpg",
+    "template_id": 4,
+    "state": 7,
+    "author": {
+      "mid": 1436440051,
+      "name": "颜翎铃灵",
+      "face": "https://i1.hdslb.com/bfs/face/909f99b90afa1028d264545fb5b3076162ca5c1d.jpg",
+      "pendant": {
+        "pid": 0,
+        "name": "",
+        "image": "",
+        "expire": 0
+      },
+      "official_verify": {
+        "type": -1,
+        "desc": ""
+      },
+      "nameplate": {
+        "nid": 0,
+        "name": "",
+        "image": "",
+        "image_small": "",
+        "level": "",
+        "condition": ""
+      },
+      "vip": {
+        "type": 0,
+        "status": 0,
+        "due_date": 0,
+        "vip_pay_type": 0,
+        "theme_type": 0,
+        "label": {
+          "path": "",
+          "text": "",
+          "label_theme": ""
+        },
+        "avatar_subscript": 0,
+        "nickname_color": ""
+      },
+      "fans": 304,
+      "level": 5
+    },
+    "reprint": 1,
+    "image_urls": [
+      "https://i0.hdslb.com/bfs/new_dyn/09f9d77f8b9e142f1b6422718b5213551436440051.png"
+    ],
+    "publish_time": 1713260135,
+    "ctime": 1713260135,
+    "mtime": 1713346897,
+    "stats": {
+      "view": 22838,
+      "favorite": 399,
+      "like": 157,
+      "dislike": 0,
+      "reply": 54,
+      "share": 10,
+      "coin": 20,
+      "dynamic": 0
+    },
+    "tags": [
+      {
+        "tid": 802,
+        "name": "游戏"
+      },
+      {
+        "tid": 1907,
+        "name": "二次元"
+      },
+      {
+        "tid": 2100,
+        "name": "攻略"
+      },
+      {
+        "tid": 17945,
+        "name": "ADV"
+      },
+      {
+        "tid": 41336,
+        "name": "SLG"
+      },
+      {
+        "tid": 2485148,
+        "name": "galgame"
+      },
+      {
+        "tid": 2569336,
+        "name": "slg"
+      },
+      {
+        "tid": 7945544,
+        "name": "原神"
+      },
+      {
+        "tid": 31306642,
+        "name": "ORCSOFT"
+      },
+      {
+        "tid": 39978606,
+        "name": "兽人社"
+      }
+    ],
+    "words": 818,
+    "origin_image_urls": [
+      "https://i0.hdslb.com/bfs/new_dyn/943d4d5be7999abf836248d29d92039d1436440051.jpg"
+    ],
+    "list": null,
+    "is_like": false,
+    "media": {
+      "score": 0,
+      "media_id": 0,
+      "title": "",
+      "cover": "",
+      "area": "",
+      "type_id": 0,
+      "type_name": "",
+      "spoiler": 0,
+      "season_id": 0
+    },
+    "apply_time": "",
+    "check_time": "",
+    "original": 0,
+    "act_id": 0,
+    "dispute": null,
+    "authenMark": null,
+    "cover_avid": 0,
+    "top_video_info": null,
+    "type": 0,
+    "check_state": 0,
+    "origin_template_id": 4,
+    "private_pub": 0,
+    "content_pic_list": null,
+    "content": "<p style=\"text-align: left;\"><span class=\"color-pink-03\">若不了解此作品的新人，不要入坑。</span></p><p style=\"text-align: left;\"><span class=\"color-pink-03\">若只为刺激但心理脆弱，不要入坑。</span></p><p style=\"text-align: left;\"><span class=\"color-pink-03\">此内容只存在于虚构世界，不要代入现实 。</span></p><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/new_dyn/5da7b246b71141cfe9265f863c652fd01436440051.jpg\" width=\"920\" height=\"430\"/><figcaption class=\"caption\" contenteditable=\"false\">妃神会秘史</figcaption></figure><p style=\"text-align: left;\"><br/></p><p style=\"text-align: left;\">由兽人社ORCSOFT制作的一款纯拔作SLG。英文名My Life as a Cult Leader。</p><p style=\"text-align: left;\">游戏结局一共5个，流程不是很长，但特殊的 <span class=\"color-green-02\"><strong>多周目 </strong></span>玩法却很有意思。</p><p style=\"text-align: left;\"><span class=\"color-blue-02 font-size-23\"></span></p><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/article/0117cbba35e51b0bce5f8c2f6a838e8a087e8ee7.png\" class=\"cut-off-1\"/></figure><p style=\"text-align: left;\"><span class=\"color-blue-02 font-size-23\"></span>好，攻略开始了哈<br/></p><p style=\"text-align: left;\"><span class=\"color-blue-02 font-size-23\"><strong>多周目</strong></span></p><p style=\"text-align: left;\"><br/></p><p style=\"text-align: left;\">一开始玩会很迷，上来选完后，根本不知道发生了什么就直接GG了。</p><p style=\"text-align: left;\">实际上，回到主菜单界面后，选择 &#39;新游戏&#39; 则会触发<span class=\"color-pink-02\">下一周目</span>，而如果通过LOAD存档溯回则还是会停留在存档周目。</p><ul class=\" list-paddingleft-2\"><li><p style=\"text-align: left;\">第一周目是一定会GG的 <span style=\"text-decoration:line-through;\" class=\"font-size-12\">因为毕竟是轮回嘛，不GG怎么轮回</span></p></li><li><p style=\"text-align: left;\">第二周目则在开始时和<span class=\"color-pink-03\"><strong>志摩</strong></span>会多出一个选项，在<strong>以后的周目中</strong>都要选择下面新出现的选项。第二周目的其他选项则可以随意选择，但要注意：</p><p style=\"text-align: left;\">直到出现<span class=\"color-pink-02\"> <span class=\"font-size-20\">‘预言火的灾难/预言水的灾难’ <span class=\"color-default font-size-16\">时选择后者，然后进入到下一周目（下一次轮回）</span></span></span></p></li></ul><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/new_dyn/ccdace6dd77a8a466a529a738e4103221436440051.png\" width=\"553\" height=\"416\"/><figcaption class=\"caption\" contenteditable=\"false\"></figcaption></figure><ul class=\" list-paddingleft-2\"><li><p style=\"text-align: left;\"><span class=\"color-default font-size-16\">第三周目：顺着第二周目的选项去选，但是和<span class=\"color-pink-03 font-size-16\"><strong>志摩一定</strong></span>要选择在外面，否则一定会触发<strong>BADEND</strong>，之后会发现和<strong><span class=\"color-pink-03 font-size-16\">瑠依</span></strong><span class=\"color-default font-size-16\">的选项会多出一条：<span class=\"color-default font-size-20\">将其强硬地拉至怀里<span class=\"color-default font-size-16\">，  选择该选项。</span></span></span></span></p></li></ul><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/new_dyn/c92fb364152bbbeb6cba38edd5eb77171436440051.png\" width=\"553\" height=\"415\"/><figcaption class=\"caption\" contenteditable=\"false\"></figcaption></figure><p style=\"text-align: left;\">      之后的选项建议所有人内，<span class=\"color-blue-01\">这是达成好结局的条件</span>，在之后我们会遇到<span class=\"color-pink-03\">绚花和雾子</span>二选一        的选项，如果选择雾子则会直接gg <span style=\"text-decoration:line-through;\" class=\"font-size-12\">由于绚花犹豫不决立场不坚定，把你给卖了，</span><span class=\"font-size-16\">☹</span></p><p style=\"text-align: left;\"><span class=\"font-size-16\">      所以要选择绚花</span><span class=\"font-size-12\">，不用担心，绚花完了之后就是雾子，不会少了你的<span class=\"font-size-20\">☺</span></span></p><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/new_dyn/24cf82f39e53fe2b216df72c5c7db0051436440051.png\" width=\"1441\" height=\"1080\"/><figcaption class=\"caption\" contenteditable=\"false\"></figcaption></figure><p style=\"text-align: left;\"><span style=\"text-decoration:line-through;\" class=\"font-size-12\"></span><br/></p><p style=\"text-align: left;\"><span class=\"font-size-16\">再之后选项就是全员内，这样的话就是直接到完美结局；如果说是没有全员内或者在一开始和志摩选择了内(一开始就被催眠)，则会触发<strong>BADEND</strong>，无法逃脱志摩的催眠控制。</span></p><p style=\"text-align: left;\"><span class=\"font-size-16\"><br/></span></p><p style=\"text-align: left;\"><span class=\"font-size-16\">经过数次轮回，主角终于算是反杀了志摩，但只要选错一步，那不是蹲大牢就是落得和上一任教主的下场——被催眠控制然后炸☝干。总之剧情也挺简单，没啥可分析的。</span></p><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/new_dyn/364f8a9cd69663bf0f02d38a549282111436440051.png\" width=\"1441\" height=\"1080\"/><figcaption class=\"caption\" contenteditable=\"false\">蹲大牢</figcaption></figure><p style=\"text-align: left;\"><span class=\"font-size-16\"></span><br/></p><p style=\"text-align: left;\"><span class=\"font-size-16\"></span></p><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/article/71bf2cd56882a2e97f8b3477c9256f8b09f361d3.png\" class=\"cut-off-3\"/></figure><p style=\"text-align: left;\"><span class=\"font-size-16\"></span><br/></p><p style=\"text-align: left;\"><span class=\"font-size-16\">这游戏其实不长，全ctrl跳过几分钟就完事了，所以自己玩一遍比打上全存档体验会更好（因为如果打上档了就没法去玩一二周目了。正常开应该是玩一二周目的唯一途径。）</span></p><p style=\"text-align: left;\"><span class=\"font-size-16\"></span></p><p style=\"text-align: left;\">这部作品呢是有动画的，感兴趣可以去看看。ºㄷº</p><p style=\"text-align: left;\"><br/></p><p style=\"text-align: left;\">就酱～~～</p><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/new_dyn/9aee3ef8c7cee049662f4ecb6ed7701f1436440051.png\" width=\"1441\" height=\"1080\"/><figcaption class=\"caption\" contenteditable=\"false\"></figcaption></figure><p style=\"text-align: left;\"><span class=\"font-size-16\"></span><br/></p><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/article/4adb9255ada5b97061e610b682b8636764fe50ed.png\" class=\"cut-off-5\"/></figure><p><br/></p>",
+    "keywords": "第二周目,多周目,游戏 结局,第一周目,Bad End,SLG,完美结局,一周目,三周目,体验会,好结局,二选一,发生了什么,英文名,有意思,不知道,新游戏,几分钟,自己玩",
+    "version_id": 0,
+    "opus": {
+      "opus_id": 920934343676788737,
+      "opus_source": 5,
+      "title": "ORCSOFT妃神会秘史 攻略",
+      "h5_content": "<p style=\"text-align: left;\"><span class=\"color-pink-03\">若不了解此作品的新人，不要入坑。</span></p><p style=\"text-align: left;\"><span class=\"color-pink-03\">若只为刺激但心理脆弱，不要入坑。</span></p><p style=\"text-align: left;\"><span class=\"color-pink-03\">此内容只存在于虚构世界，不要代入现实 。</span></p><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/new_dyn/5da7b246b71141cfe9265f863c652fd01436440051.jpg\" width=\"920\" height=\"430\"/><figcaption class=\"caption\" contenteditable=\"false\">妃神会秘史</figcaption></figure><p style=\"text-align: left;\"><br/></p><p style=\"text-align: left;\">由兽人社ORCSOFT制作的一款纯拔作SLG。英文名My Life as a Cult Leader。</p><p style=\"text-align: left;\">游戏结局一共5个，流程不是很长，但特殊的 <span class=\"color-green-02\"><strong>多周目 </strong></span>玩法却很有意思。</p><p style=\"text-align: left;\"><span class=\"color-blue-02 font-size-23\"></span></p><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/article/0117cbba35e51b0bce5f8c2f6a838e8a087e8ee7.png\" class=\"cut-off-1\"/></figure><p style=\"text-align: left;\"><span class=\"color-blue-02 font-size-23\"></span>好，攻略开始了哈<br/></p><p style=\"text-align: left;\"><span class=\"color-blue-02 font-size-23\"><strong>多周目</strong></span></p><p style=\"text-align: left;\"><br/></p><p style=\"text-align: left;\">一开始玩会很迷，上来选完后，根本不知道发生了什么就直接GG了。</p><p style=\"text-align: left;\">实际上，回到主菜单界面后，选择 '新游戏' 则会触发<span class=\"color-pink-02\">下一周目</span>，而如果通过LOAD存档溯回则还是会停留在存档周目。</p><ul class=\" list-paddingleft-2\"><li><p style=\"text-align: left;\">第一周目是一定会GG的 <span style=\"text-decoration:line-through;\" class=\"font-size-12\">因为毕竟是轮回嘛，不GG怎么轮回</span></p></li><li><p style=\"text-align: left;\">第二周目则在开始时和<span class=\"color-pink-03\"><strong>志摩</strong></span>会多出一个选项，在<strong>以后的周目中</strong>都要选择下面新出现的选项。第二周目的其他选项则可以随意选择，但要注意：</p><p style=\"text-align: left;\">直到出现<span class=\"color-pink-02\"> <span class=\"font-size-20\">‘预言火的灾难/预言水的灾难’ <span class=\"color-default font-size-16\">时选择后者，然后进入到下一周目（下一次轮回）</span></span></span></p></li></ul><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/new_dyn/ccdace6dd77a8a466a529a738e4103221436440051.png\" width=\"553\" height=\"416\"/><figcaption class=\"caption\" contenteditable=\"false\"></figcaption></figure><ul class=\" list-paddingleft-2\"><li><p style=\"text-align: left;\"><span class=\"color-default font-size-16\">第三周目：顺着第二周目的选项去选，但是和<span class=\"color-pink-03 font-size-16\"><strong>志摩一定</strong></span>要选择在外面，否则一定会触发<strong>BADEND</strong>，之后会发现和<strong><span class=\"color-pink-03 font-size-16\">瑠依</span></strong><span class=\"color-default font-size-16\">的选项会多出一条：<span class=\"color-default font-size-20\">将其强硬地拉至怀里<span class=\"color-default font-size-16\">，  选择该选项。</span></span></span></span></p></li></ul><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/new_dyn/c92fb364152bbbeb6cba38edd5eb77171436440051.png\" width=\"553\" height=\"415\"/><figcaption class=\"caption\" contenteditable=\"false\"></figcaption></figure><p style=\"text-align: left;\">      之后的选项建议所有人内，<span class=\"color-blue-01\">这是达成好结局的条件</span>，在之后我们会遇到<span class=\"color-pink-03\">绚花和雾子</span>二选一        的选项，如果选择雾子则会直接gg <span style=\"text-decoration:line-through;\" class=\"font-size-12\">由于绚花犹豫不决立场不坚定，把你给卖了，</span><span class=\"font-size-16\">☹</span></p><p style=\"text-align: left;\"><span class=\"font-size-16\">      所以要选择绚花</span><span class=\"font-size-12\">，不用担心，绚花完了之后就是雾子，不会少了你的<span class=\"font-size-20\">☺</span></span></p><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/new_dyn/24cf82f39e53fe2b216df72c5c7db0051436440051.png\" width=\"1441\" height=\"1080\"/><figcaption class=\"caption\" contenteditable=\"false\"></figcaption></figure><p style=\"text-align: left;\"><span style=\"text-decoration:line-through;\" class=\"font-size-12\"></span><br/></p><p style=\"text-align: left;\"><span class=\"font-size-16\">再之后选项就是全员内，这样的话就是直接到完美结局；如果说是没有全员内或者在一开始和志摩选择了内(一开始就被催眠)，则会触发<strong>BADEND</strong>，无法逃脱志摩的催眠控制。</span></p><p style=\"text-align: left;\"><span class=\"font-size-16\"><br/></span></p><p style=\"text-align: left;\"><span class=\"font-size-16\">经过数次轮回，主角终于算是反杀了志摩，但只要选错一步，那不是蹲大牢就是落得和上一任教主的下场——被催眠控制然后炸☝干。总之剧情也挺简单，没啥可分析的。</span></p><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/new_dyn/364f8a9cd69663bf0f02d38a549282111436440051.png\" width=\"1441\" height=\"1080\"/><figcaption class=\"caption\" contenteditable=\"false\">蹲大牢</figcaption></figure><p style=\"text-align: left;\"><span class=\"font-size-16\"></span><br/></p><p style=\"text-align: left;\"><span class=\"font-size-16\"></span></p><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/article/71bf2cd56882a2e97f8b3477c9256f8b09f361d3.png\" class=\"cut-off-3\"/></figure><p style=\"text-align: left;\"><span class=\"font-size-16\"></span><br/></p><p style=\"text-align: left;\"><span class=\"font-size-16\">这游戏其实不长，全ctrl跳过几分钟就完事了，所以自己玩一遍比打上全存档体验会更好（因为如果打上档了就没法去玩一二周目了。正常开应该是玩一二周目的唯一途径。）</span></p><p style=\"text-align: left;\"><span class=\"font-size-16\"></span></p><p style=\"text-align: left;\">这部作品呢是有动画的，感兴趣可以去看看。ºㄷº</p><p style=\"text-align: left;\"><br/></p><p style=\"text-align: left;\">就酱～~～</p><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/new_dyn/9aee3ef8c7cee049662f4ecb6ed7701f1436440051.png\" width=\"1441\" height=\"1080\"/><figcaption class=\"caption\" contenteditable=\"false\"></figcaption></figure><p style=\"text-align: left;\"><span class=\"font-size-16\"></span><br/></p><figure class=\"img-box\" contenteditable=\"false\"><img src=\"//i0.hdslb.com/bfs/article/4adb9255ada5b97061e610b682b8636764fe50ed.png\" class=\"cut-off-5\"/></figure><p><br/></p>",
+      "content": {
+        "paragraphs": [
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "若不了解此作品的新人，不要入坑。",
+                    "font_size": 17,
+                    "color": "#ee230d",
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "若只为刺激但心理脆弱，不要入坑。",
+                    "font_size": 17,
+                    "color": "#ee230d",
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "此内容只存在于虚构世界，不要代入现实 。",
+                    "font_size": 17,
+                    "color": "#ee230d",
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 2,
+            "pic": {
+              "pics": [
+                {
+                  "url": "https://i0.hdslb.com/bfs/new_dyn/5da7b246b71141cfe9265f863c652fd01436440051.jpg",
+                  "width": 920,
+                  "height": 430,
+                  "size": 72.130859375
+                }
+              ],
+              "style": 1
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "align": 1
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "妃神会秘史",
+                    "font_size": 17,
+                    "color": "#999999",
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "由兽人社ORCSOFT制作的一款纯拔作SLG。英文名My Life as a Cult Leader。",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "游戏结局一共5个，流程不是很长，但特殊的 ",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "多周目 ",
+                    "font_size": 17,
+                    "color": "#60d837",
+                    "style": {
+                      "bold": true
+                    }
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "玩法却很有意思。",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 3,
+            "format": {
+              "align": 1
+            },
+            "line": {
+              "pic": {
+                "url": "//i0.hdslb.com/bfs/article/0117cbba35e51b0bce5f8c2f6a838e8a087e8ee7.png"
+              }
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "好，攻略开始了哈",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "多周目",
+                    "font_size": 17,
+                    "color": "#02a2ff",
+                    "style": {
+                      "bold": true
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "一开始玩会很迷，上来选完后，根本不知道发生了什么就直接GG了。",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "实际上，回到主菜单界面后，选择 '新游戏' 则会触发",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "下一周目",
+                    "font_size": 17,
+                    "color": "#ff654e",
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "，而如果通过LOAD存档溯回则还是会停留在存档周目。",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 6,
+            "format": {
+              "list_format": {
+                "level": 1,
+                "order": 1
+              }
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "第一周目是一定会GG的 ",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "因为毕竟是轮回嘛，不GG怎么轮回",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 6,
+            "format": {
+              "list_format": {
+                "level": 1,
+                "order": 2
+              }
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "第二周目则在开始时和",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "志摩",
+                    "font_size": 17,
+                    "color": "#ee230d",
+                    "style": {
+                      "bold": true
+                    }
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "会多出一个选项，在",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "以后的周目中",
+                    "font_size": 17,
+                    "style": {
+                      "bold": true
+                    }
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "都要选择下面新出现的选项。第二周目的其他选项则可以随意选择，但要注意：",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "直到出现",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": " ",
+                    "font_size": 17,
+                    "color": "#ff654e",
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "‘预言火的灾难/预言水的灾难’ ",
+                    "font_size": 17,
+                    "color": "#ff654e",
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "时选择后者，然后进入到下一周目（下一次轮回）",
+                    "font_size": 17,
+                    "color": "#ff654e",
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 2,
+            "pic": {
+              "pics": [
+                {
+                  "url": "https://i0.hdslb.com/bfs/new_dyn/ccdace6dd77a8a466a529a738e4103221436440051.png",
+                  "width": 553,
+                  "height": 416,
+                  "size": 242.0068359375
+                }
+              ],
+              "style": 1
+            }
+          },
+          {
+            "para_type": 6,
+            "format": {
+              "list_format": {
+                "level": 1,
+                "order": 1
+              }
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "第三周目：顺着第二周目的选项去选，但是和",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "志摩一定",
+                    "font_size": 17,
+                    "color": "#ee230d",
+                    "style": {
+                      "bold": true
+                    }
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "要选择在外面，否则一定会触发",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "BADEND",
+                    "font_size": 17,
+                    "style": {
+                      "bold": true
+                    }
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "，之后会发现和",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "瑠依",
+                    "font_size": 17,
+                    "color": "#ee230d",
+                    "style": {
+                      "bold": true
+                    }
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "的选项会多出一条：",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "将其强硬地拉至怀里",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "，  选择该选项。",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 2,
+            "pic": {
+              "pics": [
+                {
+                  "url": "https://i0.hdslb.com/bfs/new_dyn/c92fb364152bbbeb6cba38edd5eb77171436440051.png",
+                  "width": 553,
+                  "height": 415,
+                  "size": 359.7353515625
+                }
+              ],
+              "style": 1
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "      之后的选项建议所有人内，",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "这是达成好结局的条件",
+                    "font_size": 17,
+                    "color": "#56c1fe",
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "，在之后我们会遇到",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "绚花和雾子",
+                    "font_size": 17,
+                    "color": "#ee230d",
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "二选一        的选项，如果选择雾子则会直接gg ",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "由于绚花犹豫不决立场不坚定，把你给卖了，",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "☹",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "      所以要选择绚花",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "，不用担心，绚花完了之后就是雾子，不会少了你的",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "☺",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 2,
+            "pic": {
+              "pics": [
+                {
+                  "url": "https://i0.hdslb.com/bfs/new_dyn/24cf82f39e53fe2b216df72c5c7db0051436440051.png",
+                  "width": 1441,
+                  "height": 1080,
+                  "size": 2107.640625
+                }
+              ],
+              "style": 1
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "再之后选项就是全员内，这样的话就是直接到完美结局；如果说是没有全员内或者在一开始和志摩选择了内(一开始就被催眠)，则会触发",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "BADEND",
+                    "font_size": 17,
+                    "style": {
+                      "bold": true
+                    }
+                  }
+                },
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "，无法逃脱志摩的催眠控制。",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "经过数次轮回，主角终于算是反杀了志摩，但只要选错一步，那不是蹲大牢就是落得和上一任教主的下场——被催眠控制然后炸☝干。总之剧情也挺简单，没啥可分析的。",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 2,
+            "pic": {
+              "pics": [
+                {
+                  "url": "https://i0.hdslb.com/bfs/new_dyn/364f8a9cd69663bf0f02d38a549282111436440051.png",
+                  "width": 1441,
+                  "height": 1080,
+                  "size": 1270.3505859375
+                }
+              ],
+              "style": 1
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {
+              "align": 1
+            },
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "蹲大牢",
+                    "font_size": 17,
+                    "color": "#999999",
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 3,
+            "format": {
+              "align": 1
+            },
+            "line": {
+              "pic": {
+                "url": "//i0.hdslb.com/bfs/article/71bf2cd56882a2e97f8b3477c9256f8b09f361d3.png"
+              }
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "这游戏其实不长，全ctrl跳过几分钟就完事了，所以自己玩一遍比打上全存档体验会更好（因为如果打上档了就没法去玩一二周目了。正常开应该是玩一二周目的唯一途径。）",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "这部作品呢是有动画的，感兴趣可以去看看。ºㄷº",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "就酱～~～",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 2,
+            "pic": {
+              "pics": [
+                {
+                  "url": "https://i0.hdslb.com/bfs/new_dyn/9aee3ef8c7cee049662f4ecb6ed7701f1436440051.png",
+                  "width": 1441,
+                  "height": 1080,
+                  "size": 1759.7373046875
+                }
+              ],
+              "style": 1
+            }
+          },
+          {
+            "para_type": 1,
+            "format": {},
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "para_type": 3,
+            "format": {
+              "align": 1
+            },
+            "line": {
+              "pic": {
+                "url": "//i0.hdslb.com/bfs/article/4adb9255ada5b97061e610b682b8636764fe50ed.png"
+              }
+            }
+          },
+          {
+            "para_type": 1,
+            "text": {
+              "nodes": [
+                {
+                  "node_type": 1,
+                  "word": {
+                    "words": "\n",
+                    "font_size": 17,
+                    "style": {}
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "tags": [
+        {
+          "tag": {
+            "show_text": "游戏",
+            "link_type": 36
+          }
+        },
+        {
+          "tag": {
+            "show_text": "二次元",
+            "link_type": 36
+          }
+        },
+        {
+          "tag": {
+            "show_text": "攻略",
+            "link_type": 36
+          }
+        },
+        {
+          "tag": {
+            "show_text": "ADV",
+            "link_type": 36
+          }
+        },
+        {
+          "tag": {
+            "show_text": "SLG",
+            "link_type": 36
+          }
+        },
+        {
+          "tag": {
+            "show_text": "galgame",
+            "link_type": 36
+          }
+        },
+        {
+          "tag": {
+            "show_text": "slg",
+            "link_type": 36
+          }
+        },
+        {
+          "tag": {
+            "show_text": "原神",
+            "link_type": 36
+          }
+        },
+        {
+          "tag": {
+            "show_text": "ORCSOFT",
+            "link_type": 36
+          }
+        },
+        {
+          "tag": {
+            "show_text": "兽人社",
+            "link_type": 36
+          }
+        }
+      ],
+      "pub_info": {
+        "uid": 1436440051,
+        "pub_time": 1713260135,
+        "last_mtime": 1713346890
+      },
+      "article": {
+        "category_id": 6,
+        "reproduced": 1,
+        "cover": [
+          {
+            "url": "https://i0.hdslb.com/bfs/new_dyn/09f9d77f8b9e142f1b6422718b5213551436440051.png",
+            "width": 920,
+            "height": 270,
+            "size": 398.5390625
+          }
+        ],
+        "biz_tags": [
+          "游戏",
+          "二次元",
+          "攻略",
+          "ADV",
+          "SLG",
+          "galgame",
+          "slg",
+          "原神",
+          "ORCSOFT",
+          "兽人社"
+        ]
+      },
+      "version": {
+        "cvid": 33842869,
+        "version_id": 74673734828440576
+      },
+      "translate_result": {
+        "state": 3,
+        "lang_match_result": 2
+      }
+    },
+    "dyn_id_str": "920934343676788737",
+    "total_art_num": 6
+  }
+}
