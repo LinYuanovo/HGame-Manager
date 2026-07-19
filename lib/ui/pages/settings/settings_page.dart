@@ -3819,7 +3819,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
           where: 'image_path = ?',
           whereArgs: [entry.key],
         );
-        for (final column in ['intro', 'guide']) {
+        for (final column in ['intro', 'features', 'changelog', 'guide']) {
           await txn.rawUpdate(
             'UPDATE games SET $column = REPLACE($column, ?, ?) '
             'WHERE instr($column, ?) > 0',
