@@ -34,6 +34,7 @@ void main() {
         'id': 1,
         'path': path.join(tempDir.path, 'GameA'),
         'title': 'Game A',
+        'source_url': 'https://example.com/game-a',
         'cover_index': 1,
       });
       await _insertImage(currentDb, 1, cover.path, 0);
@@ -46,6 +47,7 @@ void main() {
         'id': 99,
         'path': path.join(tempDir.path, 'GameA'),
         'title': 'Game A',
+        'source_url': 'https://example.com/game-a',
         'cover_index': 0,
       });
       expect(await service.merge(importedDb, preserved), 1);
@@ -76,6 +78,7 @@ void main() {
         'id': 1,
         'path': path.join(tempDir.path, 'GameA'),
         'title': 'Game A',
+        'source_url': 'https://example.com/game-a',
         'cover_index': 0,
       });
       await _insertImage(currentDb, 1, cover.path, 0);
@@ -86,6 +89,7 @@ void main() {
         'id': 1,
         'path': path.join(tempDir.path, 'MovedGameA'),
         'title': 'Game A',
+        'source_url': 'https://example.com/game-a',
         'cover_index': 0,
         'intro': '[图片:$oldCoverPath]',
       });
@@ -98,6 +102,52 @@ void main() {
       final game = (await importedDb.query('games')).single;
       expect(game['intro'], '[图片:${cover.path}]');
       expect(game['cover_index'], 0);
+    } finally {
+      await currentDb.close();
+      await importedDb.close();
+    }
+  });
+
+  test('版本升级后可通过 source_url 找回图片记录', () async {
+    final cover = await _createImage(tempDir, 'cover.png');
+    final gallery = await _createImage(tempDir, 'gallery.png');
+    final currentDb =
+        await _openTestDatabase(path.join(tempDir.path, 'current.db'));
+    final importedDb =
+        await _openTestDatabase(path.join(tempDir.path, 'imported.db'));
+
+    try {
+      await currentDb.insert('games', {
+        'id': 1,
+        'path': path.join(tempDir.path, 'GameA'),
+        'title': 'Game A',
+        'source_url': 'https://example.com/game-a',
+        'cover_index': 1,
+      });
+      await _insertImage(currentDb, 1, cover.path, 0);
+      await _insertImage(currentDb, 1, gallery.path, 1);
+
+      final service = BackupImageRecordService();
+      final preserved = await service.capture(currentDb);
+
+      await importedDb.insert('games', {
+        'id': 8,
+        'path': path.join(tempDir.path, 'GameA-renamed'),
+        'title': 'Game A v2',
+        'source_url': 'https://example.com/game-a',
+        'cover_index': 0,
+      });
+
+      expect(await service.merge(importedDb, preserved), 1);
+
+      final images = await importedDb.query(
+        'game_images',
+        orderBy: 'sort_order',
+      );
+      expect(
+          images.map((row) => row['image_path']), [cover.path, gallery.path]);
+      final game = (await importedDb.query('games')).single;
+      expect(game['cover_index'], 1);
     } finally {
       await currentDb.close();
       await importedDb.close();
@@ -121,6 +171,7 @@ Future<Database> _openTestDatabase(String databasePath) async {
           id INTEGER PRIMARY KEY,
           path TEXT NOT NULL,
           title TEXT,
+          source_url TEXT,
           cover_index INTEGER DEFAULT 0,
           intro TEXT,
           features TEXT,

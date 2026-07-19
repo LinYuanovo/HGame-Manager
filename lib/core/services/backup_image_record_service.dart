@@ -7,6 +7,7 @@ class PreservedGameImages {
   final int gameId;
   final String gamePath;
   final String title;
+  final String sourceUrl;
   final List<String> imagePaths;
   final String? coverPath;
 
@@ -14,6 +15,7 @@ class PreservedGameImages {
     required this.gameId,
     required this.gamePath,
     required this.title,
+    required this.sourceUrl,
     required this.imagePaths,
     required this.coverPath,
   });
@@ -23,7 +25,7 @@ class BackupImageRecordService {
   Future<List<PreservedGameImages>> capture(Database db) async {
     final games = await db.query(
       'games',
-      columns: ['id', 'path', 'title', 'cover_index'],
+      columns: ['id', 'path', 'title', 'source_url', 'cover_index'],
     );
     final images = await db.query(
       'game_images',
@@ -58,6 +60,7 @@ class BackupImageRecordService {
           gameId: gameId,
           gamePath: game['path'] as String? ?? '',
           title: game['title'] as String? ?? '',
+          sourceUrl: game['source_url'] as String? ?? '',
           imagePaths: List.unmodifiable(imagePaths),
           coverPath: originalCoverPath != null &&
                   await File(originalCoverPath).exists()
@@ -77,11 +80,12 @@ class BackupImageRecordService {
 
     final importedGames = await db.query(
       'games',
-      columns: ['id', 'path', 'title', 'cover_index'],
+      columns: ['id', 'path', 'title', 'source_url', 'cover_index'],
     );
     final gamesByPath = <String, Map<String, Object?>>{};
     final gamesById = <int, Map<String, Object?>>{};
     final gamesByTitle = <String, List<Map<String, Object?>>>{};
+    final gamesBySourceUrl = <String, List<Map<String, Object?>>>{};
     for (final game in importedGames) {
       final gameId = game['id'] as int;
       gamesById[gameId] = game;
@@ -90,13 +94,23 @@ class BackupImageRecordService {
       if (titleKey.isNotEmpty) {
         gamesByTitle.putIfAbsent(titleKey, () => []).add(game);
       }
+      final sourceUrlKey = _sourceUrlKey(game['source_url'] as String? ?? '');
+      if (sourceUrlKey != null) {
+        gamesBySourceUrl.putIfAbsent(sourceUrlKey, () => []).add(game);
+      }
     }
     final preservedTitleCounts = <String, int>{};
+    final preservedSourceUrlCounts = <String, int>{};
     for (final preserved in preservedGames) {
       final titleKey = _textKey(preserved.title);
       if (titleKey.isNotEmpty) {
         preservedTitleCounts[titleKey] =
             (preservedTitleCounts[titleKey] ?? 0) + 1;
+      }
+      final sourceUrlKey = _sourceUrlKey(preserved.sourceUrl);
+      if (sourceUrlKey != null) {
+        preservedSourceUrlCounts[sourceUrlKey] =
+            (preservedSourceUrlCounts[sourceUrlKey] ?? 0) + 1;
       }
     }
 
@@ -107,7 +121,9 @@ class BackupImageRecordService {
         gamesByPath,
         gamesById,
         gamesByTitle,
+        gamesBySourceUrl,
         preservedTitleCounts,
+        preservedSourceUrlCounts,
       );
       if (imported == null) continue;
 
@@ -212,7 +228,9 @@ class BackupImageRecordService {
     Map<String, Map<String, Object?>> gamesByPath,
     Map<int, Map<String, Object?>> gamesById,
     Map<String, List<Map<String, Object?>>> gamesByTitle,
+    Map<String, List<Map<String, Object?>>> gamesBySourceUrl,
     Map<String, int> preservedTitleCounts,
+    Map<String, int> preservedSourceUrlCounts,
   ) {
     final pathMatch = gamesByPath[_pathKey(preserved.gamePath)];
     if (pathMatch != null) return pathMatch;
@@ -227,6 +245,15 @@ class BackupImageRecordService {
       }
     }
 
+    final sourceUrlKey = _sourceUrlKey(preserved.sourceUrl);
+    final sourceUrlMatches =
+        sourceUrlKey == null ? null : gamesBySourceUrl[sourceUrlKey];
+    if (sourceUrlKey != null &&
+        preservedSourceUrlCounts[sourceUrlKey] == 1 &&
+        sourceUrlMatches?.length == 1) {
+      return sourceUrlMatches!.single;
+    }
+
     final titleKey = _textKey(preserved.title);
     final titleMatches = gamesByTitle[titleKey];
     return preservedTitleCounts[titleKey] == 1 && titleMatches?.length == 1
@@ -237,6 +264,11 @@ class BackupImageRecordService {
   String _pathKey(String value) => path.normalize(value).toLowerCase();
 
   String _textKey(String value) => value.trim().toLowerCase();
+
+  String? _sourceUrlKey(String value) {
+    final normalized = value.trim().toLowerCase();
+    return normalized.isEmpty ? null : normalized;
+  }
 
   String _basenameKey(String value) => path.basename(value).toLowerCase();
 
