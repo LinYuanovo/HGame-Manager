@@ -8,8 +8,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:archive/archive.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:window_manager/window_manager.dart';
 import '../../../core/database/database_helper.dart';
+import '../../../core/services/app_update_service.dart';
 import '../../../core/utils/changelog_parser.dart';
+import '../../../core/utils/app_version.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/utils/app_paths.dart';
 import '../../../core/utils/cloudflare_challenge.dart';
@@ -84,6 +87,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   int _selectedSidebarIndex = 0;
   List<ChangelogEntry> _changelogEntries = [];
   bool _isChangelogExpanded = false;
+  bool _isCheckingAppUpdate = false;
+  bool _isInstallingAppUpdate = false;
   double _customPosterPreviewWidth = 180;
   double _customPosterPreviewHeight = 101.25;
 
@@ -2729,8 +2734,6 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   Widget _buildAboutSection() {
-    const currentVersion = '1.4.7';
-
     return _buildSection(
       title: '关于',
       icon: Icons.info_outline,
@@ -2785,11 +2788,46 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                         color: AppTheme.getTextSecondary(context),
                         fontSize: 13)),
                 const SizedBox(height: 4),
-                Text('v$currentVersion',
-                    style: TextStyle(
-                        color: AppTheme.getTextPrimary(context),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600)),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('v$appVersion',
+                        style: TextStyle(
+                            color: AppTheme.getTextPrimary(context),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 6),
+                    Tooltip(
+                      message: _isInstallingAppUpdate
+                          ? '正在安装更新'
+                          : _isCheckingAppUpdate
+                              ? '正在检查更新'
+                              : '检查更新',
+                      child: IconButton(
+                        onPressed:
+                            _isCheckingAppUpdate || _isInstallingAppUpdate
+                                ? null
+                                : _checkForAppUpdate,
+                        icon: _isCheckingAppUpdate || _isInstallingAppUpdate
+                            ? SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppTheme.getPrimaryColor(context),
+                                ),
+                              )
+                            : const Icon(Icons.update, size: 18),
+                        color: AppTheme.getPrimaryColor(context),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 28,
+                          minHeight: 28,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
             const SizedBox(width: 32),
@@ -2849,8 +2887,6 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   Widget _buildChangelogSettingsSection() {
-    const currentVersion = '1.4.7';
-
     return _buildSection(
       title: '更新日志',
       icon: Icons.history_outlined,
@@ -2870,9 +2906,237 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             )
           : null,
       children: [
-        _buildChangelogSection(currentVersion, showHeader: false),
+        _buildChangelogSection(appVersion, showHeader: false),
       ],
     );
+  }
+
+  Future<void> _checkForAppUpdate() async {
+    setState(() => _isCheckingAppUpdate = true);
+    try {
+      final result = await AppUpdateService().checkForUpdate(
+        currentVersion: appVersion,
+      );
+      if (!mounted) return;
+
+      switch (result.status) {
+        case AppUpdateStatus.upToDate:
+          AppTheme.showGlassToast(
+            context,
+            message: '当前已是最新版本',
+            icon: Icons.check_circle_outline,
+            iconColor: AppTheme.successColor,
+          );
+        case AppUpdateStatus.unavailable:
+          final openPan = await _showUpdateFallbackDialog(
+            title: '无法连接 GitHub',
+            message: '无法连通 GitHub，是否跳转到网盘查看最新版本？',
+          );
+          if (openPan == true) {
+            await _openQuarkPan();
+          }
+        case AppUpdateStatus.updateAvailable:
+          final latestEntry = result.latestEntry;
+          if (latestEntry == null) return;
+          final confirmed = await _showAvailableUpdateDialog(latestEntry);
+          if (confirmed == true) {
+            await _installAppUpdate(latestEntry.version);
+          }
+      }
+    } catch (e) {
+      if (mounted) {
+        final openPan = await _showUpdateFallbackDialog(
+          title: '自动升级失败',
+          message: '自动升级失败，是否跳转到网盘手动升级？\n$e',
+        );
+        if (openPan == true) {
+          await _openQuarkPan();
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isCheckingAppUpdate = false);
+      }
+    }
+  }
+
+  Future<void> _installAppUpdate(String version) async {
+    if (!mounted) return;
+    setState(() => _isInstallingAppUpdate = true);
+    AppTheme.showGlassToast(
+      context,
+      message: '正在下载更新，请稍候',
+      icon: Icons.download_outlined,
+      iconColor: AppTheme.getPrimaryColor(context),
+      duration: const Duration(seconds: 4),
+    );
+
+    try {
+      await AppUpdateService().downloadAndInstall(
+        version: version,
+        executablePath: Platform.resolvedExecutable,
+      );
+      if (!mounted) return;
+      AppTheme.showGlassToast(
+        context,
+        message: '更新准备完成，软件即将重启',
+        icon: Icons.restart_alt,
+        iconColor: AppTheme.successColor,
+        duration: const Duration(seconds: 3),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await windowManager.close();
+    } catch (e) {
+      if (!mounted) return;
+      final openPan = await _showUpdateFallbackDialog(
+        title: '自动升级失败',
+        message: '更新文件下载或替换失败，是否跳转到网盘手动升级？\n$e',
+      );
+      if (openPan == true) {
+        await _openQuarkPan();
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isInstallingAppUpdate = false);
+      }
+    }
+  }
+
+  Future<bool?> _showUpdateFallbackDialog({
+    required String title,
+    required String message,
+  }) {
+    return showGlassDialog<bool>(
+      context: context,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: AppTheme.getTextPrimary(context),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                message,
+                style: TextStyle(
+                  color: AppTheme.getTextSecondary(context),
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('取消'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    icon: const Icon(Icons.open_in_new, size: 16),
+                    label: const Text('打开网盘'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<bool?> _showAvailableUpdateDialog(ChangelogEntry entry) {
+    return showGlassDialog<bool>(
+      context: context,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 700, maxHeight: 620),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '发现新版本',
+                style: TextStyle(
+                  color: AppTheme.getTextPrimary(context),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '当前版本：v$appVersion\n最新版本：v${entry.version}',
+                style: TextStyle(
+                  color: AppTheme.getTextSecondary(context),
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '更新日志',
+                style: TextStyle(
+                  color: AppTheme.getTextPrimary(context),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 380,
+                child: SingleChildScrollView(
+                  child: _buildChangelogBody(entry.body),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('稍后更新'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    icon: const Icon(Icons.download_outlined, size: 16),
+                    label: const Text('立即更新'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openQuarkPan() async {
+    final uri = Uri.parse(appQuarkUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (mounted) {
+        AppTheme.showGlassToast(
+          context,
+          message: '下载后解压替换原文件夹即可升级软件',
+          icon: Icons.info_outline,
+          iconColor: AppTheme.getPrimaryColor(context),
+          duration: const Duration(seconds: 5),
+        );
+      }
+    }
   }
 
   Widget _buildChangelogSection(
