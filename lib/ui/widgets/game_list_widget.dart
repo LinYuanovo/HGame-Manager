@@ -1589,11 +1589,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                               color: AppTheme.getOverlayColor(context),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: Theme.of(context).brightness ==
-                                        Brightness.dark
-                                    ? AppTheme.darkSurfaceColor
-                                        .withValues(alpha: 0.2)
-                                    : Colors.white.withValues(alpha: 0.2),
+                                color: AppTheme.getBorderLightColor(context)
+                                    .withValues(alpha: 0.2),
                               ),
                             ),
                             child: Row(
@@ -1632,11 +1629,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                   .withValues(alpha: 0.9),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                  color: Theme.of(context).brightness ==
-                                          Brightness.dark
-                                      ? AppTheme.darkSurfaceColor
-                                          .withValues(alpha: 0.2)
-                                      : Colors.white.withValues(alpha: 0.2)),
+                                  color: AppTheme.getBorderLightColor(context)
+                                      .withValues(alpha: 0.2)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1670,11 +1664,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                   AppTheme.primaryColor.withValues(alpha: 0.8),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                  color: Theme.of(context).brightness ==
-                                          Brightness.dark
-                                      ? AppTheme.darkSurfaceColor
-                                          .withValues(alpha: 0.2)
-                                      : Colors.white.withValues(alpha: 0.2)),
+                                  color: AppTheme.getBorderLightColor(context)
+                                      .withValues(alpha: 0.2)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1717,11 +1708,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                   .withValues(alpha: 0.7),
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: Theme.of(context).brightness ==
-                                        Brightness.dark
-                                    ? AppTheme.darkSurfaceColor
-                                        .withValues(alpha: 0.15)
-                                    : Colors.white.withValues(alpha: 0.15),
+                                color: AppTheme.getBorderLightColor(context)
+                                    .withValues(alpha: 0.15),
                               ),
                             ),
                             child: Icon(
@@ -1764,12 +1752,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                 } else {
                                   return Icon(Icons.star_border,
                                       size: 20,
-                                      color: Theme.of(context).brightness ==
-                                              Brightness.dark
-                                          ? AppTheme.darkSurfaceColor
-                                              .withValues(alpha: 0.5)
-                                          : Colors.white
-                                              .withValues(alpha: 0.5));
+                                      color: AppTheme.getSurfaceColor(context)
+                                          .withValues(alpha: 0.5));
                                 }
                               }),
                             ),
@@ -2826,7 +2810,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     onPressed: () => Navigator.pop(context, true),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppTheme.getTextColorOnPrimary(context),
                     ),
                     child: const Text('确认移动'),
                   ),
@@ -3286,13 +3270,20 @@ class _CoverPickerDialog extends StatelessWidget {
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                            color: Colors.black54,
+                                            color: AppTheme.getOverlayColor(
+                                                context),
                                             borderRadius:
                                                 BorderRadius.circular(8)),
-                                        child: Text('${i + 1}',
-                                            style: const TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.white)),
+                                        child: Text(
+                                          '${i + 1}',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: AppTheme
+                                                .getTextColorOnPrimary(
+                                              context,
+                                            ),
+                                          ),
+                                        ),
                                       ),
                                     ),
                                     if (i == game.coverIndex)
@@ -3304,8 +3295,14 @@ class _CoverPickerDialog extends StatelessWidget {
                                           decoration: const BoxDecoration(
                                               color: AppTheme.primaryColor,
                                               shape: BoxShape.circle),
-                                          child: const Icon(Icons.check,
-                                              size: 14, color: Colors.white),
+                                          child: Icon(
+                                            Icons.check,
+                                            size: 14,
+                                            color: AppTheme
+                                                .getTextColorOnPrimary(
+                                              context,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                   ],
@@ -3514,7 +3511,7 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppTheme.getTextColorOnPrimary(context),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
@@ -3658,7 +3655,7 @@ class _MoveToSeriesDialogState extends State<_MoveToSeriesDialog> {
                       Navigator.pop(context, _selectedIds.toList()),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppTheme.getTextColorOnPrimary(context),
                   ),
                   child: const Text('确定'),
                 ),
