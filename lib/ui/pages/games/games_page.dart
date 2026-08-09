@@ -20,6 +20,7 @@ import '../../../core/services/steam_service.dart';
 import '../../../core/services/version_check_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/game_list_widget.dart';
+import '../../widgets/app_dropdown.dart';
 import '../categories/tag_games_page.dart';
 
 class GamesPage extends ConsumerStatefulWidget {
@@ -1252,58 +1253,37 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
                               visualDensity:
                                   VisualDensity(horizontal: -4, vertical: -4),
                             ),
-                            Container(
+                            AppDropdown<_BatchScrapeSource>(
+                              value: item.source,
                               width: 80,
+                              isExpanded: true,
+                              isDense: true,
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppTheme.getSurfaceColor(context)
-                                    .withValues(alpha: 0.8),
-                                borderRadius: BorderRadius.circular(
-                                    GlassConstants.radiusSmall),
-                                border: Border.all(
-                                    color: AppTheme.getBorderColor(context)
-                                        .withValues(alpha: 0.5)),
+                              textStyle: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.getTextPrimary(context),
+                                fontFamily: widget.userFont.isNotEmpty
+                                    ? widget.userFont
+                                    : null,
                               ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<_BatchScrapeSource>(
-                                  value: item.source,
-                                  isExpanded: true,
-                                  isDense: true,
-                                  icon: Icon(Icons.arrow_drop_down,
-                                      size: 18,
-                                      color:
-                                          AppTheme.getTextSecondary(context)),
-                                  borderRadius: BorderRadius.circular(
-                                      GlassConstants.radiusSmall),
-                                  dropdownColor:
-                                      AppTheme.getSurfaceColor(context),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppTheme.getTextPrimary(context),
-                                    fontFamily: widget.userFont.isNotEmpty
-                                        ? widget.userFont
-                                        : null,
-                                  ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                        value: _BatchScrapeSource.none,
-                                        child: Text('不刮削')),
-                                    DropdownMenuItem(
-                                        value: _BatchScrapeSource.steam,
-                                        child: Text('Steam')),
-                                    DropdownMenuItem(
-                                        value: _BatchScrapeSource.dlsite,
-                                        child: Text('DLsite')),
-                                  ],
-                                  onChanged: _importing
-                                      ? null
-                                      : (val) {
-                                          if (val != null)
-                                            setState(() => item.source = val);
-                                        },
-                                ),
-                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                    value: _BatchScrapeSource.none,
+                                    child: Text('不刮削')),
+                                DropdownMenuItem(
+                                    value: _BatchScrapeSource.steam,
+                                    child: Text('Steam')),
+                                DropdownMenuItem(
+                                    value: _BatchScrapeSource.dlsite,
+                                    child: Text('DLsite')),
+                              ],
+                              onChanged: _importing
+                                  ? null
+                                  : (val) {
+                                      if (val != null)
+                                        setState(() => item.source = val);
+                                    },
                             ),
                             const SizedBox(width: 8),
                             SizedBox(

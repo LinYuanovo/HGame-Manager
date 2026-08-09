@@ -292,6 +292,23 @@ class AppTheme {
           foregroundColor: textSecondary.withValues(alpha: 0.7),
         ),
       ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? primaryColor
+              : surfaceColor,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? primaryColor.withValues(alpha: 0.55)
+              : borderColor.withValues(alpha: 0.55),
+        ),
+        trackOutlineColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? primaryColor.withValues(alpha: 0.8)
+              : borderColor.withValues(alpha: 0.8),
+        ),
+      ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: primaryColor.withValues(alpha: 0.7),
@@ -423,6 +440,23 @@ class AppTheme {
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
           foregroundColor: darkTextSecondary,
+        ),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? darkPrimaryColor
+              : darkSurfaceColor,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? darkPrimaryColor.withValues(alpha: 0.35)
+              : darkBorderColor.withValues(alpha: 0.14),
+        ),
+        trackOutlineColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? darkPrimaryColor.withValues(alpha: 0.45)
+              : darkBorderColor.withValues(alpha: 0.2),
         ),
       ),
       textButtonTheme: TextButtonThemeData(

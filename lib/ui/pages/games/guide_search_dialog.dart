@@ -9,6 +9,7 @@ import '../../../core/services/fan2d_service.dart';
 import '../../../core/utils/game_data_paths.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_dropdown.dart';
 
 enum GuideSource { pilipili, fan2d }
 
@@ -386,35 +387,22 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Row(
         children: [
-          Container(
+          AppDropdown<GuideSource>(
+            value: _selectedSource,
             height: 40,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color:
-                  AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                  color:
-                      AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<GuideSource>(
-                value: _selectedSource,
-                isDense: true,
-                dropdownColor: AppTheme.getSurfaceColor(context),
-                borderRadius: BorderRadius.circular(8),
-                items: const [
-                  DropdownMenuItem(
-                      value: GuideSource.pilipili,
-                      child: Text('pilipili', style: TextStyle(fontSize: 13))),
-                  DropdownMenuItem(
-                      value: GuideSource.fan2d,
-                      child: Text('2DFan', style: TextStyle(fontSize: 13))),
-                ],
-                onChanged: (v) =>
-                    setState(() => _selectedSource = v ?? GuideSource.pilipili),
+            isDense: true,
+            items: const [
+              DropdownMenuItem(
+                value: GuideSource.pilipili,
+                child: Text('pilipili'),
               ),
-            ),
+              DropdownMenuItem(
+                value: GuideSource.fan2d,
+                child: Text('2DFan'),
+              ),
+            ],
+            onChanged: (v) =>
+                setState(() => _selectedSource = v ?? GuideSource.pilipili),
           ),
           const SizedBox(width: 12),
           Expanded(

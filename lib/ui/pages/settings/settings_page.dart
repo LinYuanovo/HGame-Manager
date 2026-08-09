@@ -33,6 +33,8 @@ import 'rename_manager_dialog.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/models/theme_mode.dart';
 import '../../widgets/cloudflare_browser_dialog.dart';
+import '../../widgets/app_update_dialog.dart';
+import '../../widgets/app_dropdown.dart';
 
 Future<void> showSettingsDialog(BuildContext context, WidgetRef ref) async {
   await showGlassDialog(
@@ -89,6 +91,9 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   bool _isChangelogExpanded = false;
   bool _isCheckingAppUpdate = false;
   bool _isInstallingAppUpdate = false;
+  bool _autoUpdateEnabled = false;
+  AppUpdateFrequency _autoUpdateFrequency = AppUpdateFrequency.startup;
+  DateTime? _lastSuccessfulUpdateCheck;
   double _customPosterPreviewWidth = 180;
   double _customPosterPreviewHeight = 101.25;
 
@@ -135,7 +140,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _SidebarCategory(
       label: '关于',
       icon: Icons.info_outline,
-      items: ['关于', '更新日志'],
+      items: ['关于', '自动更新', '更新日志'],
     ),
   ];
 
@@ -246,6 +251,16 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         prefs.getBool(AppSettings.keepPlayedInGamesKey) ?? false;
     _favoriteFirst = prefs.getBool(AppSettings.favoriteFirstKey) ?? false;
     _backupImages = prefs.getBool(AppSettings.backupImagesKey) ?? false;
+    _autoUpdateEnabled =
+        prefs.getBool(AppSettings.autoUpdateEnabledKey) ?? false;
+    _autoUpdateFrequency = AppUpdateFrequency.fromName(
+      prefs.getString(AppSettings.autoUpdateFrequencyKey),
+    );
+    final lastCheck = prefs.getString(
+      AppSettings.lastSuccessfulUpdateCheckKey,
+    );
+    _lastSuccessfulUpdateCheck =
+        lastCheck == null ? null : DateTime.tryParse(lastCheck);
     _setPosterPreviewFromRatio(
       AppSettings.normalizePosterCoverAspectRatio(
         prefs.getDouble(AppSettings.posterCoverAspectRatioKey),
@@ -339,10 +354,10 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
           ShaderMask(
             shaderCallback: (bounds) =>
                 AppTheme.primaryGradient.createShader(bounds),
-            child: const Text(
+            child: Text(
               '设置',
               style: TextStyle(
-                color: Colors.white,
+                color: AppTheme.getTextColorOnPrimary(context),
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -489,6 +504,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         return _buildWebdavSection();
       case '关于':
         return _buildAboutSection();
+      case '自动更新':
+        return _buildAutoUpdateSection();
       case '更新日志':
         return _buildChangelogSettingsSection();
       default:
@@ -529,7 +546,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
+              foregroundColor: AppTheme.getTextColorOnPrimary(context),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -593,9 +610,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 16),
             decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? AppTheme.darkSurfaceColor.withValues(alpha: 0.3)
-                  : Colors.white.withValues(alpha: 0.3),
+              color: AppTheme.getTagBackgroundColor(context),
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
               border: Border.all(
                   color: AppTheme.getTextSecondary(context)
@@ -627,12 +642,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 12),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5)
-                              : Theme.of(context).brightness == Brightness.dark
-                                  ? AppTheme.darkSurfaceColor
-                                      .withValues(alpha: 0.5)
-                                  : Colors.white.withValues(alpha: 0.5),
+                          color: AppTheme.getInputFillColor(context),
                           borderRadius: BorderRadius.circular(
                               GlassConstants.radiusMedium),
                           border: Border.all(
@@ -897,7 +907,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             label: const Text('扫描游戏库'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.successColor,
-              foregroundColor: Colors.white,
+              foregroundColor: AppTheme.getTextColorOnPrimary(context),
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(
                   borderRadius:
@@ -1408,7 +1418,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               label: const Text('测试连接'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
+                foregroundColor: AppTheme.getTextColorOnPrimary(context),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 shape: RoundedRectangleBorder(
@@ -1838,9 +1848,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
 
     return GlassContainer(
       margin: const EdgeInsets.only(bottom: 12),
-      color: Theme.of(context).brightness == Brightness.dark
-          ? AppTheme.darkSurfaceColor.withValues(alpha: 0.3)
-          : Colors.white.withValues(alpha: 0.3),
+      color: AppTheme.getTagBackgroundColor(context),
       border: Border.all(
           color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
       child: Column(
@@ -2010,40 +2018,29 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5)
-                      : Colors.white.withValues(alpha: 0.5),
-                  borderRadius:
-                      BorderRadius.circular(GlassConstants.radiusMedium),
-                  border: Border.all(
-                      color: AppTheme.getTextSecondary(context)
-                          .withValues(alpha: 0.2)),
+              child: AppDropdown<String>(
+                value: _selectedFont.isEmpty ? null : _selectedFont,
+                isExpanded: true,
+                hint: const Text('默认 (Microsoft YaHei)'),
+                textStyle: TextStyle(
+                  color: AppTheme.getTextPrimary(context),
+                  fontSize: 14,
                 ),
-                child: DropdownButton<String>(
-                  value: _selectedFont.isEmpty ? null : _selectedFont,
-                  hint: const Text('默认 (Microsoft YaHei)',
-                      style: TextStyle(fontSize: 14)),
-                  isExpanded: true,
-                  underline: const SizedBox.shrink(),
-                  dropdownColor: AppTheme.getSurfaceColor(context),
-                  items: [
-                    const DropdownMenuItem(
-                        value: '',
-                        child: Text('默认 (Microsoft YaHei)',
-                            style: TextStyle(fontSize: 14))),
-                    const DropdownMenuItem(
-                        value: 'MapleMonoNL-NF-CN',
-                        child: Text('MapleMonoNL-NF-CN',
-                            style: TextStyle(
-                                fontSize: 14,
-                                fontFamily: 'MapleMonoNL-NF-CN'))),
-                    ..._getCustomFontItems(),
-                  ],
-                  onChanged: (v) => setState(() => _selectedFont = v ?? ''),
-                ),
+                items: [
+                  const DropdownMenuItem(
+                    value: '',
+                    child: Text('默认 (Microsoft YaHei)'),
+                  ),
+                  const DropdownMenuItem(
+                    value: 'MapleMonoNL-NF-CN',
+                    child: Text(
+                      'MapleMonoNL-NF-CN',
+                      style: TextStyle(fontFamily: 'MapleMonoNL-NF-CN'),
+                    ),
+                  ),
+                  ..._getCustomFontItems(),
+                ],
+                onChanged: (v) => setState(() => _selectedFont = v ?? ''),
               ),
             ),
           ],
@@ -2666,66 +2663,45 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               ),
             ),
             const SizedBox(width: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? AppTheme.darkSurfaceColor.withValues(alpha: 0.6)
-                    : Colors.white.withValues(alpha: 0.5),
-                borderRadius:
-                    BorderRadius.circular(GlassConstants.radiusMedium),
-                border: Border.all(
-                    color: AppTheme.getBorderColor(context)
-                        .withValues(alpha: 0.3)),
+            AppDropdown<AppThemeMode>(
+              value: currentMode,
+              textStyle: TextStyle(
+                color: AppTheme.getTextPrimary(context),
+                fontSize: 14,
+                fontFamily: _selectedFont.isEmpty ? null : _selectedFont,
               ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<AppThemeMode>(
-                  value: currentMode,
-                  isExpanded: false,
-                  icon: Icon(Icons.arrow_drop_down,
-                      size: 20, color: AppTheme.getTextSecondary(context)),
-                  borderRadius:
-                      BorderRadius.circular(GlassConstants.radiusMedium),
-                  dropdownColor: Theme.of(context).brightness == Brightness.dark
-                      ? AppTheme.darkSurfaceColor
-                      : AppTheme.surfaceColor,
-                  style: TextStyle(
-                      color: AppTheme.getTextPrimary(context),
-                      fontSize: 14,
-                      fontFamily: _selectedFont.isEmpty ? null : _selectedFont),
-                  iconEnabledColor: AppTheme.getTextSecondary(context),
-                  menuMaxHeight: 200,
-                  items: AppThemeMode.values.map((mode) {
-                    return DropdownMenuItem(
-                      value: mode,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          borderRadius:
-                              BorderRadius.circular(GlassConstants.radiusSmall),
-                          color: currentMode == mode
-                              ? AppTheme.getPrimaryColor(context)
-                                  .withValues(alpha: 0.1)
-                              : Colors.transparent,
-                        ),
-                        child: Text(mode.label,
-                            style: TextStyle(
-                                fontSize: 14,
-                                color: AppTheme.getTextPrimary(context),
-                                fontFamily: _selectedFont.isEmpty
-                                    ? null
-                                    : _selectedFont)),
+              menuMaxHeight: 200,
+              items: AppThemeMode.values.map((mode) {
+                return DropdownMenuItem(
+                  value: mode,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      borderRadius:
+                          BorderRadius.circular(GlassConstants.radiusSmall),
+                      color: currentMode == mode
+                          ? AppTheme.getPrimaryColor(context)
+                              .withValues(alpha: 0.1)
+                          : Colors.transparent,
+                    ),
+                    child: Text(
+                      mode.label,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.getTextPrimary(context),
+                        fontFamily:
+                            _selectedFont.isEmpty ? null : _selectedFont,
                       ),
-                    );
-                  }).toList(),
-                  onChanged: (mode) {
-                    if (mode != null) {
-                      ref.read(themeModeProvider.notifier).setMode(mode);
-                    }
-                  },
-                ),
-              ),
+                    ),
+                  ),
+                );
+              }).toList(),
+              onChanged: (mode) {
+                if (mode != null) {
+                  ref.read(themeModeProvider.notifier).setMode(mode);
+                }
+              },
             ),
           ],
         ),
@@ -2796,36 +2772,6 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                             color: AppTheme.getTextPrimary(context),
                             fontSize: 16,
                             fontWeight: FontWeight.w600)),
-                    const SizedBox(width: 6),
-                    Tooltip(
-                      message: _isInstallingAppUpdate
-                          ? '正在安装更新'
-                          : _isCheckingAppUpdate
-                              ? '正在检查更新'
-                              : '检查更新',
-                      child: IconButton(
-                        onPressed:
-                            _isCheckingAppUpdate || _isInstallingAppUpdate
-                                ? null
-                                : _checkForAppUpdate,
-                        icon: _isCheckingAppUpdate || _isInstallingAppUpdate
-                            ? SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppTheme.getPrimaryColor(context),
-                                ),
-                              )
-                            : const Icon(Icons.update, size: 18),
-                        color: AppTheme.getPrimaryColor(context),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 28,
-                          minHeight: 28,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ],
@@ -2886,6 +2832,130 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     );
   }
 
+  Widget _buildAutoUpdateSection() {
+    final textTheme = Theme.of(context).textTheme;
+    final labelStyle = textTheme.bodyMedium?.copyWith(
+      color: AppTheme.getTextPrimary(context),
+      fontWeight: FontWeight.w500,
+    );
+    final secondaryStyle = textTheme.bodySmall?.copyWith(
+      color: AppTheme.getTextSecondary(context),
+    );
+
+    return _buildSection(
+      title: '自动更新',
+      icon: Icons.update,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '自动检查更新',
+                    style: labelStyle,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '启动软件时按设定频率检查新版本',
+                    style: secondaryStyle,
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: _autoUpdateEnabled,
+              onChanged: (value) async {
+                setState(() => _autoUpdateEnabled = value);
+                final prefs = ref.read(sharedPreferencesProvider);
+                await prefs.setBool(AppSettings.autoUpdateEnabledKey, value);
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '检查更新频率',
+                style: labelStyle?.copyWith(
+                  color: _autoUpdateEnabled
+                      ? AppTheme.getTextPrimary(context)
+                      : AppTheme.getTextSecondary(context),
+                ),
+              ),
+            ),
+            AppDropdown<AppUpdateFrequency>(
+              value: _autoUpdateFrequency,
+              onChanged: _autoUpdateEnabled
+                  ? (value) async {
+                      if (value == null) return;
+                      setState(() => _autoUpdateFrequency = value);
+                      final prefs = ref.read(sharedPreferencesProvider);
+                      await prefs.setString(
+                        AppSettings.autoUpdateFrequencyKey,
+                        value.name,
+                      );
+                    }
+                  : null,
+              items: AppUpdateFrequency.values
+                  .map(
+                    (frequency) => DropdownMenuItem<AppUpdateFrequency>(
+                      value: frequency,
+                      child: Text(frequency.label),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '上次检查时间',
+                style: labelStyle,
+              ),
+            ),
+            Text(
+              _lastSuccessfulUpdateCheck == null
+                  ? '从未检查'
+                  : _formatUpdateCheckTime(_lastSuccessfulUpdateCheck!),
+              style: secondaryStyle,
+            ),
+            const SizedBox(width: 12),
+            OutlinedButton.icon(
+              onPressed: _isCheckingAppUpdate || _isInstallingAppUpdate
+                  ? null
+                  : _checkForAppUpdate,
+              icon: _isCheckingAppUpdate
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh, size: 16),
+              label: Text(
+                _isCheckingAppUpdate ? '正在检查' : '立即检查',
+                style: textTheme.labelLarge,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _formatUpdateCheckTime(DateTime value) {
+    String pad(int number) => number.toString().padLeft(2, '0');
+
+    return '${value.year}-${pad(value.month)}-${pad(value.day)} '
+        '${pad(value.hour)}:${pad(value.minute)}';
+  }
+
   Widget _buildChangelogSettingsSection() {
     return _buildSection(
       title: '更新日志',
@@ -2921,6 +2991,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
 
       switch (result.status) {
         case AppUpdateStatus.upToDate:
+          await _saveSuccessfulUpdateCheck();
           AppTheme.showGlassToast(
             context,
             message: '当前已是最新版本',
@@ -2928,29 +2999,38 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             iconColor: AppTheme.successColor,
           );
         case AppUpdateStatus.unavailable:
-          final openPan = await _showUpdateFallbackDialog(
+          final openPan = await showAppUpdateFallbackDialog(
+            context: context,
             title: '无法连接 GitHub',
             message: '无法连通 GitHub，是否跳转到网盘查看最新版本？',
           );
           if (openPan == true) {
-            await _openQuarkPan();
+            await openAppUpdateQuarkPan(context);
           }
         case AppUpdateStatus.updateAvailable:
+          await _saveSuccessfulUpdateCheck();
           final latestEntry = result.latestEntry;
           if (latestEntry == null) return;
-          final confirmed = await _showAvailableUpdateDialog(latestEntry);
-          if (confirmed == true) {
-            await _installAppUpdate(latestEntry.version);
+          final action = await showAppUpdatePrompt(context, result);
+          switch (action) {
+            case AppUpdatePromptAction.manualDownload:
+              await openAppUpdateQuarkPan(context);
+            case AppUpdatePromptAction.install:
+              await _installAppUpdate(latestEntry.version);
+            case AppUpdatePromptAction.later:
+            case null:
+              break;
           }
       }
     } catch (e) {
       if (mounted) {
-        final openPan = await _showUpdateFallbackDialog(
+        final openPan = await showAppUpdateFallbackDialog(
+          context: context,
           title: '自动升级失败',
           message: '自动升级失败，是否跳转到网盘手动升级？\n$e',
         );
         if (openPan == true) {
-          await _openQuarkPan();
+          await openAppUpdateQuarkPan(context);
         }
       }
     } finally {
@@ -2988,12 +3068,13 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       await windowManager.close();
     } catch (e) {
       if (!mounted) return;
-      final openPan = await _showUpdateFallbackDialog(
+      final openPan = await showAppUpdateFallbackDialog(
+        context: context,
         title: '自动升级失败',
         message: '更新文件下载或替换失败，是否跳转到网盘手动升级？\n$e',
       );
       if (openPan == true) {
-        await _openQuarkPan();
+        await openAppUpdateQuarkPan(context);
       }
     } finally {
       if (mounted) {
@@ -3002,140 +3083,15 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     }
   }
 
-  Future<bool?> _showUpdateFallbackDialog({
-    required String title,
-    required String message,
-  }) {
-    return showGlassDialog<bool>(
-      context: context,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  color: AppTheme.getTextPrimary(context),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                message,
-                style: TextStyle(
-                  color: AppTheme.getTextSecondary(context),
-                  fontSize: 14,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 22),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('取消'),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    icon: const Icon(Icons.open_in_new, size: 16),
-                    label: const Text('打开网盘'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+  Future<void> _saveSuccessfulUpdateCheck() async {
+    final now = DateTime.now();
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.setString(
+      AppSettings.lastSuccessfulUpdateCheckKey,
+      now.toIso8601String(),
     );
-  }
-
-  Future<bool?> _showAvailableUpdateDialog(ChangelogEntry entry) {
-    return showGlassDialog<bool>(
-      context: context,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 700, maxHeight: 620),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '发现新版本',
-                style: TextStyle(
-                  color: AppTheme.getTextPrimary(context),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                '当前版本：v$appVersion\n最新版本：v${entry.version}',
-                style: TextStyle(
-                  color: AppTheme.getTextSecondary(context),
-                  fontSize: 14,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                '更新日志',
-                style: TextStyle(
-                  color: AppTheme.getTextPrimary(context),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 380,
-                child: SingleChildScrollView(
-                  child: _buildChangelogBody(entry.body),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('稍后更新'),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    icon: const Icon(Icons.download_outlined, size: 16),
-                    label: const Text('立即更新'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openQuarkPan() async {
-    final uri = Uri.parse(appQuarkUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (mounted) {
-        AppTheme.showGlassToast(
-          context,
-          message: '下载后解压替换原文件夹即可升级软件',
-          icon: Icons.info_outline,
-          iconColor: AppTheme.getPrimaryColor(context),
-          duration: const Duration(seconds: 5),
-        );
-      }
+    if (mounted) {
+      setState(() => _lastSuccessfulUpdateCheck = now);
     }
   }
 
@@ -3248,31 +3204,28 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   Widget _buildChangelogBody(String body) {
     final primaryColor = AppTheme.getTextPrimary(context);
     final secondaryColor = AppTheme.getTextSecondary(context);
+    final textTheme = Theme.of(context).textTheme;
     return MarkdownBody(
       data: body,
       selectable: true,
       styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-        p: TextStyle(
+        p: textTheme.bodySmall?.copyWith(
           color: secondaryColor,
-          fontSize: 12,
           height: 1.5,
         ),
-        h3: TextStyle(
+        h3: textTheme.titleSmall?.copyWith(
           color: primaryColor,
-          fontSize: 13,
           fontWeight: FontWeight.w600,
         ),
-        strong: TextStyle(
+        strong: textTheme.bodySmall?.copyWith(
           color: primaryColor,
           fontWeight: FontWeight.w700,
         ),
-        listBullet: TextStyle(
+        listBullet: textTheme.bodySmall?.copyWith(
           color: secondaryColor,
-          fontSize: 12,
         ),
-        code: TextStyle(
+        code: textTheme.bodySmall?.copyWith(
           color: primaryColor,
-          fontSize: 12,
           backgroundColor: AppTheme.getSurfaceColor(context),
         ),
         blockSpacing: 6,

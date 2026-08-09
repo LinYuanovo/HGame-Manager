@@ -20,16 +20,36 @@ enum AppUpdateStatus {
   unavailable,
 }
 
+enum AppUpdateFrequency {
+  startup('每次启动'),
+  daily('每天'),
+  weekly('每周'),
+  monthly('每月');
+
+  final String label;
+
+  const AppUpdateFrequency(this.label);
+
+  static AppUpdateFrequency fromName(String? name) {
+    return AppUpdateFrequency.values.firstWhere(
+      (frequency) => frequency.name == name,
+      orElse: () => AppUpdateFrequency.startup,
+    );
+  }
+}
+
 class AppUpdateCheckResult {
   final AppUpdateStatus status;
   final String currentVersion;
   final ChangelogEntry? latestEntry;
+  final List<ChangelogEntry> updateEntries;
   final String? errorMessage;
 
   const AppUpdateCheckResult({
     required this.status,
     required this.currentVersion,
     this.latestEntry,
+    this.updateEntries = const [],
     this.errorMessage,
   });
 }
@@ -71,6 +91,12 @@ class AppUpdateService {
           latestEntry = entry;
         }
       }
+      final updateEntries = entries
+          .where((entry) => compareVersions(entry.version, currentVersion) > 0)
+          .toList()
+        ..sort(
+          (left, right) => compareVersions(right.version, left.version),
+        );
 
       return AppUpdateCheckResult(
         status: compareVersions(latestEntry.version, currentVersion) > 0
@@ -78,6 +104,7 @@ class AppUpdateService {
             : AppUpdateStatus.upToDate,
         currentVersion: currentVersion,
         latestEntry: latestEntry,
+        updateEntries: updateEntries,
       );
     } catch (e) {
       return AppUpdateCheckResult(
@@ -97,6 +124,27 @@ class AppUpdateService {
       'https://github.com/LinYuanovo/HGame-Manager/releases/download/'
       'v$version/HGame-Manager-v$version-windows.zip',
     );
+  }
+
+  static bool shouldCheck({
+    required bool enabled,
+    required AppUpdateFrequency frequency,
+    required DateTime? lastChecked,
+    DateTime? now,
+  }) {
+    if (!enabled) return false;
+    if (frequency == AppUpdateFrequency.startup || lastChecked == null) {
+      return true;
+    }
+
+    final elapsed = (now ?? DateTime.now()).difference(lastChecked);
+    final threshold = switch (frequency) {
+      AppUpdateFrequency.startup => Duration.zero,
+      AppUpdateFrequency.daily => const Duration(days: 1),
+      AppUpdateFrequency.weekly => const Duration(days: 7),
+      AppUpdateFrequency.monthly => const Duration(days: 30),
+    };
+    return elapsed >= threshold;
   }
 
   Future<void> downloadAndInstall({

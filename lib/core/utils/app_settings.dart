@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:flutter/widgets.dart' show VoidCallback;
 import 'app_paths.dart';
 import 'cleared_game_path_utils.dart';
@@ -31,6 +31,10 @@ class AppSettings {
       'scan_metadata_fingerprints_v1';
   static const String backupImagesKey = 'backup_images';
   static const String posterCoverAspectRatioKey = 'poster_cover_aspect_ratio';
+  static const String autoUpdateEnabledKey = 'auto_update_enabled';
+  static const String autoUpdateFrequencyKey = 'auto_update_frequency';
+  static const String lastSuccessfulUpdateCheckKey =
+      'last_successful_update_check';
   static const double defaultPosterCoverAspectRatio = 16 / 9;
   static const double minPosterCoverAspectRatio = 0.5;
   static const double maxPosterCoverAspectRatio = 2.0;
@@ -56,6 +60,14 @@ class AppSettings {
   static Future<AppSettings> load() async {
     if (_cachedInstance != null) return _cachedInstance!;
     final filePath = await AppPaths.settingsFile;
+    final settings = AppSettings._(filePath);
+    await settings._loadFromFile();
+    _cachedInstance = settings;
+    return settings;
+  }
+
+  @visibleForTesting
+  static Future<AppSettings> loadFromFileForTest(String filePath) async {
     final settings = AppSettings._(filePath);
     await settings._loadFromFile();
     _cachedInstance = settings;

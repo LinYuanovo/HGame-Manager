@@ -6,15 +6,19 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:window_manager/window_manager.dart';
 import 'core/utils/app_settings.dart';
 import 'core/providers/providers.dart';
 import 'core/services/app_logger.dart';
 import 'core/services/app_data_migration_service.dart';
+import 'core/services/app_update_service.dart';
 import 'core/services/play_time_tracker.dart';
+import 'core/utils/app_version.dart';
 import 'ui/controllers/window_controller.dart';
 import 'ui/pages/home_page.dart';
 import 'ui/theme/app_theme.dart';
 import 'core/providers/theme_provider.dart';
+import 'ui/widgets/app_update_dialog.dart';
 
 void main() async {
   // Suppress noisy Flutter accessibility logs
@@ -171,6 +175,8 @@ class _HGameManagerAppState extends ConsumerState<HGameManagerApp> {
   ThemeData? _cachedLightTheme;
   ThemeData? _cachedDarkTheme;
   Timer? _startupMigrationTimer;
+  Timer? _automaticUpdateTimer;
+  final _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
@@ -178,13 +184,103 @@ class _HGameManagerAppState extends ConsumerState<HGameManagerApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startupMigrationTimer =
           Timer(const Duration(seconds: 5), _migrateExistingGameData);
+      _automaticUpdateTimer =
+          Timer(const Duration(seconds: 2), _runAutomaticUpdateCheck);
     });
   }
 
   @override
   void dispose() {
     _startupMigrationTimer?.cancel();
+    _automaticUpdateTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _runAutomaticUpdateCheck() async {
+    if (!mounted || !Platform.isWindows) return;
+
+    final prefs = ref.read(sharedPreferencesProvider);
+    final enabled = prefs.getBool(AppSettings.autoUpdateEnabledKey) ?? false;
+    final frequency = AppUpdateFrequency.fromName(
+      prefs.getString(AppSettings.autoUpdateFrequencyKey),
+    );
+    final lastCheckValue =
+        prefs.getString(AppSettings.lastSuccessfulUpdateCheckKey);
+    final lastCheck =
+        lastCheckValue == null ? null : DateTime.tryParse(lastCheckValue);
+    if (!AppUpdateService.shouldCheck(
+      enabled: enabled,
+      frequency: frequency,
+      lastChecked: lastCheck,
+    )) {
+      return;
+    }
+
+    final result = await AppUpdateService().checkForUpdate(
+      currentVersion: appVersion,
+    );
+    if (!mounted || result.status == AppUpdateStatus.unavailable) return;
+
+    await prefs.setString(
+      AppSettings.lastSuccessfulUpdateCheckKey,
+      DateTime.now().toIso8601String(),
+    );
+    if (!mounted || result.status != AppUpdateStatus.updateAvailable) return;
+
+    final latestEntry = result.latestEntry;
+    if (latestEntry == null) return;
+    final dialogContext = _navigatorKey.currentContext;
+    if (dialogContext == null) return;
+    final action = await showAppUpdatePrompt(dialogContext, result);
+    switch (action) {
+      case AppUpdatePromptAction.manualDownload:
+        await openAppUpdateQuarkPan(dialogContext);
+      case AppUpdatePromptAction.install:
+        await _installAppUpdate(latestEntry.version);
+      case AppUpdatePromptAction.later:
+      case null:
+        break;
+    }
+  }
+
+  Future<void> _installAppUpdate(String version) async {
+    if (!mounted) return;
+    final dialogContext = _navigatorKey.currentContext;
+    if (dialogContext == null) return;
+    AppTheme.showGlassToast(
+      dialogContext,
+      message: '正在下载更新，请稍候',
+      icon: Icons.download_outlined,
+      iconColor: AppTheme.getPrimaryColor(context),
+      duration: const Duration(seconds: 4),
+    );
+
+    try {
+      await AppUpdateService().downloadAndInstall(
+        version: version,
+        executablePath: Platform.resolvedExecutable,
+      );
+      if (!mounted) return;
+      AppTheme.showGlassToast(
+        dialogContext,
+        message: '更新准备完成，软件即将重启',
+        icon: Icons.restart_alt,
+        iconColor: AppTheme.successColor,
+        duration: const Duration(seconds: 3),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await windowManager.close();
+    } catch (e) {
+      if (!mounted) return;
+      final openPan = await showAppUpdateFallbackDialog(
+        context: dialogContext,
+        title: '自动升级失败',
+        message: '更新文件下载或替换失败，是否跳转到网盘手动升级？\n$e',
+      );
+      if (openPan == true) {
+        await openAppUpdateQuarkPan(dialogContext);
+      }
+    }
   }
 
   Future<void> _migrateExistingGameData() async {
@@ -361,6 +457,7 @@ class _HGameManagerAppState extends ConsumerState<HGameManagerApp> {
     return MaterialApp(
       title: 'HGame Manager',
       debugShowCheckedModeBanner: false,
+      navigatorKey: _navigatorKey,
       theme: _getLightTheme(fontFamily),
       darkTheme: _getDarkTheme(fontFamily),
       themeMode: themeMode,
