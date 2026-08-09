@@ -25,10 +25,17 @@ class AppPaths {
   // ---- Subdirectories / files ----
 
   /// Settings JSON file
-  static Future<String> get settingsFile async => path.join(await rootDir, 'settings.json');
+  static Future<String> get settingsFile async =>
+      path.join(await rootDir, 'settings.json');
 
   /// SQLite database file
-  static Future<String> get databaseFile async => path.join(await rootDir, 'hgame_manager.db');
+  static Future<String> get databaseFile async =>
+      path.join(await rootDir, 'hgame_manager.db');
 
+  /// 通关游戏的全局元数据备份目录，不包含游戏本体。
+  static Future<String> get clearedMetadataBackupDir async =>
+      path.join(await rootDir, 'cleared_metadata_backups');
 
+  static Future<String> clearedMetadataBackupFile(int gameId) async =>
+      path.join(await clearedMetadataBackupDir, '$gameId.json');
 }

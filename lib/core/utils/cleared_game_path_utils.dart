@@ -5,6 +5,13 @@ class ClearedGamePathUtils {
     return _segments(gamePath).any((segment) => segment == 'backup');
   }
 
+  static bool isSameOrChildPath(String candidatePath, String rootPath) {
+    final candidate = _normalizedPath(candidatePath);
+    final root = _normalizedPath(rootPath);
+    if (candidate.isEmpty || root.isEmpty) return false;
+    return candidate == root || candidate.startsWith('$root/');
+  }
+
   static String looseNameKey(String value) {
     return value
         .toLowerCase()
@@ -29,6 +36,14 @@ class ClearedGamePathUtils {
     return leftKey == rightKey ||
         leftKey.contains(rightKey) ||
         rightKey.contains(leftKey);
+  }
+
+  static String _normalizedPath(String value) {
+    return value
+        .replaceAll('\\', '/')
+        .replaceAll(RegExp(r'/+'), '/')
+        .replaceAll(RegExp(r'/$'), '')
+        .toLowerCase();
   }
 
   static List<String> _segments(String gamePath) {

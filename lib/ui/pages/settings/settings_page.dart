@@ -84,6 +84,13 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   int _selectedSidebarIndex = 0;
   List<ChangelogEntry> _changelogEntries = [];
   bool _isChangelogExpanded = false;
+  double _customPosterPreviewWidth = 180;
+  double _customPosterPreviewHeight = 101.25;
+
+  static const double _posterPreviewMinWidth = 80;
+  static const double _posterPreviewMaxWidth = 240;
+  static const double _posterPreviewMinHeight = 70;
+  static const double _posterPreviewMaxHeight = 200;
 
   static const List<_SidebarCategory> _categories = [
     _SidebarCategory(
@@ -103,7 +110,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _SidebarCategory(
       label: '管理',
       icon: Icons.admin_panel_settings_outlined,
-      items: ['黑名单管理', '右键菜单管理', '侧边栏页面管理', '刮削行为管理', '重命名规则管理'],
+      items: ['黑名单管理', '右键菜单管理', '侧边栏页面管理', '封面比例管理', '刮削行为管理', '重命名规则管理'],
     ),
     _SidebarCategory(
       label: '刮削',
@@ -234,6 +241,11 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         prefs.getBool(AppSettings.keepPlayedInGamesKey) ?? false;
     _favoriteFirst = prefs.getBool(AppSettings.favoriteFirstKey) ?? false;
     _backupImages = prefs.getBool(AppSettings.backupImagesKey) ?? false;
+    _setPosterPreviewFromRatio(
+      AppSettings.normalizePosterCoverAspectRatio(
+        prefs.getDouble(AppSettings.posterCoverAspectRatioKey),
+      ),
+    );
 
     _loadXpathConfigs();
   }
@@ -450,6 +462,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         return _buildContextMenuSection();
       case '侧边栏页面管理':
         return _buildSidebarManagerSection();
+      case '封面比例管理':
+        return _buildPosterCoverAspectRatioSection();
       case '黑名单管理':
         return _buildBlacklistSection();
       case '刮削行为管理':
@@ -2316,6 +2330,276 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     );
   }
 
+  void _setPosterPreviewFromRatio(double ratio) {
+    final normalized = AppSettings.normalizePosterCoverAspectRatio(ratio);
+    var width = 180.0;
+    var height = width / normalized;
+    if (height > 160) {
+      height = 160;
+      width = height * normalized;
+    }
+    _customPosterPreviewWidth =
+        width.clamp(_posterPreviewMinWidth, _posterPreviewMaxWidth);
+    _customPosterPreviewHeight =
+        height.clamp(_posterPreviewMinHeight, _posterPreviewMaxHeight);
+  }
+
+  Future<void> _applyPosterCoverAspectRatio(double ratio) async {
+    final normalized = AppSettings.normalizePosterCoverAspectRatio(ratio);
+    setState(() => _setPosterPreviewFromRatio(normalized));
+    ref.read(posterCoverAspectRatioProvider.notifier).state = normalized;
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.setDouble(AppSettings.posterCoverAspectRatioKey, normalized);
+    await prefs.flush();
+  }
+
+  void _resizePosterPreview({
+    required Offset delta,
+    required bool adjustWidth,
+    required bool adjustHeight,
+  }) {
+    var width = _customPosterPreviewWidth;
+    var height = _customPosterPreviewHeight;
+
+    if (adjustWidth) {
+      width = (width + delta.dx)
+          .clamp(_posterPreviewMinWidth, _posterPreviewMaxWidth);
+    }
+    if (adjustHeight) {
+      height = (height + delta.dy)
+          .clamp(_posterPreviewMinHeight, _posterPreviewMaxHeight);
+    }
+
+    final rawRatio = width / height;
+    if (rawRatio < AppSettings.minPosterCoverAspectRatio) {
+      width = height * AppSettings.minPosterCoverAspectRatio;
+    } else if (rawRatio > AppSettings.maxPosterCoverAspectRatio) {
+      height = width / AppSettings.maxPosterCoverAspectRatio;
+    }
+
+    final ratio = AppSettings.normalizePosterCoverAspectRatio(width / height);
+    setState(() {
+      _customPosterPreviewWidth = width;
+      _customPosterPreviewHeight = height;
+    });
+    ref.read(posterCoverAspectRatioProvider.notifier).state = ratio;
+  }
+
+  Future<void> _persistCustomPosterCoverAspectRatio() async {
+    final ratio = AppSettings.normalizePosterCoverAspectRatio(
+      _customPosterPreviewWidth / _customPosterPreviewHeight,
+    );
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.setDouble(AppSettings.posterCoverAspectRatioKey, ratio);
+    await prefs.flush();
+  }
+
+  Widget _buildPosterCoverAspectRatioSection() {
+    const presets = <String, double>{
+      '4:3': 4 / 3,
+      '16:9': 16 / 9,
+      '9:16': 9 / 16,
+      '3:4': 3 / 4,
+    };
+    final ratio = ref.watch(posterCoverAspectRatioProvider);
+    final primaryColor = AppTheme.getPrimaryColor(context);
+    final borderColor = AppTheme.getBorderColor(context);
+    final surfaceColor = AppTheme.getSurfaceColor(context);
+
+    Widget dragHandle({
+      required MouseCursor cursor,
+      required GestureDragUpdateCallback onPanUpdate,
+      required GestureDragEndCallback onPanEnd,
+      double? width,
+      double? height,
+    }) {
+      return MouseRegion(
+        cursor: cursor,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onPanUpdate: onPanUpdate,
+          onPanEnd: onPanEnd,
+          child: SizedBox(width: width, height: height),
+        ),
+      );
+    }
+
+    return _buildSection(
+      title: '封面比例管理',
+      icon: Icons.aspect_ratio,
+      children: [
+        Text(
+          '仅调整海报网格的封面宽高比；卡片宽度仍由列数控制，标题区域高度保持不变。',
+          style: TextStyle(
+            fontSize: 13,
+            color: AppTheme.getTextSecondary(context),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: presets.entries.map((entry) {
+            final selected = (ratio - entry.value).abs() < 0.001;
+            return ChoiceChip(
+              label: Text(entry.key),
+              selected: selected,
+              onSelected: (_) => _applyPosterCoverAspectRatio(entry.value),
+              backgroundColor: surfaceColor.withValues(alpha: 0.35),
+              selectedColor: primaryColor.withValues(alpha: 0.18),
+              side: BorderSide(
+                color: selected
+                    ? primaryColor.withValues(alpha: 0.55)
+                    : borderColor.withValues(alpha: 0.35),
+              ),
+              labelStyle: TextStyle(
+                color:
+                    selected ? primaryColor : AppTheme.getTextPrimary(context),
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              ),
+              showCheckmark: false,
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Text(
+              '自定义拖动',
+              style: TextStyle(
+                color: AppTheme.getTextPrimary(context),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '${ratio.toStringAsFixed(3)} : 1',
+              style: TextStyle(
+                color: primaryColor,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '拖动右边缘调整宽度，拖动下边缘调整高度，拖动右下角可同时调整。',
+          style: TextStyle(
+            color: AppTheme.getTextSecondary(context),
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 240),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: surfaceColor.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+            border: Border.all(color: borderColor.withValues(alpha: 0.3)),
+          ),
+          child: Center(
+            child: SizedBox(
+              width: _customPosterPreviewWidth,
+              height: _customPosterPreviewHeight,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: primaryColor.withValues(alpha: 0.12),
+                        borderRadius:
+                            BorderRadius.circular(GlassConstants.radiusSmall),
+                        border: Border.all(
+                          color: primaryColor.withValues(alpha: 0.55),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.image_outlined,
+                          size: 34,
+                          color: primaryColor.withValues(alpha: 0.75),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: -6,
+                    top: 14,
+                    bottom: 14,
+                    child: dragHandle(
+                      cursor: SystemMouseCursors.resizeLeftRight,
+                      width: 12,
+                      onPanUpdate: (details) => _resizePosterPreview(
+                        delta: details.delta,
+                        adjustWidth: true,
+                        adjustHeight: false,
+                      ),
+                      onPanEnd: (_) => _persistCustomPosterCoverAspectRatio(),
+                    ),
+                  ),
+                  Positioned(
+                    left: 14,
+                    right: 14,
+                    bottom: -6,
+                    child: dragHandle(
+                      cursor: SystemMouseCursors.resizeUpDown,
+                      height: 12,
+                      onPanUpdate: (details) => _resizePosterPreview(
+                        delta: details.delta,
+                        adjustWidth: false,
+                        adjustHeight: true,
+                      ),
+                      onPanEnd: (_) => _persistCustomPosterCoverAspectRatio(),
+                    ),
+                  ),
+                  Positioned(
+                    right: -8,
+                    bottom: -8,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.resizeUpLeftDownRight,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onPanUpdate: (details) => _resizePosterPreview(
+                          delta: details.delta,
+                          adjustWidth: true,
+                          adjustHeight: true,
+                        ),
+                        onPanEnd: (_) => _persistCustomPosterCoverAspectRatio(),
+                        child: Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: primaryColor,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: surfaceColor, width: 2),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          '可调范围：0.5–2.0。默认 16:9 与当前海报布局一致。',
+          style: TextStyle(
+            color: AppTheme.getTextSecondary(context),
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildBlacklistSection() {
     return _buildSection(
       title: '黑名单管理',
@@ -2445,7 +2729,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   Widget _buildAboutSection() {
-    const currentVersion = '1.4.6';
+    const currentVersion = '1.4.7';
 
     return _buildSection(
       title: '关于',
@@ -2565,7 +2849,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   Widget _buildChangelogSettingsSection() {
-    const currentVersion = '1.4.6';
+    const currentVersion = '1.4.7';
 
     return _buildSection(
       title: '更新日志',

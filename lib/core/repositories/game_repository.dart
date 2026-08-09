@@ -69,9 +69,8 @@ class GameRepository implements PlayTimeRepository {
       var resolvedGame = game;
       final gamePathExists = await _pathExists(game.path);
 
-      // 如果游戏路径不存在且在 Cleared 目录下，尝试从 Backup 目录加载
-      if (!gamePathExists &&
-          game.path.contains('${path.separator}Cleared${path.separator}')) {
+      // 通关游戏目录缺失时，尝试从对应 Backup 目录加载。
+      if (!gamePathExists && game.isCleared) {
         // 尝试在 Backup 目录中模糊匹配
         final backupPath = await _findBackupPath(game.path, game.title);
         if (backupPath != null) {
@@ -129,12 +128,10 @@ class GameRepository implements PlayTimeRepository {
     if (rawCleared.startsWith('{')) {
       try {
         final decoded = jsonDecode(rawCleared) as Map<String, dynamic>;
-        final normalizedGamePath = gamePath.replaceAll('\\', '/').toLowerCase();
         for (final v in decoded.values) {
           final cp = v?.toString() ?? '';
           if (cp.isEmpty) continue;
-          final normalizedCleared = cp.replaceAll('\\', '/').toLowerCase();
-          if (normalizedGamePath.startsWith(normalizedCleared)) {
+          if (ClearedGamePathUtils.isSameOrChildPath(gamePath, cp)) {
             final backupDir = Directory('$cp${sep}Backup');
             if (await backupDir.exists()) {
               final result = await _searchBackupDir(backupDir.path, gameTitle);
@@ -243,8 +240,7 @@ class GameRepository implements PlayTimeRepository {
     var resolvedGame = game;
     final gamePathExists = await _pathExists(game.path);
 
-    if (!gamePathExists &&
-        game.path.contains('${path.separator}Cleared${path.separator}')) {
+    if (!gamePathExists && game.isCleared) {
       final backupPath = await _findBackupPath(game.path, game.title);
       if (backupPath != null) {
         images = await _loadImagesFromBackupDir(backupPath);
@@ -290,12 +286,9 @@ class GameRepository implements PlayTimeRepository {
 
   Future<List<Game>> getUnplayedUnclearedGames() async {
     final db = await _db;
-    final sep = path.separator;
-    final clearedPattern = '%${sep}Cleared$sep%';
     final List<Map<String, dynamic>> maps = await db.query(
       'games',
-      where: 'is_played = 0 AND play_count < 1 AND path NOT LIKE ?',
-      whereArgs: [clearedPattern],
+      where: 'is_played = 0 AND play_count < 1 AND is_cleared = 0',
       orderBy: 'title ASC',
     );
     final games = maps.map((map) => Game.fromMap(map)).toList();
@@ -304,12 +297,20 @@ class GameRepository implements PlayTimeRepository {
 
   Future<List<Game>> getNonClearedGames() async {
     final db = await _db;
-    final sep = path.separator;
-    final clearedPattern = '%${sep}Cleared$sep%';
     final List<Map<String, dynamic>> maps = await db.query(
       'games',
-      where: 'path NOT LIKE ?',
-      whereArgs: [clearedPattern],
+      where: 'is_cleared = 0',
+      orderBy: 'title ASC',
+    );
+    final games = maps.map((map) => Game.fromMap(map)).toList();
+    return _fillGameRelations(games);
+  }
+
+  Future<List<Game>> getClearedGames() async {
+    final db = await _db;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'games',
+      where: 'is_cleared = 1',
       orderBy: 'title ASC',
     );
     final games = maps.map((map) => Game.fromMap(map)).toList();
@@ -473,6 +474,49 @@ class GameRepository implements PlayTimeRepository {
     );
   }
 
+  Future<void> updateClearedStatus(int id, bool isCleared) async {
+    final db = await _db;
+    await db.update(
+      'games',
+      {'is_cleared': isCleared ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> migrateLegacyClearedStates(List<String> clearedRoots) async {
+    final db = await _db;
+    final rows = await db.query(
+      'games',
+      columns: ['id', 'path', 'is_cleared'],
+      where: 'is_cleared = 0',
+    );
+    final normalizedRoots =
+        clearedRoots.where((root) => root.isNotEmpty).toList();
+    final batch = db.batch();
+    var hasUpdates = false;
+    for (final row in rows) {
+      final gamePath = row['path'] as String? ?? '';
+      final normalized =
+          path.normalize(gamePath).replaceAll('\\', '/').toLowerCase();
+      final segments = normalized.split('/').where((part) => part.isNotEmpty);
+      final legacyPath =
+          segments.contains('cleared') || segments.contains('backup');
+      final configuredPath = normalizedRoots.any(
+        (root) => ClearedGamePathUtils.isSameOrChildPath(gamePath, root),
+      );
+      if (legacyPath || configuredPath) {
+        batch.update('games', {'is_cleared': 1},
+            where: 'id = ?', whereArgs: [row['id']]);
+        hasUpdates = true;
+      }
+    }
+    if (hasUpdates) await batch.commit(noResult: true);
+  }
+
+  Future<String?> findBackupPathForGame(Game game) =>
+      _findBackupPath(game.path, game.title);
+
   Future<void> mergeDuplicateGamePath({
     required int keepGameId,
     required int duplicateGameId,
@@ -485,6 +529,14 @@ class GameRepository implements PlayTimeRepository {
 
     final db = await _db;
     await db.transaction((txn) async {
+      final stateRows = await txn.query(
+        'games',
+        columns: ['id', 'is_cleared'],
+        where: 'id IN (?, ?)',
+        whereArgs: [keepGameId, duplicateGameId],
+      );
+      final isCleared = stateRows.any((row) => row['is_cleared'] == 1);
+
       await txn.rawInsert('''
         INSERT OR IGNORE INTO game_tag_relation (game_id, tag_id)
         SELECT ?, tag_id FROM game_tag_relation WHERE game_id = ?
@@ -523,7 +575,7 @@ class GameRepository implements PlayTimeRepository {
       await txn.delete('games', where: 'id = ?', whereArgs: [duplicateGameId]);
       await txn.update(
         'games',
-        {'path': targetPath},
+        {'path': targetPath, 'is_cleared': isCleared ? 1 : 0},
         where: 'id = ?',
         whereArgs: [keepGameId],
       );

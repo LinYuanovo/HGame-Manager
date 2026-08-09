@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/widgets.dart' show VoidCallback;
 import 'app_paths.dart';
+import 'cleared_game_path_utils.dart';
 
 /// JSON-file-based settings store that replaces [SharedPreferences].
 ///
@@ -29,6 +30,16 @@ class AppSettings {
   static const String scanMetadataFingerprintsKey =
       'scan_metadata_fingerprints_v1';
   static const String backupImagesKey = 'backup_images';
+  static const String posterCoverAspectRatioKey = 'poster_cover_aspect_ratio';
+  static const double defaultPosterCoverAspectRatio = 16 / 9;
+  static const double minPosterCoverAspectRatio = 0.5;
+  static const double maxPosterCoverAspectRatio = 2.0;
+
+  static double normalizePosterCoverAspectRatio(num? value) {
+    return (value?.toDouble() ?? defaultPosterCoverAspectRatio)
+        .clamp(minPosterCoverAspectRatio, maxPosterCoverAspectRatio)
+        .toDouble();
+  }
 
   Map<String, dynamic> _data = {};
   final String _filePath;
@@ -283,7 +294,7 @@ class AppSettings {
       final libPath = entry.key.replaceAll('/', '\\').toLowerCase();
       final sortedPath = entry.value;
       if (sortedPath.isEmpty) continue;
-      if (normalizedGamePath.startsWith(libPath)) {
+      if (ClearedGamePathUtils.isSameOrChildPath(normalizedGamePath, libPath)) {
         return entry.value;
       }
     }
@@ -292,7 +303,8 @@ class AppSettings {
       final sortedPath = entry.value;
       if (sortedPath.isEmpty) continue;
       final normalizedSorted = sortedPath.replaceAll('/', '\\').toLowerCase();
-      if (normalizedGamePath.startsWith(normalizedSorted)) {
+      if (ClearedGamePathUtils.isSameOrChildPath(
+          normalizedGamePath, normalizedSorted)) {
         return sortedPath;
       }
     }
@@ -319,7 +331,7 @@ class AppSettings {
       final libPath = entry.key.replaceAll('/', '\\').toLowerCase();
       final clearedPath = entry.value;
       if (clearedPath.isEmpty) continue;
-      if (normalizedGamePath.startsWith(libPath)) {
+      if (ClearedGamePathUtils.isSameOrChildPath(normalizedGamePath, libPath)) {
         return entry.value;
       }
     }
@@ -328,7 +340,8 @@ class AppSettings {
       final clearedPath = entry.value;
       if (clearedPath.isEmpty) continue;
       final normalizedCleared = clearedPath.replaceAll('/', '\\').toLowerCase();
-      if (normalizedGamePath.startsWith(normalizedCleared)) {
+      if (ClearedGamePathUtils.isSameOrChildPath(
+          normalizedGamePath, normalizedCleared)) {
         return clearedPath;
       }
     }

@@ -1,10 +1,13 @@
+import 'dart:convert';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../utils/app_paths.dart';
+import '../utils/app_settings.dart';
+import '../utils/cleared_game_path_utils.dart';
 
 class DatabaseHelper {
   static Database? _database;
   static Future<Database>? _databaseFuture;
-  static const int _databaseVersion = 11;
+  static const int _databaseVersion = 12;
 
   static Future<String> getDataDir() => AppPaths.rootDir;
 
@@ -35,7 +38,8 @@ class DatabaseHelper {
     return db;
   }
 
-  static Future<bool> _columnExists(Database db, String table, String column) async {
+  static Future<bool> _columnExists(
+      Database db, String table, String column) async {
     final result = await db.rawQuery('PRAGMA table_info($table)');
     return result.any((col) => col['name'] == column);
   }
@@ -48,10 +52,12 @@ class DatabaseHelper {
     return result.isNotEmpty;
   }
 
-  static Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+  static Future<void> _onUpgrade(
+      Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       if (!await _columnExists(db, 'games', 'cover_index')) {
-        await db.execute('ALTER TABLE games ADD COLUMN cover_index INTEGER NOT NULL DEFAULT 0');
+        await db.execute(
+            'ALTER TABLE games ADD COLUMN cover_index INTEGER NOT NULL DEFAULT 0');
       }
     }
     if (oldVersion < 3) {
@@ -72,7 +78,8 @@ class DatabaseHelper {
         await db.execute('ALTER TABLE games ADD COLUMN game_launcher TEXT');
       }
       if (!await _columnExists(db, 'games', 'launcher_locked')) {
-        await db.execute('ALTER TABLE games ADD COLUMN launcher_locked INTEGER NOT NULL DEFAULT 0');
+        await db.execute(
+            'ALTER TABLE games ADD COLUMN launcher_locked INTEGER NOT NULL DEFAULT 0');
       }
       await db.execute('''
         CREATE TABLE IF NOT EXISTS tools (
@@ -86,7 +93,8 @@ class DatabaseHelper {
     }
     if (oldVersion < 6) {
       if (!await _columnExists(db, 'games', 'use_locale_emulator')) {
-        await db.execute('ALTER TABLE games ADD COLUMN use_locale_emulator INTEGER NOT NULL DEFAULT 0');
+        await db.execute(
+            'ALTER TABLE games ADD COLUMN use_locale_emulator INTEGER NOT NULL DEFAULT 0');
       }
     }
     if (oldVersion < 7) {
@@ -99,18 +107,22 @@ class DatabaseHelper {
     }
     if (oldVersion < 8) {
       if (!await _columnExists(db, 'games', 'play_duration')) {
-        await db.execute('ALTER TABLE games ADD COLUMN play_duration INTEGER DEFAULT 0');
+        await db.execute(
+            'ALTER TABLE games ADD COLUMN play_duration INTEGER DEFAULT 0');
       }
     }
     if (oldVersion < 9) {
       if (!await _indexExists(db, 'idx_games_is_played')) {
-        await db.execute('CREATE INDEX idx_games_is_played ON games(is_played)');
+        await db
+            .execute('CREATE INDEX idx_games_is_played ON games(is_played)');
       }
       if (!await _indexExists(db, 'idx_games_is_favorite')) {
-        await db.execute('CREATE INDEX idx_games_is_favorite ON games(is_favorite)');
+        await db.execute(
+            'CREATE INDEX idx_games_is_favorite ON games(is_favorite)');
       }
       if (!await _indexExists(db, 'idx_game_tag_relation_tag_id')) {
-        await db.execute('CREATE INDEX idx_game_tag_relation_tag_id ON game_tag_relation(tag_id)');
+        await db.execute(
+            'CREATE INDEX idx_game_tag_relation_tag_id ON game_tag_relation(tag_id)');
       }
     }
     if (oldVersion < 10) {
@@ -120,10 +132,51 @@ class DatabaseHelper {
     }
     if (oldVersion < 11) {
       if (!await _columnExists(db, 'games', 'intro_scroll_position')) {
-        await db.execute('ALTER TABLE games ADD COLUMN intro_scroll_position REAL DEFAULT 0');
+        await db.execute(
+            'ALTER TABLE games ADD COLUMN intro_scroll_position REAL DEFAULT 0');
       }
       if (!await _columnExists(db, 'games', 'guide_scroll_position')) {
-        await db.execute('ALTER TABLE games ADD COLUMN guide_scroll_position REAL DEFAULT 0');
+        await db.execute(
+            'ALTER TABLE games ADD COLUMN guide_scroll_position REAL DEFAULT 0');
+      }
+    }
+    if (oldVersion < 12) {
+      if (!await _columnExists(db, 'games', 'is_cleared')) {
+        await db.execute(
+            'ALTER TABLE games ADD COLUMN is_cleared INTEGER NOT NULL DEFAULT 0');
+      }
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_games_is_cleared ON games(is_cleared)');
+      await _migrateClearedPaths(db);
+    }
+  }
+
+  static Future<void> _migrateClearedPaths(Database db) async {
+    final clearedRoots = <String>[];
+    try {
+      final prefs = await AppSettings.load();
+      final raw = prefs.getString('cleared_paths') ?? '';
+      if (raw.startsWith('{')) {
+        final decoded = jsonDecode(raw) as Map<String, dynamic>;
+        clearedRoots.addAll(decoded.values
+            .map((value) => value?.toString() ?? '')
+            .where((value) => value.isNotEmpty));
+      }
+    } catch (_) {}
+
+    final games = await db.query('games', columns: ['id', 'path']);
+    for (final game in games) {
+      final gamePath = game['path'] as String? ?? '';
+      final normalized = gamePath.replaceAll('\\', '/').toLowerCase();
+      final segments = normalized.split('/').where((part) => part.isNotEmpty);
+      final isLegacyCleared =
+          segments.contains('cleared') || segments.contains('backup');
+      final isConfiguredCleared = clearedRoots.any(
+        (root) => ClearedGamePathUtils.isSameOrChildPath(gamePath, root),
+      );
+      if (isLegacyCleared || isConfiguredCleared) {
+        await db.update('games', {'is_cleared': 1},
+            where: 'id = ?', whereArgs: [game['id']]);
       }
     }
   }
@@ -145,6 +198,7 @@ class DatabaseHelper {
         added_time DATETIME DEFAULT CURRENT_TIMESTAMP,
         is_favorite INTEGER DEFAULT 0,
         is_played INTEGER DEFAULT 0,
+        is_cleared INTEGER NOT NULL DEFAULT 0,
         cover_index INTEGER DEFAULT 0,
         rating REAL DEFAULT 0,
         review TEXT,
@@ -213,13 +267,18 @@ class DatabaseHelper {
     // Indexes
     await db.execute('CREATE INDEX idx_games_title ON games(title)');
     await db.execute('CREATE INDEX idx_games_play_count ON games(play_count)');
-    await db.execute('CREATE INDEX idx_games_last_played ON games(last_played_time)');
+    await db.execute(
+        'CREATE INDEX idx_games_last_played ON games(last_played_time)');
     await db.execute('CREATE INDEX idx_games_added_time ON games(added_time)');
     await db.execute('CREATE INDEX idx_games_is_played ON games(is_played)');
-    await db.execute('CREATE INDEX idx_games_is_favorite ON games(is_favorite)');
+    await db
+        .execute('CREATE INDEX idx_games_is_favorite ON games(is_favorite)');
+    await db.execute('CREATE INDEX idx_games_is_cleared ON games(is_cleared)');
     await db.execute('CREATE INDEX idx_tags_type ON tags(type)');
-    await db.execute('CREATE INDEX idx_game_images_game_id ON game_images(game_id)');
-    await db.execute('CREATE INDEX idx_game_tag_relation_tag_id ON game_tag_relation(tag_id)');
+    await db.execute(
+        'CREATE INDEX idx_game_images_game_id ON game_images(game_id)');
+    await db.execute(
+        'CREATE INDEX idx_game_tag_relation_tag_id ON game_tag_relation(tag_id)');
 
     // Insert default series tags
     final defaultSeries = ['RPG', 'ADV', 'ACT', 'SLG', 'AVG', 'FPS', 'TPS'];

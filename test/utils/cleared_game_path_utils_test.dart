@@ -18,6 +18,31 @@ void main() {
       );
     });
 
+    test('matches only the configured directory itself or real descendants',
+        () {
+      expect(
+        ClearedGamePathUtils.isSameOrChildPath(
+          r'D:\Games\Cleared\Game A',
+          r'D:\Games\Cleared',
+        ),
+        isTrue,
+      );
+      expect(
+        ClearedGamePathUtils.isSameOrChildPath(
+          r'D:\Games\ClearedOther\Game A',
+          r'D:\Games\Cleared',
+        ),
+        isFalse,
+      );
+      expect(
+        ClearedGamePathUtils.isSameOrChildPath(
+          'D:/Games/Cleared/',
+          r'd:\games\cleared',
+        ),
+        isTrue,
+      );
+    });
+
     test('normalizes backup folder and local folder names for matching', () {
       expect(
         ClearedGamePathUtils.isLikelyBackupForLocalName(

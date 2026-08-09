@@ -15,6 +15,7 @@ import '../services/webdav_service.dart';
 import '../services/backup_service.dart';
 import '../services/game_move_service.dart';
 import '../services/game_data_migration_service.dart';
+import '../services/cleared_metadata_backup_service.dart';
 import '../services/folder_rename_service.dart';
 import '../services/dlsite_service.dart';
 import '../services/steam_service.dart';
@@ -90,6 +91,11 @@ final backupServiceProvider = Provider<BackupService>((ref) {
   return BackupService();
 });
 
+final clearedMetadataBackupServiceProvider =
+    Provider<ClearedMetadataBackupService>((ref) {
+  return ClearedMetadataBackupService();
+});
+
 final gameDataMigrationServiceProvider =
     Provider<GameDataMigrationService>((ref) {
   return GameDataMigrationService(
@@ -123,7 +129,7 @@ final allGamesProvider = FutureProvider<List<Game>>((ref) async {
     final keepPlayed = prefs.getBool(AppSettings.keepPlayedInGamesKey) ?? false;
 
     if (keepPlayed) {
-      return await repository.getAllGames();
+      return await repository.getNonClearedGames();
     } else {
       return await repository.getUnplayedUnclearedGames();
     }
@@ -139,6 +145,19 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
   try {
     final repository = ref.watch(gameRepositoryProvider);
     final prefs = ref.read(sharedPreferencesProvider);
+
+    // 首次读取时把旧路径规则迁移为显式通关状态。
+    final migrationRoots = <String>[];
+    final migrationRaw = prefs.getString('cleared_paths') ?? '';
+    if (migrationRaw.startsWith('{')) {
+      try {
+        final decoded = jsonDecode(migrationRaw) as Map<String, dynamic>;
+        migrationRoots.addAll(decoded.values
+            .map((value) => value?.toString() ?? '')
+            .where((value) => value.isNotEmpty));
+      } catch (_) {}
+    }
+    await repository.migrateLegacyClearedStates(migrationRoots);
     final allGames = await repository.getAllGames();
 
     // Read all sorted paths
@@ -177,25 +196,7 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
     }
 
     final sep = Platform.pathSeparator;
-    // 旧格式：路径包含 /Cleared/ 的游戏
-    final dbClearedGames = allGames
-        .where((g) =>
-            g.path.contains('${sep}Cleared$sep') &&
-            !ClearedGamePathUtils.hasBackupSegment(g.path))
-        .toList();
-    // 新格式：路径在 cleared_paths 目录下的游戏
-    final dbNewClearedGames = allGames.where((g) {
-      final normalizedGamePath = g.path.replaceAll('\\', '/').toLowerCase();
-      for (final cp in clearedPathList) {
-        final normalizedCleared = cp.replaceAll('\\', '/').toLowerCase();
-        if (normalizedGamePath.startsWith(normalizedCleared) &&
-            !ClearedGamePathUtils.hasBackupSegment(g.path)) {
-          return true;
-        }
-      }
-      return false;
-    }).toList();
-    final allClearedGames = [...dbClearedGames, ...dbNewClearedGames];
+    final allClearedGames = allGames.where((g) => g.isCleared).toList();
 
     final result = <String, Game>{};
     final allGamesByPath = <String, Game>{
@@ -455,6 +456,17 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
       }
     }
 
+    // 即使通关目录和 Backup 都已不存在，也保留数据库中的元数据记录。
+    for (final game in allClearedGames) {
+      final normalizedTitle = removeVersionFromTitle(
+        game.title ?? path.basename(game.path),
+      );
+      final key = normalizedTitle.isNotEmpty
+          ? normalizedTitle.toLowerCase()
+          : 'game:${game.id ?? _normalizedPathKey(game.path)}';
+      putPreferredResult(key, game.copyWith(title: normalizedTitle));
+    }
+
     return result.values.toList();
   } catch (e, stackTrace) {
     if (kDebugMode) {
@@ -507,7 +519,8 @@ Future<Game?> _resolveDbGameForDirectory({
     }
   }
 
-  final backupNameMatch = await _findDbGameByBackupName(allGames, fallbackTitle);
+  final backupNameMatch =
+      await _findDbGameByBackupName(allGames, fallbackTitle);
   if (backupNameMatch != null && backupNameMatch.id != exact?.id) {
     candidates.add(_LinkedGameCandidate(
       backupNameMatch,
@@ -630,13 +643,15 @@ Game _mergeLinkedGameData(Game primary, Game fallback) {
     playCount: primary.playCount >= fallback.playCount
         ? primary.playCount
         : fallback.playCount,
-    lastPlayedTime: _latestDate(primary.lastPlayedTime, fallback.lastPlayedTime),
+    lastPlayedTime:
+        _latestDate(primary.lastPlayedTime, fallback.lastPlayedTime),
     addedTime: _earliestDate(primary.addedTime, fallback.addedTime),
     isFavorite: primary.isFavorite || fallback.isFavorite,
     isPlayed: primary.isPlayed || fallback.isPlayed,
     tags: _mergeTags(primary.tags, fallback.tags),
     images: _mergeImages(primary.images, fallback.images),
-    coverIndex: primary.coverIndex != 0 ? primary.coverIndex : fallback.coverIndex,
+    coverIndex:
+        primary.coverIndex != 0 ? primary.coverIndex : fallback.coverIndex,
     rating: primary.rating > 0 ? primary.rating : fallback.rating,
     review: _preferText(primary.review, fallback.review),
     savePath: _preferText(primary.savePath, fallback.savePath),
@@ -684,7 +699,8 @@ List<Tag> _mergeTags(List<Tag> primary, List<Tag> fallback) {
   return result.values.toList();
 }
 
-List<GameImage> _mergeImages(List<GameImage> primary, List<GameImage> fallback) {
+List<GameImage> _mergeImages(
+    List<GameImage> primary, List<GameImage> fallback) {
   final result = <String, GameImage>{};
   for (final image in [...primary, ...fallback]) {
     final key = _normalizedPathKey(image.imagePath);
@@ -923,8 +939,9 @@ Future<Game?> _loadGameFromDirectory(
   final game = Game(
     id: existingDbGame?.id,
     path: gameDir.path,
-    title:
-        (metadata?['title'] as String?) ?? existingDbGame?.title ?? fallbackTitle,
+    title: (metadata?['title'] as String?) ??
+        existingDbGame?.title ??
+        fallbackTitle,
     version: (metadata?['version'] as String?) ?? existingDbGame?.version,
     intro: (metadata?['intro'] as String?) ?? existingDbGame?.intro,
     features: (metadata?['features'] as String?) ?? existingDbGame?.features,
@@ -939,6 +956,7 @@ Future<Game?> _loadGameFromDirectory(
     addedTime: existingDbGame?.addedTime,
     isFavorite: existingDbGame?.isFavorite ?? false,
     isPlayed: existingDbGame?.isPlayed ?? true,
+    isCleared: true,
     tags: existingDbGame?.tags ?? [],
     images: imagePaths
         .asMap()
@@ -969,11 +987,7 @@ Future<Game?> _loadGameFromDirectory(
 final playedGamesProvider = FutureProvider<List<Game>>((ref) async {
   try {
     final repository = ref.watch(gameRepositoryProvider);
-    final games = await repository.getPlayedGames();
-    return games
-        .where((g) => !g.path.contains(
-            '${Platform.pathSeparator}Cleared${Platform.pathSeparator}'))
-        .toList();
+    return await repository.getPlayedGames();
   } catch (e, stackTrace) {
     if (kDebugMode) {
       debugPrint('ERROR Loading Played Games: $e\n$stackTrace');
@@ -1100,6 +1114,13 @@ final isFixedColumnCountProvider = StateProvider<bool>((ref) {
 final fixedColumnCountProvider = StateProvider<int>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
   return prefs.getInt('column_count') ?? 3;
+});
+
+final posterCoverAspectRatioProvider = StateProvider<double>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return AppSettings.normalizePosterCoverAspectRatio(
+    prefs.getDouble(AppSettings.posterCoverAspectRatioKey),
+  );
 });
 
 final savePathServiceProvider = Provider<SavePathService>((ref) {

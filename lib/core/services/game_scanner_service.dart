@@ -11,6 +11,7 @@ import '../utils/app_settings.dart';
 import '../utils/game_data_paths.dart';
 import 'app_logger.dart';
 import 'game_data_migration_service.dart';
+import 'cleared_metadata_backup_service.dart';
 
 class _ParsedGameData {
   final String folderPath;
@@ -30,6 +31,7 @@ class _ParsedGameData {
   final DateTime? addedTime;
   final bool isFavorite;
   final bool isPlayed;
+  final bool isCleared;
   final String? guide;
   final String metadataFingerprint;
   final bool migrationChecked;
@@ -52,6 +54,7 @@ class _ParsedGameData {
     this.addedTime,
     this.isFavorite = false,
     this.isPlayed = false,
+    this.isCleared = false,
     this.guide,
     required this.metadataFingerprint,
     required this.migrationChecked,
@@ -61,6 +64,7 @@ class _ParsedGameData {
 class GameScannerService {
   final _log = AppLogger.instance;
   final GameRepository _gameRepository;
+  final ClearedMetadataBackupService _clearedMetadataBackupService;
 
   void Function()? onGameProcessed;
   void Function(int processed, int total)? onProgress;
@@ -72,10 +76,13 @@ class GameScannerService {
   GameScannerService({
     GameRepository? gameRepository,
     TagRepository? tagRepository,
+    ClearedMetadataBackupService? clearedMetadataBackupService,
     this.onGameProcessed,
     this.onProgress,
     this.shouldCancel,
-  }) : _gameRepository = gameRepository ?? GameRepository();
+  })  : _gameRepository = gameRepository ?? GameRepository(),
+        _clearedMetadataBackupService =
+            clearedMetadataBackupService ?? ClearedMetadataBackupService();
 
   GameDataMigrationService get _migrationService =>
       GameDataMigrationService(gameRepository: _gameRepository);
@@ -439,6 +446,7 @@ class GameScannerService {
         addedTime: existingGame?.addedTime,
         isFavorite: existingGame?.isFavorite ?? false,
         isPlayed: existingGame?.isPlayed ?? false,
+        isCleared: existingGame?.isCleared ?? false,
         guide: metadata?['guide'] as String?,
         metadataFingerprint: fingerprint,
         migrationChecked: migrationChecked,
@@ -503,6 +511,7 @@ class GameScannerService {
           'last_played_time': data.lastPlayedTime?.toIso8601String(),
           'is_favorite': data.isFavorite ? 1 : 0,
           'is_played': data.isPlayed ? 1 : 0,
+          'is_cleared': data.isCleared ? 1 : 0,
           'guide': data.guide,
         };
 
@@ -602,53 +611,46 @@ class GameScannerService {
     List<Game> existingGames,
     String libraryPath,
   ) async {
-    final prefs = await AppSettings.load();
-    final rawCleared = prefs.getString('cleared_paths') ?? '';
-    final clearedPathList = <String>[];
-    if (rawCleared.startsWith('{')) {
-      try {
-        final decoded = jsonDecode(rawCleared) as Map<String, dynamic>;
-        for (final v in decoded.values) {
-          final cp = v?.toString() ?? '';
-          if (cp.isNotEmpty) clearedPathList.add(cp);
-        }
-      } catch (_) {}
-    }
-
     final normalizedLibraryPath = _normalizedPathKey(libraryPath);
 
     for (final game in existingGames) {
       try {
-        if (!_normalizedPathKey(game.path).startsWith(normalizedLibraryPath)) {
-          continue;
-        }
-
-        final sep = Platform.pathSeparator;
-        // 旧格式：路径包含 /Cleared/ 的游戏
-        if (game.path.contains('${sep}Cleared$sep') &&
-            !game.path.contains('${sep}Backup$sep')) {
-          continue;
-        }
-        // 新格式：路径在 cleared_paths 目录下的游戏
-        bool isInClearedPath = false;
-        final normalizedGamePath =
-            game.path.replaceAll('\\', '/').toLowerCase();
-        for (final cp in clearedPathList) {
-          final normalizedCleared = cp.replaceAll('\\', '/').toLowerCase();
-          if (normalizedGamePath.startsWith(normalizedCleared) &&
-              !game.path.contains('${sep}Backup$sep')) {
-            isInClearedPath = true;
-            break;
+        final storedPath = game.id == null
+            ? game.path
+            : await _gameRepository.getStoredGamePath(game.id!) ?? game.path;
+        final storedGame =
+            storedPath == game.path ? game : game.copyWith(path: storedPath);
+        final dir = Directory(storedPath);
+        if (game.isCleared) {
+          if (!await dir.exists() && game.id != null) {
+            await _clearedMetadataBackupService.refresh(storedGame);
+            final backupPath =
+                await _gameRepository.findBackupPathForGame(storedGame);
+            if (backupPath != null) {
+              await _gameRepository.updateGamePath(game.id!, backupPath);
+            }
+            final refreshed = await _gameRepository.getGameById(game.id!);
+            if (refreshed != null) {
+              await _clearedMetadataBackupService.refresh(refreshed);
+            }
+            if (kDebugMode) {
+              debugPrint(backupPath == null
+                  ? '[Scan] Kept cleared metadata for missing folder: $storedPath'
+                  : '[Scan] Switched cleared game to Backup: $backupPath');
+            }
           }
+          continue;
         }
-        if (isInClearedPath) continue;
 
-        final dir = Directory(game.path);
+        if (!_normalizedPathKey(storedPath).startsWith(normalizedLibraryPath)) {
+          continue;
+        }
+
         if (!await dir.exists()) {
           await _gameRepository.deleteGame(game.id!);
           if (kDebugMode) {
             debugPrint(
-                '[Scan] Removed DB entry for missing folder: ${game.path}');
+                '[Scan] Removed DB entry for missing folder: $storedPath');
           }
         }
       } catch (e) {

@@ -34,21 +34,22 @@ class Game {
   final DateTime? addedTime;
   final bool isFavorite;
   final bool isPlayed;
+  final bool isCleared;
   final List<Tag> tags;
   final List<GameImage> images;
   final int coverIndex;
-  final double rating;        // 评分 0-5，支持半星
-  final String? review;       // 评论内容
-  final String? savePath;  // 新增：存档路径
-  final int playDuration;  // 总游玩时长（秒）
-  final String? maker;       // 厂商名（DLsite社团名 / Steam开发者）
-  final String? makerUrl;    // 厂商链接（DLsite社团页 / Steam为空）
+  final double rating; // 评分 0-5，支持半星
+  final String? review; // 评论内容
+  final String? savePath; // 新增：存档路径
+  final int playDuration; // 总游玩时长（秒）
+  final String? maker; // 厂商名（DLsite社团名 / Steam开发者）
+  final String? makerUrl; // 厂商链接（DLsite社团页 / Steam为空）
   final String? gameLauncher;
   final bool launcherLocked;
   final bool useLocaleEmulator;
-  final String? guide;       // 攻略内容（Markdown格式）
-  final double introScrollPosition;  // 简介滚动位置（0.0-1.0）
-  final double guideScrollPosition;  // 攻略滚动位置（0.0-1.0）
+  final String? guide; // 攻略内容（Markdown格式）
+  final double introScrollPosition; // 简介滚动位置（0.0-1.0）
+  final double guideScrollPosition; // 攻略滚动位置（0.0-1.0）
 
   Game({
     this.id,
@@ -65,13 +66,14 @@ class Game {
     this.addedTime,
     this.isFavorite = false,
     this.isPlayed = false,
+    this.isCleared = false,
     this.tags = const [],
     this.images = const [],
     this.coverIndex = 0,
     this.rating = 0.0,
     this.review,
-    this.savePath,  // 新增
-    this.playDuration = 0,  // 新增：总游玩时长（秒）
+    this.savePath, // 新增
+    this.playDuration = 0, // 新增：总游玩时长（秒）
     this.maker,
     this.makerUrl,
     this.gameLauncher,
@@ -102,6 +104,7 @@ class Game {
           : null,
       isFavorite: (map['is_favorite'] as int? ?? 0) == 1,
       isPlayed: (map['is_played'] as int? ?? 0) == 1,
+      isCleared: (map['is_cleared'] as int? ?? 0) == 1,
       coverIndex: map['cover_index'] as int? ?? 0,
       rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
       review: map['review'] as String?,
@@ -113,8 +116,10 @@ class Game {
       launcherLocked: (map['launcher_locked'] as int? ?? 0) == 1,
       useLocaleEmulator: (map['use_locale_emulator'] as int? ?? 0) == 1,
       guide: map['guide'] as String?,
-      introScrollPosition: (map['intro_scroll_position'] as num?)?.toDouble() ?? 0.0,
-      guideScrollPosition: (map['guide_scroll_position'] as num?)?.toDouble() ?? 0.0,
+      introScrollPosition:
+          (map['intro_scroll_position'] as num?)?.toDouble() ?? 0.0,
+      guideScrollPosition:
+          (map['guide_scroll_position'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -134,10 +139,11 @@ class Game {
       'added_time': addedTime?.toIso8601String(),
       'is_favorite': isFavorite ? 1 : 0,
       'is_played': isPlayed ? 1 : 0,
+      'is_cleared': isCleared ? 1 : 0,
       'cover_index': coverIndex,
       'rating': rating,
       if (review != null) 'review': review,
-      if (savePath != null) 'save_path': savePath,  // 新增
+      if (savePath != null) 'save_path': savePath, // 新增
       'play_duration': playDuration,
       if (maker != null) 'maker': maker,
       if (makerUrl != null) 'maker_url': makerUrl,
@@ -165,12 +171,13 @@ class Game {
     DateTime? addedTime,
     bool? isFavorite,
     bool? isPlayed,
+    bool? isCleared,
     List<Tag>? tags,
     List<GameImage>? images,
     int? coverIndex,
     Object? rating = _undefined,
     Object? review = _undefined,
-    Object? savePath = _undefined,  // 新增
+    Object? savePath = _undefined, // 新增
     int? playDuration,
     Object? maker = _undefined,
     Object? makerUrl = _undefined,
@@ -185,32 +192,54 @@ class Game {
       id: id ?? this.id,
       path: path ?? this.path,
       title: identical(title, _undefined) ? this.title : title as String?,
-      version: identical(version, _undefined) ? this.version : version as String?,
+      version:
+          identical(version, _undefined) ? this.version : version as String?,
       intro: identical(intro, _undefined) ? this.intro : intro as String?,
-      features: identical(features, _undefined) ? this.features : features as String?,
-      changelog: identical(changelog, _undefined) ? this.changelog : changelog as String?,
-      downloadUrl: identical(downloadUrl, _undefined) ? this.downloadUrl : downloadUrl as String?,
-      sourceUrl: identical(sourceUrl, _undefined) ? this.sourceUrl : sourceUrl as String?,
+      features:
+          identical(features, _undefined) ? this.features : features as String?,
+      changelog: identical(changelog, _undefined)
+          ? this.changelog
+          : changelog as String?,
+      downloadUrl: identical(downloadUrl, _undefined)
+          ? this.downloadUrl
+          : downloadUrl as String?,
+      sourceUrl: identical(sourceUrl, _undefined)
+          ? this.sourceUrl
+          : sourceUrl as String?,
       playCount: playCount ?? this.playCount,
       lastPlayedTime: lastPlayedTime ?? this.lastPlayedTime,
       addedTime: addedTime ?? this.addedTime,
       isFavorite: isFavorite ?? this.isFavorite,
       isPlayed: isPlayed ?? this.isPlayed,
+      isCleared: isCleared ?? this.isCleared,
       tags: tags ?? this.tags,
       images: images ?? this.images,
       coverIndex: coverIndex ?? this.coverIndex,
       rating: identical(rating, _undefined) ? this.rating : rating as double,
       review: identical(review, _undefined) ? this.review : review as String?,
-      savePath: identical(savePath, _undefined) ? this.savePath : savePath as String?,  // 新增
+      savePath: identical(savePath, _undefined)
+          ? this.savePath
+          : savePath as String?, // 新增
       playDuration: playDuration ?? this.playDuration,
       maker: identical(maker, _undefined) ? this.maker : maker as String?,
-      makerUrl: identical(makerUrl, _undefined) ? this.makerUrl : makerUrl as String?,
-      gameLauncher: identical(gameLauncher, _undefined) ? this.gameLauncher : gameLauncher as String?,
-      launcherLocked: identical(launcherLocked, _undefined) ? this.launcherLocked : launcherLocked as bool,
-      useLocaleEmulator: identical(useLocaleEmulator, _undefined) ? this.useLocaleEmulator : useLocaleEmulator as bool,
+      makerUrl:
+          identical(makerUrl, _undefined) ? this.makerUrl : makerUrl as String?,
+      gameLauncher: identical(gameLauncher, _undefined)
+          ? this.gameLauncher
+          : gameLauncher as String?,
+      launcherLocked: identical(launcherLocked, _undefined)
+          ? this.launcherLocked
+          : launcherLocked as bool,
+      useLocaleEmulator: identical(useLocaleEmulator, _undefined)
+          ? this.useLocaleEmulator
+          : useLocaleEmulator as bool,
       guide: identical(guide, _undefined) ? this.guide : guide as String?,
-      introScrollPosition: identical(introScrollPosition, _undefined) ? this.introScrollPosition : introScrollPosition as double,
-      guideScrollPosition: identical(guideScrollPosition, _undefined) ? this.guideScrollPosition : guideScrollPosition as double,
+      introScrollPosition: identical(introScrollPosition, _undefined)
+          ? this.introScrollPosition
+          : introScrollPosition as double,
+      guideScrollPosition: identical(guideScrollPosition, _undefined)
+          ? this.guideScrollPosition
+          : guideScrollPosition as double,
     );
   }
 }
@@ -274,7 +303,9 @@ class Tag {
       id: id ?? this.id,
       name: name ?? this.name,
       type: type ?? this.type,
-      displayName: identical(displayName, _undefined) ? this.displayName : displayName as String?,
+      displayName: identical(displayName, _undefined)
+          ? this.displayName
+          : displayName as String?,
       isFavorite: isFavorite ?? this.isFavorite,
       createdAt: createdAt ?? this.createdAt,
       gameCount: gameCount ?? this.gameCount,
