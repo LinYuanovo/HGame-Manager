@@ -130,30 +130,24 @@ class AppUpdateService {
         throw const FormatException('更新压缩包中未找到应用程序文件');
       }
 
-      final scriptFile = File(path.join(tempRoot.path, 'update.ps1'));
-      await scriptFile.writeAsString(_buildUpdaterScript());
+      final scriptFile = File(path.join(tempRoot.path, 'update.cmd'));
+      await scriptFile.writeAsString(
+        _buildUpdaterScript(
+          processId: pid,
+          sourceDir: sourceDir.path,
+          targetDir: File(executablePath).parent.path,
+          executablePath: executablePath,
+          tempDir: tempRoot.path,
+        ),
+      );
+      final cmdPath = path.join(
+        Platform.environment['WINDIR'] ?? r'C:\Windows',
+        'System32',
+        'cmd.exe',
+      );
       await Process.start(
-        'powershell.exe',
-        [
-          '-NoProfile',
-          '-NonInteractive',
-          '-WindowStyle',
-          'Hidden',
-          '-ExecutionPolicy',
-          'Bypass',
-          '-File',
-          scriptFile.path,
-          '-ProcessId',
-          pid.toString(),
-          '-SourceDir',
-          sourceDir.path,
-          '-TargetDir',
-          File(executablePath).parent.path,
-          '-ExecutablePath',
-          executablePath,
-          '-TempDir',
-          tempRoot.path,
-        ],
+        cmdPath,
+        ['/d', '/c', scriptFile.path],
         mode: ProcessStartMode.detached,
       );
     } catch (_) {
@@ -212,41 +206,64 @@ class AppUpdateService {
     throw const FormatException('更新压缩包目录结构无效');
   }
 
-  static String _buildUpdaterScript() {
-    return r'''
-param(
-  [int]$ProcessId,
-  [string]$SourceDir,
-  [string]$TargetDir,
-  [string]$ExecutablePath,
-  [string]$TempDir
-)
-
-$processExited = $false
-for ($i = 0; $i -lt 120; $i++) {
-  try {
-    Get-Process -Id $ProcessId -ErrorAction Stop | Out-Null
-    Start-Sleep -Milliseconds 500
-  } catch {
-    $processExited = $true
-    break
+  static String _buildUpdaterScript({
+    required int processId,
+    required String sourceDir,
+    required String targetDir,
+    required String executablePath,
+    required String tempDir,
+  }) {
+    return [
+      '@echo off',
+      'setlocal EnableExtensions DisableDelayedExpansion',
+      'set "PROCESS_ID=$processId"',
+      'set "SOURCE_DIR=${_escapeCmdValue(sourceDir)}"',
+      'set "TARGET_DIR=${_escapeCmdValue(targetDir)}"',
+      'set "EXECUTABLE_PATH=${_escapeCmdValue(executablePath)}"',
+      'set "TEMP_DIR=${_escapeCmdValue(tempDir)}"',
+      'set "LOG_FILE=%TEMP_DIR%\\update.log"',
+      'set "PROCESS_FILE=%TEMP_DIR%\\process.txt"',
+      'call :log Updater started',
+      'set /a WAIT_COUNT=0',
+      ':wait_for_process',
+      'tasklist /FI "PID eq %PROCESS_ID%" /FO CSV /NH > "%PROCESS_FILE%"',
+      'set "PROCESS_FOUND="',
+      'for /f "usebackq tokens=2 delims=," %%P in ("%PROCESS_FILE%") do if "%%~P"=="%PROCESS_ID%" set "PROCESS_FOUND=1"',
+      'if not defined PROCESS_FOUND goto process_exited',
+      'set /a WAIT_COUNT+=1',
+      'if %WAIT_COUNT% GEQ 120 goto wait_timeout',
+      'timeout /t 1 /nobreak >nul',
+      'goto wait_for_process',
+      ':process_exited',
+      'del /q "%PROCESS_FILE%" >nul 2>&1',
+      'call :log Old process exited',
+      'robocopy "%SOURCE_DIR%" "%TARGET_DIR%" /E /COPY:DAT /DCOPY:DAT /R:3 /W:1 /XD "%SOURCE_DIR%\\hgame_manager_data" >> "%LOG_FILE%" 2>&1',
+      'if errorlevel 8 goto copy_failed',
+      'if not exist "%EXECUTABLE_PATH%" goto executable_missing',
+      'call :log Files copied',
+      'start "" /D "%TARGET_DIR%" "%EXECUTABLE_PATH%"',
+      'if errorlevel 1 goto start_failed',
+      'call :log New process started',
+      'exit /b 0',
+      ':wait_timeout',
+      'call :log Waiting for old process timed out',
+      'exit /b 1',
+      ':copy_failed',
+      'call :log File copy failed',
+      'exit /b 1',
+      ':executable_missing',
+      'call :log New executable is missing',
+      'exit /b 1',
+      ':start_failed',
+      'call :log New process failed to start',
+      'exit /b 1',
+      ':log',
+      '>> "%LOG_FILE%" echo [%date% %time%] %*',
+      'exit /b 0',
+    ].join('\r\n');
   }
-}
 
-if (-not $processExited) {
-  exit 1
-}
-
-Get-ChildItem -LiteralPath $SourceDir -Force |
-  Where-Object { $_.Name -ne 'hgame_manager_data' } |
-  ForEach-Object {
-    Copy-Item -LiteralPath $_.FullName `
-      -Destination (Join-Path $TargetDir $_.Name) `
-      -Recurse -Force
-  }
-
-Start-Process -FilePath $ExecutablePath
-Remove-Item -LiteralPath $TempDir -Recurse -Force -ErrorAction SilentlyContinue
-''';
+  static String _escapeCmdValue(String value) {
+    return value.replaceAll('%', '%%').replaceAll('"', '""');
   }
 }
