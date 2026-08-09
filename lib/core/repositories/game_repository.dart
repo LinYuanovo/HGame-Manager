@@ -72,7 +72,7 @@ class GameRepository implements PlayTimeRepository {
       // 通关游戏目录缺失时，尝试从对应 Backup 目录加载。
       if (!gamePathExists && game.isCleared) {
         // 尝试在 Backup 目录中模糊匹配
-        final backupPath = await _findBackupPath(game.path, game.title);
+        final backupPath = await findBackupPathForGame(game);
         if (backupPath != null) {
           images = await _loadImagesFromBackupDir(backupPath);
           resolvedGame = game.copyWith(path: backupPath);
@@ -241,7 +241,7 @@ class GameRepository implements PlayTimeRepository {
     final gamePathExists = await _pathExists(game.path);
 
     if (!gamePathExists && game.isCleared) {
-      final backupPath = await _findBackupPath(game.path, game.title);
+      final backupPath = await findBackupPathForGame(game);
       if (backupPath != null) {
         images = await _loadImagesFromBackupDir(backupPath);
         resolvedGame = game.copyWith(path: backupPath);
@@ -474,11 +474,18 @@ class GameRepository implements PlayTimeRepository {
     );
   }
 
-  Future<void> updateClearedStatus(int id, bool isCleared) async {
+  Future<void> updateClearedStatus(
+    int id,
+    bool isCleared, {
+    String? clearedBackupPath,
+  }) async {
     final db = await _db;
     await db.update(
       'games',
-      {'is_cleared': isCleared ? 1 : 0},
+      {
+        'is_cleared': isCleared ? 1 : 0,
+        'cleared_backup_path': isCleared ? clearedBackupPath : null,
+      },
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -514,8 +521,13 @@ class GameRepository implements PlayTimeRepository {
     if (hasUpdates) await batch.commit(noResult: true);
   }
 
-  Future<String?> findBackupPathForGame(Game game) =>
-      _findBackupPath(game.path, game.title);
+  Future<String?> findBackupPathForGame(Game game) async {
+    final storedPath = game.clearedBackupPath;
+    if (storedPath != null && storedPath.isNotEmpty) {
+      if (await Directory(storedPath).exists()) return storedPath;
+    }
+    return _findBackupPath(game.path, game.title);
+  }
 
   Future<void> mergeDuplicateGamePath({
     required int keepGameId,

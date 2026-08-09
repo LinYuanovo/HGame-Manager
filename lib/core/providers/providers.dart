@@ -957,6 +957,7 @@ Future<Game?> _loadGameFromDirectory(
     isFavorite: existingDbGame?.isFavorite ?? false,
     isPlayed: existingDbGame?.isPlayed ?? true,
     isCleared: true,
+    clearedBackupPath: existingDbGame?.clearedBackupPath,
     tags: existingDbGame?.tags ?? [],
     images: imagePaths
         .asMap()

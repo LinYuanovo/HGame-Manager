@@ -9,11 +9,15 @@ void main() {
         path: r'D:\Games\Example',
         title: 'Example',
         isCleared: true,
+        clearedBackupPath: r'D:\Sorted\Cleared\Backup\Example',
       );
 
       final map = game.toMap();
       expect(map['is_cleared'], 1);
-      expect(Game.fromMap(map).isCleared, isTrue);
+      expect(map['cleared_backup_path'], r'D:\Sorted\Cleared\Backup\Example');
+      final restored = Game.fromMap(map);
+      expect(restored.isCleared, isTrue);
+      expect(restored.clearedBackupPath, r'D:\Sorted\Cleared\Backup\Example');
     });
 
     test('旧数据缺少字段时默认未通关，copyWith 可更新状态', () {
@@ -23,6 +27,7 @@ void main() {
       });
 
       expect(legacy.isCleared, isFalse);
+      expect(legacy.clearedBackupPath, isNull);
       expect(legacy.copyWith(isCleared: true).isCleared, isTrue);
     });
   });

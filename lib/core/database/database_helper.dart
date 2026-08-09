@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../utils/app_paths.dart';
 import '../utils/app_settings.dart';
@@ -7,11 +8,16 @@ import '../utils/cleared_game_path_utils.dart';
 class DatabaseHelper {
   static Database? _database;
   static Future<Database>? _databaseFuture;
-  static const int _databaseVersion = 12;
+  static const int _databaseVersion = 13;
 
   static Future<String> getDataDir() => AppPaths.rootDir;
 
   static Future<String> getDatabasePath() => AppPaths.databaseFile;
+
+  /// 供数据库迁移测试调用。
+  @visibleForTesting
+  static Future<void> upgradeForTesting(Database db, int oldVersion) =>
+      _onUpgrade(db, oldVersion, _databaseVersion);
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
@@ -149,6 +155,12 @@ class DatabaseHelper {
           'CREATE INDEX IF NOT EXISTS idx_games_is_cleared ON games(is_cleared)');
       await _migrateClearedPaths(db);
     }
+    if (oldVersion < 13) {
+      if (!await _columnExists(db, 'games', 'cleared_backup_path')) {
+        await db
+            .execute('ALTER TABLE games ADD COLUMN cleared_backup_path TEXT');
+      }
+    }
   }
 
   static Future<void> _migrateClearedPaths(Database db) async {
@@ -199,6 +211,7 @@ class DatabaseHelper {
         is_favorite INTEGER DEFAULT 0,
         is_played INTEGER DEFAULT 0,
         is_cleared INTEGER NOT NULL DEFAULT 0,
+        cleared_backup_path TEXT,
         cover_index INTEGER DEFAULT 0,
         rating REAL DEFAULT 0,
         review TEXT,

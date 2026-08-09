@@ -2363,6 +2363,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                           current.path.replaceAll('\\', '/').toLowerCase()) {
                     await repo.updateGamePath(g.id!, backupPath);
                   }
+                  await repo.updateClearedStatus(
+                    g.id!,
+                    true,
+                    clearedBackupPath: backupPath,
+                  );
                   final refreshed = await repo.getGameById(g.id!);
                   if (refreshed != null) {
                     await metadataBackupService.refresh(refreshed);
@@ -2653,7 +2658,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         oldPath: game.path,
         newPath: newPath,
       );
-      await repo.updateClearedStatus(gameId, true);
+      await repo.updateClearedStatus(
+        gameId,
+        true,
+        clearedBackupPath: backupGameDir.path,
+      );
       final refreshed = await repo.getGameById(gameId);
       if (refreshed != null) {
         await ref.read(clearedMetadataBackupServiceProvider).refresh(refreshed);

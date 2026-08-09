@@ -628,6 +628,11 @@ class GameScannerService {
                 await _gameRepository.findBackupPathForGame(storedGame);
             if (backupPath != null) {
               await _gameRepository.updateGamePath(game.id!, backupPath);
+              await _gameRepository.updateClearedStatus(
+                game.id!,
+                true,
+                clearedBackupPath: backupPath,
+              );
             }
             final refreshed = await _gameRepository.getGameById(game.id!);
             if (refreshed != null) {

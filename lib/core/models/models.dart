@@ -35,6 +35,7 @@ class Game {
   final bool isFavorite;
   final bool isPlayed;
   final bool isCleared;
+  final String? clearedBackupPath;
   final List<Tag> tags;
   final List<GameImage> images;
   final int coverIndex;
@@ -67,6 +68,7 @@ class Game {
     this.isFavorite = false,
     this.isPlayed = false,
     this.isCleared = false,
+    this.clearedBackupPath,
     this.tags = const [],
     this.images = const [],
     this.coverIndex = 0,
@@ -105,6 +107,7 @@ class Game {
       isFavorite: (map['is_favorite'] as int? ?? 0) == 1,
       isPlayed: (map['is_played'] as int? ?? 0) == 1,
       isCleared: (map['is_cleared'] as int? ?? 0) == 1,
+      clearedBackupPath: map['cleared_backup_path'] as String?,
       coverIndex: map['cover_index'] as int? ?? 0,
       rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
       review: map['review'] as String?,
@@ -140,6 +143,7 @@ class Game {
       'is_favorite': isFavorite ? 1 : 0,
       'is_played': isPlayed ? 1 : 0,
       'is_cleared': isCleared ? 1 : 0,
+      if (clearedBackupPath != null) 'cleared_backup_path': clearedBackupPath,
       'cover_index': coverIndex,
       'rating': rating,
       if (review != null) 'review': review,
@@ -172,6 +176,7 @@ class Game {
     bool? isFavorite,
     bool? isPlayed,
     bool? isCleared,
+    Object? clearedBackupPath = _undefined,
     List<Tag>? tags,
     List<GameImage>? images,
     int? coverIndex,
@@ -212,6 +217,9 @@ class Game {
       isFavorite: isFavorite ?? this.isFavorite,
       isPlayed: isPlayed ?? this.isPlayed,
       isCleared: isCleared ?? this.isCleared,
+      clearedBackupPath: identical(clearedBackupPath, _undefined)
+          ? this.clearedBackupPath
+          : clearedBackupPath as String?,
       tags: tags ?? this.tags,
       images: images ?? this.images,
       coverIndex: coverIndex ?? this.coverIndex,
