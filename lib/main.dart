@@ -9,6 +9,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'core/utils/app_settings.dart';
 import 'core/providers/providers.dart';
 import 'core/services/app_logger.dart';
+import 'core/services/app_data_migration_service.dart';
 import 'core/services/play_time_tracker.dart';
 import 'ui/controllers/window_controller.dart';
 import 'ui/pages/home_page.dart';
@@ -43,6 +44,7 @@ void main() async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
 
+    await AppDataMigrationService().migrateIfNeeded();
     final prefs = await AppSettings.load();
     final windowController = WindowController(prefs);
     await windowController.initialize();

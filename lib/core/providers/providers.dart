@@ -128,11 +128,12 @@ final allGamesProvider = FutureProvider<List<Game>>((ref) async {
     final prefs = ref.read(sharedPreferencesProvider);
     final keepPlayed = prefs.getBool(AppSettings.keepPlayedInGamesKey) ?? false;
 
-    if (keepPlayed) {
-      return await repository.getNonClearedGames();
-    } else {
-      return await repository.getUnplayedUnclearedGames();
-    }
+    final games = keepPlayed
+        ? await repository.getNonClearedGames()
+        : await repository.getUnplayedUnclearedGames();
+
+    // 通关记录即使只剩元数据，也只在“通关”页展示，不回到游戏库。
+    return games.where((game) => !game.isCleared).toList();
   } catch (e, stackTrace) {
     if (kDebugMode) {
       debugPrint('ERROR Loading Games: $e\n$stackTrace');

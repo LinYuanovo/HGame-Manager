@@ -206,7 +206,8 @@ class _GamesPageState extends ConsumerState<GamesPage>
         Expanded(
           child: gamesAsync.when(
             data: (games) => GameListWidget(
-              games: games,
+              // 防止旧缓存或迁移中的记录把通关游戏带回游戏库。
+              games: games.where((game) => !game.isCleared).toList(),
               showSearchBar: true,
               routeIndex: 1,
               onTagTap: (tag) {

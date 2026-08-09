@@ -100,10 +100,47 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   SortMode? _cachedSortMode;
   List<Game>? _cachedSourceGames;
 
-  bool _isBackupOnly(Game game) =>
-      game.isCleared &&
-      (ClearedGamePathUtils.hasBackupSegment(game.path) ||
-          !Directory(game.path).existsSync());
+  bool _isBackupOnly(Game game) {
+    if (!game.isCleared) return false;
+
+    if (!ClearedGamePathUtils.hasBackupSegment(game.path)) {
+      return !Directory(game.path).existsSync();
+    }
+
+    // game.path 可能已被切换成实际存在的 Backup 目录，需要检查同级的本体目录。
+    final backupDir = Directory(game.path).parent;
+    final clearedDir = backupDir.parent;
+    if (!Directory(game.path).existsSync() ||
+        path.basename(backupDir.path).toLowerCase() != 'backup' ||
+        !clearedDir.existsSync()) {
+      return true;
+    }
+
+    final backupName = path.basename(game.path);
+    final localNames = <String>{};
+    for (final entity in clearedDir.listSync(followLinks: false)) {
+      if (entity is! Directory ||
+          path.basename(entity.path).toLowerCase() == 'backup') {
+        continue;
+      }
+      localNames.add(path.basename(entity.path));
+      for (final metadataFile in [
+        GameDataPaths.metadataFile(entity.path),
+        GameDataPaths.legacyMetadataFile(entity.path),
+      ]) {
+        if (!metadataFile.existsSync()) continue;
+        try {
+          final metadata = jsonDecode(metadataFile.readAsStringSync())
+              as Map<String, dynamic>;
+          final title = metadata['title'] as String?;
+          if (title != null && title.isNotEmpty) localNames.add(title);
+        } catch (_) {}
+      }
+    }
+
+    return !localNames.any((name) =>
+        ClearedGamePathUtils.isLikelyBackupForLocalName(backupName, name));
+  }
 
   bool _isPathInside(String childPath, String parentPath) {
     if (parentPath.isEmpty) return false;
@@ -1987,7 +2024,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   /// 获取菜单配置
   ContextMenuConfig _getMenuConfig() {
     final mode =
-        widget.contextMenuMode == ContextMenuMode.played ? 'played' : 'games';
+        widget.contextMenuMode == ContextMenuMode.played || widget.isClearedPage
+            ? 'played'
+            : 'games';
     if (mode == 'played') {
       return ref.read(contextMenuPlayedProvider);
     }
@@ -2137,17 +2176,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             title:
                 Text('删除记录', style: TextStyle(color: AppTheme.warningOrange))));
 
-    if (!isBackupOnly) {
-      allItems['delete_folder'] = PopupMenuItem(
-          value: 'delete_folder',
-          child: ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.folder_delete_outlined,
-                  size: 18, color: AppTheme.errorColor),
-              title: const Text('删除本地文件夹',
-                  style: TextStyle(color: AppTheme.errorColor))));
-    }
+    allItems['delete_folder'] = PopupMenuItem(
+        value: 'delete_folder',
+        child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.folder_delete_outlined,
+                size: 18, color: AppTheme.errorColor),
+            title: const Text('删除本地文件夹',
+                style: TextStyle(color: AppTheme.errorColor))));
 
     // 根据配置过滤和排序菜单项
     final filteredItems = <PopupMenuEntry<String>>[];
@@ -2298,6 +2335,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           }
           break;
         case 'delete_folder':
+          final deleteDescription = targets.length > 1
+              ? '确定要删除选中的 ${targets.length} 个游戏的本地文件夹吗？\n此操作不可恢复！'
+              : isBackupOnly
+                  ? '确定要删除"${game.title}"的通关备份文件夹吗？\n此操作不可恢复！\n\n删除后仍保留游戏记录、评论、评分和标签。'
+                  : '确定要删除"${game.title}"的本地文件夹吗？\n此操作不可恢复！\n\n${game.path}';
           final confirm = await showGlassDialog<bool>(
             context: context,
             child: SizedBox(
@@ -2314,10 +2356,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                             fontWeight: FontWeight.bold,
                             color: AppTheme.getTextPrimary(context))),
                     const SizedBox(height: 12),
-                    Text(
-                        targets.length > 1
-                            ? '确定要删除选中的 ${targets.length} 个游戏的本地文件夹吗？\n此操作不可恢复！'
-                            : '确定要删除"${game.title}"的本地文件夹吗？\n此操作不可恢复！\n\n${game.path}',
+                    Text(deleteDescription,
                         style: TextStyle(
                             color: AppTheme.getTextSecondary(context))),
                     const SizedBox(height: 20),
@@ -2850,37 +2889,32 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       if (sortedPath.isEmpty && legacyClearedPath.isNotEmpty) {
         sortedPath = path.dirname(legacyClearedPath);
       }
-      if (!mounted) return;
-      if (sortedPath.isEmpty) {
-        AppTheme.showGlassToast(
-          context,
-          message: '该游戏库未配置整理目录，无法移回',
-          icon: Icons.error_outline,
-          iconColor: AppTheme.errorColor,
-        );
-        return;
+      if (sortedPath.isNotEmpty) {
+        final metadataFile =
+            await GameDataPaths.existingMetadataFile(game.path);
+        if (await metadataFile.exists()) {
+          try {
+            final content = await metadataFile.readAsString();
+            final metadata = jsonDecode(content) as Map<String, dynamic>;
+            final series = metadata['series'] as String?;
+            if (series != null && series.isNotEmpty) {
+              targetCategory = series;
+            }
+          } catch (_) {}
+        }
+        targetPath = path.join(sortedPath, targetCategory);
       }
-
-      final metadataFile = await GameDataPaths.existingMetadataFile(game.path);
-      if (await metadataFile.exists()) {
-        try {
-          final content = await metadataFile.readAsString();
-          final metadata = jsonDecode(content) as Map<String, dynamic>;
-          final series = metadata['series'] as String?;
-          if (series != null && series.isNotEmpty) {
-            targetCategory = series;
-          }
-        } catch (_) {}
-      }
-      targetPath = path.join(sortedPath, targetCategory);
     }
 
     if (!mounted) return;
+    final cannotMove = isMoved && sortedPath.isEmpty;
     final actionDescription = isBackupOnly
         ? '取消后将删除通关备份和数据库记录，此操作不可恢复。'
-        : isMoved
-            ? '游戏将从：\n$clearedPath\n移回：\n$targetPath\n并删除对应备份。'
-            : '仅清除通关状态和全局元数据备份，不移动游戏。';
+        : cannotMove
+            ? '未找到该游戏对应的整理目录。确认后不会移动游戏，仅清除通关状态和全局元数据备份。'
+            : isMoved
+                ? '游戏将从：\n$clearedPath\n移回：\n$targetPath\n并删除对应备份。'
+                : '仅清除通关状态和全局元数据备份，不移动游戏。';
 
     final confirm = await showGlassDialog<bool>(
       context: context,
@@ -2957,12 +2991,17 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         return;
       }
 
-      if (!isMoved) {
+      if (!isMoved || cannotMove) {
         await repo.updateClearedStatus(game.id!, false);
         await metadataBackupService.delete(game);
         _refreshAllProviders();
         if (mounted) {
-          AppTheme.showGlassToast(context, message: '已取消"$gameName"的已通关标记');
+          AppTheme.showGlassToast(
+            context,
+            message: cannotMove
+                ? '已取消"$gameName"的已通关标记，游戏文件未移动'
+                : '已取消"$gameName"的已通关标记',
+          );
         }
         return;
       }

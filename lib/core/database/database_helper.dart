@@ -4,6 +4,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../utils/app_paths.dart';
 import '../utils/app_settings.dart';
 import '../utils/cleared_game_path_utils.dart';
+import '../services/app_data_migration_service.dart';
 
 class DatabaseHelper {
   static Database? _database;
@@ -39,6 +40,8 @@ class DatabaseHelper {
         await db.execute('PRAGMA cache_size = -8000');
       },
     );
+
+    await AppDataMigrationService.rewriteMigratedPaths(db);
 
     _database = db;
     return db;

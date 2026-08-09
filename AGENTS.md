@@ -76,3 +76,8 @@ AppTheme.warningOrange  // 橙色
 - 深色模式：深色按钮上的白色文字
 
 但如果背景色是动态的，需要确保对比度足够。
+
+## Flutter 测试执行规则
+
+- Flutter 测试必须串行执行，禁止并行启动多个 `flutter test`、`flutter analyze` 或 Dart 测试进程，避免工具链互相等待导致卡住超时。
+- 多组测试需要按顺序逐条执行；上一条命令结束后再执行下一条。

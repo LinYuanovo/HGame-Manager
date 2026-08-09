@@ -86,6 +86,7 @@ class _ClearedGamesPageState extends ConsumerState<ClearedGamesPage> {
                       }
                       return GameListWidget(
                         games: games,
+                        contextMenuMode: ContextMenuMode.played,
                         isClearedPage: true,
                         onTagTap: (tag) {
                           // 已通关页面不支持标签跳转
