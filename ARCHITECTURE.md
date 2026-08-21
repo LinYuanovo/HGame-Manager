@@ -4,7 +4,7 @@
 
 **黄油仓库** - 基于 Flutter 开发的 Windows 本地 HGame 管理器
 
-- **版本**: 1.4.7
+- **版本**: 1.4.8
 - **平台**: Windows 10/11 (64位)
 - **Flutter SDK**: >= 3.41.9
 - **Dart SDK**: >= 3.11.5
@@ -458,6 +458,38 @@ flutter run -d windows
 # 构建发布版本
 flutter build windows --release
 ```
+
+## 文档站（VitePress + GitHub Pages）
+
+项目文档站基于 [VitePress](https://vitepress.dev) 构建，源码位于 `docs/`，通过 GitHub Actions 自动部署到 GitHub Pages。
+
+```
+docs/
+├── .vitepress/
+│   ├── config.mts           # 站点配置（base 为 /HGame-Manager/，与仓库名一致）
+│   ├── theme/               # 专属主题（蓝紫渐变 + 玻璃拟态）
+│   │   ├── index.ts
+│   │   └── custom.css
+│   └── dist/                # 构建产物（已 gitignore）
+├── public/logo.png          # 站点 Logo
+├── index.md                 # 首页（Hero + 特性卡片）
+├── guide/                   # 使用指南（含 images/ 教程截图）
+├── faq.md                   # 常见问题
+└── development/build.md     # 从源码构建
+```
+
+```bash
+# 本地预览文档站（需 Node.js）
+npm install
+npm run docs:dev       # 开发模式，默认 http://localhost:5173
+
+# 构建静态产物
+npm run docs:build     # 输出到 docs/.vitepress/dist
+```
+
+- 部署工作流：`.github/workflows/deploy-docs.yml`（push 到 master 且 `docs/` 变更时自动构建部署）
+- 线上地址：`https://linyuanovo.github.io/HGame-Manager/`
+- 首次部署需在仓库 **Settings → Pages → Source** 选择 **GitHub Actions**
 
 ## 文件路径
 

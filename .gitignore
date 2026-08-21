@@ -79,6 +79,7 @@ QUICK_START.md
 .trae/
 .omo/
 .claude/
+.codegraph/
 .trae/documents
 .metadata
 jav_manager.iml
@@ -115,9 +116,15 @@ Desktop.ini
 *.7z
 
 # Documentation plans
-docs/
+docs/superpowers/
+docs/dark-theme-preview.html
 prompt/
 AGENTS.md
+
+# Node / VitePress docs site
+node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
 
 # Keep tests and fixtures tracked
 !test/**

@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:path/path.dart' as path;
 
+import '../utils/app_version.dart';
+
 /// 全局日志服务 - 将应用日志写入文件，方便排错
 ///
 /// 日志文件位置：exe所在目录/logs/app_YYYYMMDD.log
@@ -33,7 +35,7 @@ class AppLogger {
       _initialized = true;
 
       info('AppLogger', '日志系统初始化完成: ${_logFile?.path}');
-      info('AppLogger', '应用版本: 1.4.7, 平台: ${Platform.operatingSystem}');
+      info('AppLogger', '应用版本: $appVersion, 平台: ${Platform.operatingSystem}');
 
       // 清理过期日志
       _cleanOldLogs();

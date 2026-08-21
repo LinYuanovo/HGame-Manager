@@ -10,7 +10,7 @@
     <img src="https://img.shields.io/badge/Dart-3.11+-0175C2?style=flat-square&logo=dart" alt="Dart">
     <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows">
     <img src="https://img.shields.io/badge/License-AGPL--3.0-green?style=flat-square" alt="License">
-    <img src="https://img.shields.io/badge/Version-1.4.7-blue?style=flat-square" alt="Version">
+    <img src="https://img.shields.io/badge/Version-1.4.8-blue?style=flat-square" alt="Version">
   </nobr>
 </p>
 
@@ -49,6 +49,8 @@
 Windows 系统在 [releases](https://github.com/LinYuanovo/HGame-Manager/releases) 页面直接下载 zip 压缩包后**解压**即可使用([网盘](https://docs.qq.com/sheet/DVXZ6U2xmbFZuVGtQ?tab=BB08J2))
 
 #### 使用教程
+
+- [在线文档站](https://linyuanovo.github.io/HGame-Manager/)
 
 - [图文教程](https://github.com/LinYuanovo/HGame-Manager/blob/master/%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B.md)
 
@@ -201,9 +203,15 @@ build/windows/x64/runner/Release/hgame_manager.exe
 | [Flutter](https://flutter.dev) | 3.41.9 | 跨平台 UI 框架 |
 | [Dart](https://dart.dev) | 3.11.5 | 编程语言 |
 | [Riverpod](https://riverpod.dev) | ^2.4.9 | 状态管理 |
-| [SQLite](https://www.sqlite.org) | via sqflite_common_ffi | 本地数据存储 |
+| [SQLite](https://www.sqlite.org) | via sqflite_common_ffi ^2.3.1 | 本地数据存储 |
+| [media_kit](https://pub.dev/packages/media_kit) | ^1.2.6 | 视频播放 |
+| [flutter_inappwebview](https://pub.dev/packages/flutter_inappwebview) | ^6.1.5 | 内置 WebView2（刮削验证） |
+| [flutter_markdown](https://pub.dev/packages/flutter_markdown) | ^0.7.4 | Markdown 渲染 |
+| [archive](https://pub.dev/packages/archive) | ^4.0.4 | ZIP 备份压缩 |
+| [cached_network_image](https://pub.dev/packages/cached_network_image) | ^3.3.0 | 网络图片缓存 |
 | [window_manager](https://pub.dev/packages/window_manager) | ^0.3.7 | 窗口管理 |
 | [http](https://pub.dev/packages/http) | ^1.1.0 | HTTP 客户端（代理支持） |
+| [html](https://pub.dev/packages/html) | ^0.15.4 | HTML 解析 |
 
 
 ## 项目结构
@@ -223,13 +231,20 @@ HGame-Manager/
 │   │   ├── services/             # 业务服务
 │   │   └── utils/                # 工具类
 │   ├── ui/                       # 用户界面
+│   │   ├── controllers/          # UI 控制器
 │   │   ├── theme/                # 主题配置（玻璃拟态）
 │   │   ├── widgets/              # 共享组件
 │   │   └── pages/                # 页面模块
 │   └── scraper/                  # 网页抓取器
 │       ├── html_parser.dart      # HTML 解析器
+│       ├── dlsite_parser.dart    # DLsite 解析器
 │       ├── site_parsers.dart     # 站点解析器注册
-│       └── xpath_evaluator.dart  # XPath 评估器
+│       ├── xpath_evaluator.dart  # XPath 评估器
+│       ├── rich_text_extractor.dart # 富文本提取
+│       ├── steam_html_converter.dart # Steam HTML 转纯文本
+│       ├── parse_utils.dart      # 解析工具函数
+│       └── scraper_init.dart     # 抓取器初始化
+├── docs/                         # VitePress 文档站（自动部署至 GitHub Pages）
 ├── windows/                      # Windows 平台代码
 └── pubspec.yaml                  # 项目配置
 ```

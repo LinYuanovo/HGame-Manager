@@ -1,0 +1,134 @@
+/**
+ * 黄油仓库文档站专属主题
+ * 匹配应用的蓝紫渐变（#2563EB → #7C3AED）与玻璃拟态设计语言
+ */
+
+/* ---------- 品牌色（浅色模式） ---------- */
+:root {
+  --vp-c-brand-1: #2563eb;
+  --vp-c-brand-2: #4f46e5;
+  --vp-c-brand-3: #7c3aed;
+  --vp-c-brand-soft: rgba(37, 99, 235, 0.14);
+
+  --vp-c-tip-1: var(--vp-c-brand-1);
+  --vp-c-tip-soft: var(--vp-c-brand-soft);
+
+  /* 首页 Hero 渐变标题 */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #2563eb 30%, #7c3aed);
+
+  /* 首页 Logo 背景光晕 */
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, #2563eb 50%, #7c3aed 50%);
+  --vp-home-hero-image-filter: blur(44px);
+
+  /* 强调按钮渐变 */
+  --vp-button-brand-bg: linear-gradient(120deg, #2563eb, #7c3aed);
+  --vp-button-brand-hover-bg: linear-gradient(120deg, #3b82f6, #8b5cf6);
+  --vp-button-brand-active-bg: linear-gradient(120deg, #1d4ed8, #6d28d9);
+}
+
+/* ---------- 品牌色（深色模式） ---------- */
+.dark {
+  --vp-c-brand-1: #818cf8;
+  --vp-c-brand-2: #a78bfa;
+  --vp-c-brand-3: #c4b5fd;
+  --vp-c-brand-soft: rgba(129, 140, 248, 0.16);
+
+  --vp-home-hero-name-background: linear-gradient(120deg, #60a5fa 30%, #a78bfa);
+}
+
+/* ---------- 品牌按钮渐变 ---------- */
+.VPButton.brand {
+  background: var(--vp-button-brand-bg);
+  border: none;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
+}
+
+.VPButton.brand:hover {
+  background: var(--vp-button-brand-hover-bg);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.35);
+}
+
+.VPButton.brand:active {
+  background: var(--vp-button-brand-active-bg);
+  transform: translateY(0);
+}
+
+/* ---------- 首页特性卡片：玻璃拟态 ---------- */
+.VPFeatures .VPFeature {
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  background-color: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.VPFeatures .VPFeature:hover {
+  transform: translateY(-4px);
+  border-color: rgba(124, 58, 237, 0.35);
+  box-shadow: 0 16px 40px rgba(79, 70, 229, 0.16);
+}
+
+.dark .VPFeatures .VPFeature {
+  background-color: rgba(30, 30, 46, 0.55);
+  border-color: rgba(129, 140, 248, 0.14);
+}
+
+.dark .VPFeatures .VPFeature:hover {
+  border-color: rgba(167, 139, 250, 0.4);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+/* 特性图标渐变底色 */
+.VPFeatures .VPFeature .box .icon {
+  font-size: 22px;
+}
+
+/* ---------- 导航栏 ---------- */
+.VPNavBar {
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.VPNavBar .title {
+  font-weight: 700;
+}
+
+/* 导航栏 Logo 圆角 */
+.VPNavBar .logo {
+  border-radius: 6px;
+}
+
+/* ---------- 链接与强调色 ---------- */
+.vp-doc a {
+  text-decoration: none;
+}
+
+.vp-doc a:hover {
+  text-decoration: underline;
+}
+
+/* ---------- 自定义容器微调（与品牌色统一） ---------- */
+.custom-block.tip {
+  border-color: var(--vp-c-brand-2);
+}
+
+/* ---------- 页面滚动条（WebKit） ---------- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #2563eb, #7c3aed);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------- 首页 Hero 图片光晕动画 ---------- */
+.VPImage.image-src {
+  border-radius: 24px;
+}
