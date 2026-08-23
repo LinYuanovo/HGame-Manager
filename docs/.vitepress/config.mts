@@ -41,7 +41,7 @@ export default defineConfig({
           text: '快速上手',
           items: [
             { text: '下载与安装', link: '/guide/getting-started' },
-            { text: '添加游戏（四种方式）', link: '/guide/add-games' },
+            { text: '添加游戏（多种方式）', link: '/guide/add-games' },
           ],
         },
         {
@@ -50,8 +50,11 @@ export default defineConfig({
             { text: '检查游戏更新', link: '/guide/check-update' },
             { text: '分类管理', link: '/guide/categories' },
             { text: '存档管理', link: '/guide/saves' },
-            { text: '工具与转区启动', link: '/guide/tools' },
+            { text: '攻略管理', link: '/guide/guide' },
+            { text: '导入工具与转区启动', link: '/guide/tools' },
+            { text: '自定义管理', link: '/guide/customize' },
             { text: '软件更新', link: '/guide/update-app' },
+            { text: 'WebDav', link: '/guide/webdav' },
           ],
         },
       ],

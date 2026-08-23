@@ -17,6 +17,7 @@ import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/repositories/game_repository.dart';
 import '../../../core/utils/cloudflare_challenge.dart';
+import '../../../core/utils/dynamic_page_detector.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../../scraper/html_parser.dart';
 import '../../../scraper/parse_utils.dart';
@@ -4634,7 +4635,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     }
   }
 
-  Future<String?> _fetchScrapeHtmlWithCloudflareFallback(String url) async {
+  Future<String?> _fetchScrapeHtmlWithCloudflareFallback(
+    String url, {
+    bool Function(String html)? isHtmlReady,
+  }) async {
     final headers = await buildScrapeHeaders(url);
     final client =
         await createProxyClientFromPrefs(domain: Uri.parse(url).host);
@@ -4655,7 +4659,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           message: '遇到 Cloudflare 验证，正在尝试内置浏览器加载',
           duration: const Duration(seconds: 5));
       final browserResult = await resolveCloudflareBrowserPage(
-          context: context, url: url, headers: headers);
+        context: context,
+        url: url,
+        headers: headers,
+        isHtmlReady: isHtmlReady,
+      );
       return browserResult?.html;
     }
     if (mounted) {
@@ -4707,9 +4715,43 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       } else {
         final scraper = HtmlScraper();
         await scraper.ensureLoaded();
-        final html = await _fetchScrapeHtmlWithCloudflareFallback(sourceUrl);
+        final parser = ParserRegistry.getParserForUrl(sourceUrl);
+        final html = await _fetchScrapeHtmlWithCloudflareFallback(
+          sourceUrl,
+          isHtmlReady: parser is XpathParser
+              ? (renderedHtml) =>
+                  scraper
+                      .scrapeGameInfo(renderedHtml, sourceUrl)
+                      ?.title
+                      ?.trim()
+                      .isNotEmpty ==
+                  true
+              : null,
+        );
         if (html != null) {
           gameInfo = scraper.scrapeGameInfo(html, sourceUrl);
+          final hasTitle = gameInfo?.title?.trim().isNotEmpty == true;
+          if (parser is XpathParser &&
+              (!hasTitle || looksLikeClientRenderedPage(html))) {
+            final headers = await buildScrapeHeaders(sourceUrl);
+            if (!mounted) return;
+            final browserResult = await resolveCloudflareBrowserPage(
+              context: context,
+              url: sourceUrl,
+              headers: headers,
+              isHtmlReady: (renderedHtml) =>
+                  scraper
+                      .scrapeGameInfo(renderedHtml, sourceUrl)
+                      ?.title
+                      ?.trim()
+                      .isNotEmpty ==
+                  true,
+            );
+            if (browserResult != null) {
+              gameInfo = scraper.scrapeGameInfo(
+                  browserResult.html, browserResult.finalUrl);
+            }
+          }
         }
       }
 
@@ -4953,9 +4995,43 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         }
         final scraper = HtmlScraper();
         await scraper.ensureLoaded();
-        final html = await _fetchScrapeHtmlWithCloudflareFallback(url);
+        final parser = ParserRegistry.getParserForUrl(url);
+        final html = await _fetchScrapeHtmlWithCloudflareFallback(
+          url,
+          isHtmlReady: parser is XpathParser
+              ? (renderedHtml) =>
+                  scraper
+                      .scrapeGameInfo(renderedHtml, url)
+                      ?.title
+                      ?.trim()
+                      .isNotEmpty ==
+                  true
+              : null,
+        );
         if (html != null) {
           gameInfo = scraper.scrapeGameInfo(html, url);
+          final hasTitle = gameInfo?.title?.trim().isNotEmpty == true;
+          if (parser is XpathParser &&
+              (!hasTitle || looksLikeClientRenderedPage(html))) {
+            final headers = await buildScrapeHeaders(url);
+            if (!mounted) return;
+            final browserResult = await resolveCloudflareBrowserPage(
+              context: context,
+              url: url,
+              headers: headers,
+              isHtmlReady: (renderedHtml) =>
+                  scraper
+                      .scrapeGameInfo(renderedHtml, url)
+                      ?.title
+                      ?.trim()
+                      .isNotEmpty ==
+                  true,
+            );
+            if (browserResult != null) {
+              gameInfo = scraper.scrapeGameInfo(
+                  browserResult.html, browserResult.finalUrl);
+            }
+          }
         } else {
           return;
         }

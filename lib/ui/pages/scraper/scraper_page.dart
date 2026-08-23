@@ -10,6 +10,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/services/folder_rename_service.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../../core/utils/cloudflare_challenge.dart';
+import '../../../core/utils/dynamic_page_detector.dart';
 import '../../../core/utils/game_data_paths.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../../core/utils/scraped_image_reference_rewriter.dart';
@@ -836,6 +837,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   Future<CloudflareBrowserResult?> _showQueuedCloudflareBrowser(
     String url, {
     Map<String, String>? headers,
+    bool Function(String html)? isHtmlReady,
   }) {
     final task = _browserFallbackTail.then((_) async {
       if (!mounted) return null;
@@ -843,6 +845,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         context: context,
         url: url,
         headers: headers,
+        isHtmlReady: isHtmlReady,
       );
     });
     _browserFallbackTail = task.then<void>((_) {}, onError: (_) {});
@@ -900,8 +903,19 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           !isSteam &&
           isCloudflareChallengeResponse(response.statusCode, response.body)) {
         _addLog('  -> 遇到 Cloudflare 403，尝试内置浏览器静默加载...');
-        final browserResult =
-            await _showQueuedCloudflareBrowser(sourceUrl, headers: headers);
+        final browserResult = await _showQueuedCloudflareBrowser(
+          sourceUrl,
+          headers: headers,
+          isHtmlReady: parser is XpathParser
+              ? (renderedHtml) =>
+                  _scraper
+                      .scrapeGameInfo(renderedHtml, sourceUrl)
+                      ?.title
+                      ?.trim()
+                      .isNotEmpty ==
+                  true
+              : null,
+        );
         html = browserResult?.html;
         if (html != null) {
           _addLog(browserResult!.usedSilentMode
@@ -940,6 +954,31 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           }
         } else {
           gameInfo = _scraper.scrapeGameInfo(html, sourceUrl);
+          final hasTitle = gameInfo?.title?.trim().isNotEmpty == true;
+          if (parser is XpathParser &&
+              (!hasTitle || looksLikeClientRenderedPage(html))) {
+            _addLog('  -> XPath 未提取到标题，尝试内置浏览器渲染页面...');
+            final browserResult = await _showQueuedCloudflareBrowser(
+              sourceUrl,
+              headers: headers,
+              isHtmlReady: (renderedHtml) =>
+                  _scraper
+                      .scrapeGameInfo(renderedHtml, sourceUrl)
+                      ?.title
+                      ?.trim()
+                      .isNotEmpty ==
+                  true,
+            );
+            if (browserResult != null) {
+              _addLog(browserResult.usedSilentMode
+                  ? '  -> 已使用内置浏览器静默页面重新解析'
+                  : '  -> 已使用内置浏览器页面重新解析');
+              gameInfo = _scraper.scrapeGameInfo(
+                  browserResult.html, browserResult.finalUrl);
+            } else {
+              _addLog('  -> 内置浏览器渲染已取消或超时');
+            }
+          }
         }
         if (gameInfo != null) {
           final displayTitle = gameInfo.title != null

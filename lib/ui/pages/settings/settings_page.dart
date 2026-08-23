@@ -16,6 +16,7 @@ import '../../../core/utils/app_version.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/utils/app_paths.dart';
 import '../../../core/utils/cloudflare_challenge.dart';
+import '../../../core/utils/dynamic_page_detector.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../../core/services/webdav_service.dart';
 import '../../../core/services/backup_image_service.dart';
@@ -23,6 +24,7 @@ import '../../../core/services/backup_image_record_service.dart';
 import '../../../core/services/image_service.dart';
 import '../../controllers/window_controller.dart';
 import '../../../scraper/html_parser.dart';
+import '../../../scraper/parse_utils.dart';
 import '../../theme/app_theme.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../../core/models/models.dart';
@@ -4750,6 +4752,12 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
             context: context,
             url: testUrl,
             headers: headers,
+            isHtmlReady: (html) =>
+                _parsePreviewInfo(testUrl: testUrl, html: html)
+                        ?.title
+                        ?.trim()
+                        .isNotEmpty ==
+                    true,
           );
           stopwatch.stop();
           if (browserResult == null) {
@@ -4785,6 +4793,42 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
         return;
       }
 
+      final initialInfo = _parsePreviewInfo(testUrl: testUrl, html: response.body);
+      final titleAvailable = initialInfo?.title?.trim().isNotEmpty == true;
+      if (!titleAvailable || looksLikeClientRenderedPage(response.body)) {
+        if (!mounted) return;
+        final browserResult = await resolveCloudflareBrowserPage(
+          context: context,
+          url: testUrl,
+          headers: headers,
+          isHtmlReady: (html) =>
+              _parsePreviewInfo(testUrl: testUrl, html: html)
+                      ?.title
+                      ?.trim()
+                      .isNotEmpty ==
+                  true,
+        );
+        stopwatch.stop();
+        if (browserResult == null) {
+          _parsePreviewHtml(
+            testUrl: testUrl,
+            html: response.body,
+            statusCode: response.statusCode,
+            elapsedMs: stopwatch.elapsedMilliseconds,
+          );
+          return;
+        }
+        _parsePreviewHtml(
+          testUrl: browserResult.finalUrl,
+          html: browserResult.html,
+          statusCode: response.statusCode,
+          elapsedMs: stopwatch.elapsedMilliseconds,
+          usedBrowserMode: true,
+          usedSilentBrowserMode: browserResult.usedSilentMode,
+        );
+        return;
+      }
+
       stopwatch.stop();
       _parsePreviewHtml(
         testUrl: testUrl,
@@ -4809,6 +4853,24 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
     }
   }
 
+  GameInfo? _parsePreviewInfo({
+    required String testUrl,
+    required String html,
+  }) {
+    final uri = Uri.tryParse(testUrl);
+    final config = _buildCurrentConfig(_domainController.text.trim().isEmpty
+        ? uri?.host
+        : _domainController.text.trim());
+    if (config == null) return null;
+    final xpathMap = {
+      for (final def in _fieldDefs)
+        if ((config[def.key] ?? '').isNotEmpty) def.key: config[def.key]!,
+    };
+    final parser =
+        XpathParser(config['domain']!, xpathMap, cookie: config['cookie']);
+    return parser.parseGameInfo(html_parser.parse(html), testUrl);
+  }
+
   void _parsePreviewHtml({
     required String testUrl,
     required String html,
@@ -4817,18 +4879,7 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
     bool usedBrowserMode = false,
     bool usedSilentBrowserMode = false,
   }) {
-    final uri = Uri.tryParse(testUrl);
-    final config = _buildCurrentConfig(_domainController.text.trim().isEmpty
-        ? uri?.host
-        : _domainController.text.trim());
-    if (config == null) return;
-    final xpathMap = {
-      for (final def in _fieldDefs)
-        if ((config[def.key] ?? '').isNotEmpty) def.key: config[def.key]!,
-    };
-    final parser =
-        XpathParser(config['domain']!, xpathMap, cookie: config['cookie']);
-    final info = parser.parseGameInfo(html_parser.parse(html), testUrl);
+    final info = _parsePreviewInfo(testUrl: testUrl, html: html);
 
     if (!mounted) return;
     setState(() {
