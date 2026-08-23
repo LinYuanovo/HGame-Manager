@@ -242,3 +242,8 @@ HGame-Manager/
 
 </details>
 
+## 赞助
+
+如果你喜欢这个项目，可以赞助支持
+
+![赞助](https://raw.githubusercontent.com/LinYuanovo/HGame-Manager/refs/heads/master/docs/guide/images/image53.png)

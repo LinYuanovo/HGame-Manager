@@ -57,6 +57,12 @@ export default defineConfig({
             { text: 'WebDav', link: '/guide/webdav' },
           ],
         },
+        {
+          text: '赞助',
+          items: [
+            { text: '赞助作者', link: '/guide/sponsor' },
+          ],
+        },
       ],
       '/development/': [
         {
