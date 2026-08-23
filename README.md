@@ -204,15 +204,6 @@ build/windows/x64/runner/Release/hgame_manager.exe
 | [Dart](https://dart.dev) | 3.11.5 | 编程语言 |
 | [Riverpod](https://riverpod.dev) | ^2.4.9 | 状态管理 |
 | [SQLite](https://www.sqlite.org) | via sqflite_common_ffi ^2.3.1 | 本地数据存储 |
-| [media_kit](https://pub.dev/packages/media_kit) | ^1.2.6 | 视频播放 |
-| [flutter_inappwebview](https://pub.dev/packages/flutter_inappwebview) | ^6.1.5 | 内置 WebView2（刮削验证） |
-| [flutter_markdown](https://pub.dev/packages/flutter_markdown) | ^0.7.4 | Markdown 渲染 |
-| [archive](https://pub.dev/packages/archive) | ^4.0.4 | ZIP 备份压缩 |
-| [cached_network_image](https://pub.dev/packages/cached_network_image) | ^3.3.0 | 网络图片缓存 |
-| [window_manager](https://pub.dev/packages/window_manager) | ^0.3.7 | 窗口管理 |
-| [http](https://pub.dev/packages/http) | ^1.1.0 | HTTP 客户端（代理支持） |
-| [html](https://pub.dev/packages/html) | ^0.15.4 | HTML 解析 |
-
 
 ## 项目结构
 
