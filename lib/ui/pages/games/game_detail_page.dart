@@ -18,6 +18,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/repositories/game_repository.dart';
 import '../../../core/utils/cloudflare_challenge.dart';
 import '../../../core/utils/dynamic_page_detector.dart';
+import '../../../core/utils/intro_html_sync.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../../scraper/html_parser.dart';
 import '../../../scraper/parse_utils.dart';
@@ -3724,25 +3725,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     );
   }
 
-  String _syncIntroToHtml(String oldIntro, String newIntro, String html) {
-    final oldLines =
-        oldIntro.split('\n').where((l) => l.trim().isNotEmpty).toList();
-    final newLines =
-        newIntro.split('\n').where((l) => l.trim().isNotEmpty).toList();
-
-    var result = html;
-
-    for (int i = 0; i < oldLines.length && i < newLines.length; i++) {
-      final oldLine = oldLines[i].trim();
-      final newLine = newLines[i].trim();
-      if (oldLine != newLine && oldLine.isNotEmpty) {
-        result = result.replaceAll(oldLine, newLine);
-      }
-    }
-
-    return result;
-  }
-
   Future<void> _saveChanges() async {
     try {
       final repo = ref.read(gameRepositoryProvider);
@@ -4236,7 +4218,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           if (_introHtml != null && _introHtml!.isNotEmpty) {
             final oldIntro = _currentGame.intro ?? '';
             if (oldIntro != newIntro) {
-              _introHtml = _syncIntroToHtml(oldIntro, newIntro, _introHtml!);
+              _introHtml = syncIntroToHtml(oldIntro, newIntro, _introHtml!);
               metadata['intro_html'] = _introHtml;
             }
           }
