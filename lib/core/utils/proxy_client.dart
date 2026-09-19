@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
@@ -325,6 +326,78 @@ Future<String> getUserAgentForSite(String url) async {
   return userAgent.isNotEmpty ? userAgent : defaultScrapeUserAgent;
 }
 
+String _randomHex(int length) {
+  final random = Random.secure();
+  final buffer = StringBuffer();
+  while (buffer.length < length) {
+    buffer.write(random.nextInt(256).toRadixString(16).padLeft(2, '0'));
+  }
+  return buffer.toString().substring(0, length);
+}
+
+Future<Map<String, String>> _getVikacgClientHeaders() async {
+  final prefs = await AppSettings.load();
+  var deviceCode = prefs.getString(AppSettings.vikacgDeviceCodeKey) ?? '';
+  var clientCode = prefs.getString(AppSettings.vikacgClientCodeKey) ?? '';
+  if (deviceCode.isEmpty) {
+    deviceCode = _randomHex(32);
+    await prefs.setString(AppSettings.vikacgDeviceCodeKey, deviceCode);
+  }
+  if (clientCode.isEmpty) {
+    final hex = _randomHex(32).toUpperCase();
+    clientCode = '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
+    await prefs.setString(AppSettings.vikacgClientCodeKey, clientCode);
+  }
+  return {
+    'Architecture': 'AixPot',
+    'X-Client-Name': 'VikACG Moonlight',
+    'X-Device-Code': deviceCode,
+    'X-Client-Code': clientCode,
+  };
+}
+
+@visibleForTesting
+String extractVikacgAuthorization(String value) {
+  final text = value.trim();
+  if (text.isEmpty) return '';
+  final jwt = RegExp(r'[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+')
+      .firstMatch(text)
+      ?.group(0);
+  if (jwt != null) return 'Bearer $jwt';
+  final bearer = RegExp(r'Bearer\s+([^\s;]+)', caseSensitive: false)
+      .firstMatch(text)
+      ?.group(1);
+  return bearer == null ? '' : 'Bearer $bearer';
+}
+
+Future<bool> isVikacgUrl(String url) async {
+  final host = Uri.tryParse(url)?.host.toLowerCase() ?? '';
+  if (RegExp(r'(^|\.)vikacg\.(com|cc|xyz|net|org)$').hasMatch(host) ||
+      host == 'weika' ||
+      host.endsWith('.weika')) return true;
+  final prefs = await AppSettings.load();
+  final customDomain =
+      _normalizeConfigDomain(prefs.getString('domain_vikacg') ?? '');
+  return customDomain.isNotEmpty &&
+      (host == customDomain || host.endsWith('.$customDomain'));
+}
+
+/// 维咔服务端校验 sec-ch-ua 客户端提示头，缺失时返回 400「非法的客户端」。
+/// 版本号与 UA 保持一致。
+@visibleForTesting
+String buildSecChUaForUserAgent(String userAgent) {
+  final chrome =
+      RegExp(r'Chrome/(\d+)').firstMatch(userAgent)?.group(1) ?? '136';
+  final edge = RegExp(r'Edg/(\d+)').firstMatch(userAgent)?.group(1);
+  if (edge != null) {
+    return '"Microsoft Edge";v="$edge", "Not_A Brand";v="8", '
+        '"Chromium";v="$chrome"';
+  }
+  return '"Google Chrome";v="$chrome", "Not_A Brand";v="8", '
+      '"Chromium";v="$chrome"';
+}
+
 String _normalizeConfigDomain(String domain) {
   final trimmed = domain.trim().toLowerCase();
   if (trimmed.isEmpty) return '';
@@ -370,10 +443,19 @@ Future<Map<String, String>> buildScrapeHeaders(
         host.contains('weika') ||
         (domainVikacg.isNotEmpty && host.contains(domainVikacg.toLowerCase()));
     if (isVikacg) {
-      headers['Authorization'] = cookie;
+      final authorization = extractVikacgAuthorization(cookie);
+      if (authorization.isNotEmpty) {
+        headers['Authorization'] = authorization;
+      }
     } else {
       headers['Cookie'] = cookie;
     }
+  }
+  if (await isVikacgUrl(url)) {
+    headers.addAll(await _getVikacgClientHeaders());
+    headers['sec-ch-ua'] = buildSecChUaForUserAgent(userAgent);
+    headers['sec-ch-ua-mobile'] = '?0';
+    headers['sec-ch-ua-platform'] = '"Windows"';
   }
   return headers;
 }
@@ -381,13 +463,14 @@ Future<Map<String, String>> buildScrapeHeaders(
 Future<Map<String, String>> buildScrapeImageHeaders(String sourceUrl) async {
   if (sourceUrl.isEmpty) return {};
   final cookie = await getCookieForSite(sourceUrl);
-  return {
+  final headers = <String, String>{
     'User-Agent': await getUserAgentForSite(sourceUrl),
     'Accept':
         'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
     'Referer': sourceUrl,
     if (cookie.isNotEmpty) 'Cookie': cookie,
   };
+  return headers;
 }
 
 Future<bool> testProxyConnection(String testUrl) async {

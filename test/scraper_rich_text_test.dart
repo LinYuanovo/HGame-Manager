@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -8,9 +9,66 @@ import 'package:hgame_manager/scraper/parse_utils.dart';
 import 'package:hgame_manager/scraper/rich_text_extractor.dart';
 import 'package:hgame_manager/scraper/site_parsers.dart';
 import 'package:hgame_manager/scraper/xpath_evaluator.dart';
+import 'package:hgame_manager/core/services/vikacg_service.dart';
 
 void main() {
+  test('606864 真实正文在解压码后保留属性、操作说明、备用链接和六张图', () async {
+    final info = await _parseSample('test/fixtures/vikacg_606864.html',
+        VikAcgParser(), 'https://www.vikacg.cc/p/606864');
+    for (final text in [
+      '塩糖俵',
+      '2026年06月19日',
+      'R18',
+      '鼠标滚轮',
+      'whl_packages10',
+      'mypikpak.com'
+    ]) {
+      expect(info.description, contains(text));
+      expect(info.descriptionHtml, contains(text));
+    }
+    expect(info.unzipCode, '1040');
+    expect(info.screenshots, hasLength(6));
+    expect(info.description, contains('[图片:https://'));
+    expect(info.downloads.where((link) => link.url.isNotEmpty), hasLength(6));
+  });
+
   group('非 Steam/DLsite 图文混排刮削', () {
+    test('维咔 API 真实响应解析出完整正文、直链、解压码和标签', () {
+      final raw =
+          File('test/fixtures/vikacg_606864_api.json').readAsStringSync();
+      final info = VikAcgService().parseApiResponse(
+        jsonDecode(raw) as Map<String, dynamic>,
+        'https://www.vikacg.cc/p/606864',
+      );
+
+      expect(info, isNotNull);
+      expect(info!.title, contains('射幸電車'));
+      for (final text in ['塩糖俵', '2026年06月19日', '鼠标滚轮', '备用']) {
+        expect(info.description, contains(text));
+      }
+      expect(info.unzipCode, '1040');
+      expect(info.screenshots, hasLength(6));
+      expect(info.screenshots.first, contains('p0.picjs.xyz'));
+      expect(info.tags, containsAll(['3D', 'SLG']));
+      final directLinks =
+          info.downloads.where((link) => link.url.isNotEmpty).toList();
+      expect(directLinks, hasLength(6));
+      expect(
+        directLinks.map((link) => link.url),
+        containsAll([
+          contains('pan.xunlei.com'),
+          contains('pan.baidu.com'),
+          contains('mypikpak.com'),
+        ]),
+      );
+      expect(
+        directLinks
+            .firstWhere((link) => link.url.contains('VOxWnsu28r5fSqLlZTPVteM'))
+            .password,
+        'zqgj',
+      );
+    });
+
     test('ACG嘤嘤怪真实样本保留简介图文结构', () async {
       final info = await _parseSample(
         'web/acgyyg/yyg.html',
@@ -62,8 +120,7 @@ void main() {
       expect(info.descriptionHtml, contains('<img'));
       expect(
           info.descriptionHtml, contains('Screenshot-2025-03-26-055041.webp'));
-      expect(info.descriptionHtml, isNot(contains('下载链接')));
-      expect(info.descriptionHtml, isNot(contains('解压码')));
+      expect(info.descriptionHtml, contains('解压码'));
     });
 
     test('维咔真实样本 574486.htm 保留正文图片', () async {
@@ -76,6 +133,48 @@ void main() {
       _expectRichDescription(info, containsText: '苍龙社');
       expect(info.descriptionHtml, contains('<img'));
       expect(info.screenshots, contains(contains('4320cb158ace545d2.gif')));
+    });
+
+    test('维咔 HTML 兜底保留完整属性、正文和下载链接', () {
+      final document = html_parser.parse('''
+        <html><head><meta property="og:title" content="秘密摸摸模拟器 - 维咔ACG"></head>
+        <body><article>
+          <p>迅雷：<a href="https://pan.xunlei.com/s/a">网页链接 (pan.xunlei.com)</a></p>
+          <p>解压工具提取码：47x8</p>
+          <p>解压码：1040</p>
+          <p>社团名　塩糖俵</p><p>发售日　2026 年 06 月 19 日</p>
+          <p>年龄指定　R18</p><p>作品形式　模拟</p>
+          <p>分类　3D 作品 动画 触摸/抚摸</p>
+          <p>动画风 3D 秘密摸摸模拟器！</p><p>对女孩子进行秘密的摸摸吧！</p>
+        </article></body></html>
+      ''');
+      final info = VikAcgParser()
+          .parseGameInfo(document, 'https://www.vikacg.cc/p/606864');
+
+      expect(info, isNotNull);
+      expect(info!.description, contains('社团名'));
+      expect(info.description, contains('发售日'));
+      expect(info.description, contains('对女孩子进行秘密的摸摸吧'));
+      expect(info.descriptionHtml, contains('发售日'));
+      expect(info.descriptionHtml, contains('对女孩子进行秘密的摸摸吧'));
+      expect(info.downloadUrl, contains('https://pan.xunlei.com/s/a'));
+      expect(info.unzipCode, '1040');
+    });
+
+    test('维咔 API 响应支持 data 嵌套和正文 HTML', () {
+      final info = VikAcgService().parseApiResponse({
+        'status': 'success',
+        'data': {
+          'id': 606864,
+          'title': '秘密摸摸模拟器',
+          'content': '<p>社团名　塩糖俵</p><p>发售日　2026 年 06 月 19 日</p>',
+          'tags': ['3D 作品', '动画'],
+        },
+      }, 'https://www.vikacg.cc/p/606864');
+
+      expect(info, isNotNull);
+      expect(info!.description, contains('发售日'));
+      expect(info.tags, contains('动画'));
     });
 
     test('自定义 XPath 描述按 DOM 顺序保留图文混排', () {

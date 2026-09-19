@@ -23,6 +23,7 @@ import '../../../scraper/html_parser.dart';
 import '../../../scraper/parse_utils.dart';
 import '../../theme/app_theme.dart';
 import '../../../core/services/version_check_service.dart';
+import '../../../core/services/vikacg_service.dart';
 import '../../../core/services/folder_rename_service.dart';
 import '../../../core/services/game_launch_service.dart';
 import '../../../core/services/play_time_tracker.dart';
@@ -35,6 +36,7 @@ import '../../../core/utils/path_reference_rewriter.dart';
 import '../../../core/utils/scraped_image_file_cleaner.dart';
 import '../../../core/utils/scraped_image_reference_rewriter.dart';
 import '../../widgets/image_manager_dialog.dart';
+import '../../widgets/tag_input_dialog.dart';
 import '../../widgets/cloudflare_browser_dialog.dart';
 import '../../widgets/markdown_editor.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -1695,66 +1697,17 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     );
   }
 
-  void _showAddTagDialog() {
-    showGlassDialog(
+  Future<void> _showAddTagDialog() async {
+    final availableTags = await ref.read(tagRepositoryProvider).getCustomTags();
+    if (!mounted) return;
+    final result = await showGlassDialog<List<Tag>>(
       context: context,
-      child: StatefulBuilder(
-        builder: (context, setDialogState) {
-          final controller = TextEditingController();
-          return SizedBox(
-            width: GlassConstants.dialogWidth,
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('添加标签',
-                      style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.getDetailTextPrimary(context))),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: controller,
-                    autofocus: true,
-                    decoration: const InputDecoration(hintText: '输入标签名称'),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () {
-                          controller.dispose();
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text('取消'),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: () {
-                          final name = controller.text.trim();
-                          controller.dispose();
-                          if (name.isNotEmpty) {
-                            setState(() {
-                              _editedTags
-                                  .add(Tag(name: name, type: Tag.typeCustom));
-                            });
-                          }
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text('添加'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+      child: TagInputDialog(
+          selectedTags: _editedTags, availableTags: availableTags),
     );
+    if (result != null && mounted) {
+      setState(() => _editedTags = result);
+    }
   }
 
   bool _handleKeyDown(KeyEvent event) {
@@ -4714,21 +4667,28 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         }
       } else {
         final scraper = HtmlScraper();
+        final vikAcgService = VikAcgService();
         await scraper.ensureLoaded();
         final parser = ParserRegistry.getParserForUrl(sourceUrl);
-        final html = await _fetchScrapeHtmlWithCloudflareFallback(
-          sourceUrl,
-          isHtmlReady: parser is XpathParser
-              ? (renderedHtml) =>
-                  scraper
-                      .scrapeGameInfo(renderedHtml, sourceUrl)
-                      ?.title
-                      ?.trim()
-                      .isNotEmpty ==
-                  true
-              : null,
-        );
-        if (html != null) {
+        if (await VikAcgService.supportsUrl(sourceUrl)) {
+          gameInfo = await vikAcgService.fetchByUrl(sourceUrl);
+        }
+        String? html;
+        if (gameInfo == null) {
+          html = await _fetchScrapeHtmlWithCloudflareFallback(
+            sourceUrl,
+            isHtmlReady: parser is XpathParser
+                ? (renderedHtml) =>
+                    scraper
+                        .scrapeGameInfo(renderedHtml, sourceUrl)
+                        ?.title
+                        ?.trim()
+                        .isNotEmpty ==
+                    true
+                : null,
+          );
+        }
+        if (html != null && gameInfo == null) {
           gameInfo = scraper.scrapeGameInfo(html, sourceUrl);
           final hasTitle = gameInfo?.title?.trim().isNotEmpty == true;
           if (parser is XpathParser &&
@@ -4996,19 +4956,29 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         final scraper = HtmlScraper();
         await scraper.ensureLoaded();
         final parser = ParserRegistry.getParserForUrl(url);
-        final html = await _fetchScrapeHtmlWithCloudflareFallback(
-          url,
-          isHtmlReady: parser is XpathParser
-              ? (renderedHtml) =>
-                  scraper
-                      .scrapeGameInfo(renderedHtml, url)
-                      ?.title
-                      ?.trim()
-                      .isNotEmpty ==
-                  true
-              : null,
-        );
-        if (html != null) {
+        final vikAcgService = VikAcgService();
+        if (await VikAcgService.supportsUrl(url)) {
+          gameInfo = await vikAcgService.fetchByUrl(url);
+        }
+        String? html;
+        if (gameInfo == null) {
+          html = await _fetchScrapeHtmlWithCloudflareFallback(
+            url,
+            isHtmlReady: parser is XpathParser
+                ? (renderedHtml) =>
+                    scraper
+                        .scrapeGameInfo(renderedHtml, url)
+                        ?.title
+                        ?.trim()
+                        .isNotEmpty ==
+                    true
+                : null,
+          );
+        }
+        if (gameInfo == null) {
+          if (html == null) {
+            return;
+          }
           gameInfo = scraper.scrapeGameInfo(html, url);
           final hasTitle = gameInfo?.title?.trim().isNotEmpty == true;
           if (parser is XpathParser &&
@@ -5032,8 +5002,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   browserResult.html, browserResult.finalUrl);
             }
           }
-        } else {
-          return;
         }
       }
 

@@ -1005,16 +1005,18 @@ class VikAcgParser extends SiteParser {
 
   Element _findContentContainer(Document document) {
     const selectors = [
-      'article',
       '.prose',
-      '.p-4',
-      '.content',
       '.article-content',
+      'article',
+      '.content',
+      '.p-4',
       'main',
     ];
     for (final selector in selectors) {
       final el = document.querySelector(selector);
-      if (el != null && el.querySelectorAll('p').isNotEmpty) return el;
+      if (el != null &&
+          (el.text.trim().isNotEmpty || el.querySelector('img') != null))
+        return el;
     }
     return document.body ?? document.documentElement!;
   }
@@ -1087,116 +1089,59 @@ class VikAcgParser extends SiteParser {
 
     final contentContainer = _findContentContainer(document);
     final richIntro =
-        RichTextExtractor.extractDescription(contentContainer, url);
-    String? descriptionHtml = richIntro.html.isNotEmpty ? richIntro.html : null;
-    for (final imgUrl in richIntro.imageUrls) {
-      if (!screenshots.contains(imgUrl)) screenshots.add(imgUrl);
+        RichTextExtractor.extractFullContent(contentContainer, url);
+    if (richIntro.plainText.isNotEmpty) description = richIntro.plainText;
+    for (final imageUrl in richIntro.imageUrls) {
+      if (!screenshots.contains(imageUrl)) screenshots.add(imageUrl);
     }
-    final paragraphs = contentContainer.querySelectorAll('p, div.arco-image');
-    final introBuffer = StringBuffer();
-    bool collecting = false;
-    bool foundStartMarker = false;
-
-    // Pre-scan: if any paragraph has images, start collecting from beginning
-    for (final p in paragraphs) {
-      if (p.querySelector('img') != null) {
-        collecting = true;
-        foundStartMarker = true;
-        break;
-      }
-    }
-
-    for (final p in paragraphs) {
-      final imgEl = p.querySelector('img');
-      if (imgEl != null) {
-        final src = imgEl.attributes['src'] ?? '';
-        if (src.isNotEmpty) {
-          introBuffer.writeln('[图片:$src]');
-          foundStartMarker = true;
-          collecting = true;
-        }
-        continue;
-      }
-      final text = _elementText(p).trim();
-      if (_isCopyrightText(text)) continue;
-      if (RegExp(r'^网页链接\(.+\)$').hasMatch(text)) continue;
-      if (RegExp(r'^游戏(?:介绍|内容|概述)[：:]\s*').hasMatch(text)) {
-        collecting = true;
-        foundStartMarker = true;
-        final afterMarker = text.replaceFirst(
-          RegExp(r'^游戏(?:介绍|内容|概述)[：:]\s*'),
-          '',
-        );
-        if (afterMarker.isNotEmpty) introBuffer.writeln(afterMarker);
-        continue;
-      }
-      if (collecting) {
-        if (text.contains('游戏特点') ||
-            text.contains('更新内容') ||
-            RegExp(r'^下载(?:链接|地址)?[：:]?\s*$').hasMatch(text) ||
-            RegExp(r'^链接[：:]?\s*$').hasMatch(text)) {
-          collecting = false;
-          continue;
-        }
-        if (text.isNotEmpty && !_containsUnzipCode(text))
-          introBuffer.writeln(text);
-      }
-    }
-    // Fallback: if no start marker found, collect all text before first stop marker
-    if (!foundStartMarker) {
-      for (final p in paragraphs) {
-        final imgEl = p.querySelector('img');
-        if (imgEl != null) {
-          final src = imgEl.attributes['src'] ?? '';
-          if (src.isNotEmpty) introBuffer.writeln('[图片:$src]');
-          continue;
-        }
-        final text = _elementText(p).trim();
-        if (_isCopyrightText(text)) continue;
-        if (RegExp(r'^网页链接\(.+\)$').hasMatch(text)) continue;
-        if (text.contains('游戏特点') ||
-            text.contains('更新内容') ||
-            RegExp(r'^下载(?:链接|地址)?[：:]?\s*$').hasMatch(text) ||
-            RegExp(r'^链接[：:]?\s*$').hasMatch(text)) {
-          break;
-        }
-        if (text.isNotEmpty && !_containsUnzipCode(text))
-          introBuffer.writeln(text);
-      }
-    }
-    if (introBuffer.isNotEmpty) {
-      final collected = introBuffer.toString().trim();
-      if (description == null ||
-          description.isEmpty ||
-          collected.length > description.length) {
-        description = collected;
-      }
-    }
-    if (richIntro.plainText.isNotEmpty) {
-      description = richIntro.plainText;
-    }
-
-    final downloads = <DownloadLink>[];
-    final contentText = _elementText(contentContainer);
-    final unzipCode = extractUnzipCode(contentText);
+    final downloads =
+        _extractVikDownloadLinks(contentContainer, richIntro.plainText, url);
+    final unzipCode = extractUnzipCode(richIntro.plainText);
     if (unzipCode != null) {
-      downloads.add(DownloadLink(
-        url: '',
-        unzipCode: unzipCode,
-      ));
+      downloads.add(DownloadLink(url: '', unzipCode: unzipCode));
     }
-
     return GameInfo(
       title: titleWithoutVersion,
       version: version,
       tags: tags,
       category: category,
       description: description,
-      descriptionHtml: descriptionHtml,
+      descriptionHtml: richIntro.html.isNotEmpty ? richIntro.html : null,
       screenshots: _dedupeStrings(screenshots),
       downloads: downloads,
       sourceUrl: url,
     );
+  }
+
+  List<DownloadLink> _extractVikDownloadLinks(
+      Element container, String text, String baseUrl) {
+    final urls = <String>{};
+    for (final match
+        in RegExp(r'https?://[^\s<>"\u3000\]]+').allMatches(text)) {
+      final value = match.group(0)!;
+      if (isDownloadLink(value) || value.contains('mypikpak.com'))
+        urls.add(value);
+    }
+    for (final anchor in container.querySelectorAll('a[href]')) {
+      final href = anchor.attributes['href']!.trim();
+      final uri = Uri.tryParse(baseUrl)?.resolve(href);
+      if (uri == null || !const ['https', 'http'].contains(uri.scheme))
+        continue;
+      final url = uri.toString();
+      if (isDownloadLink(url) ||
+          uri.host == 'mypikpak.com' ||
+          (uri.path == '/external' && anchor.text.contains('网页链接'))) {
+        urls.add(url);
+      }
+    }
+    return urls.map((url) {
+      final query = Uri.tryParse(url)?.queryParameters ?? {};
+      return DownloadLink(
+        url: url,
+        provider: detectProvider(url),
+        password: query['pwd'] ?? query['pass_code'],
+      );
+    }).toList();
   }
 
   @override

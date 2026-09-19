@@ -24,6 +24,13 @@ class _Token {
 }
 
 class RichTextExtractor {
+  /// 提取完整正文，保留下载说明和解压码后面的图文。
+  static RichTextExtraction extractFullContent(
+      Element container, String baseUrl) {
+    return _extract(container, baseUrl,
+        preferSection: false, filterDownloadNoise: false);
+  }
+
   static final _startMarker = RegExp(r'(概要|游戏介绍|游戏简介|简介)\s*[：:]?');
   static final _stopMarker = RegExp(
     r'^\s*(游戏特点|更新内容|更新日志|链接|下载链接|解压码|解压密码)\s*[：:]?.*$',
@@ -77,11 +84,13 @@ class RichTextExtractor {
     String baseUrl, {
     required bool preferSection,
     bool includeBeforeStart = false,
+    bool filterDownloadNoise = true,
   }) {
     final state = _ExtractionState(
       baseUrl,
       collecting: !preferSection || includeBeforeStart,
       includeBeforeStart: includeBeforeStart,
+      filterDownloadNoise: filterDownloadNoise,
     );
     for (final node in container.nodes) {
       _walk(node, state, preferSection: preferSection);
@@ -158,7 +167,9 @@ class RichTextExtractor {
       }
     }
 
-    if (!state.hasMeaningfulContent && _isDownloadNoiseLine(text)) {
+    if (state.filterDownloadNoise &&
+        !state.hasMeaningfulContent &&
+        _isDownloadNoiseLine(text)) {
       return;
     }
 
@@ -310,6 +321,7 @@ class RichTextExtractor {
 }
 
 class _ExtractionState {
+  final bool filterDownloadNoise;
   final String baseUrl;
   final List<_Token> tokens = [];
   final Set<String> imageUrls = {};
@@ -323,5 +335,6 @@ class _ExtractionState {
     this.baseUrl, {
     required this.collecting,
     this.includeBeforeStart = false,
+    this.filterDownloadNoise = true,
   });
 }

@@ -35,6 +35,9 @@ class AppSettings {
   static const String autoUpdateFrequencyKey = 'auto_update_frequency';
   static const String lastSuccessfulUpdateCheckKey =
       'last_successful_update_check';
+  static const String tagOrderKey = 'tag_order_by_type';
+  static const String vikacgDeviceCodeKey = 'vikacg_device_code';
+  static const String vikacgClientCodeKey = 'vikacg_client_code';
   static const double defaultPosterCoverAspectRatio = 16 / 9;
   static const double minPosterCoverAspectRatio = 0.5;
   static const double maxPosterCoverAspectRatio = 2.0;

@@ -18,6 +18,7 @@ import '../../../core/utils/scraped_image_file_cleaner.dart';
 import '../../../scraper/html_parser.dart';
 import '../../../scraper/parse_utils.dart';
 import '../../../core/services/concurrent_image_downloader.dart';
+import '../../../core/services/vikacg_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/cloudflare_browser_dialog.dart';
 
@@ -53,6 +54,7 @@ class _GameScrapeItem {
 
 class _ScraperPageState extends ConsumerState<ScraperPage> {
   final _scraper = HtmlScraper();
+  final _vikAcgService = VikAcgService();
   final ScrollController _logScrollController = ScrollController();
   bool _isProcessing = false;
   String _processStatus = '空闲';
@@ -881,26 +883,32 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             .migrateGameDirectory(game.path);
       }
 
-      final client = await createProxyClientFromPrefs(
-          domain: Uri.parse(game.sourceUrl!).host);
-      http.Response response;
-      late final Map<String, String> headers;
-      try {
-        headers = await buildScrapeHeaders(game.sourceUrl!);
-        response =
-            await client.get(Uri.parse(game.sourceUrl!), headers: headers);
-      } finally {
-        client.close();
-      }
-
       GameInfo? gameInfo;
       final sourceUrl = game.sourceUrl!;
       final isDlsite = sourceUrl.contains('dlsite');
       final isSteam = sourceUrl.contains('steam');
-      String? html = response.statusCode == 200 ? response.body : null;
+      if (await VikAcgService.supportsUrl(sourceUrl)) {
+        gameInfo = await _vikAcgService.fetchByUrl(sourceUrl);
+        if (gameInfo != null) _addLog('  -> 维咔 API 获取成功');
+      }
+      http.Response? response;
+      Map<String, String> headers = {};
+      if (gameInfo == null) {
+        final client = await createProxyClientFromPrefs(
+            domain: Uri.parse(game.sourceUrl!).host);
+        try {
+          headers = await buildScrapeHeaders(game.sourceUrl!);
+          response =
+              await client.get(Uri.parse(game.sourceUrl!), headers: headers);
+        } finally {
+          client.close();
+        }
+      }
+      String? html = response?.statusCode == 200 ? response?.body : null;
       if (html == null &&
           !isDlsite &&
           !isSteam &&
+          response != null &&
           isCloudflareChallengeResponse(response.statusCode, response.body)) {
         _addLog('  -> 遇到 Cloudflare 403，尝试内置浏览器静默加载...');
         final browserResult = await _showQueuedCloudflareBrowser(
@@ -926,14 +934,14 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         }
       }
 
-      if (html != null) {
-        if (isDlsite) {
+      if (html != null || gameInfo != null) {
+        if (gameInfo == null && isDlsite) {
           final dlsiteService = ref.read(dlsiteServiceProvider);
           final id = dlsiteService.normalizeId(sourceUrl);
           if (id != null) {
             gameInfo = await dlsiteService.fetchById(id);
           }
-        } else if (isSteam) {
+        } else if (gameInfo == null && isSteam) {
           final steamService = ref.read(steamServiceProvider);
           final appidMatch = RegExp(r'/app/(\d+)').firstMatch(sourceUrl);
           if (appidMatch != null) {
@@ -952,8 +960,9 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               );
             }
           }
-        } else {
-          gameInfo = _scraper.scrapeGameInfo(html, sourceUrl);
+        } else if (gameInfo == null) {
+          // API 不可用时继续使用原有 HTML 解析兜底。
+          gameInfo = _scraper.scrapeGameInfo(html!, sourceUrl);
           final hasTitle = gameInfo?.title?.trim().isNotEmpty == true;
           if (parser is XpathParser &&
               (!hasTitle || looksLikeClientRenderedPage(html))) {
@@ -1121,11 +1130,11 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           }
         }
       } else {
-        _addLog('  -> HTTP ${response.statusCode}');
+        _addLog('  -> HTTP ${response?.statusCode ?? 'API无结果'}');
         if (mounted) {
           setState(() {
             item.progress = 1.0;
-            item.status = 'HTTP${response.statusCode}';
+            item.status = 'HTTP${response?.statusCode ?? '失败'}';
             _stats.failed++;
             _stats.pending--;
           });
