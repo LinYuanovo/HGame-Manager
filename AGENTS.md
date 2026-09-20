@@ -81,3 +81,4 @@ AppTheme.warningOrange  // 橙色
 
 - Flutter 测试必须串行执行，禁止并行启动多个 `flutter test`、`flutter analyze` 或 Dart 测试进程，避免工具链互相等待导致卡住超时。
 - 多组测试需要按顺序逐条执行；上一条命令结束后再执行下一条。
+- 所有 `flutter` / `dart` 命令必须在沙箱外（提权）运行：Flutter 工具启动时需读写 `C:\flutter\bin\cache\lockfile`，沙箱内无写权限，`flutter.bat` 会静默无限重试导致命令永久挂起且无任何输出。若命令超过 1 分钟无输出，不要等待，直接提权重跑。
