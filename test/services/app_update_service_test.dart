@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hgame_manager/core/services/app_update_service.dart';
 import 'package:http/http.dart' as http;
@@ -146,4 +148,62 @@ void main() {
       isFalse,
     );
   });
+
+  group('extractAndVerifyZip', () {
+    test('extracts a valid zip successfully', () async {
+      final temp = await Directory.systemTemp.createTemp('update_zip_test_');
+      try {
+        final zipFile = File('${temp.path}\\update.zip')
+          ..writeAsBytesSync(
+            _buildZip({'hgame_manager.exe': 'exe-bytes', 'data\\readme.txt': 'hi'}),
+          );
+        final dest = Directory('${temp.path}\\out');
+        await dest.create();
+
+        await AppUpdateService.extractAndVerifyZip(zipFile, dest);
+
+        expect(
+          await File('${dest.path}\\hgame_manager.exe').readAsString(),
+          'exe-bytes',
+        );
+        expect(
+          await File('${dest.path}\\data\\readme.txt').readAsString(),
+          'hi',
+        );
+      } finally {
+        await temp.delete(recursive: true);
+      }
+    });
+
+    test('rejects corrupted zip instead of extracting silently', () async {
+      final temp = await Directory.systemTemp.createTemp('update_zip_test_');
+      try {
+        final bytes = _buildZip({
+          'data.bin': List<int>.generate(64 * 1024, (i) => (i * 31) % 251),
+        });
+        // 篡改压缩数据区域的一个字节
+        bytes[bytes.length ~/ 3] ^= 0xFF;
+        final zipFile = File('${temp.path}\\update.zip')..writeAsBytesSync(bytes);
+        final dest = Directory('${temp.path}\\out');
+        await dest.create();
+
+        await expectLater(
+          () => AppUpdateService.extractAndVerifyZip(zipFile, dest),
+          throwsA(anything),
+        );
+      } finally {
+        await temp.delete(recursive: true);
+      }
+    });
+  });
+}
+
+List<int> _buildZip(Map<String, Object> files) {
+  final archive = Archive();
+  files.forEach((name, content) {
+    final data =
+        content is String ? utf8.encode(content) : content as List<int>;
+    archive.addFile(ArchiveFile(name, data.length, data));
+  });
+  return ZipEncoder().encode(archive);
 }

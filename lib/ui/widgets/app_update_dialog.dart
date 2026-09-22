@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -201,6 +202,134 @@ Future<bool?> showAppUpdateFallbackDialog({
       ),
     ),
   );
+}
+
+/// 下载进度对话框，由 [progressListenable] 驱动实时刷新。
+Future<void> showAppUpdateDownloadProgress(
+  BuildContext context, {
+  required String version,
+  required ValueListenable<AppUpdateDownloadProgress> progressListenable,
+}) {
+  final textTheme = Theme.of(context).textTheme;
+  return showGlassDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 420),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: ValueListenableBuilder<AppUpdateDownloadProgress>(
+          valueListenable: progressListenable,
+          builder: (context, progress, _) {
+            final fraction = progress.fraction;
+            final percentText = fraction == null
+                ? null
+                : '${(fraction * 100).toStringAsFixed(1)}%';
+            final totalBytes = progress.totalBytes;
+            final sizeText = totalBytes == null
+                ? _formatBytes(progress.receivedBytes)
+                : '${_formatBytes(progress.receivedBytes)} / '
+                    '${_formatBytes(totalBytes)}';
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '正在下载更新 v$version',
+                  style: textTheme.titleMedium?.copyWith(
+                    color: AppTheme.getTextPrimary(context),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                LinearProgressIndicator(
+                  value: fraction,
+                  minHeight: 6,
+                  borderRadius: BorderRadius.circular(3),
+                  valueColor: AlwaysStoppedAnimation(
+                    AppTheme.getPrimaryColor(context),
+                  ),
+                  backgroundColor: AppTheme.getBorderColor(context),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  percentText == null ? sizeText : '$percentText（$sizeText）',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: AppTheme.getTextSecondary(context),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    ),
+  );
+}
+
+/// 上次安装未完成的提示：返回 true 继续安装，false 删除缓存，null 稍后处理。
+Future<bool?> showAppUpdateResumeDialog(
+  BuildContext context, {
+  required String version,
+}) {
+  final textTheme = Theme.of(context).textTheme;
+  return showGlassDialog<bool>(
+    context: context,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 460),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '上次更新未完成',
+              style: textTheme.titleMedium?.copyWith(
+                color: AppTheme.getTextPrimary(context),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              '检测到 v$version 的更新包已下载，但安装未能完成。'
+              '是否继续安装？（无需重新下载）',
+              style: textTheme.bodyMedium?.copyWith(
+                color: AppTheme.getTextSecondary(context),
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 22),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('删除缓存'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  icon: const Icon(Icons.system_update_alt, size: 16),
+                  label: const Text('继续安装'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+String _formatBytes(int bytes) {
+  if (bytes >= 1 << 20) {
+    return '${(bytes / (1 << 20)).toStringAsFixed(1)} MB';
+  }
+  if (bytes >= 1 << 10) {
+    return '${(bytes / (1 << 10)).toStringAsFixed(1)} KB';
+  }
+  return '$bytes B';
 }
 
 Future<void> openAppUpdateQuarkPan(BuildContext context) async {

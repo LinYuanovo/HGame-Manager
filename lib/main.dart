@@ -198,6 +198,8 @@ class _HGameManagerAppState extends ConsumerState<HGameManagerApp> {
 
   Future<void> _runAutomaticUpdateCheck() async {
     if (!mounted || !Platform.isWindows) return;
+    if (await _checkPendingAppUpdate()) return;
+    if (!mounted) return;
 
     final prefs = ref.read(sharedPreferencesProvider);
     final enabled = prefs.getBool(AppSettings.autoUpdateEnabledKey) ?? false;
@@ -247,19 +249,30 @@ class _HGameManagerAppState extends ConsumerState<HGameManagerApp> {
     if (!mounted) return;
     final dialogContext = _navigatorKey.currentContext;
     if (dialogContext == null) return;
-    AppTheme.showGlassToast(
-      dialogContext,
-      message: '正在下载更新，请稍候',
-      icon: Icons.download_outlined,
-      iconColor: AppTheme.getPrimaryColor(context),
-      duration: const Duration(seconds: 4),
+    final progressNotifier = ValueNotifier<AppUpdateDownloadProgress>(
+      const AppUpdateDownloadProgress(receivedBytes: 0),
     );
+    var progressDialogOpen = true;
+    unawaited(
+      showAppUpdateDownloadProgress(
+        dialogContext,
+        version: version,
+        progressListenable: progressNotifier,
+      ).whenComplete(() => progressDialogOpen = false),
+    );
+    void closeProgressDialog() {
+      if (progressDialogOpen && dialogContext.mounted) {
+        Navigator.of(dialogContext, rootNavigator: true).pop();
+      }
+    }
 
     try {
       await AppUpdateService().downloadAndInstall(
         version: version,
         executablePath: Platform.resolvedExecutable,
+        onProgress: (progress) => progressNotifier.value = progress,
       );
+      closeProgressDialog();
       if (!mounted) return;
       AppTheme.showGlassToast(
         dialogContext,
@@ -271,6 +284,7 @@ class _HGameManagerAppState extends ConsumerState<HGameManagerApp> {
       await Future<void>.delayed(const Duration(milliseconds: 300));
       await windowManager.close();
     } catch (e) {
+      closeProgressDialog();
       if (!mounted) return;
       final openPan = await showAppUpdateFallbackDialog(
         context: dialogContext,
@@ -280,7 +294,33 @@ class _HGameManagerAppState extends ConsumerState<HGameManagerApp> {
       if (openPan == true) {
         await openAppUpdateQuarkPan(dialogContext);
       }
+    } finally {
+      progressNotifier.dispose();
     }
+  }
+
+  /// 检测上次未完成的安装并提示重试。
+  /// 返回 true 表示已接管流程（继续安装），调用方应停止自动更新检查。
+  Future<bool> _checkPendingAppUpdate() async {
+    final pending = await AppUpdateService.findPendingInstall(
+      currentVersion: appVersion,
+    );
+    if (pending == null || !mounted) return false;
+    final dialogContext = _navigatorKey.currentContext;
+    if (dialogContext == null) return false;
+    final retry = await showAppUpdateResumeDialog(
+      dialogContext,
+      version: pending.version,
+    );
+    if (!mounted) return true;
+    if (retry == true) {
+      await _installAppUpdate(pending.version);
+      return true;
+    }
+    if (retry == false) {
+      await AppUpdateService.discardPendingInstall(pending);
+    }
+    return false;
   }
 
   Future<void> _migrateExistingGameData() async {

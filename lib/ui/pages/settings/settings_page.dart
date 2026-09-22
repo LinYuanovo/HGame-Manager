@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -3045,19 +3046,30 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   Future<void> _installAppUpdate(String version) async {
     if (!mounted) return;
     setState(() => _isInstallingAppUpdate = true);
-    AppTheme.showGlassToast(
-      context,
-      message: '正在下载更新，请稍候',
-      icon: Icons.download_outlined,
-      iconColor: AppTheme.getPrimaryColor(context),
-      duration: const Duration(seconds: 4),
+    final progressNotifier = ValueNotifier<AppUpdateDownloadProgress>(
+      const AppUpdateDownloadProgress(receivedBytes: 0),
     );
+    var progressDialogOpen = true;
+    unawaited(
+      showAppUpdateDownloadProgress(
+        context,
+        version: version,
+        progressListenable: progressNotifier,
+      ).whenComplete(() => progressDialogOpen = false),
+    );
+    void closeProgressDialog() {
+      if (progressDialogOpen && context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    }
 
     try {
       await AppUpdateService().downloadAndInstall(
         version: version,
         executablePath: Platform.resolvedExecutable,
+        onProgress: (progress) => progressNotifier.value = progress,
       );
+      closeProgressDialog();
       if (!mounted) return;
       AppTheme.showGlassToast(
         context,
@@ -3069,6 +3081,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       await Future<void>.delayed(const Duration(milliseconds: 300));
       await windowManager.close();
     } catch (e) {
+      closeProgressDialog();
       if (!mounted) return;
       final openPan = await showAppUpdateFallbackDialog(
         context: context,
@@ -3079,6 +3092,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         await openAppUpdateQuarkPan(context);
       }
     } finally {
+      progressNotifier.dispose();
       if (mounted) {
         setState(() => _isInstallingAppUpdate = false);
       }
