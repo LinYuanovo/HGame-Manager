@@ -1,0 +1,103 @@
+name: Bug 报告
+description: 程序错误、异常行为或回归问题
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！提交前请确认：
+        - 已查阅项目 README 或文档，尝试自行解决问题；
+        - 已搜索现有 Issue（包括已关闭的），确认没有重复内容；
+        - 使用的软件版本为最新版（或已在下方明确标注版本号）。
+
+  - type: input
+    id: version
+    attributes:
+      label: 软件版本
+      description: 请填写当前使用的软件版本号或构建号。
+      placeholder: 例如 1.0.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 详细描述
+      description: 清晰、简洁地说明您遇到的问题。
+      placeholder: 一句话概括发生了什么。
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 提供可复现问题的精确步骤。
+      placeholder: |
+        1. 执行命令 `...`
+        2. 输入参数 `...`
+        3. 观察输出 `...`
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为
+      description: 您认为正常情况下应该发生什么？
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 当前实际发生了什么？可附错误信息、堆栈跟踪或截图（直接拖入输入框）。
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统
+      description: 出现问题时使用的 Windows 版本。
+      options:
+        - Windows 11
+        - Windows 10
+        - Windows 8.1
+        - 其它
+    validations:
+      required: true
+
+  - type: dropdown
+    id: repro
+    attributes:
+      label: 是否可稳定复现
+      options:
+        - 总是复现
+        - 偶尔复现
+        - 仅出现一次
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 日志与附加材料
+      description: 粘贴相关日志（`\logs\app_xxxx.log`）、截图、配置文件（注意脱敏），或提供最小可复现示例的链接。可直接拖拽文件到输入框上传。
+      placeholder: 粘贴日志片段或拖入截图 / 日志文件。
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: 自检清单
+      description: 提交前请确认以下事项。
+      options:
+        - label: 我已提供所有必要信息，确保他人可以复现或理解。
+          required: true
+        - label: 我已移除敏感信息（如密码、密钥、私人路径）。
+          required: true

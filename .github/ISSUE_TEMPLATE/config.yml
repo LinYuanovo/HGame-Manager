@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 项目文档站
+    url: https://linyuanovo.github.io/HGame-Manager/
+    about: 安装、使用与常见问题请先查阅文档站。
+  - name: README
+    url: https://github.com/LinYuanovo/HGame-Manager#readme
+    about: 项目简介与快速开始。

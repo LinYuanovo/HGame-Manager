@@ -1,0 +1,27 @@
+name: 其它
+description: 使用疑问、性能讨论等其它内容
+title: "[其它] "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        如果是使用问题，请先查阅项目 README 或文档站；
+        如果是 Bug 或功能建议，请选择对应的模板提交。
+
+  - type: textarea
+    id: content
+    attributes:
+      label: 详细内容
+      description: 清晰、简洁地描述您的问题或想法。
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 附加材料
+      description: 截图、日志或其他补充说明。可直接拖拽文件到输入框上传。
+    validations:
+      required: false
