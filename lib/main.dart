@@ -40,6 +40,7 @@ void main() async {
     debugPrint('MediaKit init error: $e');
   }
 
+  await initAppVersion();
   await AppLogger.instance.init();
 
   _setupErrorHandling();

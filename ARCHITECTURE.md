@@ -4,7 +4,7 @@
 
 **黄油仓库** - 基于 Flutter 开发的 Windows 本地 HGame 管理器
 
-- **版本**: 1.4.9
+- **版本**: 以 `pubspec.yaml` 的 `version` 字段为唯一来源（应用内、文档站、README 徽章均自动派生）
 - **平台**: Windows 10/11 (64位)
 - **Flutter SDK**: >= 3.41.9
 - **Dart SDK**: >= 3.11.5
