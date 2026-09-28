@@ -1,4 +1,23 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { defineConfig } from 'vitepress'
+
+// 从项目 pubspec.yaml 读取版本号（取 + 构建号之前的部分），保持文档站与软件版本同步
+function readAppVersion(): string {
+  try {
+    const pubspec = readFileSync(
+      resolve(import.meta.dirname, '../../pubspec.yaml'),
+      'utf-8',
+    )
+    const match = pubspec.match(/^version:\s*(\S+)/m)
+    if (match) return match[1].split('+')[0]
+  } catch {
+    // 读取失败时回退到占位版本号
+  }
+  return '0.0.0'
+}
+
+const appVersion = readAppVersion()
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -27,7 +46,7 @@ export default defineConfig({
       { text: '常见问题', link: '/faq' },
       { text: '参与开发', link: '/development/build', activeMatch: '/development/' },
       {
-        text: 'v1.4.8',
+        text: `v${appVersion}`,
         items: [
           { text: '更新日志', link: 'https://github.com/LinYuanovo/HGame-Manager/blob/master/CHANGELOG.md' },
           { text: '下载最新版', link: 'https://github.com/LinYuanovo/HGame-Manager/releases' },
@@ -55,6 +74,7 @@ export default defineConfig({
             { text: '自定义管理', link: '/guide/customize' },
             { text: '软件更新', link: '/guide/update-app' },
             { text: 'WebDav', link: '/guide/webdav' },
+            { text: '网络代理', link: '/guide/network-proxy' },
           ],
         },
         {

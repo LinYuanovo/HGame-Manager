@@ -18,6 +18,12 @@
 - 开始新任务前，先读取 `ARCHITECTURE.md` 了解项目结构和技术栈
 - 快速掌握项目整体架构后再进行具体开发
 
+# GitHub CLI
+
+- 本机已安装 `gh`（GitHub CLI）
+- 查询 CI 状态、失败日志、管理 Release 时优先使用 `gh run list` / `gh run view --log-failed` / `gh release`，不要裸调匿名 GitHub API（有速率限制）
+- `gh` 命令涉及网络访问，需在沙箱外（提权）运行
+
 # 交流规则
 
 ## 讨论

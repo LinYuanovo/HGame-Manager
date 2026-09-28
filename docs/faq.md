@@ -1,5 +1,9 @@
 # 常见问题
 
+## 刮削提示"信号灯超时时间已到" / "HandshakeException: Connection terminated during handshake"等
+
+多半为网络问题，参考[网络代理](/guide/network-proxy)
+
 ## 软件无响应、卡顿或数据不更新？
 
 可以尝试**重启软件**解决。如果重启后问题仍然存在，请在 [GitHub Issues](https://github.com/LinYuanovo/HGame-Manager/issues) 或 [B站](https://space.bilibili.com/345721873)私信作者，说明具体情况和复现步骤。
