@@ -15,6 +15,7 @@ class ConcurrentImageDownloader {
     int maxConcurrency = 3,
     int startIndex = 0,
     bool useTempFiles = false,
+    void Function(int completed, int total)? onProgress,
   }) async {
     final urlToLocal = <String, String>{};
     if (imageUrls.isEmpty) return urlToLocal;
@@ -50,6 +51,7 @@ class ConcurrentImageDownloader {
       ).then((success) {
         activeCount--;
         completedCount++;
+        onProgress?.call(completedCount, imageUrls.length);
         if (success != null) {
           urlToLocal[imageUrls[idx]] = success;
         }
