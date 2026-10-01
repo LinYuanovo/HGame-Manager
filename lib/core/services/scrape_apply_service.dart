@@ -49,6 +49,35 @@ class ScrapeApplyService {
     return 'Unclassified';
   }
 
+  static Game mergeGameInfo(Game game, GameInfo gameInfo, {String? sourceUrl}) {
+    final displayTitle = gameInfo.title != null
+        ? stripVersionFromTitle(gameInfo.title!, gameInfo.version)
+        : null;
+    return game.copyWith(
+      title: displayTitle ?? game.title,
+      version: gameInfo.version ?? game.version,
+      intro: gameInfo.description ?? game.intro,
+      features: gameInfo.features.isNotEmpty
+          ? gameInfo.features.join('\n')
+          : game.features,
+      changelog: gameInfo.changelog ?? game.changelog,
+      downloadUrl: gameInfo.downloadUrl.isNotEmpty
+          ? gameInfo.downloadUrl
+          : game.downloadUrl,
+      sourceUrl: sourceUrl ?? game.sourceUrl,
+      maker: gameInfo.maker ?? game.maker,
+      makerUrl: gameInfo.makerUrl ?? game.makerUrl,
+    );
+  }
+
+  static Map<String, dynamic> buildMetadataJson(GameInfo gameInfo,
+      {String? intro, String? introHtml}) {
+    final json = gameInfo.toJson();
+    if (intro != null) json['intro'] = intro;
+    if (introHtml != null) json['intro_html'] = introHtml;
+    return json;
+  }
+
   static Future<void> syncTags(
     GameRepository repo,
     TagRepository tagRepo,

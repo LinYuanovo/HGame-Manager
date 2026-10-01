@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hgame_manager/core/models/models.dart';
 import 'package:hgame_manager/core/services/scrape_apply_service.dart';
+import 'package:hgame_manager/scraper/parse_utils.dart';
 
 void main() {
   group('stripVersionFromTitle', () {
@@ -45,6 +46,78 @@ void main() {
 
     test('空标签返回 Unclassified', () {
       expect(ScrapeApplyService.resolveCategoryName([]), 'Unclassified');
+    });
+  });
+
+  group('mergeGameInfo', () {
+    test('合并非空字段并去除标题版本号', () {
+      final game = Game(path: r'C:\Games\A', title: '旧标题', version: 'V1.0');
+      final info = GameInfo(
+        title: '新标题 v2.0',
+        version: 'V2.0',
+        description: '简介',
+        features: ['特点1'],
+        changelog: '日志',
+        downloads: [],
+        sourceUrl: 'https://example.com/1',
+        maker: '厂商',
+        makerUrl: 'https://example.com/maker',
+      );
+      final merged = ScrapeApplyService.mergeGameInfo(game, info);
+      expect(merged.title, '新标题');
+      expect(merged.version, 'V2.0');
+      expect(merged.intro, '简介');
+      expect(merged.features, '特点1');
+      expect(merged.changelog, '日志');
+      expect(merged.maker, '厂商');
+      expect(merged.makerUrl, 'https://example.com/maker');
+    });
+
+    test('空字段保留原值', () {
+      final game = Game(
+        path: r'C:\Games\A',
+        title: '旧标题',
+        intro: '旧简介',
+        downloadUrl: 'https://pan.baidu.com/x',
+      );
+      final info = GameInfo(sourceUrl: 'https://example.com/1');
+      final merged = ScrapeApplyService.mergeGameInfo(game, info);
+      expect(merged.title, '旧标题');
+      expect(merged.intro, '旧简介');
+      expect(merged.downloadUrl, 'https://pan.baidu.com/x');
+    });
+
+    test('sourceUrl 覆盖参数生效', () {
+      final game = Game(path: r'C:\Games\A', sourceUrl: 'https://old.com');
+      final info = GameInfo(sourceUrl: 'https://example.com/1');
+      final merged = ScrapeApplyService.mergeGameInfo(game, info,
+          sourceUrl: 'https://new.com');
+      expect(merged.sourceUrl, 'https://new.com');
+    });
+  });
+
+  group('buildMetadataJson', () {
+    test('基础字段与覆盖字段', () {
+      final info = GameInfo(
+        title: '标题',
+        description: '原简介',
+        descriptionHtml: '<p>原</p>',
+        sourceUrl: 'https://example.com/1',
+      );
+      final json = ScrapeApplyService.buildMetadataJson(info,
+          intro: '重写简介', introHtml: '<p>重写</p>');
+      expect(json['title'], '标题');
+      expect(json['intro'], '重写简介');
+      expect(json['intro_html'], '<p>重写</p>');
+      expect(json['source_url'], 'https://example.com/1');
+    });
+
+    test('不传覆盖时保留 gameInfo 原值', () {
+      final info = GameInfo(title: '标题', description: '原简介',
+          sourceUrl: 'https://example.com/1');
+      final json = ScrapeApplyService.buildMetadataJson(info);
+      expect(json['intro'], '原简介');
+      expect(json.containsKey('intro_html'), isFalse);
     });
   });
 }
