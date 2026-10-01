@@ -5018,132 +5018,33 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
       final repo = ref.read(gameRepositoryProvider);
       final tagRepo = ref.read(tagRepositoryProvider);
-      final displayTitle = gameInfo.title != null
-          ? _stripVersionFromTitle(gameInfo.title!, gameInfo.version)
-          : null;
-      var updatedGame = _currentGame.copyWith(
-        title: displayTitle ?? _currentGame.title,
-        version: gameInfo.version ?? _currentGame.version,
-        intro: gameInfo.description ?? _currentGame.intro,
-        features: gameInfo.features.isNotEmpty
-            ? gameInfo.features.join('\n')
-            : _currentGame.features,
-        changelog: gameInfo.changelog ?? _currentGame.changelog,
-        downloadUrl: gameInfo.downloadUrl.isNotEmpty
-            ? gameInfo.downloadUrl
-            : _currentGame.downloadUrl,
+      final updated = await ScrapeApplyService.applyScrapeResult(
+        game: _currentGame,
+        gameInfo: gameInfo,
+        mode: ScrapeMode.quickScrape,
+        repo: repo,
+        tagRepo: tagRepo,
+        configs: ref.read(scrapeModeConfigsProvider),
         sourceUrl: url,
-        maker: gameInfo.maker ?? _currentGame.maker,
-        makerUrl: gameInfo.makerUrl ?? _currentGame.makerUrl,
+        onProgress: (current, total) {
+          if (mounted) {
+            setState(() {
+              _downloadCurrent = current;
+              _downloadTotal = total;
+              _downloadProgress = total > 0 ? current / total : 0.0;
+            });
+          }
+        },
       );
-
-      try {
-        final metadataFile = GameDataPaths.metadataFile(_currentGame.path);
-        await GameDataPaths.ensureDataDir(_currentGame.path);
-        await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()),
-            flush: true);
-      } catch (e) {
-        debugPrint('[QuickScrape] Failed to write metadata.json: $e');
-      }
-      try {
-        final sourceUrlFile = GameDataPaths.sourceUrlFile(_currentGame.path);
-        await GameDataPaths.ensureDataDir(_currentGame.path);
-        await sourceUrlFile.writeAsString(url, flush: true);
-      } catch (e) {
-        debugPrint('[QuickScrape] Failed to write source_url.txt: $e');
-      }
-
-      await repo.updateGame(updatedGame);
-
-      if (_currentGame.id != null) {
-        await ScrapeApplyService.syncTags(
-            repo, tagRepo, _currentGame.id!, gameInfo);
-
-        if (gameInfo.screenshots.isNotEmpty) {
-          if (!mounted) return;
-          setState(() {
-            _downloadTotal = gameInfo!.screenshots.length;
-            _downloadCurrent = 0;
-            _downloadProgress = 0.0;
-          });
-          await repo.deleteGameImagesByGameId(_currentGame.id!);
-          final urlToLocal = await _downloadImagesWithMapping(
-            updatedGame.copyWith(id: _currentGame.id!),
-            gameInfo.screenshots,
-            onProgress: (current, total) {
-              if (mounted) {
-                setState(() {
-                  _downloadCurrent = current;
-                  _downloadTotal = total;
-                  _downloadProgress = current / total;
-                });
-              }
-            },
-          );
-          if (!mounted) return;
-          setState(() {
-            _downloadTotal = 0;
-            _downloadCurrent = 0;
-            _downloadProgress = 0.0;
-          });
-          if (urlToLocal.isNotEmpty) {
-            var desc = gameInfo.description;
-            if (desc != null) {
-              desc = ScrapedImageReferenceRewriter.replacePlainTextImages(
-                  desc, urlToLocal);
-              await repo.updateGame(updatedGame.copyWith(intro: desc));
-            }
-            final metaJson = gameInfo.toJson();
-            if (desc != null) metaJson['intro'] = desc;
-            if (gameInfo.descriptionHtml != null) {
-              final html = ScrapedImageReferenceRewriter.replaceHtmlImages(
-                  gameInfo.descriptionHtml!, urlToLocal);
-              metaJson['intro_html'] = html;
-            }
-            try {
-              final metadataFile =
-                  GameDataPaths.metadataFile(_currentGame.path);
-              await GameDataPaths.ensureDataDir(_currentGame.path);
-              await metadataFile.writeAsString(jsonEncode(metaJson),
-                  flush: true);
-            } catch (e) {
-              debugPrint('[GameDetail] 写入metadata.json失败: $e');
-            }
-          }
-        }
-
-        await ScrapeApplyService.fixImageUrlsInMetadata(updatedGame, repo);
-
-        try {
-          final configs = ref.read(scrapeModeConfigsProvider);
-          if (configs.shouldRename(ScrapeMode.quickScrape)) {
-            final gameForRename = await repo.getGameById(_currentGame.id!);
-            if (gameForRename != null) {
-              final renameService = FolderRenameService(gameRepository: repo);
-              final newPath =
-                  await renameService.renameGameFolder(gameForRename);
-              if (newPath != null) {
-                debugPrint('[QuickScrape] Folder renamed: $newPath');
-                final refreshed = await repo.getGameById(_currentGame.id!);
-                if (refreshed != null) updatedGame = refreshed;
-              }
-            }
-          }
-        } catch (e) {
-          debugPrint('[QuickScrape] Auto-rename failed: $e');
-        }
-
-        final configsMove = ref.read(scrapeModeConfigsProvider);
-        if (configsMove.shouldMove(ScrapeMode.quickScrape)) {
-          await _moveToSorted(updatedGame);
-        }
-      }
 
       final freshGame = await repo.getGameById(_currentGame.id!);
       if (freshGame != null && mounted) {
         await _loadMetadataHtml();
         await _preloadMediaFiles();
         setState(() {
+          _downloadTotal = 0;
+          _downloadCurrent = 0;
+          _downloadProgress = 0.0;
           _currentGame = freshGame;
           _imageVersion++;
           _titleController.text = freshGame.title ?? '';
@@ -5158,7 +5059,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         Navigator.of(context).pop();
         _refreshAllProviders();
         AppTheme.showGlassToast(context,
-            message: '刮削成功: ${gameInfo.title ?? "未知标题"}');
+            message: '刮削成功: ${updated.title ?? "未知标题"}');
       }
     } catch (e) {
       if (mounted) {
