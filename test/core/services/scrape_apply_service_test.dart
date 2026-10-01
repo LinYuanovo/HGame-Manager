@@ -120,4 +120,24 @@ void main() {
       expect(json.containsKey('intro_html'), isFalse);
     });
   });
+
+  group('buildNumberedUrlMapping', () {
+    test('按编号匹配本地图片并生成协议变体', () {
+      final mapping = ScrapeApplyService.buildNumberedUrlMapping(
+        ['https://img.com/a.jpg', 'https://img.com/b.png'],
+        [r'C:\G\A\images\1.jpg', r'C:\G\A\images\2.png'],
+      );
+      expect(mapping['https://img.com/a.jpg'], r'C:\G\A\images\1.jpg');
+      expect(mapping['//img.com/a.jpg'], r'C:\G\A\images\1.jpg');
+      expect(mapping['https://img.com/b.png'], r'C:\G\A\images\2.png');
+    });
+
+    test('编号不匹配时返回空', () {
+      final mapping = ScrapeApplyService.buildNumberedUrlMapping(
+        ['https://img.com/a.jpg'],
+        [r'C:\G\A\images\9.jpg'],
+      );
+      expect(mapping, isEmpty);
+    });
+  });
 }

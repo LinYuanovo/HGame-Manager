@@ -78,6 +78,29 @@ class ScrapeApplyService {
     return json;
   }
 
+  static Map<String, String> buildNumberedUrlMapping(
+      List<String> imageUrls, List<String> localImages) {
+    final urlToLocal = <String, String>{};
+    for (int i = 0; i < imageUrls.length; i++) {
+      final remoteUrl = imageUrls[i];
+      for (final localPath in localImages) {
+        final fileName = localPath.split(Platform.pathSeparator).last;
+        final baseName = fileName.split('.').first;
+        if (baseName == '${i + 1}') {
+          urlToLocal[remoteUrl] = localPath;
+          if (remoteUrl.startsWith('https:')) {
+            urlToLocal[remoteUrl.replaceFirst('https:', '')] = localPath;
+          }
+          if (remoteUrl.startsWith('http:')) {
+            urlToLocal[remoteUrl.replaceFirst('http:', '')] = localPath;
+          }
+          break;
+        }
+      }
+    }
+    return urlToLocal;
+  }
+
   static Future<void> syncTags(
     GameRepository repo,
     TagRepository tagRepo,
@@ -139,24 +162,7 @@ class ScrapeApplyService {
           (metaJson['image_urls'] as List<dynamic>?)?.cast<String>() ?? [];
       if (imageUrls.isEmpty) return;
 
-      final urlToLocal = <String, String>{};
-      for (int i = 0; i < imageUrls.length; i++) {
-        final remoteUrl = imageUrls[i];
-        for (final localPath in localImages) {
-          final fileName = localPath.split(Platform.pathSeparator).last;
-          final baseName = fileName.split('.').first;
-          if (baseName == '${i + 1}') {
-            urlToLocal[remoteUrl] = localPath;
-            if (remoteUrl.startsWith('https:')) {
-              urlToLocal[remoteUrl.replaceFirst('https:', '')] = localPath;
-            }
-            if (remoteUrl.startsWith('http:')) {
-              urlToLocal[remoteUrl.replaceFirst('http:', '')] = localPath;
-            }
-            break;
-          }
-        }
-      }
+      final urlToLocal = buildNumberedUrlMapping(imageUrls, localImages);
 
       if (urlToLocal.isEmpty) return;
 
