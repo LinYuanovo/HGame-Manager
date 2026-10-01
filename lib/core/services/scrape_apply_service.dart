@@ -2,13 +2,17 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:path/path.dart' as path;
 
 import '../../scraper/parse_utils.dart';
 import '../models/models.dart';
 import '../repositories/game_repository.dart';
 import '../repositories/tag_repository.dart';
 import '../utils/game_data_paths.dart';
+import '../utils/proxy_client.dart';
+import '../utils/scraped_image_file_cleaner.dart';
 import '../utils/scraped_image_reference_rewriter.dart';
+import 'concurrent_image_downloader.dart';
 
 class ScrapeApplyService {
   static final _versionPattern = RegExp(
@@ -97,6 +101,127 @@ class ScrapeApplyService {
           break;
         }
       }
+    }
+    return urlToLocal;
+  }
+
+  static Future<Map<String, String>> downloadAndApplyImages({
+    required Game game,
+    required GameRepository repo,
+    required List<String> imageUrls,
+    required String sourceUrl,
+    int maxConcurrency = 1,
+    void Function(int current, int total)? onProgress,
+    void Function(String message)? onLog,
+  }) async {
+    if (imageUrls.isEmpty || game.id == null) return {};
+
+    onLog?.call('下载 ${imageUrls.length} 张配图...');
+    final imagesDir = await GameDataPaths.ensureImagesDir(game.path);
+    final oldImagePaths = <int, String>{};
+    if (await imagesDir.exists()) {
+      await for (final entity in imagesDir.list()) {
+        if (entity is File &&
+            !path.basenameWithoutExtension(entity.path).endsWith('.tmp')) {
+          final index =
+              int.tryParse(path.basenameWithoutExtension(entity.path));
+          if (index != null) oldImagePaths[index] = entity.path;
+        }
+      }
+    }
+
+    final headers = await buildScrapeImageHeaders(sourceUrl);
+    final urlToTmp = await ConcurrentImageDownloader.downloadAll(
+      imageUrls: imageUrls,
+      saveDir: game.path,
+      headers: headers,
+      maxConcurrency: maxConcurrency,
+      useTempFiles: true,
+      onProgress: onProgress,
+    );
+
+    final urlToLocal = <String, String>{};
+    final finalImages = <GameImage>[];
+    for (int i = 0; i < imageUrls.length; i++) {
+      final url = imageUrls[i];
+      final tmpPath = urlToTmp[url];
+      if (tmpPath != null && await File(tmpPath).exists()) {
+        final ext = path.extension(tmpPath).replaceAll('.tmp', '');
+        final finalPath = path.join(imagesDir.path, '${i + 1}$ext');
+        if (finalPath != tmpPath) {
+          final oldFile = File(finalPath);
+          if (await oldFile.exists()) await oldFile.delete();
+          await File(tmpPath).rename(finalPath);
+        }
+        urlToLocal[url] = finalPath;
+        finalImages.add(GameImage(
+            gameId: game.id!, imagePath: finalPath, sortOrder: i));
+      } else {
+        final oldPath = oldImagePaths[i + 1];
+        if (oldPath != null) {
+          finalImages.add(GameImage(
+              gameId: game.id!, imagePath: oldPath, sortOrder: i));
+        }
+      }
+    }
+
+    // useTempFiles 的临时文件命名为 `1.tmp.jpg`，需按 basename 判断后缀
+    if (await imagesDir.exists()) {
+      await for (final entity in imagesDir.list()) {
+        if (entity is File &&
+            path.basenameWithoutExtension(entity.path).endsWith('.tmp')) {
+          await entity.delete();
+        }
+      }
+    }
+
+    final deletedCount =
+        await ScrapedImageFileCleaner.cleanUnusedNumberedImages(
+      gamePath: game.path,
+      retainedImagePaths: finalImages.map((image) => image.imagePath),
+      referenceTexts: [
+        game.intro,
+        game.features,
+        game.changelog,
+        game.guide,
+      ],
+    );
+    if (deletedCount > 0) {
+      onLog?.call('清理旧配图: $deletedCount 张');
+    }
+
+    await repo.setGameImages(game.id!, finalImages);
+    onLog?.call('配图处理完成: ${finalImages.length}/${imageUrls.length}');
+
+    if (urlToLocal.isNotEmpty) {
+      var current = await repo.getGameById(game.id!);
+      if (current != null) {
+        var intro = current.intro;
+        if (intro != null) {
+          intro = ScrapedImageReferenceRewriter.replacePlainTextImages(
+              intro, urlToLocal);
+        }
+        await repo.updateGame(current.copyWith(intro: intro));
+
+        final metadataFile = GameDataPaths.metadataFile(current.path);
+        if (await metadataFile.exists()) {
+          final metaJson =
+              jsonDecode(await metadataFile.readAsString())
+                  as Map<String, dynamic>;
+          if (intro != null) metaJson['intro'] = intro;
+          if (metaJson['intro_html'] is String) {
+            metaJson['intro_html'] =
+                ScrapedImageReferenceRewriter.replaceHtmlImages(
+                    metaJson['intro_html'] as String, urlToLocal);
+          }
+          await metadataFile.writeAsString(jsonEncode(metaJson), flush: true);
+        }
+      }
+    }
+
+    final reloaded = await repo.getGameById(game.id!);
+    if (reloaded != null) {
+      await fixImageUrlsInMetadata(reloaded, repo);
     }
     return urlToLocal;
   }
