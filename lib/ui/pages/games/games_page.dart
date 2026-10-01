@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 import '../../../core/models/models.dart';
-import '../../../core/models/scrape_mode_config.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../../core/utils/game_data_paths.dart';

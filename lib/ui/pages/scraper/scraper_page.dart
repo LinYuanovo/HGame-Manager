@@ -7,17 +7,12 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
-import '../../../core/services/folder_rename_service.dart';
-import '../../../core/utils/app_settings.dart';
 import '../../../core/utils/cloudflare_challenge.dart';
 import '../../../core/utils/dynamic_page_detector.dart';
 import '../../../core/utils/game_data_paths.dart';
 import '../../../core/utils/proxy_client.dart';
-import '../../../core/utils/scraped_image_reference_rewriter.dart';
-import '../../../core/utils/scraped_image_file_cleaner.dart';
 import '../../../scraper/html_parser.dart';
 import '../../../scraper/parse_utils.dart';
-import '../../../core/services/concurrent_image_downloader.dart';
 import '../../../core/services/scrape_apply_service.dart';
 import '../../../core/services/vikacg_service.dart';
 import '../../theme/app_theme.dart';
@@ -482,7 +477,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _stripVersionFromTitle(
+                  ScrapeApplyService.stripVersionFromTitle(
                       item.game.title ?? path.basename(item.game.path),
                       item.game.version),
                   style: TextStyle(
@@ -991,97 +986,26 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           }
         }
         if (gameInfo != null) {
-          final displayTitle = gameInfo.title != null
-              ? _stripVersionFromTitle(gameInfo.title!, gameInfo.version)
-              : null;
-          var updated = game.copyWith(
-            title: displayTitle ?? game.title,
-            version: gameInfo.version ?? game.version,
-            intro: gameInfo.description ?? game.intro,
-            features: gameInfo.features.isNotEmpty
-                ? gameInfo.features.join('\n')
-                : game.features,
-            changelog: gameInfo.changelog ?? game.changelog,
-            downloadUrl: gameInfo.downloadUrl.isNotEmpty
-                ? gameInfo.downloadUrl
-                : game.downloadUrl,
-            maker: gameInfo.maker,
-            makerUrl: gameInfo.makerUrl,
-          );
-
-          final metadataFile = GameDataPaths.metadataFile(game.path);
-          await GameDataPaths.ensureDataDir(game.path);
-          await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()),
-              flush: true);
-
-          int gameId;
-          if (game.id != null) {
-            await gameRepo.updateGame(updated);
-            gameId = game.id!;
-          } else {
-            gameId = await gameRepo.insertGame(updated);
-            item.game = updated.copyWith(id: gameId);
-          }
-
-          await ScrapeApplyService.syncTags(gameRepo, tagRepo, gameId, gameInfo);
-
-          _addLog('  -> 成功: ${displayTitle ?? "无标题"}');
-
-          Map<String, String> urlToLocal = {};
-          if (gameInfo.screenshots.isNotEmpty) {
-            _addLog('  -> 下载 ${gameInfo.screenshots.length} 张配图...');
-            final imgHeaders = await buildScrapeImageHeaders(game.sourceUrl!);
-            urlToLocal = await _downloadImages(updated.copyWith(id: gameId),
-                gameInfo.screenshots, game.sourceUrl!,
-                headers: imgHeaders);
-          }
-
-          if (urlToLocal.isNotEmpty) {
-            var metaJson = gameInfo.toJson();
-            if (gameInfo.description != null) {
-              final desc = ScrapedImageReferenceRewriter.replacePlainTextImages(
-                  gameInfo.description!, urlToLocal);
-              updated = updated.copyWith(intro: desc);
-              metaJson['intro'] = desc;
-            }
-            if (gameInfo.descriptionHtml != null) {
-              final html = ScrapedImageReferenceRewriter.replaceHtmlImages(
-                  gameInfo.descriptionHtml!, urlToLocal);
-              metaJson['intro_html'] = html;
-            }
-            await metadataFile.writeAsString(jsonEncode(metaJson), flush: true);
-            if (game.id != null) {
-              await gameRepo.updateGame(updated);
-            }
-          }
-
-          await ScrapeApplyService.fixImageUrlsInMetadata(
-              updated.copyWith(id: gameId), gameRepo);
-
-          final reloadedGame = await gameRepo.getGameById(gameId);
-          if (reloadedGame != null) {
-            item.game = reloadedGame;
-          }
-
-          try {
-            final configs = ref.read(scrapeModeConfigsProvider);
-            if (configs.shouldRename(ScrapeMode.scraperCenter) &&
-                item.game.id != null) {
-              final renameService =
-                  FolderRenameService(gameRepository: gameRepo);
-              final newPath = await renameService.renameGameFolder(item.game);
-              if (newPath != null) {
-                _addLog('  -> 文件夹已重命名: ${path.basename(newPath)}');
-                final renamedGame = await gameRepo.getGameById(item.game.id!);
-                if (renamedGame != null) {
-                  item.game = renamedGame;
-                }
+          final updated = await ScrapeApplyService.applyScrapeResult(
+            game: game,
+            gameInfo: gameInfo,
+            mode: ScrapeMode.scraperCenter,
+            repo: gameRepo,
+            tagRepo: tagRepo,
+            configs: ref.read(scrapeModeConfigsProvider),
+            sourceUrl: sourceUrl,
+            maxConcurrency: _threadCount,
+            onProgress: (current, total) {
+              if (mounted && total > 0) {
+                setState(() {
+                  item.progress = 0.5 + 0.4 * (current / total);
+                });
               }
-            }
-          } catch (e) {
-            _addLog('  -> 重命名失败: $e');
-          }
-
+            },
+            onLog: (message) => _addLog('  -> $message'),
+          );
+          item.game = updated;
+          _addLog('  -> 成功: ${updated.title ?? "无标题"}');
           if (mounted) {
             setState(() {
               item.progress = 1.0;
@@ -1089,11 +1013,6 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               _stats.success++;
               _stats.pending--;
             });
-          }
-
-          final configs = ref.read(scrapeModeConfigsProvider);
-          if (configs.shouldMove(ScrapeMode.scraperCenter)) {
-            await _moveToSorted(item.game);
           }
         } else {
           _addLog('  -> 无匹配的解析器 (HTML已获取但无法解析)');
@@ -1128,230 +1047,6 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           _stats.pending--;
         });
       }
-    }
-  }
-
-  Future<Map<String, String>> _downloadImages(
-      Game game, List<String> imageUrls, String sourceUrl,
-      {Map<String, String>? headers}) async {
-    final gameRepo = ref.read(gameRepositoryProvider);
-    final imagesDir = await GameDataPaths.ensureImagesDir(game.path);
-
-    // 1. 记录旧图片信息（按排序索引）
-    final oldImagePaths = <int, String>{};
-    if (await imagesDir.exists()) {
-      await for (final entity in imagesDir.list()) {
-        if (entity is File && !entity.path.endsWith('.tmp')) {
-          final name = path.basenameWithoutExtension(entity.path);
-          final index = int.tryParse(name);
-          if (index != null) {
-            oldImagePaths[index] = entity.path;
-          }
-        }
-      }
-    }
-
-    // 2. 下载新图片到临时文件
-    final urlToLocal = await ConcurrentImageDownloader.downloadAll(
-      imageUrls: imageUrls,
-      saveDir: game.path,
-      headers: headers,
-      maxConcurrency: _threadCount,
-      useTempFiles: true,
-    );
-
-    // 3. 逐个处理：成功的重命名覆盖，失败的保留旧路径
-    final finalImages = <GameImage>[];
-    for (int i = 0; i < imageUrls.length; i++) {
-      final url = imageUrls[i];
-      final tmpPath = urlToLocal[url];
-
-      if (tmpPath != null && await File(tmpPath).exists()) {
-        // 下载成功：生成正式路径
-        final ext = path.extension(tmpPath).replaceAll('.tmp', '');
-        final finalPath = path.join(imagesDir.path, '${i + 1}$ext');
-
-        // 删除旧文件（如果存在且路径不同）
-        if (finalPath != tmpPath) {
-          final oldFile = File(finalPath);
-          if (await oldFile.exists()) {
-            await oldFile.delete();
-          }
-          await File(tmpPath).rename(finalPath);
-        }
-        urlToLocal[url] = finalPath;
-
-        finalImages.add(
-            GameImage(gameId: game.id!, imagePath: finalPath, sortOrder: i));
-      } else {
-        // 下载失败：保留旧图片
-        final oldPath = oldImagePaths[i + 1];
-        if (oldPath != null) {
-          finalImages.add(
-              GameImage(gameId: game.id!, imagePath: oldPath, sortOrder: i));
-        }
-      }
-    }
-
-    // 4. 清理残留临时文件
-    if (await imagesDir.exists()) {
-      await for (final entity in imagesDir.list()) {
-        if (entity is File && entity.path.endsWith('.tmp')) {
-          await entity.delete();
-        }
-      }
-    }
-
-    final deletedCount =
-        await ScrapedImageFileCleaner.cleanUnusedNumberedImages(
-      gamePath: game.path,
-      retainedImagePaths: finalImages.map((image) => image.imagePath),
-      referenceTexts: [
-        game.intro,
-        game.features,
-        game.changelog,
-        game.guide,
-      ],
-    );
-    if (deletedCount > 0) {
-      _addLog('  -> 清理旧配图: $deletedCount 张');
-    }
-
-    // 5. 使用事务更新数据库
-    await gameRepo.setGameImages(game.id!, finalImages);
-
-    _addLog('  -> 配图处理完成: ${finalImages.length}/${imageUrls.length}');
-    return urlToLocal;
-  }
-
-  static const _categoryOrder = [
-    'RPG',
-    'ADV',
-    'ACT',
-    'SLG',
-    'AVG',
-    'FPS',
-    'TPS',
-    '3D'
-  ];
-
-  String _resolveCategory(List<Tag> tags) {
-    final allNames = tags.map((t) => t.name.toUpperCase()).toList();
-    for (final cat in _categoryOrder) {
-      if (allNames.any((name) => name.contains(cat))) {
-        return cat;
-      }
-    }
-    return 'Unclassified';
-  }
-
-  Future<void> _moveToSorted(Game game) async {
-    final sortedPath = await AppSettings.getSortedPathForGame(game.path);
-    if (sortedPath.isEmpty) return;
-
-    final sourceDir = Directory(game.path);
-    if (!await sourceDir.exists()) return;
-
-    final gameRepo = ref.read(gameRepositoryProvider);
-    final tags = await gameRepo.getGameTags(game.id!);
-    final categoryName = _resolveCategory(tags);
-
-    final folderName = path.basename(game.path);
-    final targetDir =
-        Directory(path.join(sortedPath, categoryName, folderName));
-    if (!await Directory(path.join(sortedPath, categoryName)).exists()) {
-      await Directory(path.join(sortedPath, categoryName))
-          .create(recursive: true);
-    }
-
-    try {
-      if (await targetDir.exists()) {
-        _addLog('  -> 目标目录已存在，跳过移动');
-        return;
-      }
-
-      // Check if target path already exists in database
-      final existingGame = await gameRepo.getGameByPath(targetDir.path);
-      if (existingGame != null) {
-        await gameRepo.deleteGame(existingGame.id!);
-        _addLog('  -> 已删除目标路径的旧记录');
-      }
-
-      await sourceDir.rename(targetDir.path);
-      await gameRepo.updateGamePath(game.id!, targetDir.path);
-
-      // Update image paths in database after moving the directory
-      final images = await gameRepo.getGameImages(game.id!);
-      if (images.isNotEmpty) {
-        final updatedImages = images
-            .map((img) => GameImage(
-                  id: img.id,
-                  gameId: img.gameId,
-                  imagePath:
-                      img.imagePath.replaceFirst(game.path, targetDir.path),
-                  sortOrder: img.sortOrder,
-                ))
-            .toList();
-        await gameRepo.setGameImages(game.id!, updatedImages);
-      }
-
-      // Update intro text paths
-      final currentGame = await gameRepo.getGameById(game.id!);
-      if (currentGame != null && currentGame.intro != null) {
-        var updatedIntro = currentGame.intro!;
-        if (updatedIntro.contains(game.path)) {
-          updatedIntro = updatedIntro.replaceAll(game.path, targetDir.path);
-          await gameRepo.updateGame(currentGame.copyWith(intro: updatedIntro));
-        }
-      }
-
-      // Update metadata.json paths
-      try {
-        final metadataFile =
-            await GameDataPaths.existingMetadataFile(targetDir.path);
-        if (await metadataFile.exists()) {
-          final content = await metadataFile.readAsString();
-          if (content.contains(game.path)) {
-            final updatedContent =
-                content.replaceAll(game.path, targetDir.path);
-            await metadataFile.writeAsString(updatedContent, flush: true);
-          }
-        }
-      } catch (e) {
-        _addLog('  -> 更新metadata路径失败: $e');
-      }
-
-      await ref
-          .read(gameDataMigrationServiceProvider)
-          .rewriteGamePathReferences(
-            gameId: game.id!,
-            oldPath: game.path,
-            newPath: targetDir.path,
-          );
-
-      // Update gameLauncher and savePath
-      final updatedGame = await gameRepo.getGameById(game.id!);
-      if (updatedGame != null) {
-        if (updatedGame.gameLauncher != null &&
-            updatedGame.gameLauncher!.startsWith(game.path)) {
-          final relative =
-              updatedGame.gameLauncher!.substring(game.path.length);
-          final newLauncher = '${targetDir.path}$relative';
-          await gameRepo.updateGameLauncher(
-              game.id!, newLauncher, updatedGame.launcherLocked);
-        }
-        if (updatedGame.savePath != null &&
-            updatedGame.savePath!.startsWith(game.path)) {
-          final relative = updatedGame.savePath!.substring(game.path.length);
-          final newSavePath = '${targetDir.path}$relative';
-          await gameRepo
-              .updateGame(updatedGame.copyWith(savePath: newSavePath));
-        }
-      }
-
-      _addLog('  -> 已移动到: ${targetDir.path}');
-    } catch (e) {
-      _addLog('  -> 移动失败: $e');
     }
   }
 
@@ -1433,23 +1128,6 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         debugPrint('[Scraper] 写入source_url.txt失败: $e');
       }
     }
-  }
-
-  static final _versionPattern = RegExp(
-      r'\s+(?:build|v(?:er(?:sion)?)?)\s*\.?\d+(?:[\d.]*\d+)?\s*',
-      caseSensitive: false);
-
-  String _stripVersionFromTitle(String title, [String? version]) {
-    var result = title;
-    if (version != null && version.isNotEmpty) {
-      final escaped = RegExp.escape(version);
-      final precisePattern = RegExp(
-          r'\s+(?:build|v(?:er(?:sion)?)?)?\s*' + escaped + r'\s*',
-          caseSensitive: false);
-      result = result.replaceAll(precisePattern, ' ');
-    }
-    result = result.replaceAll(_versionPattern, ' ');
-    return result.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
   }
 
   void _addLog(String message) {
