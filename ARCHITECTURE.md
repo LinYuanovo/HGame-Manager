@@ -318,6 +318,11 @@ enum NavRoute {
 - RAR 解压（调用系统 WinRAR）并重打包为 ZIP
 - 临时文件自动清理
 
+### ScrapeApplyService
+- 刮削结果应用唯一共享层（快速/重新/刮削中心/单个/批量添加共用）
+- 纯函数：stripVersionFromTitle、resolveCategoryName、mergeGameInfo、buildMetadataJson、buildNumberedUrlMapping
+- 流程：syncTags 标签同步、downloadAndApplyImages 图片下载与引用重写、fixImageUrlsInMetadata 元数据修复、moveGameToSorted/organizeFolder 目录整理、applyScrapeResult 总编排
+
 ### WebdavService (扩展)
 - 游戏级 WebDAV 备份文件夹管理
 - 模糊匹配云端游戏文件夹（双向近似匹配+置信度）

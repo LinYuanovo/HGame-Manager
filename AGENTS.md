@@ -99,15 +99,11 @@ AppTheme.warningOrange  // 橙色
 - **批量添加**：`games_page.dart` `_BatchImportDialog`（Steam/DLsite 搜索导入）
 
 ## URL 刮削三入口（快速/重新/刮削中心）共享处理管线
-1. `scraper.ensureLoaded()` 加载自定义 XPath 解析器
-2. 维咔 API 优先（`VikAcgService.supportsUrl` / `fetchByUrl`），不可用时回退 HTML 解析
-3. HTTP 抓取统一走 `httpGetWithRetry`（带重试）；Cloudflare 挑战回退内置浏览器
-4. XpathParser 无标题或客户端渲染页面时，内置浏览器二次渲染
-5. 写入 metadata.json 与 source_url.txt
-6. 标签同步统一调用 `ScrapeApplyService.syncTags`（清旧标签 → maker 标签 → tags → 系列标签 → 重叠标签智能关联），**禁止**各入口私写标签循环
-7. 图片下载（`buildScrapeImageHeaders`）→ `ScrapedImageReferenceRewriter` 重写 intro/intro_html 引用 → `ScrapeApplyService.fixImageUrlsInMetadata` 修复 → `ScrapedImageFileCleaner` 清理旧编号图
-8. 标题入库前经 `_stripVersionFromTitle` 去除版本号
-9. 文件夹重命名/移动整理目录按 `ScrapeModeConfigs` 各模式独立配置（此项允许按模式差异）
+- 获取 html/GameInfo 由各入口自行负责（维咔 API 优先 → `httpGetWithRetry` → Cloudflare 挑战回退内置浏览器 → XpathParser 客户端渲染二次渲染）
+- 拿到 GameInfo 后**必须**单次调用 `ScrapeApplyService.applyScrapeResult(...)` 完成：字段合并（含标题去版本）→ 写 metadata.json 与 source_url.txt → `syncTags` → `downloadAndApplyImages`（下载/重写/修复/清理）→ `organizeFolder`（按 `ScrapeModeConfigs` 重命名/移动）
+- **禁止**在入口内私写字段合并、标签循环、图片下载重写、目录移动代码；单个/批量添加的整理也必须走 `organizeFolder`
+- 新增刮削处理时：先扩展 `ScrapeApplyService`（或 `lib/scraper/`），再在同一次改动中让所有适用入口经由共享层生效
+- 提交前对照本清单自检五种入口行为一致性
 
 ## 开发规则
 - 新增或修改任何刮削处理（字段映射、标签、图片、兜底、重试等）时，先落到共享层（`ScrapeApplyService` 或 `lib/scraper/`），再在同一次改动中对齐所有适用入口；**禁止**只改单个入口造成"有的地方有、有的地方没有"
