@@ -11,7 +11,7 @@ import '../../../core/models/scrape_mode_config.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../../core/utils/game_data_paths.dart';
-import '../../../core/services/folder_rename_service.dart';
+import '../../../core/services/scrape_apply_service.dart';
 import '../../../core/repositories/game_repository.dart';
 import '../../../core/repositories/tag_repository.dart';
 import '../../../core/services/dlsite_service.dart';
@@ -443,94 +443,27 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     if (item.status != '导入完成') return;
     final initialGame = await repo.getGameByPath(item.folder.path);
     if (initialGame == null) return;
-    var game = initialGame;
 
     final settings = await AppSettings.load();
     final jsonStr = settings.getString(AppSettings.scrapeModeConfigsKey);
-    if (jsonStr == null || jsonStr.isEmpty) return;
 
+    // 配置缺失或解析失败时回退默认配置，整理开关由共享层自行判断
     ScrapeModeConfigs configs;
-    try {
-      final map = jsonDecode(jsonStr) as Map<String, dynamic>;
-      configs = ScrapeModeConfigs.fromMap(map);
-    } catch (_) {
-      return;
-    }
-
-    if (configs.shouldRename(ScrapeMode.batchAdd) && game.id != null) {
+    if (jsonStr == null || jsonStr.isEmpty) {
+      configs = ScrapeModeConfigs.defaults();
+    } else {
       try {
-        final renameService = FolderRenameService(gameRepository: repo);
-        final newPath = await renameService.renameGameFolder(game);
-        if (newPath != null) {
-          debugPrint('[BatchImport] Folder renamed: $newPath');
-          final refreshed = await repo.getGameById(game.id!);
-          if (refreshed != null) game = refreshed;
-        }
-      } catch (e) {
-        debugPrint('[BatchImport] Auto-rename failed: $e');
+        final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+        configs = ScrapeModeConfigs.fromMap(map);
+      } catch (_) {
+        configs = ScrapeModeConfigs.defaults();
       }
     }
 
-    if (configs.shouldMove(ScrapeMode.batchAdd) && game.id != null) {
-      try {
-        final sortedPath = await AppSettings.getSortedPathForGame(game.path);
-        if (sortedPath.isNotEmpty) {
-          final sourceDir = Directory(game.path);
-          if (await sourceDir.exists()) {
-            final tags = await repo.getGameTags(game.id!);
-            const categoryOrder = [
-              'RPG',
-              'ADV',
-              'ACT',
-              'SLG',
-              'AVG',
-              'FPS',
-              'TPS',
-              '3D'
-            ];
-            String categoryName = 'Unclassified';
-            final allNames = tags.map((t) => t.name.toUpperCase()).toList();
-            for (final cat in categoryOrder) {
-              if (allNames.any((name) => name.contains(cat))) {
-                categoryName = cat;
-                break;
-              }
-            }
-            final folderName = path.basename(game.path);
-            final targetDir =
-                Directory(path.join(sortedPath, categoryName, folderName));
-            if (!await targetDir.exists()) {
-              final catDir = Directory(path.join(sortedPath, categoryName));
-              if (!await catDir.exists()) await catDir.create(recursive: true);
-              await sourceDir.rename(targetDir.path);
-              await repo.updateGamePath(game.id!, targetDir.path);
-              final images = await repo.getGameImages(game.id!);
-              if (images.isNotEmpty) {
-                final updatedImages = images
-                    .map((img) => GameImage(
-                          id: img.id,
-                          gameId: img.gameId,
-                          imagePath: img.imagePath
-                              .replaceFirst(game.path, targetDir.path),
-                          sortOrder: img.sortOrder,
-                        ))
-                    .toList();
-                await repo.setGameImages(game.id!, updatedImages);
-              }
-              await GameDataMigrationService(gameRepository: repo)
-                  .rewriteGamePathReferences(
-                gameId: game.id!,
-                oldPath: game.path,
-                newPath: targetDir.path,
-              );
-              debugPrint('[BatchImport] Folder moved: ${targetDir.path}');
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint('[BatchImport] Auto-move failed: $e');
-      }
-    }
+    // 重命名/移动整理逻辑统一走共享层，保持各入口行为一致
+    final organized = await ScrapeApplyService.organizeFolder(
+        initialGame, ScrapeMode.batchAdd, repo, configs);
+    debugPrint('[BatchImport] 整理完成: ${organized.path}');
   }
 
   Future<void> _importNone(GameRepository repo, _BatchGameItem item) async {
@@ -1513,90 +1446,24 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     if (game.id == null) return;
     final settings = await AppSettings.load();
     final jsonStr = settings.getString(AppSettings.scrapeModeConfigsKey);
-    if (jsonStr == null || jsonStr.isEmpty) return;
 
+    // 配置缺失或解析失败时回退默认配置，整理开关由共享层自行判断
     ScrapeModeConfigs configs;
-    try {
-      final map = jsonDecode(jsonStr) as Map<String, dynamic>;
-      configs = ScrapeModeConfigs.fromMap(map);
-    } catch (_) {
-      return;
-    }
-
-    if (configs.shouldRename(ScrapeMode.singleAdd)) {
+    if (jsonStr == null || jsonStr.isEmpty) {
+      configs = ScrapeModeConfigs.defaults();
+    } else {
       try {
-        final renameService = FolderRenameService(gameRepository: repo);
-        final newPath = await renameService.renameGameFolder(game);
-        if (newPath != null) {
-          debugPrint('[SingleImport] Folder renamed: $newPath');
-          final refreshed = await repo.getGameById(game.id!);
-          if (refreshed != null) game = refreshed;
-        }
-      } catch (e) {
-        debugPrint('[SingleImport] Auto-rename failed: $e');
+        final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+        configs = ScrapeModeConfigs.fromMap(map);
+      } catch (_) {
+        configs = ScrapeModeConfigs.defaults();
       }
     }
 
-    if (configs.shouldMove(ScrapeMode.singleAdd)) {
-      try {
-        final sortedPath = await AppSettings.getSortedPathForGame(game.path);
-        if (sortedPath.isNotEmpty) {
-          final sourceDir = Directory(game.path);
-          if (await sourceDir.exists()) {
-            final tags = await repo.getGameTags(game.id!);
-            const categoryOrder = [
-              'RPG',
-              'ADV',
-              'ACT',
-              'SLG',
-              'AVG',
-              'FPS',
-              'TPS',
-              '3D'
-            ];
-            String categoryName = 'Unclassified';
-            final allNames = tags.map((t) => t.name.toUpperCase()).toList();
-            for (final cat in categoryOrder) {
-              if (allNames.any((name) => name.contains(cat))) {
-                categoryName = cat;
-                break;
-              }
-            }
-            final folderName = path.basename(game.path);
-            final targetDir =
-                Directory(path.join(sortedPath, categoryName, folderName));
-            if (!await targetDir.exists()) {
-              final catDir = Directory(path.join(sortedPath, categoryName));
-              if (!await catDir.exists()) await catDir.create(recursive: true);
-              await sourceDir.rename(targetDir.path);
-              await repo.updateGamePath(game.id!, targetDir.path);
-              final images = await repo.getGameImages(game.id!);
-              if (images.isNotEmpty) {
-                final updatedImages = images
-                    .map((img) => GameImage(
-                          id: img.id,
-                          gameId: img.gameId,
-                          imagePath: img.imagePath
-                              .replaceFirst(game.path, targetDir.path),
-                          sortOrder: img.sortOrder,
-                        ))
-                    .toList();
-                await repo.setGameImages(game.id!, updatedImages);
-              }
-              await GameDataMigrationService(gameRepository: repo)
-                  .rewriteGamePathReferences(
-                gameId: game.id!,
-                oldPath: game.path,
-                newPath: targetDir.path,
-              );
-              debugPrint('[SingleImport] Folder moved: ${targetDir.path}');
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint('[SingleImport] Auto-move failed: $e');
-      }
-    }
+    // 重命名/移动整理逻辑统一走共享层，保持各入口行为一致
+    final organized = await ScrapeApplyService.organizeFolder(
+        game, ScrapeMode.singleAdd, repo, configs);
+    debugPrint('[SingleImport] 整理完成: ${organized.path}');
   }
 
   Future<void> _searchGame() async {
