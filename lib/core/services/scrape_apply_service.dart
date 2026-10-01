@@ -11,6 +11,44 @@ import '../utils/game_data_paths.dart';
 import '../utils/scraped_image_reference_rewriter.dart';
 
 class ScrapeApplyService {
+  static final _versionPattern = RegExp(
+      r'\s+(?:build|v(?:er(?:sion)?)?)\s*\.?\d+(?:[\d.]*\d+)?\s*',
+      caseSensitive: false);
+
+  static const _categoryOrder = [
+    'RPG',
+    'ADV',
+    'ACT',
+    'SLG',
+    'AVG',
+    'FPS',
+    'TPS',
+    '3D'
+  ];
+
+  static String stripVersionFromTitle(String title, [String? version]) {
+    var result = title;
+    if (version != null && version.isNotEmpty) {
+      final escaped = RegExp.escape(version);
+      final precisePattern = RegExp(
+          r'\s+(?:build|v(?:er(?:sion)?)?)?\s*' + escaped + r'\s*',
+          caseSensitive: false);
+      result = result.replaceAll(precisePattern, ' ');
+    }
+    result = result.replaceAll(_versionPattern, ' ');
+    return result.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
+  }
+
+  static String resolveCategoryName(List<Tag> tags) {
+    final allNames = tags.map((t) => t.name.toUpperCase()).toList();
+    for (final cat in _categoryOrder) {
+      if (allNames.any((name) => name.contains(cat))) {
+        return cat;
+      }
+    }
+    return 'Unclassified';
+  }
+
   static Future<void> syncTags(
     GameRepository repo,
     TagRepository tagRepo,
