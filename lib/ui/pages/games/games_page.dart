@@ -1981,6 +1981,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       gameId = await repo.insertGame(game);
     }
 
+    await repo.clearGameTags(gameId);
     for (final tagName in gameInfo.tags) {
       final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
       await repo.addTagToGame(gameId, tagId);

@@ -88,3 +88,28 @@ AppTheme.warningOrange  // 橙色
 - Flutter 测试必须串行执行，禁止并行启动多个 `flutter test`、`flutter analyze` 或 Dart 测试进程，避免工具链互相等待导致卡住超时。
 - 多组测试需要按顺序逐条执行；上一条命令结束后再执行下一条。
 - 所有 `flutter` / `dart` 命令必须在沙箱外（提权）运行：Flutter 工具启动时需读写 `C:\flutter\bin\cache\lockfile`，沙箱内无写权限，`flutter.bat` 会静默无限重试导致命令永久挂起且无任何输出。若命令超过 1 分钟无输出，不要等待，直接提权重跑。
+
+# 刮削入口一致性规范
+
+## 五种刮削方式
+- **快速刮削**：`game_detail_page.dart` `_quickScrape`（详情页顶部输入 URL/ID 回车）
+- **重新刮削**：`game_detail_page.dart` `_rescrapeGame`（详情页刷新按钮，用已有来源重抓）
+- **刮削中心**：`scraper_page.dart` `_scrapeSingleGame`（刮削页批量刮削）
+- **单个添加**：`games_page.dart` `_CloudImportDialog`（Steam/DLsite 搜索导入）
+- **批量添加**：`games_page.dart` `_BatchImportDialog`（Steam/DLsite 搜索导入）
+
+## URL 刮削三入口（快速/重新/刮削中心）共享处理管线
+1. `scraper.ensureLoaded()` 加载自定义 XPath 解析器
+2. 维咔 API 优先（`VikAcgService.supportsUrl` / `fetchByUrl`），不可用时回退 HTML 解析
+3. HTTP 抓取统一走 `httpGetWithRetry`（带重试）；Cloudflare 挑战回退内置浏览器
+4. XpathParser 无标题或客户端渲染页面时，内置浏览器二次渲染
+5. 写入 metadata.json 与 source_url.txt
+6. 标签同步统一调用 `ScrapeApplyService.syncTags`（清旧标签 → maker 标签 → tags → 系列标签 → 重叠标签智能关联），**禁止**各入口私写标签循环
+7. 图片下载（`buildScrapeImageHeaders`）→ `ScrapedImageReferenceRewriter` 重写 intro/intro_html 引用 → `ScrapeApplyService.fixImageUrlsInMetadata` 修复 → `ScrapedImageFileCleaner` 清理旧编号图
+8. 标题入库前经 `_stripVersionFromTitle` 去除版本号
+9. 文件夹重命名/移动整理目录按 `ScrapeModeConfigs` 各模式独立配置（此项允许按模式差异）
+
+## 开发规则
+- 新增或修改任何刮削处理（字段映射、标签、图片、兜底、重试等）时，先落到共享层（`ScrapeApplyService` 或 `lib/scraper/`），再在同一次改动中对齐所有适用入口；**禁止**只改单个入口造成"有的地方有、有的地方没有"
+- 单个/批量添加目前仅 Steam/DLsite 通道；若未来支持站点 URL 刮削，必须复用上述共享管线
+- 提交前对照本清单自检五种入口行为一致性

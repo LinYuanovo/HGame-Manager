@@ -18,6 +18,7 @@ import '../../../core/utils/scraped_image_file_cleaner.dart';
 import '../../../scraper/html_parser.dart';
 import '../../../scraper/parse_utils.dart';
 import '../../../core/services/concurrent_image_downloader.dart';
+import '../../../core/services/scrape_apply_service.dart';
 import '../../../core/services/vikacg_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/cloudflare_browser_dialog.dart';
@@ -898,8 +899,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             domain: Uri.parse(game.sourceUrl!).host);
         try {
           headers = await buildScrapeHeaders(game.sourceUrl!);
-          response =
-              await client.get(Uri.parse(game.sourceUrl!), headers: headers);
+          response = await httpGetWithRetry(Uri.parse(game.sourceUrl!),
+              headers: headers, client: client);
         } finally {
           client.close();
         }
@@ -1022,34 +1023,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             item.game = updated.copyWith(id: gameId);
           }
 
-          await gameRepo.clearGameTags(gameId);
-          for (final tagName in gameInfo.tags) {
-            final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
-            await gameRepo.addTagToGame(gameId, tagId);
-          }
-          if (gameInfo.category != null) {
-            final tagId = await tagRepo.insertOrGetTag(
-                gameInfo.category!, Tag.typeSeries);
-            await gameRepo.addTagToGame(gameId, tagId);
-          }
-
-          final allTags = await tagRepo.getAllTags();
-          final gameTagNames = [
-            ...gameInfo.tags,
-            if (gameInfo.category != null) gameInfo.category!
-          ];
-          for (final existingTag in allTags) {
-            final alreadyHas = gameTagNames
-                .any((t) => t.toLowerCase() == existingTag.name.toLowerCase());
-            if (alreadyHas) continue;
-            final isOverlapping = gameTagNames.any((t) =>
-                t.toLowerCase().contains(existingTag.name.toLowerCase()) &&
-                t.toLowerCase() != existingTag.name.toLowerCase());
-            if (isOverlapping) {
-              await gameRepo.addTagToGame(gameId, existingTag.id!);
-              _addLog('  -> 智能关联标签: ${existingTag.name}');
-            }
-          }
+          await ScrapeApplyService.syncTags(gameRepo, tagRepo, gameId, gameInfo);
 
           _addLog('  -> 成功: ${displayTitle ?? "无标题"}');
 
@@ -1080,6 +1054,9 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               await gameRepo.updateGame(updated);
             }
           }
+
+          await ScrapeApplyService.fixImageUrlsInMetadata(
+              updated.copyWith(id: gameId), gameRepo);
 
           final reloadedGame = await gameRepo.getGameById(gameId);
           if (reloadedGame != null) {

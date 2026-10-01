@@ -19,6 +19,7 @@ import '../../../core/repositories/game_repository.dart';
 import '../../../core/utils/cloudflare_challenge.dart';
 import '../../../core/utils/dynamic_page_detector.dart';
 import '../../../core/utils/intro_html_sync.dart';
+import '../../../core/services/scrape_apply_service.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../../scraper/html_parser.dart';
 import '../../../scraper/parse_utils.dart';
@@ -3558,6 +3559,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     );
   }
 
+  /// 前置标签最大字数（按中文字符计），超出视为说明性句子，回退域名标签
+  static const int _maxLabelLength = 15;
+
   _DownloadParseResult _parseDownloadLinks(String downloadUrl) {
     final result = _DownloadParseResult();
     final lines =
@@ -3593,11 +3597,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           RegExp(r'^([^：:]+)[：:]\s*(https?://.+)$').firstMatch(line);
       if (colonMatch != null) {
         final rawLabel = colonMatch.group(1)!.trim();
-        extractCode = _extractCodeFromText(rawLabel);
-        label = _cleanLabel(rawLabel);
+        if (rawLabel.length <= _maxLabelLength) {
+          extractCode = _extractCodeFromText(rawLabel);
+          label = _cleanLabel(rawLabel);
+        }
       } else {
         final prefix = line.substring(0, urlMatch.start).trim();
-        if (prefix.isNotEmpty && prefix.length <= 24) {
+        if (prefix.isNotEmpty && prefix.length <= _maxLabelLength) {
           extractCode = _extractCodeFromText(prefix);
           label = _cleanLabel(prefix);
         }
@@ -3630,7 +3636,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   bool _isLabelCandidate(String line) {
-    if (line.isEmpty || line.length > 24) return false;
+    if (line.isEmpty || line.length > _maxLabelLength) return false;
     if (line.contains(RegExp(r'https?://'))) return false;
     if (line.endsWith(':') || line.endsWith('：')) return false;
     if (line.contains(RegExp(r'解压(?:码|密码|口令)'))) return false;
@@ -4848,37 +4854,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             flush: true);
         await repo.updateGame(updated);
 
-        await repo.clearGameTags(_currentGame.id!);
-        if (gameInfo.maker != null && gameInfo.maker!.isNotEmpty) {
-          final makerTagId =
-              await tagRepo.insertOrGetTag(gameInfo.maker!, Tag.typeCustom);
-          await repo.addTagToGame(_currentGame.id!, makerTagId);
-        }
-        for (final tagName in gameInfo.tags) {
-          final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
-          await repo.addTagToGame(_currentGame.id!, tagId);
-        }
-        if (gameInfo.category != null) {
-          final tagId =
-              await tagRepo.insertOrGetTag(gameInfo.category!, Tag.typeSeries);
-          await repo.addTagToGame(_currentGame.id!, tagId);
-        }
-
-        final allTags = await tagRepo.getAllTags();
-        final gameTagNames = [
-          ...gameInfo.tags,
-          if (gameInfo.category != null) gameInfo.category!
-        ];
-        for (final existingTag in allTags) {
-          if (existingTag.type == Tag.typeSeries) {
-            final shouldAssociate = gameTagNames.any((name) =>
-                name.toUpperCase().contains(existingTag.name.toUpperCase()) &&
-                name.toUpperCase() != existingTag.name.toUpperCase());
-            if (shouldAssociate) {
-              await repo.addTagToGame(_currentGame.id!, existingTag.id!);
-            }
-          }
-        }
+        await ScrapeApplyService.syncTags(
+            repo, tagRepo, _currentGame.id!, gameInfo);
 
         if (gameInfo.screenshots.isNotEmpty) {
           if (!mounted) return;
@@ -4926,7 +4903,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           }
         }
 
-        await _fixImageUrlsInMetadata(updated);
+        await ScrapeApplyService.fixImageUrlsInMetadata(updated, repo);
 
         try {
           final configs = ref.read(scrapeModeConfigsProvider);
@@ -5123,8 +5100,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
       final repo = ref.read(gameRepositoryProvider);
       final tagRepo = ref.read(tagRepositoryProvider);
+      final displayTitle = gameInfo.title != null
+          ? _stripVersionFromTitle(gameInfo.title!, gameInfo.version)
+          : null;
       var updatedGame = _currentGame.copyWith(
-        title: gameInfo.title ?? _currentGame.title,
+        title: displayTitle ?? _currentGame.title,
         version: gameInfo.version ?? _currentGame.version,
         intro: gameInfo.description ?? _currentGame.intro,
         features: gameInfo.features.isNotEmpty
@@ -5158,21 +5138,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       await repo.updateGame(updatedGame);
 
       if (_currentGame.id != null) {
-        await repo.clearGameTags(_currentGame.id!);
-        if (gameInfo.maker != null && gameInfo.maker!.isNotEmpty) {
-          final makerTagId =
-              await tagRepo.insertOrGetTag(gameInfo.maker!, Tag.typeCustom);
-          await repo.addTagToGame(_currentGame.id!, makerTagId);
-        }
-        for (final tagName in gameInfo.tags) {
-          final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
-          await repo.addTagToGame(_currentGame.id!, tagId);
-        }
-        if (gameInfo.category != null) {
-          final tagId =
-              await tagRepo.insertOrGetTag(gameInfo.category!, Tag.typeSeries);
-          await repo.addTagToGame(_currentGame.id!, tagId);
-        }
+        await ScrapeApplyService.syncTags(
+            repo, tagRepo, _currentGame.id!, gameInfo);
 
         if (gameInfo.screenshots.isNotEmpty) {
           if (!mounted) return;
@@ -5227,7 +5194,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           }
         }
 
-        await _fixImageUrlsInMetadata(updatedGame);
+        await ScrapeApplyService.fixImageUrlsInMetadata(updatedGame, repo);
 
         try {
           final configs = ref.read(scrapeModeConfigsProvider);
@@ -5340,75 +5307,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       }
     } finally {
       client.close();
-    }
-  }
-
-  Future<void> _fixImageUrlsInMetadata(Game game) async {
-    try {
-      final metadataFile = await GameDataPaths.existingMetadataFile(game.path);
-      if (!await metadataFile.exists()) return;
-
-      final metaJson = jsonDecode(await metadataFile.readAsString());
-      final imageDir = await GameDataPaths.existingImagesDir(game.path);
-      if (!await imageDir.exists()) return;
-
-      final localImages = <String>[];
-      await for (final entity in imageDir.list()) {
-        if (entity is File) {
-          localImages.add(entity.path);
-        }
-      }
-      if (localImages.isEmpty) return;
-
-      final imageUrls =
-          (metaJson['image_urls'] as List<dynamic>?)?.cast<String>() ?? [];
-      if (imageUrls.isEmpty) return;
-
-      final urlToLocal = <String, String>{};
-      for (int i = 0; i < imageUrls.length; i++) {
-        final remoteUrl = imageUrls[i];
-        for (final localPath in localImages) {
-          final fileName = localPath.split(Platform.pathSeparator).last;
-          final baseName = fileName.split('.').first;
-          if (baseName == '${i + 1}') {
-            urlToLocal[remoteUrl] = localPath;
-            if (remoteUrl.startsWith('https:')) {
-              urlToLocal[remoteUrl.replaceFirst('https:', '')] = localPath;
-            }
-            if (remoteUrl.startsWith('http:')) {
-              urlToLocal[remoteUrl.replaceFirst('http:', '')] = localPath;
-            }
-            break;
-          }
-        }
-      }
-
-      if (urlToLocal.isEmpty) return;
-
-      var intro = metaJson['intro'] as String? ?? '';
-      if (intro.isNotEmpty) {
-        intro = ScrapedImageReferenceRewriter.replaceAllReferences(
-            intro, urlToLocal);
-        metaJson['intro'] = intro;
-      }
-
-      var introHtml = metaJson['intro_html'] as String? ?? '';
-      if (introHtml.isNotEmpty) {
-        introHtml = ScrapedImageReferenceRewriter.replaceHtmlImages(
-            introHtml, urlToLocal);
-        metaJson['intro_html'] = introHtml;
-      }
-
-      await metadataFile.writeAsString(jsonEncode(metaJson), flush: true);
-
-      final repo = ref.read(gameRepositoryProvider);
-      final updatedGame = game.copyWith(intro: intro);
-      await repo.updateGame(updatedGame);
-
-      debugPrint(
-          '[FixImageUrls] Updated ${urlToLocal.length} image URLs for ${game.title}');
-    } catch (e) {
-      debugPrint('[FixImageUrls] Error: $e');
     }
   }
 
