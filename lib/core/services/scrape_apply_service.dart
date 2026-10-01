@@ -335,6 +335,69 @@ class ScrapeApplyService {
     return current;
   }
 
+  static Future<Game> applyScrapeResult({
+    required Game game,
+    required GameInfo gameInfo,
+    required ScrapeMode mode,
+    required GameRepository repo,
+    required TagRepository tagRepo,
+    required ScrapeModeConfigs configs,
+    String? sourceUrl,
+    int maxConcurrency = 1,
+    void Function(int current, int total)? onProgress,
+    void Function(String message)? onLog,
+  }) async {
+    // 旧布局迁移（根目录 metadata.json/images -> HGMDatas/）必须保留：
+    // 现状由详情页 _downloadImagesWithMapping 内部与刮削中心入口承担，
+    // 删除详情页私有实现后此处是唯一保障，且该方法幂等。
+    await GameDataMigrationService(gameRepository: repo)
+        .migrateGameDirectory(game.path, gameId: game.id);
+
+    final merged = mergeGameInfo(game, gameInfo, sourceUrl: sourceUrl);
+    int gameId;
+    if (game.id != null) {
+      await repo.updateGame(merged);
+      gameId = game.id!;
+    } else {
+      gameId = await repo.insertGame(merged);
+    }
+    var current = merged.copyWith(id: gameId);
+
+    // 文件写入失败不应使整个刮削失败（保持快速刮削现状的容错语义）
+    final effectiveSourceUrl = sourceUrl ?? gameInfo.sourceUrl;
+    try {
+      await GameDataPaths.ensureDataDir(current.path);
+      await GameDataPaths.metadataFile(current.path)
+          .writeAsString(jsonEncode(buildMetadataJson(gameInfo)), flush: true);
+    } catch (e) {
+      debugPrint('[ScrapeApply] 写入 metadata.json 失败: $e');
+    }
+    if (effectiveSourceUrl.isNotEmpty) {
+      try {
+        await GameDataPaths.sourceUrlFile(current.path)
+            .writeAsString(effectiveSourceUrl, flush: true);
+      } catch (e) {
+        debugPrint('[ScrapeApply] 写入 source_url.txt 失败: $e');
+      }
+    }
+
+    await syncTags(repo, tagRepo, gameId, gameInfo);
+
+    await downloadAndApplyImages(
+      game: current,
+      repo: repo,
+      imageUrls: gameInfo.screenshots,
+      sourceUrl: effectiveSourceUrl,
+      maxConcurrency: maxConcurrency,
+      onProgress: onProgress,
+      onLog: onLog,
+    );
+
+    current = await repo.getGameById(gameId) ?? current;
+    current = await organizeFolder(current, mode, repo, configs, onLog: onLog);
+    return current;
+  }
+
   static Future<void> syncTags(
     GameRepository repo,
     TagRepository tagRepo,
