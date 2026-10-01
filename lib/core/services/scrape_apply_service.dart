@@ -8,11 +8,14 @@ import '../../scraper/parse_utils.dart';
 import '../models/models.dart';
 import '../repositories/game_repository.dart';
 import '../repositories/tag_repository.dart';
+import '../utils/app_settings.dart';
 import '../utils/game_data_paths.dart';
 import '../utils/proxy_client.dart';
 import '../utils/scraped_image_file_cleaner.dart';
 import '../utils/scraped_image_reference_rewriter.dart';
 import 'concurrent_image_downloader.dart';
+import 'folder_rename_service.dart';
+import 'game_data_migration_service.dart';
 
 class ScrapeApplyService {
   static final _versionPattern = RegExp(
@@ -224,6 +227,112 @@ class ScrapeApplyService {
       await fixImageUrlsInMetadata(reloaded, repo);
     }
     return urlToLocal;
+  }
+
+  static Future<Game> moveGameToSorted(Game game, GameRepository repo,
+      {void Function(String message)? onLog}) async {
+    if (game.id == null) return game;
+    final sortedPath = await AppSettings.getSortedPathForGame(game.path);
+    if (sortedPath.isEmpty) return game;
+    final sourceDir = Directory(game.path);
+    if (!await sourceDir.exists()) return game;
+
+    final tags = await repo.getGameTags(game.id!);
+    final categoryName = resolveCategoryName(tags);
+    final folderName = path.basename(game.path);
+    final categoryDir = Directory(path.join(sortedPath, categoryName));
+    if (!await categoryDir.exists()) {
+      await categoryDir.create(recursive: true);
+    }
+    final targetDir = Directory(path.join(sortedPath, categoryName, folderName));
+    if (await targetDir.exists()) {
+      onLog?.call('目标目录已存在，跳过移动');
+      return game;
+    }
+
+    final existingGame = await repo.getGameByPath(targetDir.path);
+    if (existingGame != null) {
+      await repo.deleteGame(existingGame.id!);
+      onLog?.call('已删除目标路径的旧记录');
+    }
+
+    await sourceDir.rename(targetDir.path);
+    await repo.updateGamePath(game.id!, targetDir.path);
+    final images = await repo.getGameImages(game.id!);
+    if (images.isNotEmpty) {
+      await repo.setGameImages(
+          game.id!,
+          images
+              .map((img) => GameImage(
+                    id: img.id,
+                    gameId: img.gameId,
+                    imagePath:
+                        img.imagePath.replaceFirst(game.path, targetDir.path),
+                    sortOrder: img.sortOrder,
+                  ))
+              .toList());
+    }
+
+    await GameDataMigrationService(gameRepository: repo)
+        .rewriteGamePathReferences(
+      gameId: game.id!,
+      oldPath: game.path,
+      newPath: targetDir.path,
+    );
+
+    var current = await repo.getGameById(game.id!);
+    if (current == null) return game;
+    if (current.gameLauncher != null &&
+        current.gameLauncher!.startsWith(game.path)) {
+      final relative = current.gameLauncher!.substring(game.path.length);
+      final newLauncher = '${targetDir.path}$relative';
+      await repo.updateGameLauncher(
+          game.id!, newLauncher, current.launcherLocked);
+      current = current.copyWith(gameLauncher: newLauncher);
+    }
+    if (current.savePath != null &&
+        current.savePath!.startsWith(game.path)) {
+      final relative = current.savePath!.substring(game.path.length);
+      final newSavePath = '${targetDir.path}$relative';
+      await repo.updateGame(current.copyWith(savePath: newSavePath));
+      current = current.copyWith(savePath: newSavePath);
+    }
+    onLog?.call('已移动到: ${current.path}');
+    return current;
+  }
+
+  static Future<Game> organizeFolder(
+    Game game,
+    ScrapeMode mode,
+    GameRepository repo,
+    ScrapeModeConfigs configs, {
+    void Function(String message)? onLog,
+  }) async {
+    var current = game;
+    if (configs.shouldRename(mode) && current.id != null) {
+      try {
+        final renameService = FolderRenameService(gameRepository: repo);
+        final newPath = await renameService.renameGameFolder(current);
+        if (newPath != null) {
+          onLog?.call('文件夹已重命名: ${path.basename(newPath)}');
+          final refreshed = await repo.getGameById(current.id!);
+          if (refreshed != null) current = refreshed;
+        }
+      } catch (e) {
+        debugPrint('[ScrapeApply] 自动重命名失败: $e');
+        onLog?.call('重命名失败: $e');
+      }
+    }
+    if (configs.shouldMove(mode) && current.id != null) {
+      // 移动失败仅记日志，不得影响刮削/导入的结果状态（保持各入口现状语义）
+      try {
+        current = await moveGameToSorted(current, repo, onLog: onLog);
+      } catch (e) {
+        debugPrint('[ScrapeApply] 自动移动失败: $e');
+        onLog?.call('移动失败: $e');
+      }
+    }
+    return current;
   }
 
   static Future<void> syncTags(
