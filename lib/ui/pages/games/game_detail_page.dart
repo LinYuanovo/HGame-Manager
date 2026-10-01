@@ -3249,6 +3249,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     const imageTagStart = MediaReferenceParser.imagePrefix;
     const videoTagStart = MediaReferenceParser.videoPrefix;
 
+    if (sectionKey == 'intro') {
+      content = _removeConsumedDownloadLines(content);
+    }
+
     if (!content.contains(imageTagStart) && !content.contains(videoTagStart)) {
       final lines = content.split('\n');
       final merged = <String>[];
@@ -3417,39 +3421,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Widget _buildDownloadLinks(String downloadUrl) {
-    final lines =
-        downloadUrl.split('\n').where((l) => l.trim().isNotEmpty).toList();
-    final grouped = <String, List<String>>{};
-    final decompressCodes = <String>[];
-
-    for (final line in lines) {
-      // Check for decompress code
-      final decompressMatch =
-          RegExp(r'解压(?:码|密码)[：:]?\s*(.{1,50})').firstMatch(line);
-      if (decompressMatch != null) {
-        final code = decompressMatch.group(1)?.trim() ?? '';
-        if (code.isNotEmpty) {
-          decompressCodes.add(code);
-        }
-        continue; // Don't add decompress code line to download links
-      }
-
-      // Check for labeled download link (e.g., "飞猫直连：https://..." or "飞猫直链① https://...")
-      final labeledMatch =
-          RegExp(r'^([^：:]+)[：:]\s*(https?://.+)').firstMatch(line.trim());
-      if (labeledMatch != null) {
-        final customLabel = labeledMatch.group(1)!.trim();
-        final url = labeledMatch.group(2)!.trim();
-        grouped.putIfAbsent(customLabel, () => []).add(url);
-        continue;
-      }
-
-      final uri = RegExp(r'https?://([^/]+)').firstMatch(line);
-      final domain = uri?.group(1) ?? '其他';
-      final label = _getDomainLabel(domain);
-      if (label == '其他') continue;
-      grouped.putIfAbsent(label, () => []).add(line.trim());
-    }
+    final parsed = _parseDownloadLinks(downloadUrl);
+    final grouped = parsed.groups;
+    final decompressCodes = parsed.decompressCodes;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3584,17 +3558,167 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     );
   }
 
+  _DownloadParseResult _parseDownloadLinks(String downloadUrl) {
+    final result = _DownloadParseResult();
+    final lines =
+        downloadUrl.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    String? pendingLabel;
+
+    for (final rawLine in lines) {
+      final line = rawLine.trim();
+
+      final decompressMatch =
+          RegExp(r'解压(?:码|密码)[：:]?\s*(.{1,50})').firstMatch(line);
+      if (decompressMatch != null) {
+        final code = decompressMatch.group(1)?.trim() ?? '';
+        if (code.isNotEmpty) {
+          result.decompressCodes.add(code);
+        }
+        result.consumedLines.add(line);
+        pendingLabel = null;
+        continue;
+      }
+
+      final urlMatch = RegExp(r'https?://[^\s"<>（）()]+').firstMatch(line);
+      if (urlMatch == null) {
+        pendingLabel = _isLabelCandidate(line) ? line : null;
+        continue;
+      }
+
+      final url = urlMatch.group(0)!;
+      String? label;
+      String? extractCode;
+
+      final colonMatch =
+          RegExp(r'^([^：:]+)[：:]\s*(https?://.+)$').firstMatch(line);
+      if (colonMatch != null) {
+        final rawLabel = colonMatch.group(1)!.trim();
+        extractCode = _extractCodeFromText(rawLabel);
+        label = _cleanLabel(rawLabel);
+      } else {
+        final prefix = line.substring(0, urlMatch.start).trim();
+        if (prefix.isNotEmpty && prefix.length <= 24) {
+          extractCode = _extractCodeFromText(prefix);
+          label = _cleanLabel(prefix);
+        }
+      }
+
+      if (label == null || label.isEmpty) {
+        if (pendingLabel != null) {
+          extractCode ??= _extractCodeFromText(pendingLabel);
+          label = _cleanLabel(pendingLabel);
+          result.consumedLines.add(pendingLabel);
+        }
+      }
+      pendingLabel = null;
+
+      extractCode ??= _extractCodeFromText(line.substring(urlMatch.start));
+
+      final domain =
+          RegExp(r'https?://([^/]+)').firstMatch(url)?.group(1) ?? '其他';
+      final displayLabel =
+          (label == null || label.isEmpty) ? _getDomainLabel(domain) : label;
+      final linkLine =
+          extractCode == null ? url : '$url 提取码: $extractCode';
+      result.groups.putIfAbsent(displayLabel, () => []).add(linkLine);
+      result.consumedLines.add(line);
+      result.consumedUrls.add(url);
+      if (extractCode != null) result.extractCodes.add(extractCode);
+    }
+
+    return result;
+  }
+
+  bool _isLabelCandidate(String line) {
+    if (line.isEmpty || line.length > 24) return false;
+    if (line.contains(RegExp(r'https?://'))) return false;
+    if (line.endsWith(':') || line.endsWith('：')) return false;
+    if (line.contains(RegExp(r'解压(?:码|密码|口令)'))) return false;
+    return true;
+  }
+
+  String? _extractCodeFromText(String text) {
+    return RegExp(r'(?:提取码|密码)[：:]?\s*([A-Za-z0-9]{4,})')
+        .firstMatch(text)
+        ?.group(1);
+  }
+
+  String _cleanLabel(String raw) {
+    return raw
+        .replaceAll(RegExp(r'[（(]\s*(?:提取码|密码)[：:]?\s*\w+\s*[)）]'), '')
+        .replaceAll(RegExp(r'(?:提取码|密码)[：:]\s*\w+'), '')
+        .replaceAll(RegExp(r'[：:\s]+$'), '')
+        .trim();
+  }
+
+  String _removeConsumedDownloadLines(String content) {
+    final downloadUrl = _currentGame.downloadUrl;
+    if (downloadUrl == null || downloadUrl.trim().isEmpty) return content;
+    final parsed = _parseDownloadLinks(downloadUrl);
+    if (parsed.consumedLines.isEmpty &&
+        parsed.consumedUrls.isEmpty &&
+        parsed.decompressCodes.isEmpty) {
+      return content;
+    }
+    final kept = <String>[];
+    for (final line in content.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.isNotEmpty) {
+        if (parsed.consumedLines.contains(trimmed)) continue;
+        if (parsed.consumedUrls.any((u) => trimmed.contains(u))) continue;
+        final decompressMatch =
+            RegExp(r'解压(?:码|密码|口令)[：:]?\s*(\S+)').firstMatch(trimmed);
+        if (decompressMatch != null &&
+            parsed.decompressCodes.contains(
+                decompressMatch.group(1)!.trim())) {
+          continue;
+        }
+        final codeMatch =
+            RegExp(r'^(?:提取码|密码)[：:]\s*(\w+)$').firstMatch(trimmed);
+        if (codeMatch != null &&
+            parsed.extractCodes.contains(codeMatch.group(1))) {
+          continue;
+        }
+      }
+      kept.add(line);
+    }
+    return kept.join('\n');
+  }
+
   String _getDomainLabel(String domain) {
     if (domain.contains('baidu') || domain.contains('bds')) return '百度网盘';
     if (domain.contains('xunlei')) return '迅雷网盘';
     if (domain.contains('weiyun')) return '微云网盘';
-    if (domain.contains('uc.cn') || domain.contains('quark')) return 'UC网盘';
+    if (domain.contains('quark')) return '夸克网盘';
+    if (domain.contains('uc.cn') || domain.contains('drive.uc')) {
+      return 'UC网盘';
+    }
     if (domain.contains('gofile')) return 'GoFile';
     if (domain.contains('mega')) return 'Mega';
     if (domain.contains('mediafire')) return 'MediaFire';
+    if (domain.contains('terabox')) return 'Terabox';
+    if (domain.contains('dropbox')) return 'Dropbox';
+    if (domain.contains('drive.google') || domain.contains('docs.google')) {
+      return '谷歌云盘';
+    }
+    if (domain.contains('1drv.ms') ||
+        domain.contains('onedrive') ||
+        domain.contains('sharepoint')) {
+      return '微软云盘';
+    }
+    if (domain.contains('lanzou')) return '蓝奏云';
+    if (domain.contains('115.com')) return '115网盘';
+    if (domain.contains('pikpak')) return 'PikPak';
+    if (domain.contains('189.cn')) return '天翼云盘';
+    if (domain.contains('jianguoyun')) return '坚果云';
+    if (domain.contains('alipan') || domain.contains('aliyundrive')) {
+      return '阿里云盘';
+    }
     if (domain.contains('cm1.hk') ||
         domain.contains('cm2.hk') ||
-        domain.contains('feimaocloud')) return '飞猫网盘';
+        domain.contains('feimaocloud')) {
+      return '飞猫网盘';
+    }
     return domain;
   }
 
@@ -6487,6 +6611,14 @@ class _ContentBlock {
       _ContentBlock._(_ContentBlockType.heading, text, null);
   factory _ContentBlock.imageWithText(String imageUrl, String text) =>
       _ContentBlock._(_ContentBlockType.imageWithText, text, imageUrl);
+}
+
+class _DownloadParseResult {
+  final Map<String, List<String>> groups = {};
+  final List<String> decompressCodes = [];
+  final Set<String> consumedLines = {};
+  final Set<String> consumedUrls = {};
+  final Set<String> extractCodes = {};
 }
 
 class _PlayerCache {

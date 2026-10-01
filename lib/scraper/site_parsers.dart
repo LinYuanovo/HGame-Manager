@@ -300,10 +300,7 @@ class AcgYingParser extends SiteParser {
 
   /// Check if a URL is a known download/pan link
   bool _isDownloadLink(String url) {
-    return url.contains('pan.baidu.com') ||
-        url.contains('pan.xunlei.com') ||
-        url.contains('share.weiyun.com') ||
-        url.contains('drive.uc.cn');
+    return isDownloadLink(url);
   }
 
   /// Extract text from container with inline image markers.
@@ -902,15 +899,7 @@ class FeiXueAcgParser extends SiteParser {
 
   /// Check if a URL is a known download/pan link
   bool _isDownloadLink(String url) {
-    return url.contains('pan.baidu.com') ||
-        url.contains('pan.xunlei.com') ||
-        url.contains('share.weiyun.com') ||
-        url.contains('drive.uc.cn') ||
-        url.contains('feixue.cloud') ||
-        url.contains('gofile.io') ||
-        url.contains('cm1.hk') ||
-        url.contains('cm2.hk') ||
-        url.contains('feimaocloud');
+    return isDownloadLink(url);
   }
 
   /// Extract text from container with inline image markers.
