@@ -4830,111 +4830,29 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       if (gameInfo != null) {
         final repo = ref.read(gameRepositoryProvider);
         final tagRepo = ref.read(tagRepositoryProvider);
-        final displayTitle = gameInfo.title != null
-            ? _stripVersionFromTitle(gameInfo.title!, gameInfo.version)
-            : null;
-        var updated = _currentGame.copyWith(
-          title: displayTitle ?? _currentGame.title,
-          version: gameInfo.version ?? _currentGame.version,
-          intro: gameInfo.description ?? _currentGame.intro,
-          features: gameInfo.features.isNotEmpty
-              ? gameInfo.features.join('\n')
-              : _currentGame.features,
-          changelog: gameInfo.changelog ?? _currentGame.changelog,
-          downloadUrl: gameInfo.downloadUrl.isNotEmpty
-              ? gameInfo.downloadUrl
-              : _currentGame.downloadUrl,
-          maker: gameInfo.maker ?? _currentGame.maker,
-          makerUrl: gameInfo.makerUrl ?? _currentGame.makerUrl,
-        );
-
-        final metadataFile = GameDataPaths.metadataFile(_currentGame.path);
-        await GameDataPaths.ensureDataDir(_currentGame.path);
-        await metadataFile.writeAsString(jsonEncode(gameInfo.toJson()),
-            flush: true);
-        await repo.updateGame(updated);
-
-        await ScrapeApplyService.syncTags(
-            repo, tagRepo, _currentGame.id!, gameInfo);
-
-        if (gameInfo.screenshots.isNotEmpty) {
-          if (!mounted) return;
-          setState(() {
-            _downloadTotal = gameInfo!.screenshots.length;
-            _downloadCurrent = 0;
-            _downloadProgress = 0.0;
-          });
-          await repo.deleteGameImagesByGameId(updated.id!);
-          final urlToLocal = await _downloadImagesWithMapping(
-              updated, gameInfo.screenshots, onProgress: (current, total) {
+        final updated = await ScrapeApplyService.applyScrapeResult(
+          game: _currentGame,
+          gameInfo: gameInfo,
+          mode: ScrapeMode.rescrape,
+          repo: repo,
+          tagRepo: tagRepo,
+          configs: ref.read(scrapeModeConfigsProvider),
+          sourceUrl: sourceUrl,
+          onProgress: (current, total) {
             if (mounted) {
               setState(() {
                 _downloadCurrent = current;
                 _downloadTotal = total;
-                _downloadProgress = current / total;
+                _downloadProgress = total > 0 ? current / total : 0.0;
               });
             }
-          });
-          if (!mounted) return;
-          setState(() {
-            _downloadTotal = 0;
-            _downloadCurrent = 0;
-            _downloadProgress = 0.0;
-          });
-          if (urlToLocal.isNotEmpty) {
-            if (gameInfo.description != null) {
-              final desc = ScrapedImageReferenceRewriter.replacePlainTextImages(
-                  gameInfo.description!, urlToLocal);
-              final finalUpdated = updated.copyWith(intro: desc);
-              await repo.updateGame(finalUpdated);
-            }
-            final metaJson = gameInfo.toJson();
-            if (gameInfo.description != null) {
-              final desc = ScrapedImageReferenceRewriter.replacePlainTextImages(
-                  gameInfo.description!, urlToLocal);
-              metaJson['intro'] = desc;
-            }
-            if (gameInfo.descriptionHtml != null) {
-              final html = ScrapedImageReferenceRewriter.replaceHtmlImages(
-                  gameInfo.descriptionHtml!, urlToLocal);
-              metaJson['intro_html'] = html;
-            }
-            await metadataFile.writeAsString(jsonEncode(metaJson), flush: true);
-          }
-        }
-
-        await ScrapeApplyService.fixImageUrlsInMetadata(updated, repo);
-
-        try {
-          final configs = ref.read(scrapeModeConfigsProvider);
-          if (configs.shouldRename(ScrapeMode.rescrape)) {
-            final gameForRename = await repo.getGameById(_currentGame.id!);
-            if (gameForRename != null) {
-              final renameService = FolderRenameService(gameRepository: repo);
-              final newPath =
-                  await renameService.renameGameFolder(gameForRename);
-              if (newPath != null) {
-                debugPrint('[Rescrape] Folder renamed: $newPath');
-                final refreshed = await repo.getGameById(_currentGame.id!);
-                if (refreshed != null) updated = refreshed;
-              }
-            }
-          }
-        } catch (e) {
-          debugPrint('[Rescrape] Auto-rename failed: $e');
-        }
-
-        final configs = ref.read(scrapeModeConfigsProvider);
-        if (configs.shouldMove(ScrapeMode.rescrape)) {
-          await _moveToSorted(updated);
-        }
-
-        final freshGame = await repo.getGameById(_currentGame.id!);
-        if (freshGame != null) {
-          updated = freshGame;
-        }
+          },
+        );
         if (!mounted) return;
         setState(() {
+          _downloadTotal = 0;
+          _downloadCurrent = 0;
+          _downloadProgress = 0.0;
           _currentGame = updated;
           _imageVersion++;
           _titleController.text = updated.title ?? '';
