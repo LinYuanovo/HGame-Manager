@@ -5036,8 +5036,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
       final freshGame = await repo.getGameById(_currentGame.id!);
       if (freshGame != null && mounted) {
-        await _loadMetadataHtml();
-        await _preloadMediaFiles();
         setState(() {
           _downloadTotal = 0;
           _downloadCurrent = 0;
@@ -5053,6 +5051,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           _sourceUrlController.text = freshGame.sourceUrl ?? '';
           _editedTags = List.from(freshGame.tags);
         });
+        await _loadMetadataHtml();
+        await _preloadMediaFiles();
+        if (!mounted) return;
         Navigator.of(context).pop();
         _refreshAllProviders();
         AppTheme.showGlassToast(context,

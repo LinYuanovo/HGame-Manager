@@ -443,21 +443,7 @@ class _BatchImportDialogState extends State<_BatchImportDialog> {
     final initialGame = await repo.getGameByPath(item.folder.path);
     if (initialGame == null) return;
 
-    final settings = await AppSettings.load();
-    final jsonStr = settings.getString(AppSettings.scrapeModeConfigsKey);
-
-    // 配置缺失或解析失败时回退默认配置，整理开关由共享层自行判断
-    ScrapeModeConfigs configs;
-    if (jsonStr == null || jsonStr.isEmpty) {
-      configs = ScrapeModeConfigs.defaults();
-    } else {
-      try {
-        final map = jsonDecode(jsonStr) as Map<String, dynamic>;
-        configs = ScrapeModeConfigs.fromMap(map);
-      } catch (_) {
-        configs = ScrapeModeConfigs.defaults();
-      }
-    }
+    final configs = await _loadScrapeModeConfigs();
 
     // 重命名/移动整理逻辑统一走共享层，保持各入口行为一致
     final organized = await ScrapeApplyService.organizeFolder(
@@ -1443,21 +1429,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
 
   Future<void> _postImportProcess(GameRepository repo, Game game) async {
     if (game.id == null) return;
-    final settings = await AppSettings.load();
-    final jsonStr = settings.getString(AppSettings.scrapeModeConfigsKey);
-
-    // 配置缺失或解析失败时回退默认配置，整理开关由共享层自行判断
-    ScrapeModeConfigs configs;
-    if (jsonStr == null || jsonStr.isEmpty) {
-      configs = ScrapeModeConfigs.defaults();
-    } else {
-      try {
-        final map = jsonDecode(jsonStr) as Map<String, dynamic>;
-        configs = ScrapeModeConfigs.fromMap(map);
-      } catch (_) {
-        configs = ScrapeModeConfigs.defaults();
-      }
-    }
+    final configs = await _loadScrapeModeConfigs();
 
     // 重命名/移动整理逻辑统一走共享层，保持各入口行为一致
     final organized = await ScrapeApplyService.organizeFolder(
@@ -2287,5 +2259,18 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       );
     }
     return const SizedBox.shrink();
+  }
+}
+
+// 刮削整理配置加载：缺失或解析失败时回退默认配置，整理开关由共享层自行判断
+Future<ScrapeModeConfigs> _loadScrapeModeConfigs() async {
+  final settings = await AppSettings.load();
+  final jsonStr = settings.getString(AppSettings.scrapeModeConfigsKey);
+  if (jsonStr == null || jsonStr.isEmpty) return ScrapeModeConfigs.defaults();
+  try {
+    final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+    return ScrapeModeConfigs.fromMap(map);
+  } catch (_) {
+    return ScrapeModeConfigs.defaults();
   }
 }
