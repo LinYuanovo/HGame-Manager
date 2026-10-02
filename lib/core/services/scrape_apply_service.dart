@@ -113,7 +113,7 @@ class ScrapeApplyService {
     required GameRepository repo,
     required List<String> imageUrls,
     required String sourceUrl,
-    int maxConcurrency = 1,
+    int maxConcurrency = 3,
     void Function(int current, int total)? onProgress,
     void Function(String message)? onLog,
   }) async {
@@ -343,7 +343,7 @@ class ScrapeApplyService {
     required TagRepository tagRepo,
     required ScrapeModeConfigs configs,
     String? sourceUrl,
-    int maxConcurrency = 1,
+    int maxConcurrency = 3,
     void Function(int current, int total)? onProgress,
     void Function(String message)? onLog,
   }) async {

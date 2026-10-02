@@ -323,6 +323,11 @@ enum NavRoute {
 - 纯函数：stripVersionFromTitle、resolveCategoryName、mergeGameInfo、buildMetadataJson、buildNumberedUrlMapping
 - 流程：syncTags 标签同步、downloadAndApplyImages 图片下载与引用重写、fixImageUrlsInMetadata 元数据修复、moveGameToSorted/organizeFolder 目录整理、applyScrapeResult 总编排
 
+### ForumDomainUtils
+- 论坛自定义域名对旧 source_url 的自动重写（`resolveWithCustomDomain`）
+- 宽松但有限制的同站匹配：仅比较主域名（host 最后两段）首标签是否含站点品牌词
+- 访问来源/快速刮削/重新刮削/刮削中心入口统一调用
+
 ### WebdavService (扩展)
 - 游戏级 WebDAV 备份文件夹管理
 - 模糊匹配云端游戏文件夹（双向近似匹配+置信度）

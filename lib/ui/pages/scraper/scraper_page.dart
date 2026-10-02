@@ -9,6 +9,7 @@ import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/utils/cloudflare_challenge.dart';
 import '../../../core/utils/dynamic_page_detector.dart';
+import '../../../core/utils/forum_domain_utils.dart';
 import '../../../core/utils/game_data_paths.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../../scraper/html_parser.dart';
@@ -864,7 +865,14 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         '[${i + 1}/${_gameItems.length}] 刮削: ${game.title ?? path.basename(game.path)}');
     _addLog('  URL: ${game.sourceUrl}');
 
-    final parser = ParserRegistry.getParserForUrl(game.sourceUrl!);
+    // 自定义域名替换：旧域名来源链接自动重写为已配置的论坛自定义域名
+    final sourceUrl =
+        await ForumDomainUtils.resolveWithCustomDomain(game.sourceUrl!);
+    if (sourceUrl != game.sourceUrl) {
+      _addLog('  -> 已按自定义域名替换来源: $sourceUrl');
+    }
+
+    final parser = ParserRegistry.getParserForUrl(sourceUrl);
     _addLog(
         '  解析器: ${parser?.runtimeType.toString().replaceAll("Parser", "") ?? "无匹配"}');
 
@@ -880,7 +888,6 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       }
 
       GameInfo? gameInfo;
-      final sourceUrl = game.sourceUrl!;
       final isDlsite = sourceUrl.contains('dlsite');
       final isSteam = sourceUrl.contains('steam');
       if (await VikAcgService.supportsUrl(sourceUrl)) {
@@ -891,10 +898,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       Map<String, String> headers = {};
       if (gameInfo == null) {
         final client = await createProxyClientFromPrefs(
-            domain: Uri.parse(game.sourceUrl!).host);
+            domain: Uri.parse(sourceUrl).host);
         try {
-          headers = await buildScrapeHeaders(game.sourceUrl!);
-          response = await httpGetWithRetry(Uri.parse(game.sourceUrl!),
+          headers = await buildScrapeHeaders(sourceUrl);
+          response = await httpGetWithRetry(Uri.parse(sourceUrl),
               headers: headers, client: client);
         } finally {
           client.close();

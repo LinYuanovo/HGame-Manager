@@ -18,6 +18,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/repositories/game_repository.dart';
 import '../../../core/utils/cloudflare_challenge.dart';
 import '../../../core/utils/dynamic_page_detector.dart';
+import '../../../core/utils/forum_domain_utils.dart';
 import '../../../core/utils/intro_html_sync.dart';
 import '../../../core/services/scrape_apply_service.dart';
 import '../../../core/utils/proxy_client.dart';
@@ -1433,7 +1434,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 ElevatedButton.icon(
                   onPressed: () async {
                     try {
-                      await launchUrl(Uri.parse(_currentGame.sourceUrl!));
+                      // 自定义域名替换：旧域名来源链接自动重写为已配置的论坛自定义域名
+                      final url =
+                          await ForumDomainUtils.resolveWithCustomDomain(
+                              _currentGame.sourceUrl!);
+                      await launchUrl(Uri.parse(url));
                     } catch (_) {
                       // 外部浏览器打开失败时静默处理
                     }
@@ -4744,7 +4749,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     AppTheme.showGlassToast(context,
         message: '刮削等待时间可能较长，请勿关闭当前窗口', duration: const Duration(seconds: 5));
     try {
-      final sourceUrl = _currentGame.sourceUrl!;
+      // 自定义域名替换：旧域名来源链接自动重写为已配置的论坛自定义域名
+      final sourceUrl = await ForumDomainUtils.resolveWithCustomDomain(
+          _currentGame.sourceUrl!);
       final isDlsite = sourceUrl.contains('dlsite');
       final isSteam = sourceUrl.contains('steam');
       GameInfo? gameInfo;
@@ -4951,6 +4958,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           }
           return;
         }
+        // 自定义域名替换：旧域名链接自动重写为已配置的论坛自定义域名
+        url = await ForumDomainUtils.resolveWithCustomDomain(url);
         final scraper = HtmlScraper();
         await scraper.ensureLoaded();
         final parser = ParserRegistry.getParserForUrl(url);
