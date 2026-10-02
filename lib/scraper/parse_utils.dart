@@ -64,7 +64,9 @@ class GameInfo {
     final parts = downloads.where((d) => d.url.trim().isNotEmpty).map((d) {
       final linkParts = <String>[d.url.trim()];
       if (d.password != null) linkParts.add('提取码: ${d.password}');
-      return linkParts.join(' ');
+      final link = linkParts.join(' ');
+      final label = d.label?.trim() ?? '';
+      return label.isNotEmpty ? '$label $link' : link;
     }).toList();
     // Include unzip code if present
     final code = unzipCode;
@@ -238,8 +240,23 @@ List<DownloadLink> extractDownloadLinks(String text) {
       if (codeMatch != null) {
         password = codeMatch.group(1);
       }
+      // 空格分隔的前置标签（如「解压教程 https://...」），
+      // 与详情页 _parseDownloadLinks 的前缀解析语义对齐
+      String? label;
+      final lineStart =
+          match.start == 0 ? 0 : text.lastIndexOf('\n', match.start - 1) + 1;
+      final prefix = text.substring(lineStart, match.start).trim();
+      if (prefix.isNotEmpty &&
+          prefix.length <= 15 &&
+          !prefix.contains(RegExp(r'https?://')) &&
+          !prefix.endsWith(':') &&
+          !prefix.endsWith('：') &&
+          !prefix.contains(RegExp(r'解压(?:码|密码|口令)'))) {
+        label = prefix;
+      }
       results.add(DownloadLink(
         url: url,
+        label: label,
         provider: detectProvider(url),
         password: password,
       ));
