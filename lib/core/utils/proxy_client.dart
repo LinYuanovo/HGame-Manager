@@ -52,6 +52,26 @@ Future<void> _updatePoolProxyConfig() async {
   }
 }
 
+/// 把注册表 ProxyServer 原始值规范化为 dart:io 可用的 host:port。
+/// 兼容分协议格式（http=h:p;https=h:p，https 优先）；仅含其他协议时返回 null。
+@visibleForTesting
+String? normalizeSystemProxyServer(String raw) {
+  final value = raw.trim();
+  if (value.isEmpty) return null;
+  if (!value.contains('=')) return value;
+  String? httpEntry;
+  for (final part in value.split(';')) {
+    final kv = part.split('=');
+    if (kv.length != 2) continue;
+    final scheme = kv[0].trim().toLowerCase();
+    final addr = kv[1].trim();
+    if (addr.isEmpty) continue;
+    if (scheme == 'https') return addr;
+    if (scheme == 'http') httpEntry = addr;
+  }
+  return httpEntry;
+}
+
 Future<String?> readWindowsSystemProxy() async {
   try {
     final result = await Process.run(
@@ -84,8 +104,10 @@ Future<String?> readWindowsSystemProxy() async {
     final match =
         RegExp(r'ProxyServer\s+REG_SZ\s+(.+)').firstMatch(serverOutput);
     if (match != null) {
-      final proxy = match.group(1)!.trim();
-      AppLogger.instance.info('Proxy', 'System proxy found: $proxy');
+      final proxy = normalizeSystemProxyServer(match.group(1)!);
+      if (proxy != null) {
+        AppLogger.instance.info('Proxy', 'System proxy found: $proxy');
+      }
       return proxy;
     }
     return null;

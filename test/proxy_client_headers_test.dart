@@ -27,6 +27,36 @@ void main() {
     );
   });
 
+  group('normalizeSystemProxyServer', () {
+    test('单值原样返回', () {
+      expect(normalizeSystemProxyServer('127.0.0.1:7897'), '127.0.0.1:7897');
+    });
+
+    test('分协议格式取 https 条目', () {
+      expect(
+        normalizeSystemProxyServer(
+            'http=127.0.0.1:7890;https=127.0.0.1:7891'),
+        '127.0.0.1:7891',
+      );
+    });
+
+    test('分协议仅有 http 时取 http 条目', () {
+      expect(
+        normalizeSystemProxyServer('socks=127.0.0.1:1080;http=10.0.0.1:80'),
+        '10.0.0.1:80',
+      );
+    });
+
+    test('仅 socks 等其他协议时返回 null', () {
+      expect(normalizeSystemProxyServer('socks=127.0.0.1:1080'), isNull);
+    });
+
+    test('空值返回 null', () {
+      expect(normalizeSystemProxyServer(''), isNull);
+      expect(normalizeSystemProxyServer('  '), isNull);
+    });
+  });
+
   group('自定义解析器请求头配置', () {
     test('旧配置没有 userAgent 时使用默认 UA', () {
       final configs = jsonEncode([
