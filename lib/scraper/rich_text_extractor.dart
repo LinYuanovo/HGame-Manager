@@ -115,6 +115,11 @@ class RichTextExtractor {
 
     final tag = node.localName ?? '';
     if (tag == 'script' || tag == 'style' || tag == 'noscript') return;
+    // 维咔等站点的 /external 加密跳转不携带正文信息，整个锚点跳过
+    if (tag == 'a') {
+      final href = node.attributes['href']?.trim() ?? '';
+      if (Uri.tryParse(href)?.path == '/external') return;
+    }
     if (tag == 'img') {
       if (!state.collecting && preferSection) return;
       final src = resolveImageUrl(node, state.baseUrl);

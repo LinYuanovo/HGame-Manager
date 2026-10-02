@@ -12,7 +12,7 @@ import 'package:hgame_manager/scraper/xpath_evaluator.dart';
 import 'package:hgame_manager/core/services/vikacg_service.dart';
 
 void main() {
-  test('606864 真实正文在解压码后保留属性、操作说明、备用链接和六张图', () async {
+  test('606864 旧版正文（external 加密跳转）保留属性与六张图，下载链接丢弃', () async {
     final info = await _parseSample('test/fixtures/vikacg_606864.html',
         VikAcgParser(), 'https://www.vikacg.cc/p/606864');
     for (final text in [
@@ -21,7 +21,6 @@ void main() {
       'R18',
       '鼠标滚轮',
       'whl_packages10',
-      'mypikpak.com'
     ]) {
       expect(info.description, contains(text));
       expect(info.descriptionHtml, contains(text));
@@ -29,7 +28,10 @@ void main() {
     expect(info.unzipCode, '1040');
     expect(info.screenshots, hasLength(6));
     expect(info.description, contains('[图片:https://'));
-    expect(info.downloads.where((link) => link.url.isNotEmpty), hasLength(6));
+    // 该 fixture 来自 API 识别前的旧版页面，下载链接全部是 /external
+    // 加密跳转（无法解密），按现行规则直接丢弃，不进下载地址与正文
+    expect(info.downloads.where((link) => link.url.isNotEmpty), isEmpty);
+    expect(info.description, isNot(contains('网页链接(')));
   });
 
   group('非 Steam/DLsite 图文混排刮削', () {

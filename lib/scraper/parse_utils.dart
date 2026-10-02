@@ -129,6 +129,7 @@ const _kDownloadDomains = [
   'aliyundrive.com',
   'mega.nz',
   'mediafire.com',
+  'mypikpak.com',
 ];
 
 const _kProviderPatterns = {
@@ -206,12 +207,38 @@ String? extractUnzipCode(String text) {
   return (code != null && code.isNotEmpty) ? code : null;
 }
 
+/// 解析下载区的标签行（如「备用」「百度 （提取码436o）」）。
+/// 返回清理后的标签与附带的提取码；不适合作为标签时返回 null。
+(String, String?)? _parseLabelLine(String line) {
+  var label = line.trim();
+  if (label.isEmpty) return null;
+  if (label.endsWith(':') || label.endsWith('：')) return null;
+  if (label.contains(RegExp(r'https?://'))) return null;
+
+  String? password;
+  label = label.replaceAllMapped(
+    RegExp(r'[（(]\s*(?:提取码|密码)[：:]?\s*([A-Za-z0-9]+)\s*[)）]'),
+    (m) {
+      password = m.group(1);
+      return '';
+    },
+  );
+  // 其余括号说明（如「（教程）」）一并剔除
+  label = label.replaceAll(RegExp(r'[（(][^)）]*[)）]'), '');
+  label = label.replaceAll(RegExp(r'[：:\s]+$'), '').trim();
+  if (label.isEmpty || label.length > 15) return null;
+  if (RegExp(r'解压(?:码|密码|口令)|提取码|密码|优惠码|折扣码').hasMatch(label)) {
+    return null;
+  }
+  return (label, password);
+}
+
 List<DownloadLink> extractDownloadLinks(String text) {
   final results = <DownloadLink>[];
   final seen = <String>{};
 
   final labeledPattern = RegExp(
-    r'^([^：:]+)[：:]\s*(https?://.+)$',
+    r'^([^：:]+)[：:]\s*(https?://[^\s<>"\u3000\[\]（）()]+)',
     multiLine: true,
   );
   for (final match in labeledPattern.allMatches(text)) {
@@ -227,33 +254,56 @@ List<DownloadLink> extractDownloadLinks(String text) {
     }
   }
 
-  final urlPattern = RegExp(r'https?://[^\s<>"\u3000\]]+');
-  for (final match in urlPattern.allMatches(text)) {
-    final url = match.group(0)!;
-    if (isDownloadLink(url) && !seen.contains(url)) {
+  final urlPattern = RegExp(r'https?://[^\s<>"\u3000\[\]（）()]+');
+  final lines = text.split('\n');
+  String? pendingLabel;
+  String? pendingPassword;
+  for (var li = 0; li < lines.length; li++) {
+    final line = lines[li].trim();
+    if (line.isEmpty) continue;
+    final matches = urlPattern.allMatches(line).toList();
+    if (matches.isEmpty) {
+      // 无 URL 行：作为下一链接行的候选标签（维咔等站点标签独占一行）
+      final labelInfo = _parseLabelLine(line);
+      if (labelInfo != null) {
+        pendingLabel = labelInfo.$1;
+        pendingPassword = labelInfo.$2;
+      } else {
+        pendingLabel = null;
+        pendingPassword = null;
+      }
+      continue;
+    }
+    for (var mi = 0; mi < matches.length; mi++) {
+      final match = matches[mi];
+      final url = match.group(0)!;
+      if (!isDownloadLink(url) || seen.contains(url)) continue;
       seen.add(url);
-      String? password;
-      final afterUrl = text.substring(match.end).trim();
+
+      // 提取码：优先行内 URL 之后，其次下一行开头（跨行配对保持原有行为）
+      var afterUrl = line.substring(match.end).trim();
+      if (afterUrl.isEmpty && li + 1 < lines.length) {
+        afterUrl = lines[li + 1].trim();
+      }
       final codeMatch = RegExp(
         r'^(?:提取码|密码)[：:]\s*(\w+)',
       ).firstMatch(afterUrl);
-      if (codeMatch != null) {
-        password = codeMatch.group(1);
-      }
-      // 空格分隔的前置标签（如「解压教程 https://...」），
-      // 与详情页 _parseDownloadLinks 的前缀解析语义对齐
+      var password = codeMatch?.group(1);
+
       String? label;
-      final lineStart =
-          match.start == 0 ? 0 : text.lastIndexOf('\n', match.start - 1) + 1;
-      final prefix = text.substring(lineStart, match.start).trim();
-      if (prefix.isNotEmpty &&
-          prefix.length <= 15 &&
-          !prefix.contains(RegExp(r'https?://')) &&
-          !prefix.endsWith(':') &&
-          !prefix.endsWith('：') &&
-          !prefix.contains(RegExp(r'解压(?:码|密码|口令)'))) {
-        label = prefix;
+      if (mi == 0) {
+        // 行内前缀（空格分隔）优先，否则用上一行的候选标签
+        final prefix = line.substring(0, match.start).trim();
+        final prefixInfo = prefix.isNotEmpty ? _parseLabelLine(prefix) : null;
+        if (prefixInfo != null) {
+          label = prefixInfo.$1;
+          password ??= prefixInfo.$2;
+        } else if (pendingLabel != null) {
+          label = pendingLabel;
+          password ??= pendingPassword;
+        }
       }
+
       results.add(DownloadLink(
         url: url,
         label: label,
@@ -261,9 +311,12 @@ List<DownloadLink> extractDownloadLinks(String text) {
         password: password,
       ));
     }
+    pendingLabel = null;
+    pendingPassword = null;
   }
 
-  final codePattern = RegExp(r'(?:提取码|密码)[：:]\s*(\w+)');
+  // 「解压密码/解压码」不是提取码，不参与兜底配对
+  final codePattern = RegExp(r'(?<!解压)(?:提取码|密码)[：:]\s*(\w+)');
   final unpairedCodes = <String>[];
   for (final match in codePattern.allMatches(text)) {
     final code = match.group(1)!;

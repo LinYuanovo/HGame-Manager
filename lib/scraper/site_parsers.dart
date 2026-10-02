@@ -1104,33 +1104,64 @@ class VikAcgParser extends SiteParser {
 
   List<DownloadLink> _extractVikDownloadLinks(
       Element container, String text, String baseUrl) {
-    final urls = <String>{};
-    for (final match
-        in RegExp(r'https?://[^\s<>"\u3000\]]+').allMatches(text)) {
-      final value = match.group(0)!;
-      if (isDownloadLink(value) || value.contains('mypikpak.com'))
-        urls.add(value);
+    final results = extractDownloadLinks(text);
+    final seen = results.map((d) => d.url).toSet();
+    // URL query 中的提取码参数（pwd/pass_code）补入 password
+    for (var i = 0; i < results.length; i++) {
+      final d = results[i];
+      if (d.password != null) continue;
+      final query = Uri.tryParse(d.url)?.queryParameters ?? const {};
+      final pwd = query['pwd'] ?? query['pass_code'];
+      if (pwd != null && pwd.isNotEmpty) {
+        results[i] = DownloadLink(
+          url: d.url,
+          label: d.label,
+          provider: d.provider,
+          password: pwd,
+          unzipCode: d.unzipCode,
+        );
+      }
     }
+    // 锚点补充纯文本中未出现的下载链接；/external 是维咔外链跳转，不是下载地址
     for (final anchor in container.querySelectorAll('a[href]')) {
       final href = anchor.attributes['href']!.trim();
       final uri = Uri.tryParse(baseUrl)?.resolve(href);
-      if (uri == null || !const ['https', 'http'].contains(uri.scheme))
+      if (uri == null || !const ['https', 'http'].contains(uri.scheme)) {
         continue;
-      final url = uri.toString();
-      if (isDownloadLink(url) ||
-          uri.host == 'mypikpak.com' ||
-          (uri.path == '/external' && anchor.text.contains('网页链接'))) {
-        urls.add(url);
       }
-    }
-    return urls.map((url) {
-      final query = Uri.tryParse(url)?.queryParameters ?? {};
-      return DownloadLink(
+      if (uri.path == '/external') continue;
+      final url = uri.toString();
+      if (!isDownloadLink(url) && uri.host != 'mypikpak.com') continue;
+      // 正文纯文本中链接与后续文字粘连时 URL 会带脏尾巴，
+      // 锚点 href 是服务端原始地址，存在前缀关系时以锚点为准修正
+      final covered = results.indexWhere((d) =>
+          d.url == url || d.url.startsWith(url) || url.startsWith(d.url));
+      if (covered >= 0) {
+        final d = results[covered];
+        if (d.url != url) {
+          seen.remove(d.url);
+          seen.add(url);
+          results[covered] = DownloadLink(
+            url: url,
+            label: d.label,
+            provider: detectProvider(url),
+            password: d.password ??
+                uri.queryParameters['pwd'] ??
+                uri.queryParameters['pass_code'],
+            unzipCode: d.unzipCode,
+          );
+        }
+        continue;
+      }
+      seen.add(url);
+      results.add(DownloadLink(
         url: url,
         provider: detectProvider(url),
-        password: query['pwd'] ?? query['pass_code'],
-      );
-    }).toList();
+        password:
+            uri.queryParameters['pwd'] ?? uri.queryParameters['pass_code'],
+      ));
+    }
+    return results;
   }
 
   @override
