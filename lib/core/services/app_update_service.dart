@@ -402,22 +402,71 @@ class AppUpdateService {
     }
   }
 
-  /// 流式下载，支持 Range 断点续传：
-  /// 已有部分文件时发送 Range 头，206 追加写入，200 从头下载。
+  /// 分段并行下载的分片数（GitHub 资产后端支持 Range，多连接可显著提速）
+  static const int _parallelDownloadParts = 8;
+
+  static Future<http.StreamedResponse> _sendDownloadRequest(
+    http.Client client,
+    Uri uri, {
+    int? rangeStart,
+    int? rangeEnd,
+  }) {
+    final request = http.Request('GET', uri);
+    if (rangeStart != null) {
+      request.headers['Range'] =
+          'bytes=$rangeStart-${rangeEnd != null ? '$rangeEnd' : ''}';
+    }
+    return client.send(request).timeout(const Duration(minutes: 5));
+  }
+
+  /// 下载更新包。旧版单流部分文件继续单流续传（不浪费已下载内容）；
+  /// 否则先探测 Range 支持：支持则分段并行下载（分片各自断点续传，
+  /// 完成后合并校验），探测失败或服务器不支持时回退单流。
   Future<void> _downloadZip(
     http.Client client,
     String version,
     File zipFile,
     void Function(AppUpdateDownloadProgress progress)? onProgress,
   ) async {
+    final uri = buildReleaseDownloadUri(version);
     final existingLength = await zipFile.exists() ? await zipFile.length() : 0;
-    final request = http.Request('GET', buildReleaseDownloadUri(version));
     if (existingLength > 0) {
-      request.headers['Range'] = 'bytes=$existingLength-';
+      return _downloadZipSingle(client, uri, zipFile, existingLength,
+          onProgress);
     }
-    final response = await client
-        .send(request)
-        .timeout(const Duration(minutes: 5));
+
+    int? total;
+    try {
+      final probe =
+          await _sendDownloadRequest(client, uri, rangeStart: 0, rangeEnd: 0);
+      await probe.stream.drain<void>();
+      if (probe.statusCode == 206) {
+        total = int.tryParse(
+            probe.headers['content-range']?.split('/').last ?? '');
+      }
+    } catch (_) {
+      total = null;
+    }
+
+    if (total == null || total <= 0) {
+      return _downloadZipSingle(client, uri, zipFile, 0, onProgress);
+    }
+    return _downloadZipParallel(client, uri, zipFile, total, onProgress);
+  }
+
+  /// 单流下载/断点续传：已有部分文件时发送 Range 头，206 追加写入，200 从头下载。
+  Future<void> _downloadZipSingle(
+    http.Client client,
+    Uri uri,
+    File zipFile,
+    int existingLength,
+    void Function(AppUpdateDownloadProgress progress)? onProgress,
+  ) async {
+    final response = await _sendDownloadRequest(
+      client,
+      uri,
+      rangeStart: existingLength > 0 ? existingLength : null,
+    );
 
     var received = existingLength;
     int? total;
@@ -453,6 +502,87 @@ class AppUpdateService {
 
     if (total != null && received != total) {
       throw const AppUpdateIntegrityException('下载文件大小不符');
+    }
+  }
+
+  /// 分段并行下载：各分片独立 Range 请求并支持按分片断点续传，
+  /// 全部完成后按序合并并校验总大小，最后清理分片。
+  Future<void> _downloadZipParallel(
+    http.Client client,
+    Uri uri,
+    File zipFile,
+    int total,
+    void Function(AppUpdateDownloadProgress progress)? onProgress,
+  ) async {
+    const parts = _parallelDownloadParts;
+    final base = total ~/ parts;
+    final partFiles =
+        List.generate(parts, (i) => File('${zipFile.path}.part$i'));
+    final received = List<int>.filled(parts, 0);
+
+    Future<void> downloadPart(int i) async {
+      final start = i * base;
+      final end = i == parts - 1 ? total - 1 : (i + 1) * base - 1;
+      final expected = end - start + 1;
+      final partFile = partFiles[i];
+      var done = await partFile.exists() ? await partFile.length() : 0;
+      if (done > expected) {
+        await partFile.delete();
+        done = 0;
+      }
+      received[i] = done;
+      if (done == expected) return;
+
+      final response = await _sendDownloadRequest(
+        client,
+        uri,
+        rangeStart: start + done,
+        rangeEnd: end,
+      );
+      if (response.statusCode != 206) {
+        throw HttpException('分段下载更新失败: HTTP ${response.statusCode}');
+      }
+      final sink = partFile.openWrite(mode: FileMode.append);
+      try {
+        await for (final chunk
+            in response.stream.timeout(const Duration(minutes: 2))) {
+          sink.add(chunk);
+          received[i] += chunk.length;
+          onProgress?.call(
+            AppUpdateDownloadProgress(
+              receivedBytes: received.fold<int>(0, (a, b) => a + b),
+              totalBytes: total,
+            ),
+          );
+        }
+        await sink.flush();
+      } finally {
+        await sink.close();
+      }
+      if (received[i] != expected) {
+        throw const AppUpdateIntegrityException('分段下载大小不符');
+      }
+    }
+
+    // 网络错误保留分片供下次续传；完整性错误由上层清空缓存重试
+    await Future.wait(List.generate(parts, downloadPart));
+
+    final sink = zipFile.openWrite();
+    try {
+      for (final partFile in partFiles) {
+        await sink.addStream(partFile.openRead());
+      }
+      await sink.flush();
+    } finally {
+      await sink.close();
+    }
+    if (await zipFile.length() != total) {
+      throw const AppUpdateIntegrityException('下载文件大小不符');
+    }
+    for (final partFile in partFiles) {
+      try {
+        await partFile.delete();
+      } catch (_) {}
     }
   }
 
