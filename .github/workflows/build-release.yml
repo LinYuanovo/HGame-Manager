@@ -90,6 +90,9 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
+          # workflow_dispatch 下 github.ref 是分支而非 tag，必须显式指定 tag_name；
+          # tag 不存在时该 action 会基于当前 checkout 提交自动创建
+          tag_name: ${{ github.event.inputs.version || github.ref_name }}
           files: '*.zip'
           body_path: release_notes.md
           draft: false
