@@ -2869,6 +2869,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Widget _buildHtmlContent(String html, double fontSize, {String? sectionKey}) {
+    if (sectionKey == 'intro') {
+      html = _removeConsumedDownloadFromHtml(html);
+    }
     final blocks = _parseHtmlToBlocks(html, '');
     if (blocks.isEmpty) {
       return SelectableText('暂无信息',
@@ -3668,12 +3671,22 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         parsed.decompressCodes.isEmpty) {
       return content;
     }
+    final labels = parsed.groups.keys.toSet();
     final kept = <String>[];
     for (final line in content.split('\n')) {
       final trimmed = line.trim();
       if (trimmed.isNotEmpty) {
         if (parsed.consumedLines.contains(trimmed)) continue;
-        if (parsed.consumedUrls.any((u) => trimmed.contains(u))) continue;
+        if (parsed.consumedUrls.any((u) => trimmed.contains(u))) {
+          // 标签独占一行的格式：链接被移除后，残留的标签行一并移除
+          if (kept.isNotEmpty) {
+            final prevLabel = _cleanLabelText(kept.last.trim());
+            if (prevLabel.isNotEmpty && labels.contains(prevLabel)) {
+              kept.removeLast();
+            }
+          }
+          continue;
+        }
         final decompressMatch =
             RegExp(r'解压(?:码|密码|口令)[：:]?\s*(\S+)').firstMatch(trimmed);
         if (decompressMatch != null &&
@@ -3691,6 +3704,76 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       kept.add(line);
     }
     return kept.join('\n');
+  }
+
+  /// 剔除标签文本中的括号说明（如「（提取码436o）」「（教程）」）与尾部冒号
+  String _cleanLabelText(String value) {
+    return value
+        .replaceAll(RegExp(r'[（(][^)）]*[)）]'), '')
+        .replaceAll(RegExp(r'[：:\s]+$'), '')
+        .trim();
+  }
+
+  /// 简介富文本（intro_html）的下载行移除，与纯文本版 _removeConsumedDownloadLines 对齐：
+  /// 以顶层节点为"行"单位，删除含已消费 URL 的块及其标签行、提取码/解压码行。
+  String _removeConsumedDownloadFromHtml(String html) {
+    final downloadUrl = _currentGame.downloadUrl;
+    if (downloadUrl == null || downloadUrl.trim().isEmpty) return html;
+    final parsed = _parseDownloadLinks(downloadUrl);
+    if (parsed.consumedLines.isEmpty &&
+        parsed.consumedUrls.isEmpty &&
+        parsed.decompressCodes.isEmpty &&
+        parsed.extractCodes.isEmpty) {
+      return html;
+    }
+
+    final labels = parsed.groups.keys.toSet();
+    final doc = html_parser.parse(html);
+    final body = doc.body;
+    if (body == null) return html;
+    final nodes = body.nodes.toList();
+    final toRemove = <dom.Node>{};
+
+    for (var i = 0; i < nodes.length; i++) {
+      final node = nodes[i];
+      final text = node.text?.trim() ?? '';
+      if (text.isEmpty) continue;
+
+      if (parsed.consumedUrls.any(text.contains) ||
+          parsed.consumedLines.contains(text)) {
+        toRemove.add(node);
+        // 标签独占一行的格式：前一行是该链接的标签时一并删除
+        if (i > 0) {
+          final prevLabel =
+              _cleanLabelText(nodes[i - 1].text?.trim() ?? '');
+          if (prevLabel.isNotEmpty && labels.contains(prevLabel)) {
+            toRemove.add(nodes[i - 1]);
+          }
+        }
+        continue;
+      }
+
+      final decompressMatch =
+          RegExp(r'解压(?:码|密码|口令)[：:]?\s*(\S+)').firstMatch(text);
+      if (decompressMatch != null &&
+          parsed.decompressCodes
+              .contains(decompressMatch.group(1)!.trim())) {
+        toRemove.add(node);
+        continue;
+      }
+      final codeMatch =
+          RegExp(r'^(?:提取码|密码)[：:]\s*(\w+)$').firstMatch(text);
+      if (codeMatch != null &&
+          parsed.extractCodes.contains(codeMatch.group(1))) {
+        toRemove.add(node);
+      }
+    }
+
+    if (toRemove.isEmpty) return html;
+    for (final node in toRemove) {
+      node.remove();
+    }
+    return body.innerHtml;
   }
 
   String _getDomainLabel(String domain) {
