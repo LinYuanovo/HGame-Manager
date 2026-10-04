@@ -32,6 +32,7 @@ dependencies:
   flutter_inappwebview: ^6.1.5
   webkit_inspection_protocol: ^1.2.1
   package_info_plus: ^9.0.1
+  desktop_drop: ^0.8.4
 
 dev_dependencies:
   flutter_test:
