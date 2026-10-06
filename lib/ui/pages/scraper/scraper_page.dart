@@ -61,6 +61,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   int _threadCount = 3;
   Future<void> _browserFallbackTail = Future.value();
   bool _logScrollScheduled = false;
+  bool _includeScraped = false;
+  int _skippedScraped = 0;
 
   @override
   void dispose() {
@@ -125,6 +127,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           ),
           const SizedBox(height: 12),
           _buildThreadCountSelector(),
+          const SizedBox(height: 8),
+          _buildIncludeScrapedToggle(),
           if (_isProcessing) ...[
             const SizedBox(height: 12),
             _buildActionButton(
@@ -302,6 +306,48 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: _isProcessing ? Colors.grey : AppTheme.primaryColor)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIncludeScrapedToggle() {
+    return SizedBox(
+      width: 200,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+        onTap: _isProcessing
+            ? null
+            : () => setState(() => _includeScraped = !_includeScraped),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: Checkbox(
+                  value: _includeScraped,
+                  onChanged: _isProcessing
+                      ? null
+                      : (v) => setState(() => _includeScraped = v ?? false),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Tooltip(
+                message: 'metadata.json 含 scraped_at 标识的游戏视为已刮削',
+                child: Text(
+                  '包含已刮削的游戏',
+                  style: TextStyle(
+                    color: AppTheme.getTextSecondary(context),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -647,6 +693,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       _stats.success = 0;
       _stats.failed = 0;
       _logs.clear();
+      _skippedScraped = 0;
     });
 
     try {
@@ -695,6 +742,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
       _addLog('========== 扫描完成 ==========');
       _addLog('共发现 ${gamesToScrape.length} 个有源URL的游戏可刮削');
+      if (_skippedScraped > 0) {
+        _addLog('已跳过 $_skippedScraped 个已刮削游戏'
+            '${_includeScraped ? '' : '（勾选"包含已刮削的游戏"可重新刮削）'}');
+      }
 
       if (!mounted) return;
       setState(() {
@@ -738,6 +789,13 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         final sourceUrlFile =
             await GameDataPaths.existingSourceUrlFile(entity.path);
         if (await sourceUrlFile.exists()) {
+          // 跳过已刮削的游戏（metadata.json 含 scraped_at 标识），
+          // 勾选"包含已刮削的游戏"后仍可重新刮削
+          if (!_includeScraped &&
+              await ScrapeApplyService.isGameScraped(entity.path)) {
+            _skippedScraped++;
+            continue;
+          }
           try {
             final sourceUrl = (await sourceUrlFile.readAsString()).trim();
             if (sourceUrl.isNotEmpty) {

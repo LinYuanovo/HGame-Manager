@@ -33,6 +33,36 @@ class ScrapeApplyService {
     '3D'
   ];
 
+  /// metadata.json 中的刮削成功时间戳字段，作为「已刮削」标识
+  static const scrapedAtKey = 'scraped_at';
+
+  /// 判断一份 metadata.json 内容是否带有刮削成功标识
+  static bool isScrapedMetadata(Map<String, dynamic>? json) {
+    if (json == null) return false;
+    final value = json[scrapedAtKey];
+    return value is String && value.isNotEmpty;
+  }
+
+  /// 在 metadata.json 内容上盖「已刮削」时间戳（就地修改并返回）
+  static Map<String, dynamic> markScraped(Map<String, dynamic> json,
+      {DateTime? at}) {
+    json[scrapedAtKey] = (at ?? DateTime.now()).toIso8601String();
+    return json;
+  }
+
+  /// 读取游戏目录 metadata.json，判断该游戏是否已成功刮削过
+  static Future<bool> isGameScraped(String gamePath) async {
+    try {
+      final metadataFile = await GameDataPaths.existingMetadataFile(gamePath);
+      if (!await metadataFile.exists()) return false;
+      final json =
+          jsonDecode(await metadataFile.readAsString()) as Map<String, dynamic>;
+      return isScrapedMetadata(json);
+    } catch (_) {
+      return false;
+    }
+  }
+
   static String stripVersionFromTitle(String title, [String? version]) {
     var result = title;
     if (version != null && version.isNotEmpty) {
@@ -367,8 +397,9 @@ class ScrapeApplyService {
     final effectiveSourceUrl = sourceUrl ?? gameInfo.sourceUrl;
     try {
       await GameDataPaths.ensureDataDir(current.path);
-      await GameDataPaths.metadataFile(current.path)
-          .writeAsString(jsonEncode(buildMetadataJson(gameInfo)), flush: true);
+      await GameDataPaths.metadataFile(current.path).writeAsString(
+          jsonEncode(markScraped(buildMetadataJson(gameInfo))),
+          flush: true);
     } catch (e) {
       debugPrint('[ScrapeApply] 写入 metadata.json 失败: $e');
     }

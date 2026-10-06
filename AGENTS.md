@@ -101,7 +101,8 @@ AppTheme.warningOrange  // 橙色
 ## URL 刮削三入口（快速/重新/刮削中心）共享处理管线
 - 获取 html/GameInfo 由各入口自行负责（维咔 API 优先 → `httpGetWithRetry` → Cloudflare 挑战回退内置浏览器 → XpathParser 客户端渲染二次渲染）
 - 论坛自定义域名对旧 source_url 的自动重写由 `ForumDomainUtils.resolveWithCustomDomain`（`lib/core/utils/forum_domain_utils.dart`）承担，访问来源/刮削前均需调用
-- 拿到 GameInfo 后**必须**单次调用 `ScrapeApplyService.applyScrapeResult(...)` 完成：字段合并（含标题去版本）→ 写 metadata.json 与 source_url.txt → `syncTags` → `downloadAndApplyImages`（下载/重写/修复/清理）→ `organizeFolder`（按 `ScrapeModeConfigs` 重命名/移动）
+- 拿到 GameInfo 后**必须**单次调用 `ScrapeApplyService.applyScrapeResult(...)` 完成：字段合并（含标题去版本）→ 写 metadata.json（含 `scraped_at` 已刮削标识）与 source_url.txt → `syncTags` → `downloadAndApplyImages`（下载/重写/修复/清理）→ `organizeFolder`（按 `ScrapeModeConfigs` 重命名/移动）
+- 「已刮削」标识（metadata.json 的 `scraped_at`）只能由共享层写入（`ScrapeApplyService.markScraped`，含单个/批量添加的 `_saveImagesAndMetadata`）；刮削中心扫描默认跳过带标识的游戏，勾选「包含已刮削的游戏」可重刮
 - **禁止**在入口内私写字段合并、标签循环、图片下载重写、目录移动代码；单个/批量添加的整理也必须走 `organizeFolder`
 - 新增刮削处理时：先扩展 `ScrapeApplyService`（或 `lib/scraper/`），再在同一次改动中让所有适用入口经由共享层生效
 - 提交前对照本清单自检五种入口行为一致性

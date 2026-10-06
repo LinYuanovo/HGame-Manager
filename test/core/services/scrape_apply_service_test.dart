@@ -1,6 +1,10 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hgame_manager/core/models/models.dart';
 import 'package:hgame_manager/core/services/scrape_apply_service.dart';
+import 'package:hgame_manager/core/utils/game_data_paths.dart';
 import 'package:hgame_manager/scraper/parse_utils.dart';
 
 void main() {
@@ -118,6 +122,55 @@ void main() {
       final json = ScrapeApplyService.buildMetadataJson(info);
       expect(json['intro'], '原简介');
       expect(json.containsKey('intro_html'), isFalse);
+    });
+  });
+
+  group('已刮削标识 scraped_at', () {
+    test('markScraped 写入 ISO 时间戳', () {
+      final json = ScrapeApplyService.markScraped({'title': '标题'},
+          at: DateTime(2026, 10, 6, 12, 30));
+      expect(json[ScrapeApplyService.scrapedAtKey], '2026-10-06T12:30:00.000');
+      expect(json['title'], '标题');
+    });
+
+    test('isScrapedMetadata 仅在 scraped_at 非空字符串时为真', () {
+      expect(ScrapeApplyService.isScrapedMetadata({'scraped_at': '2026-10-06T12:30:00.000'}), isTrue);
+      expect(ScrapeApplyService.isScrapedMetadata({'scraped_at': ''}), isFalse);
+      expect(ScrapeApplyService.isScrapedMetadata({'scraped_at': null}), isFalse);
+      expect(ScrapeApplyService.isScrapedMetadata({'title': '标题'}), isFalse);
+      expect(ScrapeApplyService.isScrapedMetadata(null), isFalse);
+    });
+
+    test('isGameScraped 读取游戏目录 metadata.json 判断标识', () async {
+      final tempDir = await Directory.systemTemp.createTemp('hgm_scraped_test');
+      try {
+        final gamePath = tempDir.path;
+        expect(await ScrapeApplyService.isGameScraped(gamePath), isFalse);
+
+        await GameDataPaths.ensureDataDir(gamePath);
+        await GameDataPaths.metadataFile(gamePath).writeAsString(
+            jsonEncode({'title': '未刮削'}), flush: true);
+        expect(await ScrapeApplyService.isGameScraped(gamePath), isFalse);
+
+        await GameDataPaths.metadataFile(gamePath).writeAsString(
+            jsonEncode(ScrapeApplyService.markScraped({'title': '已刮削'})),
+            flush: true);
+        expect(await ScrapeApplyService.isGameScraped(gamePath), isTrue);
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    test('isGameScraped 对损坏的 metadata.json 返回 false', () async {
+      final tempDir = await Directory.systemTemp.createTemp('hgm_scraped_test');
+      try {
+        await GameDataPaths.ensureDataDir(tempDir.path);
+        await GameDataPaths.metadataFile(tempDir.path)
+            .writeAsString('not-json', flush: true);
+        expect(await ScrapeApplyService.isGameScraped(tempDir.path), isFalse);
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
     });
   });
 

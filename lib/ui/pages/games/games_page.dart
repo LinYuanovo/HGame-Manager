@@ -774,7 +774,9 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
 
     final metadataFile = GameDataPaths.metadataFile(_folderPath!);
     await GameDataPaths.ensureDataDir(_folderPath!);
-    await metadataFile.writeAsString(jsonEncode(metadataJson), flush: true);
+    await metadataFile.writeAsString(
+        jsonEncode(ScrapeApplyService.markScraped(metadataJson)),
+        flush: true);
 
     final sourceUrlFile = GameDataPaths.sourceUrlFile(_folderPath!);
     await sourceUrlFile.writeAsString(sourceUrl, flush: true);

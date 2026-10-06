@@ -723,7 +723,9 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
 
     final metadataFile = GameDataPaths.metadataFile(folderPath);
     await GameDataPaths.ensureDataDir(folderPath);
-    await metadataFile.writeAsString(jsonEncode(metadataJson), flush: true);
+    await metadataFile.writeAsString(
+        jsonEncode(ScrapeApplyService.markScraped(metadataJson)),
+        flush: true);
 
     final sourceUrlFile = GameDataPaths.sourceUrlFile(folderPath);
     await sourceUrlFile.writeAsString(sourceUrl, flush: true);
