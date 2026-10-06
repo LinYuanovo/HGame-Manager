@@ -98,4 +98,86 @@ void main() {
     const html = '<p>第一段</p>';
     expect(syncIntroToHtml('第一段', '第一段', html), html);
   });
+
+  group('整段简介包在单个 <p> 内（仅用 <br> 分行）', () {
+    const html = '<p><img src="a.webp"></p>'
+        '<p><img src="b.webp"></p>'
+        '<p><br>社团名：测试社<br>'
+        '进入东京。活着撤离。<br>'
+        '每次行动都需要不同的策略。<br>'
+        '仅靠火力无法生存。<br>'
+        '百度下载：https://pan.baidu.com/s/1abc<br>'
+        '结尾提示行</p>';
+    const intro = '[图片:a.webp]\n[图片:b.webp]\n社团名：测试社\n'
+        '进入东京。活着撤离。\n每次行动都需要不同的策略。\n'
+        '仅靠火力无法生存。\n百度下载：https://pan.baidu.com/s/1abc\n结尾提示行';
+
+    test('整段重写时新文本必须写入，不能被静默丢弃', () {
+      final result =
+          syncIntroToHtml(intro, '全新简介第一行\n全新简介第二行', html);
+
+      expect(result, contains('全新简介第一行'));
+      expect(result, contains('全新简介第二行'));
+      expect(result, isNot(contains('社团名：测试社')));
+      expect(result, isNot(contains('pan.baidu.com')));
+      expect(RegExp(r'<img ').allMatches(result).length, 2);
+    });
+
+    test('改中间一行时其余正文与图片全部保留', () {
+      final result = syncIntroToHtml(
+          intro, intro.replaceFirst('仅靠火力无法生存。', '光靠火力活不下去。'), html);
+
+      expect(result, contains('光靠火力活不下去。'));
+      expect(result, isNot(contains('仅靠火力无法生存。')));
+      expect(result, contains('进入东京。活着撤离。'));
+      expect(result, contains('社团名：测试社'));
+      expect(result, contains('结尾提示行'));
+      expect(result, contains('pan.baidu.com'));
+      expect(RegExp(r'<img ').allMatches(result).length, 2);
+    });
+
+    test('删行后折叠多余 <br>，不留空行', () {
+      final result = syncIntroToHtml(
+          intro, intro.replaceFirst('仅靠火力无法生存。\n', ''), html);
+
+      expect(result, isNot(contains('仅靠火力无法生存。')));
+      expect(result, contains('每次行动都需要不同的策略。<br>百度下载'));
+      expect(result, isNot(contains('<br><br>百度下载')));
+    });
+
+    test('清空简介时保留全部图片', () {
+      final result = syncIntroToHtml(intro, '', html);
+
+      expect(RegExp(r'<img ').allMatches(result).length, 2);
+      expect(result, isNot(contains('社团名：测试社')));
+      expect(result, isNot(contains('结尾提示行')));
+    });
+
+    test('纯文本里的 [图片:xxx] 标记行不会误伤 HTML 中的 <img>', () {
+      final result = syncIntroToHtml(
+          intro,
+          intro.split('\n').where((l) => !l.startsWith('[图片:')).join('\n'),
+          html);
+
+      expect(RegExp(r'<img ').allMatches(result).length, 2);
+      expect(result, contains('社团名：测试社'));
+      expect(result, contains('结尾提示行'));
+    });
+  });
+
+  test('内容被删空的容器整体移除，不留空壳', () {
+    const html = '<p>保留段</p><p>要删掉的段</p>';
+    final result = syncIntroToHtml('保留段\n要删掉的段', '保留段', html);
+
+    expect(result, contains('<p>保留段</p>'));
+    expect(result, isNot(contains('<p></p>')));
+  });
+
+  test('原有的连续 <br> 空行不被误删', () {
+    const html = '<p>第一段<br><br>第三段</p>';
+    final result = syncIntroToHtml('第一段\n第三段', '第一段改\n第三段', html);
+
+    expect(result, contains('第一段改'));
+    expect(result, contains('<br><br>'));
+  });
 }

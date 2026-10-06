@@ -19,6 +19,7 @@ import '../../../core/repositories/game_repository.dart';
 import '../../../core/utils/cloudflare_challenge.dart';
 import '../../../core/utils/dynamic_page_detector.dart';
 import '../../../core/utils/forum_domain_utils.dart';
+import '../../../core/utils/html_line_remover.dart';
 import '../../../core/utils/intro_html_sync.dart';
 import '../../../core/services/scrape_apply_service.dart';
 import '../../../core/utils/proxy_client.dart';
@@ -2869,10 +2870,15 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Widget _buildHtmlContent(String html, double fontSize, {String? sectionKey}) {
+    final rawHtml = html;
     if (sectionKey == 'intro') {
       html = _removeConsumedDownloadFromHtml(html);
     }
-    final blocks = _parseHtmlToBlocks(html, '');
+    var blocks = _parseHtmlToBlocks(html, '');
+    // 兜底：下载行剔除若把正文一并吃掉，退回未处理的原文，避免简介整段消失
+    if (blocks.isEmpty && html != rawHtml) {
+      blocks = _parseHtmlToBlocks(rawHtml, '');
+    }
     if (blocks.isEmpty) {
       return SelectableText('暂无信息',
           style: TextStyle(
@@ -3666,9 +3672,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     final downloadUrl = _currentGame.downloadUrl;
     if (downloadUrl == null || downloadUrl.trim().isEmpty) return content;
     final parsed = _parseDownloadLinks(downloadUrl);
-    if (parsed.consumedLines.isEmpty &&
-        parsed.consumedUrls.isEmpty &&
-        parsed.decompressCodes.isEmpty) {
+    if (!_hasConsumedDownloadInfo(parsed)) {
       return content;
     }
     final labels = parsed.groups.keys.toSet();
@@ -3676,28 +3680,14 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     for (final line in content.split('\n')) {
       final trimmed = line.trim();
       if (trimmed.isNotEmpty) {
-        if (parsed.consumedLines.contains(trimmed)) continue;
-        if (parsed.consumedUrls.any((u) => trimmed.contains(u))) {
+        if (_isConsumedDownloadLine(trimmed, parsed)) {
           // 标签独占一行的格式：链接被移除后，残留的标签行一并移除
-          if (kept.isNotEmpty) {
+          if (parsed.consumedUrls.any(trimmed.contains) && kept.isNotEmpty) {
             final prevLabel = _cleanLabelText(kept.last.trim());
             if (prevLabel.isNotEmpty && labels.contains(prevLabel)) {
               kept.removeLast();
             }
           }
-          continue;
-        }
-        final decompressMatch =
-            RegExp(r'解压(?:码|密码|口令)[：:]?\s*(\S+)').firstMatch(trimmed);
-        if (decompressMatch != null &&
-            parsed.decompressCodes.contains(
-                decompressMatch.group(1)!.trim())) {
-          continue;
-        }
-        final codeMatch =
-            RegExp(r'^(?:提取码|密码)[：:]\s*(\w+)$').firstMatch(trimmed);
-        if (codeMatch != null &&
-            parsed.extractCodes.contains(codeMatch.group(1))) {
           continue;
         }
       }
@@ -3715,65 +3705,51 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   /// 简介富文本（intro_html）的下载行移除，与纯文本版 _removeConsumedDownloadLines 对齐：
-  /// 以顶层节点为"行"单位，删除含已消费 URL 的块及其标签行、提取码/解压码行。
+  /// 以"行"（`<br>` 或文本换行分隔）为最小单位删除，删除含已消费 URL 的行及其标签行、
+  /// 提取码/解压码行。
+  ///
+  /// 不能按顶层节点整块删除：部分站点的 intro_html 会把整段简介塞进同一个 `<p>`、
+  /// 仅用 `<br>` 分行，此时该节点的 text 必然包含下载链接，整块删除会让简介正文全部
+  /// 丢失（页面只剩图片）。
   String _removeConsumedDownloadFromHtml(String html) {
     final downloadUrl = _currentGame.downloadUrl;
     if (downloadUrl == null || downloadUrl.trim().isEmpty) return html;
     final parsed = _parseDownloadLinks(downloadUrl);
-    if (parsed.consumedLines.isEmpty &&
-        parsed.consumedUrls.isEmpty &&
-        parsed.decompressCodes.isEmpty &&
-        parsed.extractCodes.isEmpty) {
-      return html;
+    if (!_hasConsumedDownloadInfo(parsed)) return html;
+
+    return HtmlLineRemover.removeMatchedLines(
+          html,
+          isRemovableLine: (line) => _isConsumedDownloadLine(line, parsed),
+          removableLabels: parsed.groups.keys.toSet(),
+          normalizeLabel: _cleanLabelText,
+          triggersLabelCleanup: (line) => parsed.consumedUrls.any(line.contains),
+        ) ??
+        html;
+  }
+
+  bool _hasConsumedDownloadInfo(_DownloadParseResult parsed) {
+    return parsed.consumedLines.isNotEmpty ||
+        parsed.consumedUrls.isNotEmpty ||
+        parsed.decompressCodes.isNotEmpty ||
+        parsed.extractCodes.isNotEmpty;
+  }
+
+  /// 判断一行文本是否属于需要移除的下载信息（纯文本版与富文本版共用）
+  bool _isConsumedDownloadLine(String text, _DownloadParseResult parsed) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return false;
+    if (parsed.consumedLines.contains(trimmed)) return true;
+    if (parsed.consumedUrls.any(trimmed.contains)) return true;
+
+    final decompressMatch =
+        RegExp(r'解压(?:码|密码|口令)[：:]?\s*(\S+)').firstMatch(trimmed);
+    if (decompressMatch != null &&
+        parsed.decompressCodes.contains(decompressMatch.group(1)!.trim())) {
+      return true;
     }
-
-    final labels = parsed.groups.keys.toSet();
-    final doc = html_parser.parse(html);
-    final body = doc.body;
-    if (body == null) return html;
-    final nodes = body.nodes.toList();
-    final toRemove = <dom.Node>{};
-
-    for (var i = 0; i < nodes.length; i++) {
-      final node = nodes[i];
-      final text = node.text?.trim() ?? '';
-      if (text.isEmpty) continue;
-
-      if (parsed.consumedUrls.any(text.contains) ||
-          parsed.consumedLines.contains(text)) {
-        toRemove.add(node);
-        // 标签独占一行的格式：前一行是该链接的标签时一并删除
-        if (i > 0) {
-          final prevLabel =
-              _cleanLabelText(nodes[i - 1].text?.trim() ?? '');
-          if (prevLabel.isNotEmpty && labels.contains(prevLabel)) {
-            toRemove.add(nodes[i - 1]);
-          }
-        }
-        continue;
-      }
-
-      final decompressMatch =
-          RegExp(r'解压(?:码|密码|口令)[：:]?\s*(\S+)').firstMatch(text);
-      if (decompressMatch != null &&
-          parsed.decompressCodes
-              .contains(decompressMatch.group(1)!.trim())) {
-        toRemove.add(node);
-        continue;
-      }
-      final codeMatch =
-          RegExp(r'^(?:提取码|密码)[：:]\s*(\w+)$').firstMatch(text);
-      if (codeMatch != null &&
-          parsed.extractCodes.contains(codeMatch.group(1))) {
-        toRemove.add(node);
-      }
-    }
-
-    if (toRemove.isEmpty) return html;
-    for (final node in toRemove) {
-      node.remove();
-    }
-    return body.innerHtml;
+    final codeMatch =
+        RegExp(r'^(?:提取码|密码)[：:]\s*(\w+)$').firstMatch(trimmed);
+    return codeMatch != null && parsed.extractCodes.contains(codeMatch.group(1));
   }
 
   String _getDomainLabel(String domain) {
