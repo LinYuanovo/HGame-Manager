@@ -185,6 +185,15 @@ void main() {
       expect(mapping['https://img.com/b.png'], r'C:\G\A\images\2.png');
     });
 
+    test('按 scrape_ 前缀编号匹配本地图片', () {
+      final mapping = ScrapeApplyService.buildNumberedUrlMapping(
+        ['https://img.com/a.jpg'],
+        [r'C:\G\A\HGMDatas\images\scrape_1.jpg'],
+      );
+      expect(mapping['https://img.com/a.jpg'],
+          r'C:\G\A\HGMDatas\images\scrape_1.jpg');
+    });
+
     test('编号不匹配时返回空', () {
       final mapping = ScrapeApplyService.buildNumberedUrlMapping(
         ['https://img.com/a.jpg'],

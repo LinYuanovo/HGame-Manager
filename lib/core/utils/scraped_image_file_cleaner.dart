@@ -44,7 +44,10 @@ class ScrapedImageFileCleaner {
   static bool _isNumberedImage(String filePath) {
     final stem = path.basenameWithoutExtension(filePath);
     final ext = path.extension(filePath).toLowerCase();
-    return int.tryParse(stem) != null && _imageExtensions.contains(ext);
+    // scrape_N（新命名）与纯数字（旧命名）为可回收的刮削编号图；
+    // manual_/guide_/UUID 命名的图不属于刮削清理范围
+    return GameDataPaths.parseScrapeImageIndex(stem) != null &&
+        _imageExtensions.contains(ext);
   }
 
   static bool _isReferenced(String filePath, Iterable<String?> texts) {

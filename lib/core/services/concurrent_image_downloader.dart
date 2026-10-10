@@ -45,8 +45,8 @@ class ConcurrentImageDownloader {
       final suffix = useTempFiles ? '.tmp' : '';
       _downloadSingle(
         url: imageUrls[idx],
-        savePath:
-            path.join(imagesDir.path, '${idx + 1 + startIndex}$suffix$ext'),
+        savePath: path.join(imagesDir.path,
+            '${GameDataPaths.scrapeImagePrefix}${idx + 1 + startIndex}$suffix$ext'),
         headers: headers,
       ).then((success) {
         activeCount--;

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
 import '../utils/app_paths.dart';
 import '../utils/game_data_paths.dart';
@@ -74,11 +75,13 @@ class ImageService {
   }
 
   /// 复制本地图片到游戏目录的 HGMDatas/images 文件夹
+  /// 命名为 manual_序号（管理器手动图命名规则，与游戏自带资源图区分）
   Future<String> copyImageToGameDir(String sourcePath, String gamePath) async {
     final imageDir = await GameDataPaths.ensureImagesDir(gamePath);
     final extension = sourcePath.split('.').last;
-    final fileName = '${_uuid.v4()}.$extension';
-    final destPath = '${imageDir.path}${Platform.pathSeparator}$fileName';
+    final fileName =
+        '${await _nextManualImageStem(imageDir)}.$extension';
+    final destPath = path.join(imageDir.path, fileName);
 
     await File(sourcePath).copy(destPath);
     return destPath;
@@ -92,14 +95,17 @@ class ImageService {
   }
 
   /// 从URL下载图片到游戏目录的 HGMDatas/images 文件夹
+  /// 命名为 manual_序号（管理器手动图命名规则，与游戏自带资源图区分）
   Future<String?> downloadImageFromUrlToGameDir(String url, String gamePath,
       {Map<String, String>? headers}) async {
     final imageDir = await GameDataPaths.ensureImagesDir(gamePath);
-    return _downloadImageToDir(url, imageDir.path, headers: headers);
+    final stem = await _nextManualImageStem(imageDir);
+    return _downloadImageToDir(url, imageDir.path,
+        headers: headers, fileNameStem: stem);
   }
 
   Future<String?> _downloadImageToDir(String url, String targetDir,
-      {Map<String, String>? headers}) async {
+      {Map<String, String>? headers, String? fileNameStem}) async {
     try {
       final response = await http.get(Uri.parse(url), headers: headers);
       if (response.statusCode != 200) return null;
@@ -107,14 +113,30 @@ class ImageService {
       final extension =
           _getExtensionFromContentType(response.headers['content-type']) ??
               'jpg';
-      final fileName = '${_uuid.v4()}.$extension';
-      final destPath = '$targetDir${Platform.pathSeparator}$fileName';
+      final fileName = '${fileNameStem ?? _uuid.v4()}.$extension';
+      final destPath = path.join(targetDir, fileName);
 
       await File(destPath).writeAsBytes(response.bodyBytes);
       return destPath;
     } catch (e) {
       return null;
     }
+  }
+
+  /// 计算游戏图片目录内下一个 manual_ 序号（manual_1、manual_2...）
+  Future<String> _nextManualImageStem(Directory imageDir) async {
+    var maxIndex = 0;
+    if (await imageDir.exists()) {
+      await for (final entity in imageDir.list(followLinks: false)) {
+        if (entity is! File) continue;
+        final stem = path.basenameWithoutExtension(entity.path).toLowerCase();
+        if (!stem.startsWith(GameDataPaths.manualImagePrefix)) continue;
+        final index = int.tryParse(
+            stem.substring(GameDataPaths.manualImagePrefix.length));
+        if (index != null && index > maxIndex) maxIndex = index;
+      }
+    }
+    return '${GameDataPaths.manualImagePrefix}${maxIndex + 1}';
   }
 
   /// 删除图片文件

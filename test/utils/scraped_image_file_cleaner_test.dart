@@ -88,5 +88,40 @@ void main() {
       expect(deleted, 0);
       expect(await File(oldImage).exists(), isTrue);
     });
+
+    test('deletes unreferenced scrape-prefixed images', () async {
+      final retained = await writeImage('scrape_1.jpg');
+      await writeImage('scrape_3.jpg');
+
+      final deleted = await ScrapedImageFileCleaner.cleanUnusedNumberedImages(
+        gamePath: tempDir.path,
+        retainedImagePaths: [retained],
+        referenceTexts: const [],
+      );
+
+      expect(deleted, 1);
+      expect(await File(retained).exists(), isTrue);
+      expect(await File(path.join(imageDir.path, 'scrape_3.jpg')).exists(),
+          isFalse);
+    });
+
+    test('keeps manual-prefixed images outside scrape cleanup', () async {
+      // manual_/guide_ 手动图不属于刮削编号图清理范围，永久保留
+      final manual = await writeImage('manual_1.jpg');
+      final guide = await writeImage('guide_01.jpg');
+      await writeImage('scrape_2.jpg');
+
+      final deleted = await ScrapedImageFileCleaner.cleanUnusedNumberedImages(
+        gamePath: tempDir.path,
+        retainedImagePaths: [manual],
+        referenceTexts: const [],
+      );
+
+      expect(deleted, 1);
+      expect(await File(manual).exists(), isTrue);
+      expect(await File(guide).exists(), isTrue);
+      expect(await File(path.join(imageDir.path, 'scrape_2.jpg')).exists(),
+          isFalse);
+    });
   });
 }

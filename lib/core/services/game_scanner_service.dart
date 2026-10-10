@@ -560,17 +560,15 @@ class GameScannerService {
             '${GameDataPaths.imagesDir(data.folderPath).path}$sep';
         final gameImagesDir2 =
             '${GameDataPaths.legacyImagesDir(data.folderPath).path}$sep';
-        final gameImagesDir3 =
-            '${GameDataPaths.legacySingularImageDir(data.folderPath).path}$sep';
+        // 单数 image 目录为游戏自带资源目录，其中的路径按外部图片保留
         final externalImages = await txn.query(
           'game_images',
           where:
-              'game_id = ? AND image_path NOT LIKE ? AND image_path NOT LIKE ? AND image_path NOT LIKE ?',
+              'game_id = ? AND image_path NOT LIKE ? AND image_path NOT LIKE ?',
           whereArgs: [
             gameId,
             '$gameImagesDir1%',
-            '$gameImagesDir2%',
-            '$gameImagesDir3%'
+            '$gameImagesDir2%'
           ],
         );
 

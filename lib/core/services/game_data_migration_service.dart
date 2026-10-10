@@ -57,7 +57,12 @@ class GameDataMigrationService {
     var changed = false;
     final imagePathMap = <String, String>{};
 
-    await GameDataPaths.ensureDataDir(gamePath);
+    // 旧布局标记：根目录 metadata.json 是旧版管理器刮削必写的文件。
+    // 只有它存在时，复数 images/ 才可能是管理器旧图片目录（允许整体迁移）；
+    // 否则 images/image 目录与游戏自带资源目录同名，只能按引用证据逐文件迁移。
+    final rootMetadataExisted =
+        await GameDataPaths.legacyMetadataFile(gamePath).exists();
+    final referenceCorpus = await _collectReferenceCorpus(gamePath, gameId);
 
     changed |= await _moveFileWithConflict(
       GameDataPaths.legacyMetadataFile(gamePath),
@@ -68,16 +73,29 @@ class GameDataMigrationService {
       GameDataPaths.sourceUrlFile(gamePath),
     );
 
-    final imageTarget = await GameDataPaths.ensureImagesDir(gamePath);
-    changed |= await _mergeDirectory(
-      GameDataPaths.legacyImagesDir(gamePath),
-      imageTarget,
-      imagePathMap: imagePathMap,
-    );
-    changed |= await _mergeDirectory(
+    final pluralLegacyDir = GameDataPaths.legacyImagesDir(gamePath);
+    if (await pluralLegacyDir.exists()) {
+      // 旧布局（根目录 metadata.json 曾存在）下管理器确实写过 images/，
+      // 但该目录也可能混有游戏自带资源图（旧版与管理器共用目录名）：
+      // 仅迁移「被引用 ∨ 管理器命名」的文件，资源图保持原位；
+      // 未被引用的纯数字图（旧刮削命名与游戏 CG 撞名）从严不迁移，
+      // 由 existingImagesDir 复数兜底继续读取，无损降级
+      changed |= await _moveReferencedFiles(
+        pluralLegacyDir,
+        gamePath,
+        referenceCorpus,
+        imagePathMap,
+        managedNameTest: rootMetadataExisted
+            ? GameDataPaths.isManagedImageFileName
+            : null,
+      );
+    }
+    // 单数 image 从未由管理器使用（游戏常见资源目录名），仅迁移被引用的文件
+    changed |= await _moveReferencedFiles(
       GameDataPaths.legacySingularImageDir(gamePath),
-      imageTarget,
-      imagePathMap: imagePathMap,
+      gamePath,
+      referenceCorpus,
+      imagePathMap,
     );
     if (imagePathMap.isNotEmpty ||
         await _hasLegacyImageReferences(gamePath, gameId)) {
@@ -127,11 +145,10 @@ class GameDataMigrationService {
     if (await GameDataPaths.legacySourceUrlFile(gamePath).exists()) {
       return true;
     }
-    if (await GameDataPaths.legacyImagesDir(gamePath).exists()) return true;
-    if (await GameDataPaths.legacySingularImageDir(gamePath).exists()) {
-      return true;
-    }
     if (await GameDataPaths.legacyBackupDir(gamePath).exists()) return true;
+    // images/image 目录与游戏自带资源目录同名：缺少根目录管理器标记
+    // （metadata.json / source_url.txt）时不视为旧布局，避免为纯游戏目录
+    // 触发迁移检查和 HGMDatas 空目录创建
     return false;
   }
 
@@ -267,6 +284,107 @@ class GameDataMigrationService {
 
   String? _replaceMovedPathReferences(String? value, Map<String, String> map) =>
       PathReferenceRewriter.replace(value, map);
+
+  /// 收集图片路径引用语料（新旧 metadata.json 全文 + 数据库正文与图片记录），
+  /// 用于判定旧版目录中的文件是否由管理器引用（路径变体：小写、正斜杠）。
+  /// metadata 为 JSON 文本，路径引用含 `\\` 转义，需同时提供反转义变体
+  Future<String> _collectReferenceCorpus(String gamePath, int? gameId) async {
+    final parts = <String>[];
+
+    for (final file in [
+      GameDataPaths.legacyMetadataFile(gamePath),
+      GameDataPaths.metadataFile(gamePath),
+    ]) {
+      if (await file.exists()) {
+        try {
+          final raw = await file.readAsString();
+          parts.add(raw);
+          parts.add(raw.replaceAll('\\\\', '\\'));
+        } catch (_) {}
+      }
+    }
+
+    final repo = _gameRepository;
+    if (repo != null && gameId != null) {
+      try {
+        final game = await repo.getGameById(gameId);
+        if (game != null) {
+          parts.add(game.intro ?? '');
+          parts.add(game.features ?? '');
+          parts.add(game.changelog ?? '');
+          parts.add(game.guide ?? '');
+        }
+        for (final image in await repo.getGameImages(gameId)) {
+          parts.add(image.imagePath);
+        }
+      } catch (_) {}
+    }
+
+    return parts.join('\n').toLowerCase().replaceAll('\\', '/');
+  }
+
+  /// 仅迁移「被引用语料命中 ∨ 符合管理器命名」的文件（保留相对路径结构），
+  /// 其余文件保持原位。用于无法确认目录归属时的保守迁移：
+  /// 游戏自带资源目录不受影响。
+  Future<bool> _moveReferencedFiles(
+    Directory source,
+    String gamePath,
+    String referenceCorpus,
+    Map<String, String> imagePathMap, {
+    bool Function(String fileName)? managedNameTest,
+  }) async {
+    if (!await source.exists()) return false;
+
+    final files = <File>[];
+    await for (final entity in source.list(
+      recursive: true,
+      followLinks: false,
+    )) {
+      if (entity is File) files.add(entity);
+    }
+
+    var movedAny = false;
+    for (final file in files) {
+      final referenced = referenceCorpus.isNotEmpty &&
+          referenceCorpus
+              .contains(file.path.toLowerCase().replaceAll('\\', '/'));
+      final managedName =
+          managedNameTest != null && managedNameTest(path.basename(file.path));
+      if (!referenced && !managedName) continue;
+
+      final relativePath = path.relative(file.path, from: source.path);
+      final imageTarget = await GameDataPaths.ensureImagesDir(gamePath);
+      final targetPath = await _nextAvailablePath(
+        path.join(imageTarget.path, relativePath),
+      );
+      final parent = Directory(path.dirname(targetPath));
+      if (!await parent.exists()) {
+        await parent.create(recursive: true);
+      }
+      _log.info(_logTag, '迁移被引用的图片: ${file.path} -> $targetPath');
+      await file.rename(targetPath);
+      imagePathMap[file.path] = targetPath;
+      movedAny = true;
+    }
+
+    if (movedAny) {
+      await _deleteIfEmptyRecursive(source);
+    }
+    return movedAny;
+  }
+
+  Future<void> _deleteIfEmptyRecursive(Directory dir) async {
+    if (!await dir.exists()) return;
+    final children = await dir.list(followLinks: false).toList();
+    for (final child in children) {
+      if (child is Directory) {
+        await _deleteIfEmptyRecursive(child);
+      }
+    }
+    // 递归清理后仍残留子目录或文件时保留
+    if (!await dir.list(followLinks: false).isEmpty) return;
+    await dir.delete();
+  }
 
   Future<void> _addInferredLegacyImageMappings(
     String gamePath,

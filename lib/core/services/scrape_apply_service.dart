@@ -123,7 +123,8 @@ class ScrapeApplyService {
       for (final localPath in localImages) {
         final fileName = localPath.split(Platform.pathSeparator).last;
         final baseName = fileName.split('.').first;
-        if (baseName == '${i + 1}') {
+        final index = GameDataPaths.parseScrapeImageIndex(fileName);
+        if (index == i + 1 || baseName == '${i + 1}') {
           urlToLocal[remoteUrl] = localPath;
           if (remoteUrl.startsWith('https:')) {
             urlToLocal[remoteUrl.replaceFirst('https:', '')] = localPath;
@@ -157,7 +158,7 @@ class ScrapeApplyService {
         if (entity is File &&
             !path.basenameWithoutExtension(entity.path).endsWith('.tmp')) {
           final index =
-              int.tryParse(path.basenameWithoutExtension(entity.path));
+              GameDataPaths.parseScrapeImageIndex(entity.path);
           if (index != null) oldImagePaths[index] = entity.path;
         }
       }
@@ -180,7 +181,8 @@ class ScrapeApplyService {
       final tmpPath = urlToTmp[url];
       if (tmpPath != null && await File(tmpPath).exists()) {
         final ext = path.extension(tmpPath).replaceAll('.tmp', '');
-        final finalPath = path.join(imagesDir.path, '${i + 1}$ext');
+        final finalPath = path.join(imagesDir.path,
+            '${GameDataPaths.scrapeImagePrefix}${i + 1}$ext');
         if (finalPath != tmpPath) {
           final oldFile = File(finalPath);
           if (await oldFile.exists()) await oldFile.delete();
