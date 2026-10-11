@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +19,7 @@ import '../theme/app_theme.dart';
 /// 入口参数固定为 {"multi_window", windowId, arguments}。
 Future<void> runGuideWindow(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  _setupGuideWindowErrorHandling();
   await windowManager.ensureInitialized();
 
   final windowId = args.length > 1 ? args[1] : '';
@@ -61,6 +63,34 @@ Future<void> _loadCustomFonts(AppSettings prefs) async {
       debugPrint('Failed to load custom font: $e');
     }
   }
+}
+
+/// 子窗口错误过滤：吞掉 Windows 平台已知的无害引擎噪音
+///（键盘状态断言、无障碍桥接等），其余异常仅打印调试输出，
+/// 不写主窗口的日志文件（避免两个引擎并发写同一文件）。
+/// 与 main.dart 的 _isWindowsKeyboardStateAssertion 保持同族过滤。
+void _setupGuideWindowErrorHandling() {
+  FlutterError.onError = (details) {
+    if (_isHarmlessWindowsNoise(details.exceptionAsString())) return;
+    debugPrint('GuideWindow FlutterError: ${details.exceptionAsString()}');
+  };
+  PlatformDispatcher.instance.onError = (error, stackTrace) {
+    if (_isHarmlessWindowsNoise(error.toString())) return true;
+    debugPrint('GuideWindow PlatformError: $error');
+    return true;
+  };
+}
+
+bool _isHarmlessWindowsNoise(String message) {
+  return message.contains('accessibility_bridge.cc') ||
+      message.contains('Failed to update ui::AXTree') ||
+      message.contains('AXTree') ||
+      message.contains(
+        'Attempted to send a key down event when no keys are in keysPressed',
+      ) ||
+      message.contains(
+        'A KeyDownEvent is dispatched, but the state shows that the physical key is already pressed',
+      );
 }
 
 class GuideWindowApp extends StatelessWidget {

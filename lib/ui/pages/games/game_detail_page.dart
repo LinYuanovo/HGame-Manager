@@ -282,6 +282,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _contentScrollController = ScrollController();
     _contentScrollController.addListener(_onScroll);
     _repo = ref.read(gameRepositoryProvider);
+    // 登记当前详情页游戏，供攻略浮窗全局快捷键（CTRL+1）定位攻略
+    ref.read(guideWindowServiceProvider).setCurrentDetailGameId(_currentGame.id);
     Future.microtask(_migrateCurrentGameData);
     _checkIsLocal();
     _forceReloadImages();
@@ -450,6 +452,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   @override
   void dispose() {
     ServicesBinding.instance.keyboard.removeHandler(_handleKeyDown);
+    ref.read(guideWindowServiceProvider).clearCurrentDetailGameId(_currentGame.id);
     debugPrint('[ScrollPos] dispose: saving scroll position');
     _captureAndSaveScrollPositions();
     _scrollSaveDebounce?.cancel();

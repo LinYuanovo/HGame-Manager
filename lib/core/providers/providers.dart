@@ -122,7 +122,10 @@ final fan2dServiceProvider = Provider<Fan2dService>((ref) => Fan2dService());
 
 /// 攻略浮窗管理服务（独立系统窗口 + 全局快捷键）
 final guideWindowServiceProvider = Provider<GuideWindowService>((ref) {
-  final service = GuideWindowService(ref.watch(sharedPreferencesProvider));
+  final service = GuideWindowService(
+    ref.watch(sharedPreferencesProvider),
+    ref.watch(gameRepositoryProvider),
+  );
   ref.onDispose(service.dispose);
   return service;
 });

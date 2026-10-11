@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 
 import '../models/models.dart';
+import '../repositories/game_repository.dart';
 import '../utils/app_settings.dart';
 
 /// 攻略浮窗内容载荷
@@ -33,9 +34,10 @@ class GuideWindowPayload {
 /// 负责浮窗子窗口的创建/更新/关闭、滚动与置顶指令转发，
 /// 以及 4 个全局快捷键（可在设置中自定义）的注册。
 class GuideWindowService {
-  GuideWindowService(this._prefs);
+  GuideWindowService(this._prefs, this._gameRepository);
 
   final AppSettings _prefs;
+  final GameRepository _gameRepository;
 
   static const String hotkeyToggleKey = 'guide_window_hotkey_toggle';
   static const String hotkeyPinKey = 'guide_window_hotkey_pin';
@@ -45,12 +47,15 @@ class GuideWindowService {
   /// 是否注册全局快捷键的总开关（默认开启）
   static const String hotkeysEnabledKey = 'guide_window_hotkeys_enabled';
 
+  /// 最后一次通过浮窗显示的游戏 ID（持久化，重启应用后 CTRL+1 可直接重开）
+  static const String lastGameIdKey = 'guide_window_last_game_id';
+
   /// 全局滚动步长（像素）
   static const double scrollStep = 300;
 
   String? _mainWindowId;
   String? _windowId;
-  GuideWindowPayload? _lastPayload;
+  int? _currentDetailGameId;
   StreamSubscription? _windowsChangedSub;
   bool _initialized = false;
 
@@ -99,7 +104,11 @@ class GuideWindowService {
       title: game.title ?? '',
       content: content,
     );
-    _lastPayload = payload;
+    // 记录最后显示的游戏，供全局快捷键重开
+    final gameId = game.id;
+    if (gameId != null) {
+      unawaited(_prefs.setString(lastGameIdKey, gameId.toString()));
+    }
     final existingId = _windowId;
     if (existingId != null) {
       try {
@@ -114,15 +123,43 @@ class GuideWindowService {
     await _createWindow(payload);
   }
 
-  /// CTRL+1：开启/关闭浮窗（重开时使用最后一次显示的内容）
+  /// CTRL+1：开启/关闭浮窗。
+  /// 开启时的游戏来源优先级：当前打开的详情页 > 最后一次通过浮窗显示的记录
+  ///（含应用重启前的记录），无需先手动打开过一次浮窗。
   Future<void> toggleOpenClose() async {
     if (_windowId != null) {
       await closeWindow();
       return;
     }
-    final payload = _lastPayload;
-    if (payload == null) return;
-    await _createWindow(payload);
+    final game = await _resolveToggleGame();
+    if (game == null) return;
+    await openOrUpdate(game);
+  }
+
+  /// 解析 CTRL+1 应打开的游戏：当前详情页游戏优先，其次最后记录
+  Future<Game?> _resolveToggleGame() async {
+    final currentId = _currentDetailGameId;
+    if (currentId != null) {
+      final game = await _gameRepository.getGameById(currentId);
+      if (game != null && (game.guide ?? '').isNotEmpty) return game;
+    }
+    final lastId = int.tryParse(_prefs.getString(lastGameIdKey) ?? '');
+    if (lastId == null || lastId == currentId) return null;
+    final game = await _gameRepository.getGameById(lastId);
+    if (game != null && (game.guide ?? '').isNotEmpty) return game;
+    return null;
+  }
+
+  /// 详情页打开时登记当前查看的游戏 ID，供全局快捷键定位攻略
+  void setCurrentDetailGameId(int? gameId) {
+    _currentDetailGameId = gameId;
+  }
+
+  /// 详情页关闭时清除登记（仅当与登记一致时）
+  void clearCurrentDetailGameId(int? gameId) {
+    if (gameId == null || _currentDetailGameId == gameId) {
+      _currentDetailGameId = null;
+    }
   }
 
   Future<void> closeWindow() async {

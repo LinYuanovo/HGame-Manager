@@ -140,7 +140,7 @@ void _setupErrorHandling() {
     final message = details.toString();
     if (message.contains('accessibility_bridge.cc') ||
         message.contains('Failed to update ui::AXTree') ||
-        _isWindowsMetaKeyStateAssertion(details)) {
+        _isWindowsKeyboardStateAssertion(details.exceptionAsString())) {
       return;
     }
     log.error('FlutterError', details.exceptionAsString(), null, details.stack);
@@ -151,7 +151,8 @@ void _setupErrorHandling() {
     final errorStr = error.toString();
     if (errorStr.contains('accessibility_bridge.cc') ||
         errorStr.contains('Failed to update ui::AXTree') ||
-        errorStr.contains('AXTree')) {
+        errorStr.contains('AXTree') ||
+        _isWindowsKeyboardStateAssertion(errorStr)) {
       return true;
     }
     log.error('PlatformError', error.toString(), error, stackTrace);
@@ -159,13 +160,17 @@ void _setupErrorHandling() {
   };
 }
 
-bool _isWindowsMetaKeyStateAssertion(FlutterErrorDetails details) {
+/// Windows 平台引擎在焦点切换、或按住修饰键触发全局热键时，
+/// 可能派发与内部已跟踪状态冲突的合成按键事件，触发 HardwareKeyboard 断言。
+/// 该断言家族已知无害（release 构建断言关闭，不产生任何异常）。
+bool _isWindowsKeyboardStateAssertion(String message) {
   if (!Platform.isWindows) return false;
-  final message = details.exceptionAsString();
   return message.contains(
         'Attempted to send a key down event when no keys are in keysPressed',
-      ) &&
-      message.contains('Meta Left');
+      ) ||
+      message.contains(
+        'A KeyDownEvent is dispatched, but the state shows that the physical key is already pressed',
+      );
 }
 
 class HGameManagerApp extends ConsumerStatefulWidget {
