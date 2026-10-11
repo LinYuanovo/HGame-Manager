@@ -126,5 +126,8 @@ node_modules/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
 
+# OpenCode
+.codex/
+
 # Keep tests and fixtures tracked
 !test/**

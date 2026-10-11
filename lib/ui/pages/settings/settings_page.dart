@@ -23,6 +23,7 @@ import '../../../core/services/webdav_service.dart';
 import '../../../core/services/backup_image_service.dart';
 import '../../../core/services/backup_image_record_service.dart';
 import '../../../core/services/image_service.dart';
+import '../../../core/services/guide_window_service.dart';
 import '../../controllers/window_controller.dart';
 import '../../../scraper/html_parser.dart';
 import '../../../scraper/parse_utils.dart';
@@ -95,6 +96,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   bool _isChangelogExpanded = false;
   bool _isCheckingAppUpdate = false;
   bool _isInstallingAppUpdate = false;
+  bool _guideHotkeysEnabled = true;
   bool _autoUpdateEnabled = false;
   AppUpdateFrequency _autoUpdateFrequency = AppUpdateFrequency.startup;
   DateTime? _lastSuccessfulUpdateCheck;
@@ -118,6 +120,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         '已玩游戏保留库中',
         '收藏游戏优先排序',
         '无图模式',
+        '注册全局攻略浮窗快捷键',
         '字体设置'
       ],
     ),
@@ -174,6 +177,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     final font = prefs.getString('font_family') ?? '';
     final fontSize = prefs.getDouble('font_size') ?? 14.0;
     final detailFontSize = prefs.getDouble('detail_font_size') ?? 14.0;
+    _guideHotkeysEnabled = ref.read(guideWindowServiceProvider).hotkeysEnabled;
 
     final cookieAcgying = prefs.getString('cookie_acgying') ?? '';
     final cookieFeixue = prefs.getString('cookie_feixue') ?? '';
@@ -482,6 +486,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         return _buildNoImageModeSection();
       case '字体设置':
         return _buildFontSection();
+      case '注册全局攻略浮窗快捷键':
+        return _buildGuideHotkeyEnabledSection();
       case '右键菜单管理':
         return _buildContextMenuSection();
       case '侧边栏页面管理':
@@ -1170,8 +1176,50 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     );
   }
 
-  Widget _buildKeepPlayedSection() {
+  Widget _buildGuideHotkeyEnabledSection() {
     return _buildSection(
+      title: '注册全局攻略浮窗快捷键',
+      icon: Icons.keyboard_outlined,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('全局启用攻略浮窗快捷键',
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.getTextPrimary(context))),
+                  const SizedBox(height: 4),
+                  Text(
+                    '开启后，浮窗快捷键（默认 CTRL+1 开关、CTRL+2 置顶、CTRL+↑/↓ 滚动）在游戏或其他软件中同样生效；若与其他软件快捷键冲突可关闭。修改按键组合在 管理 → 攻略浮窗快捷键',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.getTextSecondary(context)
+                            .withValues(alpha: 0.6)),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: _guideHotkeysEnabled,
+              onChanged: (value) async {
+                setState(() => _guideHotkeysEnabled = value);
+                final prefs = ref.read(sharedPreferencesProvider);
+                await prefs.setBool(
+                    GuideWindowService.hotkeysEnabledKey, value);
+                await ref.read(guideWindowServiceProvider).registerHotkeys();
+              },
+              activeColor: AppTheme.primaryColor,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildKeepPlayedSection() {    return _buildSection(
       title: '已玩游戏保留库中',
       icon: Icons.library_books_outlined,
       children: [

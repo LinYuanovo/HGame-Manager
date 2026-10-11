@@ -42,6 +42,9 @@ class GuideWindowService {
   static const String hotkeyScrollUpKey = 'guide_window_hotkey_scroll_up';
   static const String hotkeyScrollDownKey = 'guide_window_hotkey_scroll_down';
 
+  /// 是否注册全局快捷键的总开关（默认开启）
+  static const String hotkeysEnabledKey = 'guide_window_hotkeys_enabled';
+
   /// 全局滚动步长（像素）
   static const double scrollStep = 300;
 
@@ -210,10 +213,13 @@ class GuideWindowService {
     }
   }
 
-  /// 按当前配置重新注册全部全局快捷键
+  bool get hotkeysEnabled => _prefs.getBool(hotkeysEnabledKey) ?? true;
+
+  /// 按当前配置重新注册全部全局快捷键；总开关关闭时反注册全部
   Future<void> registerHotkeys() async {
     try {
       await hotKeyManager.unregisterAll();
+      if (!hotkeysEnabled) return;
       await hotKeyManager.register(
         loadHotkey(hotkeyToggleKey),
         keyDownHandler: (_) => toggleOpenClose(),
