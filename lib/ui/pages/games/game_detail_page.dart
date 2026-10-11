@@ -29,6 +29,7 @@ import '../../theme/app_theme.dart';
 import '../../../core/services/version_check_service.dart';
 import '../../../core/services/vikacg_service.dart';
 import '../../../core/services/folder_rename_service.dart';
+import '../../../core/services/guide_window_service.dart';
 import '../../../core/services/game_launch_service.dart';
 import '../../../core/services/play_time_tracker.dart';
 import '../../../core/utils/backup_image_reference_resolver.dart';
@@ -99,6 +100,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   late ScrollController _contentScrollController;
   final GlobalKey _scrollContentKey = GlobalKey();
   GameRepository? _repo;
+  late final GuideWindowService _guideWindowService;
   Timer? _scrollSaveDebounce;
   bool _isRestoringScroll = false;
   bool _suppressScrollSave = false;
@@ -283,7 +285,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _contentScrollController.addListener(_onScroll);
     _repo = ref.read(gameRepositoryProvider);
     // 登记当前详情页游戏，供攻略浮窗全局快捷键（CTRL+1）定位攻略
-    ref.read(guideWindowServiceProvider).setCurrentDetailGameId(_currentGame.id);
+    // 缓存 service 实例：dispose 中禁止使用 ref，需用缓存调用
+    _guideWindowService = ref.read(guideWindowServiceProvider);
+    _guideWindowService.setCurrentDetailGameId(_currentGame.id);
     Future.microtask(_migrateCurrentGameData);
     _checkIsLocal();
     _forceReloadImages();
@@ -452,7 +456,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   @override
   void dispose() {
     ServicesBinding.instance.keyboard.removeHandler(_handleKeyDown);
-    ref.read(guideWindowServiceProvider).clearCurrentDetailGameId(_currentGame.id);
+    _guideWindowService.clearCurrentDetailGameId(_currentGame.id);
     debugPrint('[ScrollPos] dispose: saving scroll position');
     _captureAndSaveScrollPositions();
     _scrollSaveDebounce?.cancel();
