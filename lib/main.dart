@@ -19,8 +19,9 @@ import 'ui/pages/home_page.dart';
 import 'ui/theme/app_theme.dart';
 import 'core/providers/theme_provider.dart';
 import 'ui/widgets/app_update_dialog.dart';
+import 'ui/windows/guide_window.dart';
 
-void main() async {
+void main(List<String> args) async {
   // Suppress noisy Flutter accessibility logs
   final originalDebugPrint = debugPrint;
   debugPrint = (String? message, {int? wrapWidth}) {
@@ -34,6 +35,14 @@ void main() async {
   };
 
   WidgetsFlutterBinding.ensureInitialized();
+
+  // desktop_multi_window 子窗口：以独立引擎运行攻略浮窗，
+  // 不初始化主窗口相关的数据库/媒体/迁移等基础设施
+  if (args.isNotEmpty && args.first == 'multi_window') {
+    await runGuideWindow(args);
+    return;
+  }
+
   try {
     MediaKit.ensureInitialized();
   } catch (e) {
@@ -187,6 +196,8 @@ class _HGameManagerAppState extends ConsumerState<HGameManagerApp> {
           Timer(const Duration(seconds: 5), _migrateExistingGameData);
       _automaticUpdateTimer =
           Timer(const Duration(seconds: 2), _runAutomaticUpdateCheck);
+      // 初始化攻略浮窗服务（建立子窗口消息通道并注册全局快捷键）
+      unawaited(ref.read(guideWindowServiceProvider).initialize());
     });
   }
 

@@ -5,12 +5,16 @@ class DetailScrollButtons extends StatefulWidget {
   final ScrollController scrollController;
   final bool showGuide;
   final VoidCallback? onToggleGuide;
+  final bool hasGuide;
+  final VoidCallback? onOpenGuideWindow;
 
   const DetailScrollButtons({
     super.key,
     required this.scrollController,
     this.showGuide = false,
     this.onToggleGuide,
+    this.hasGuide = false,
+    this.onOpenGuideWindow,
   });
 
   @override
@@ -89,7 +93,13 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_showTop && !_showBottom && widget.onToggleGuide == null) {
+    final showFloatButton = widget.showGuide &&
+        widget.hasGuide &&
+        widget.onOpenGuideWindow != null;
+    if (!_showTop &&
+        !_showBottom &&
+        widget.onToggleGuide == null &&
+        !showFloatButton) {
       return const SizedBox.shrink();
     }
 
@@ -114,6 +124,14 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
                 onPressed: widget.onToggleGuide!,
                 tooltip: widget.showGuide ? '切换到简介' : '切换到攻略',
               ),
+            if (showFloatButton) ...[
+              const SizedBox(height: 8),
+              _buildButton(
+                icon: Icons.picture_in_picture_alt_outlined,
+                onPressed: widget.onOpenGuideWindow!,
+                tooltip: '浮窗显示攻略',
+              ),
+            ],
             const SizedBox(height: 8),
             if (_showBottom)
               _buildButton(

@@ -17,6 +17,7 @@ import '../services/game_move_service.dart';
 import '../services/game_data_migration_service.dart';
 import '../services/cleared_metadata_backup_service.dart';
 import '../services/folder_rename_service.dart';
+import '../services/guide_window_service.dart';
 import '../services/dlsite_service.dart';
 import '../services/steam_service.dart';
 import '../services/fan2d_service.dart';
@@ -118,6 +119,13 @@ final folderRenameServiceProvider = Provider<FolderRenameService>((ref) {
 final dlsiteServiceProvider = Provider<DlsiteService>((ref) => DlsiteService());
 final steamServiceProvider = Provider<SteamService>((ref) => SteamService());
 final fan2dServiceProvider = Provider<Fan2dService>((ref) => Fan2dService());
+
+/// 攻略浮窗管理服务（独立系统窗口 + 全局快捷键）
+final guideWindowServiceProvider = Provider<GuideWindowService>((ref) {
+  final service = GuideWindowService(ref.watch(sharedPreferencesProvider));
+  ref.onDispose(service.dispose);
+  return service;
+});
 final pilipiliServiceProvider = Provider<PilipiliService>((ref) {
   return PilipiliService();
 });

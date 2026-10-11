@@ -33,6 +33,7 @@ import 'context_menu_manager_dialog.dart';
 import 'sidebar_manager_dialog.dart';
 import 'scrape_mode_config_dialog.dart';
 import 'rename_manager_dialog.dart';
+import 'guide_hotkey_dialog.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/models/theme_mode.dart';
 import '../../widgets/cloudflare_browser_dialog.dart';
@@ -123,7 +124,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _SidebarCategory(
       label: '管理',
       icon: Icons.admin_panel_settings_outlined,
-      items: ['黑名单管理', '右键菜单管理', '侧边栏页面管理', '封面比例管理', '刮削行为管理', '重命名规则管理'],
+      items: ['黑名单管理', '右键菜单管理', '侧边栏页面管理', '封面比例管理', '刮削行为管理', '重命名规则管理', '攻略浮窗快捷键'],
     ),
     _SidebarCategory(
       label: '刮削',
@@ -493,6 +494,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         return _buildScrapeModeConfigSection();
       case '重命名规则管理':
         return _buildRenameManagerSection();
+      case '攻略浮窗快捷键':
+        return _buildGuideHotkeySection();
       case '论坛自定义域名':
         return _buildForumDomainSection();
       case 'Cookie设置':
@@ -1351,6 +1354,48 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     showDialog<bool>(
       context: context,
       builder: (context) => const RenameManagerDialog(),
+    );
+  }
+
+  Widget _buildGuideHotkeySection() {
+    return _buildSection(
+      title: '攻略浮窗快捷键',
+      icon: Icons.keyboard_outlined,
+      children: [
+        Text(
+          '自定义攻略浮窗的全局快捷键，游戏中也可使用。默认：CTRL+1 开启/关闭，CTRL+2 置顶，CTRL+↑/↓ 滚动。',
+          style: TextStyle(
+              fontSize: 13, color: AppTheme.getTextSecondary(context)),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _showGuideHotkeyManager,
+            icon: const Icon(Icons.settings, size: 18),
+            label: const Text('打开快捷键设置'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor:
+                  AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
+              foregroundColor: AppTheme.getPrimaryColor(context),
+              side: BorderSide(
+                  color:
+                      AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(GlassConstants.radiusMedium)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showGuideHotkeyManager() {
+    showDialog<bool>(
+      context: context,
+      builder: (context) => const GuideHotkeyDialog(),
     );
   }
 

@@ -75,16 +75,17 @@ void main() {
         'https://perfectlife.cc/posts/9305',
       );
 
-      expect(info?.title, '45号电车v1.0.5.1安卓直装版/45番電車');
+      // 解析器会从标题中提取版本号并分离存储（与其他站点解析器行为一致）
+      expect(info?.title, '45号电车安卓直装版/45番電車');
+      expect(info?.version, 'V1.0.5.1');
     });
 
-    test('当前 XPath 语法不强行扩展 contains()', () {
+    test('contains() 语法可正常查询元素', () {
       final document = html_parser.parse(_renderedPerfectlifeHtml);
-      expect(
-        XPathEvaluator.query(
-            document, '//h1[contains(@class, "article-title")]'),
-        isNull,
-      );
+      final element = XPathEvaluator.query(
+          document, '//h1[contains(@class, "article-title")]');
+      expect(element, isNotNull);
+      expect(element?.text.trim(), '45号电车v1.0.5.1安卓直装版/45番電車');
     });
   });
 }

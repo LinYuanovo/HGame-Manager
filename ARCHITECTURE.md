@@ -17,6 +17,8 @@
 | Riverpod | 状态管理 |
 | SQLite (sqflite_common_ffi) | 本地数据存储 |
 | window_manager | 窗口管理 |
+| desktop_multi_window | 攻略浮窗（独立系统子窗口） |
+| hotkey_manager | 攻略浮窗全局快捷键 |
 | html | HTML 解析 |
 | http | HTTP 客户端（代理支持） |
 
@@ -45,12 +47,15 @@ lib/
 │   └── utils/                   # 工具类
 │       ├── app_paths.dart       # 应用路径管理
 │       ├── app_settings.dart    # 配置文件管理
+│       ├── guide_window_state.dart # 攻略浮窗状态存储（独立 JSON 文件）
 │       ├── performance_monitor.dart # 性能监控
 │       └── proxy_client.dart    # HTTP 代理客户端
 ├── ui/                          # UI 层
 │   ├── controllers/             # UI 控制器
 │   │   ├── sidebar_controller.dart # 侧边栏控制器
 │   │   └── window_controller.dart # 窗口控制器
+│   ├── windows/                 # 独立子窗口
+│   │   └── guide_window.dart    # 攻略浮窗子窗口（desktop_multi_window 新引擎入口）
 │   ├── pages/                   # 页面模块
 │   │   ├── home_page.dart       # 主页面
 │   │   ├── app_router.dart      # 路由管理
@@ -361,6 +366,18 @@ enum NavRoute {
 - 文章内容刮削（HTML/JSON转Markdown）
 - 关键词智能提取（过滤版本号、官中等）
 
+### GuideWindowService
+- 攻略浮窗主窗口侧管理（详情页右侧悬浮按钮栏「浮窗显示攻略」触发）
+- 基于 desktop_multi_window 创建独立系统子窗口（同进程新引擎，入口参数 `multi_window <id> <json>`）
+- **子窗口引擎只注册 window_manager 插件**（`flutter_window.cpp` 的 `DesktopMultiWindowSetWindowCreatedCallback`）：media_kit / flutter_inappwebview 等重型插件在子窗口注册会导致主窗口输入被冻结；跨窗口通信通道由插件内部自行注册，不受影响
+- 浮窗状态记忆（位置/大小/置顶/透明度/字号/各游戏滚动位置）存于独立文件 `guide_window_state.json`，避免与 settings.json 并发写
+- 关闭浮窗必须走 `setPreventClose(false)` + `close()` 系统 WM_CLOSE 流程；**禁止** `windowManager.destroy()`（其 Windows 实现是 PostQuitMessage，会退出整个进程）
+- 全局快捷键（hotkey_manager，可在 设置→管理→攻略浮窗快捷键 自定义）：
+  - 开启/关闭：默认 CTRL+1（重开显示最后一次的内容）
+  - 置顶：默认 CTRL+2
+  - 上滑/下滑：默认 CTRL+↑/↓（步长 300px）
+- 主窗口通过 `WindowController.invokeMethod` 转发 updateContent/scroll/togglePin/closeWindow/focus；子窗口关闭时回调 `guideWindowClosed`
+
 ### Fan2dService (扩展)
 - 2DFan攻略搜索和刮削
 - XPath + CSS备选选择器
@@ -438,6 +455,7 @@ class GlassConstants {
 - `game_list_sort_mode` - 游戏列表排序模式
 - `game_list_pagination_mode` - 游戏列表分页模式 ('paginated' | 'infiniteScroll')
 - `game_list_items_per_page` - 列表视图每页显示数量 (int, 3-20, 默认5)
+- `guide_window_hotkey_toggle` / `guide_window_hotkey_pin` / `guide_window_hotkey_scroll_up` / `guide_window_hotkey_scroll_down` - 攻略浮窗全局快捷键（HotKey JSON 格式）
 - 代理设置、Cookie 设置等
 
 ## 网页抓取器

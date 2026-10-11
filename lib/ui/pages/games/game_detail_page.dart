@@ -2315,6 +2315,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           scrollController: _contentScrollController,
           showGuide: _showGuide,
           onToggleGuide: () => _switchTab(!_showGuide),
+          hasGuide: _currentGame.guide?.isNotEmpty ?? false,
+          onOpenGuideWindow: _openGuideWindow,
         ),
       ],
     );
@@ -2426,6 +2428,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             sectionKey: 'guide'),
       ],
     );
+  }
+
+  /// 打开攻略浮窗（独立系统窗口，可置顶于游戏画面之上）
+  Future<void> _openGuideWindow() async {
+    await ref.read(guideWindowServiceProvider).openOrUpdate(_currentGame);
   }
 
   void _openGuideSearch() async {
