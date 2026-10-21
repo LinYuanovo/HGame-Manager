@@ -14,6 +14,7 @@ import '../../../core/services/game_data_migration_service.dart';
 import '../../../core/services/image_service.dart';
 import '../../../core/services/folder_rename_service.dart';
 import '../../../core/services/game_launch_service.dart';
+import '../../../core/services/folder_move_progress.dart';
 import '../theme/app_theme.dart';
 import '../pages/games/game_detail_page.dart';
 import '../../../core/services/play_time_tracker.dart';
@@ -23,6 +24,7 @@ import '../../../core/utils/cleared_game_path_utils.dart';
 import '../../../core/utils/game_data_paths.dart';
 import 'multi_select_controller.dart';
 import 'image_preloader.dart';
+import 'folder_move_progress_dialog.dart';
 
 enum PaginationMode { paginated, infiniteScroll }
 
@@ -2823,19 +2825,29 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     );
 
     if (confirmed != true) return;
+    if (!mounted) return;
 
     try {
       final moveService = ref.read(gameMoveServiceProvider);
-      await moveService.moveGameFolderCrossDrive(
-        gameId: game.id!,
-        oldPath: game.path,
-        newPath: newPath,
+      await runFolderMoveWithProgress(
+        context: context,
+        title: '移动游戏文件夹',
+        task: (onProgress, shouldCancel) => moveService.moveGameFolderCrossDrive(
+          gameId: game.id!,
+          oldPath: game.path,
+          newPath: newPath,
+          onProgress: onProgress,
+          shouldCancel: shouldCancel,
+        ),
       );
       _refreshAllProviders();
       if (mounted) {
         AppTheme.showGlassToast(context, message: '移动成功');
       }
     } catch (e) {
+      if (e is FolderMoveCancelledException || e is FolderMoveException) {
+        return;
+      }
       if (mounted) {
         AppTheme.showGlassToast(context,
             message: '移动失败: $e',

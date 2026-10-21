@@ -29,6 +29,7 @@ import '../../theme/app_theme.dart';
 import '../../../core/services/version_check_service.dart';
 import '../../../core/services/vikacg_service.dart';
 import '../../../core/services/folder_rename_service.dart';
+import '../../../core/services/folder_move_progress.dart';
 import '../../../core/services/guide_window_service.dart';
 import '../../../core/services/game_launch_service.dart';
 import '../../../core/services/play_time_tracker.dart';
@@ -40,6 +41,7 @@ import '../../../core/utils/path_reference_rewriter.dart';
 import '../../widgets/image_manager_dialog.dart';
 import '../../widgets/tag_input_dialog.dart';
 import '../../widgets/cloudflare_browser_dialog.dart';
+import '../../widgets/folder_move_progress_dialog.dart';
 import '../../widgets/markdown_editor.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:path/path.dart' as path;
@@ -4333,13 +4335,21 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         );
 
         if (pathConfirm == true) {
+          if (!mounted) return;
           try {
             final oldPath = _currentGame.path;
             final moveService = ref.read(gameMoveServiceProvider);
-            await moveService.moveGameFolderCrossDrive(
-              gameId: _currentGame.id!,
-              oldPath: oldPath,
-              newPath: newPath,
+            await runFolderMoveWithProgress(
+              context: context,
+              title: '移动游戏文件夹',
+              task: (onProgress, shouldCancel) =>
+                  moveService.moveGameFolderCrossDrive(
+                gameId: _currentGame.id!,
+                oldPath: oldPath,
+                newPath: newPath,
+                onProgress: onProgress,
+                shouldCancel: shouldCancel,
+              ),
             );
             final replacements = {oldPath: newPath};
             newIntro = PathReferenceRewriter.replace(newIntro, replacements);
@@ -4358,6 +4368,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               _guideController.text = newGuide ?? '';
             }
           } catch (e) {
+            if (e is FolderMoveCancelledException || e is FolderMoveException) {
+              if (mounted) {
+                _pathController.text = _currentGame.path;
+              }
+              _pathChanged = false;
+              return;
+            }
             if (mounted) {
               AppTheme.showGlassToast(context,
                   message: '路径修改失败: $e',

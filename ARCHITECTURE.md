@@ -323,6 +323,19 @@ enum NavRoute {
 - RAR 解压（调用系统 WinRAR）并重打包为 ZIP
 - 临时文件自动清理
 
+### FolderTransferService
+- 游戏目录搬运（同卷 rename 快路径 / 跨卷 1MB 分块复制）
+- 进度回调（扫描 → 复制 → 校验 → 清理）、每文件失败重试（3 次退避）
+- 完整性校验（文件数量 + 每文件大小 + 目录结构），失败或取消时清理目标、保留源
+- 目标目录已存在、与源互相包含、含符号链接时直接拒绝
+- 两阶段提交：校验通过后先调 `commit`（写库），再删除源；`commit` 失败时跨卷删除目标副本、同卷 rename 回原名，保证源目录不变
+
+### GameMoveService
+- 移动游戏文件夹唯一入口（列表右键「移动文件夹」/ 详情页「修改路径」共用）
+- 委托 FolderTransferService 完成搬运，写库作为 `commit` 在两阶段提交中执行：更新数据库路径、图片引用、启动器、存档路径与 metadata 引用
+- 写库失败时自动回滚（源目录保持不变），瞬时锁冲突自动重试 2 次，用户无需手动补救
+- 搬运失败/取消时数据库保持不变
+
 ### ScrapeApplyService
 - 刮削结果应用唯一共享层（快速/重新/刮削中心/单个/批量添加共用）
 - 纯函数：stripVersionFromTitle、resolveCategoryName、mergeGameInfo、buildMetadataJson、buildNumberedUrlMapping

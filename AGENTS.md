@@ -89,6 +89,16 @@ AppTheme.warningOrange  // 橙色
 - 多组测试需要按顺序逐条执行；上一条命令结束后再执行下一条。
 - 所有 `flutter` / `dart` 命令必须在沙箱外（提权）运行：Flutter 工具启动时需读写 `C:\flutter\bin\cache\lockfile`，沙箱内无写权限，`flutter.bat` 会静默无限重试导致命令永久挂起且无任何输出。若命令超过 1 分钟无输出，不要等待，直接提权重跑。
 
+### 长任务输出与超时
+
+- 禁止把长命令的输出接到 `Select-Object -Last N`、`Sort-Object` 等会聚合流的管道：它们会缓冲全部输出直到进程退出，看起来像卡死。要么直接输出到日志文件（`*> file.log`），要么用 `Tee-Object` 后自行截取文件末尾。
+- 长时间运行的命令用后台方式启动（`Start-Process ... -NoNewWindow`）并轮询日志文件；每 30-60 秒检查一次进度，不要用一个超大 timeout 干等。
+
+### 两类"假死"的真实原因
+
+1. `flutter test integration_test/... -d windows` 在用例失败后不会自动关闭应用窗口，测试进程会一直等待，表现为永久挂起，且不产生新输出。此时任务已经结束，应读取日志确认结果，然后结束残留的 `hgame_manager.exe` / `flutter` 进程，不要重复等待。
+2. `flutter test`（widget test）运行在 flutter_tester 的 `FakeAsync` 时区里，真实文件 IO 的 Future 永远不会完成，`pumpAndSettle` 会一直等到 10 分钟超时。widget 测试里只做假数据；需要真实 IO 时用 `integration_test`（真实 exe 进程，真实异步）。
+
 # 刮削入口一致性规范
 
 ## 五种刮削方式
