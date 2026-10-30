@@ -84,4 +84,203 @@ void main() {
     ).migrateIfNeeded();
     expect(secondRun.migrated, isFalse);
   });
+
+  for (final errorCode in [5, 1337]) {
+    test('候选目录检测返回 $errorCode 时跳过该目录并迁移可访问的数据', () async {
+      final inaccessibleExeDir = path.join(tempDir.path, 'inaccessible');
+      final oldRoot = await _createOldRoot(path.join(tempDir.path, 'old'));
+      final newExeDir = path.join(tempDir.path, 'new');
+      final overrides = _DirectoryErrorOverrides(
+        path.join(inaccessibleExeDir, 'hgame_manager_data'),
+        errorCode: errorCode,
+      );
+
+      final result = await IOOverrides.runWithIOOverrides(
+        () => AppDataMigrationService(
+          currentExecutableDirectory: newExeDir,
+          candidateExecutableDirectories: [
+            inaccessibleExeDir,
+            oldRoot.parent.path,
+          ],
+        ).migrateIfNeeded(),
+        overrides,
+      );
+
+      expect(overrides.failureCount, greaterThan(0));
+      expect(result.source, oldRoot.path);
+      expect(
+        await File(path.join(newExeDir, 'hgame_manager_data',
+                'hgame_manager.db'))
+            .readAsString(),
+        'database',
+      );
+    });
+  }
+
+  test('候选数据目录递归枚举失败时继续选择其他可访问的数据', () async {
+    final inaccessibleRoot =
+        await _createOldRoot(path.join(tempDir.path, 'inaccessible'));
+    final oldRoot = await _createOldRoot(path.join(tempDir.path, 'old'));
+    final overrides = _DirectoryErrorOverrides(
+      inaccessibleRoot.path,
+      failOnList: true,
+    );
+
+    final result = await IOOverrides.runWithIOOverrides(
+      () => AppDataMigrationService(
+        currentExecutableDirectory: path.join(tempDir.path, 'new'),
+        candidateExecutableDirectories: [
+          inaccessibleRoot.parent.path,
+          oldRoot.parent.path,
+        ],
+      ).migrateIfNeeded(),
+      overrides,
+    );
+
+    expect(overrides.failureCount, greaterThan(0));
+    expect(result.source, oldRoot.path);
+  });
+
+  test('自动发现遇到 WpSystem 候选权限异常时仍能迁移其他旧目录', () async {
+    final scanRoot = path.join(tempDir.path, 'scan');
+    final newExeDir = path.join(scanRoot, 'apps', 'current');
+    final wpSystem = Directory(path.join(scanRoot, 'WpSystem'));
+    await wpSystem.create(recursive: true);
+    final oldRoot = await _createOldRoot(path.join(scanRoot, 'old'));
+    final overrides = _DirectoryErrorOverrides(
+      path.join(wpSystem.path, 'hgame_manager_data'),
+    );
+
+    final result = await IOOverrides.runWithIOOverrides(
+      () => AppDataMigrationService(
+        currentExecutableDirectory: newExeDir,
+      ).migrateIfNeeded(),
+      overrides,
+    );
+
+    expect(overrides.failureCount, greaterThan(0));
+    expect(result.source, oldRoot.path);
+  });
+
+  test('父目录枚举失败后继续检查祖父目录中的旧数据', () async {
+    final scanRoot = path.join(tempDir.path, 'scan');
+    final newExeDir = path.join(scanRoot, 'apps', 'current');
+    final oldRoot = await _createOldRoot(path.join(scanRoot, 'old'));
+    final overrides = _DirectoryErrorOverrides(
+      path.dirname(newExeDir),
+      failOnList: true,
+    );
+
+    final result = await IOOverrides.runWithIOOverrides(
+      () => AppDataMigrationService(
+        currentExecutableDirectory: newExeDir,
+      ).migrateIfNeeded(),
+      overrides,
+    );
+
+    expect(overrides.failureCount, greaterThan(0));
+    expect(result.source, oldRoot.path);
+  });
+
+  test('所有候选均不可访问时不写迁移标记，恢复访问后仍可重试', () async {
+    final oldExeDir = path.join(tempDir.path, 'old');
+    final newExeDir = path.join(tempDir.path, 'new');
+    final service = AppDataMigrationService(
+      currentExecutableDirectory: newExeDir,
+      candidateExecutableDirectories: [oldExeDir],
+    );
+    final overrides = _DirectoryErrorOverrides(
+      path.join(oldExeDir, 'hgame_manager_data'),
+    );
+
+    final result = await IOOverrides.runWithIOOverrides(
+      service.migrateIfNeeded,
+      overrides,
+    );
+
+    expect(overrides.failureCount, greaterThan(0));
+    expect(result.migrated, isFalse);
+    expect(
+      await File(path.join(newExeDir, 'hgame_manager_data',
+              AppDataMigrationService.markerFileName))
+          .exists(),
+      isFalse,
+    );
+
+    final oldRoot = await _createOldRoot(oldExeDir);
+    final retry = await service.migrateIfNeeded();
+    expect(retry.source, oldRoot.path);
+  });
+}
+
+Future<Directory> _createOldRoot(String exeDir) async {
+  final root = Directory(path.join(exeDir, 'hgame_manager_data'));
+  await root.create(recursive: true);
+  await File(path.join(root.path, 'hgame_manager.db')).writeAsString('database');
+  return root;
+}
+
+// 通过覆盖指定临时目录的访问操作模拟 Windows 文件系统错误。
+final class _DirectoryErrorOverrides extends IOOverrides {
+  final String targetPath;
+  final int errorCode;
+  final bool failOnList;
+  int failureCount = 0;
+
+  _DirectoryErrorOverrides(
+    this.targetPath, {
+    this.errorCode = 1337,
+    this.failOnList = false,
+  });
+
+  @override
+  Directory createDirectory(String value) {
+    final directory = super.createDirectory(value);
+    if (path.normalize(value) != path.normalize(targetPath)) return directory;
+    return _ErrorDirectory(directory, this);
+  }
+
+  FileSystemException failure(String operation) {
+    failureCount++;
+    return FileSystemException(
+      operation,
+      targetPath,
+      OSError(errorCode == 1337 ? '安全 ID 结构无效' : '拒绝访问', errorCode),
+    );
+  }
+}
+
+class _ErrorDirectory implements Directory {
+  final Directory directory;
+  final _DirectoryErrorOverrides overrides;
+
+  _ErrorDirectory(this.directory, this.overrides);
+
+  @override
+  String get path => directory.path;
+
+  @override
+  Directory get parent => directory.parent;
+
+  @override
+  Future<bool> exists() async {
+    if (!overrides.failOnList) throw overrides.failure('目录存在性检查失败');
+    return directory.exists();
+  }
+
+  @override
+  Future<Directory> create({bool recursive = false}) =>
+      directory.create(recursive: recursive);
+
+  @override
+  Stream<FileSystemEntity> list({
+    bool recursive = false,
+    bool followLinks = true,
+  }) async* {
+    if (overrides.failOnList) throw overrides.failure('目录枚举失败');
+    yield* directory.list(recursive: recursive, followLinks: followLinks);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

@@ -97,23 +97,30 @@ class AppDataMigrationService {
     for (final candidate in candidates) {
       if (_key(candidate) == currentKey) continue;
       final root = Directory(path.join(candidate, 'hgame_manager_data'));
-      if (!await root.exists()) continue;
+      try {
+        if (!await root.exists()) continue;
 
-      final settings = File(path.join(root.path, 'settings.json'));
-      final database = File(path.join(root.path, 'hgame_manager.db'));
-      final hasSettings = await _hasLibrarySettings(settings);
-      final hasDatabase =
-          await database.exists() && await database.length() > 0;
-      if (!hasSettings && !hasDatabase) continue;
+        final settings = File(path.join(root.path, 'settings.json'));
+        final database = File(path.join(root.path, 'hgame_manager.db'));
+        final hasSettings = await _hasLibrarySettings(settings);
+        final hasDatabase =
+            await database.exists() && await database.length() > 0;
+        if (!hasSettings && !hasDatabase) continue;
 
-      var score = 0;
-      if (hasSettings) score += 4;
-      if (hasDatabase) score += 2;
-      if (await Directory(path.join(root.path, 'game_images')).exists()) {
-        score++;
+        var score = 0;
+        if (hasSettings) score += 4;
+        if (hasDatabase) score += 2;
+        if (await Directory(path.join(root.path, 'game_images')).exists()) {
+          score++;
+        }
+        final modified = await _latestModified(root);
+        sources.add(_MigrationSource(root, score, modified));
+      } on FileSystemException catch (e) {
+        _log.warning(
+          'AppDataMigration',
+          '无法访问旧应用数据候选，已跳过: path=${root.path}, error=$e',
+        );
       }
-      final modified = await _latestModified(root);
-      sources.add(_MigrationSource(root, score, modified));
     }
 
     sources.sort((a, b) {
@@ -132,9 +139,16 @@ class AppDataMigrationService {
 
   Future<void> _addChildDirectories(
       Directory parent, Set<String> candidates) async {
-    if (!await parent.exists()) return;
-    await for (final entity in parent.list(followLinks: false)) {
-      if (entity is Directory) candidates.add(entity.path);
+    try {
+      if (!await parent.exists()) return;
+      await for (final entity in parent.list(followLinks: false)) {
+        if (entity is Directory) candidates.add(entity.path);
+      }
+    } on FileSystemException catch (e) {
+      _log.warning(
+        'AppDataMigration',
+        '旧应用数据候选目录枚举失败，继续检查其他位置: path=${parent.path}, error=$e',
+      );
     }
   }
 
