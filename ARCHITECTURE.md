@@ -345,7 +345,7 @@ enum NavRoute {
 
 ### 列表封面
 - ListView/GridView 按需构建 `Image`，使用 Flutter 图片缓存管理生命周期
-- `ResizeImagePolicy.fit` 将封面解码限制在 1024×1024 内，保持原始比例；详情媒体独立处理
+- 保留原始分辨率解码，不对封面做固定 1024×1024 降采样；多个图片加载可并发，详情媒体独立处理
 
 ### ScrapeApplyService
 - 刮削结果应用唯一共享层（快速/重新/刮削中心/单个/批量添加共用）

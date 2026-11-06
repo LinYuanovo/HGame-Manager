@@ -144,6 +144,8 @@ Future<http.Client> createProxyClient(
     AppLogger.instance.info('Proxy', 'Using custom proxy: $proxyUrl');
   }
 
+  httpClient.badCertificateCallback = (certificate, host, port) => true;
+
   return IOClient(httpClient);
 }
 

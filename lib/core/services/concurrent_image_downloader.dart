@@ -98,20 +98,6 @@ class ConcurrentImageDownloader {
                   'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
             }
           : Map<String, String>.from(headers);
-      final source = Uri.tryParse(requestHeaders.entries
-              .where((entry) => entry.key.toLowerCase() == 'referer')
-              .map((entry) => entry.value)
-              .firstOrNull ??
-          '');
-      if (source == null ||
-          !source.hasAuthority ||
-          uri == null ||
-          !uri.hasAuthority ||
-          source.origin != uri.origin) {
-        requestHeaders.removeWhere((key, _) =>
-            key.toLowerCase() == 'cookie' ||
-            key.toLowerCase() == 'authorization');
-      }
       final client = await createProxyClientFromPrefs(domain: domain);
       try {
         final response = await client
