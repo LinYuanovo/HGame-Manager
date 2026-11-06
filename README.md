@@ -37,6 +37,7 @@
 - **Flutter SDK**: >= 3.41.9
 - **Dart SDK**: >= 3.11.5
 - **操作系统**: Windows 10/11 (64位)
+- **构建工具**: Visual Studio 2022 / Build Tools（安装「使用 C++ 的桌面开发」及 Windows SDK），并将 NuGet CLI 加入 PATH
 - **内存**: 建议 8GB+
 - **磁盘空间**: 2GB+（含构建缓存）
 
@@ -85,13 +86,18 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 ## 游戏库目录结构
 
-应用期望以下目录结构来正确识别和管理游戏：
+每个游戏使用独立文件夹，可放在分类子目录中。直接添加本地游戏不需要来源链接；通过刮削中心抓取帖子信息时，需要准备 `source_url.txt`：
 
 ```
 游戏库根目录/
 ├── SLG/                        # 按系列分类
 │   └── GameName/
-│       └── source_url.txt      # 来源URL（DLsite/Steam，必需）
+│       ├── Game.exe            # 游戏启动程序（示例）
+│       └── HGMDatas/           # 管理器数据目录
+│           ├── source_url.txt  # 来源链接（按需）
+│           ├── metadata.json   # 游戏信息
+│           ├── images/         # 管理器配图
+│           └── backup/         # 存档备份
 ├── RPG/
 │   └── ...
 └── 未分类/
@@ -102,13 +108,18 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 | 文件 | 说明 | 是否必需 |
 | --- | --- | --- |
-| `source_url.txt` | 游戏来源页面 URL（DLsite/Steam），用于刮削和导入 | 是 |
-| `metadata.json` | 游戏元数据（标题、版本、简介等；刮削成功后含 `scraped_at` 已刮削标识） | 否（刮削后自动生成） |
-| `images/` | 游戏截图和封面图 | 否（刮削后自动下载） |
+| `HGMDatas/source_url.txt` | 来源页面链接；刮削中心按此文件发现待刮削游戏 | 本地添加不需要，帖子刮削时需要 |
+| `HGMDatas/metadata.json` | 游戏信息；刮削成功后含 `scraped_at` 已刮削标识，游戏库刷新按此文件扫描 | 导入或刮削时生成 |
+| `HGMDatas/images/` | 管理器保存的封面、截图和攻略图片 | 按需生成 |
+| `HGMDatas/backup/` | 游戏存档的 ZIP 备份 | 备份或导入存档时生成 |
+
+兼容游戏根目录的旧版 `source_url.txt`、`metadata.json` 和有明确管理器引用的配图。手动准备来源文件时，可与游戏启动程序放在同一目录。游戏自带的 `image/`、`images/` 资源不应手动移入 `HGMDatas`。
+
+应用数据库、设置等保存在 EXE 同级的 `hgame_manager_data/`，与各游戏的 `HGMDatas/` 分开存放。
 
 ### 刮削整理后的目录
 
-刮削功能会自动将游戏按系列分类移动到整理目录：
+配置整理目录并在「设置 → 管理 → 刮削行为管理」中为相应入口启用移动后，游戏会按系列分类移入整理目录：
 
 ```
 整理目录/
@@ -131,11 +142,12 @@ build/windows/x64/runner/Release/hgame_manager.exe
 - **多站点支持**：[ACG嘤嘤怪](https://acgyyg.ru/) / [飞雪ACG](https://feixueacg.org/)/ [维咔ACG](https://www.vikacg.com/)
 - **自定义解析器**：通过xpath实现自定义站点宽泛解析
 - **云端导入**: 支持从 DLsite（RJ号/名称搜索）或 Steam（App ID/名称搜索）导入游戏信息和封面图
-- **自动整理**：刮削后按系列分类移动到整理目录
+- **自动整理**：按各入口的刮削行为配置重命名、移动游戏到整理目录
 - **跳过已刮削**：扫描默认跳过已刮削游戏（按 metadata.json 的 `scraped_at` 标识判断），勾选「包含已刮削的游戏」可重新刮削
 - **智能标签**：自动关联重叠标签（如"互动SLG" → "SLG"）
 - **简介排版优化**：尽可能保留原始 HTML 布局
 - **批量导入**：同时导入多个游戏
+- **取消任务**：取消后停止启动新任务，已进入保存阶段的游戏完成当前写入后结束
 
 ![刮削页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/scraper_page.png)
 
@@ -149,6 +161,9 @@ build/windows/x64/runner/Release/hgame_manager.exe
 - **收藏功能**：收藏游戏优先排列
 - **游玩追踪**：记录游玩次数、时间和时长
 - **富文本编辑**：Markdown 编辑器，支持图片预览和插入
+- **添加方式**：单个添加、批量添加或拖入文件夹 / EXE，可选择 Steam、DLsite 或不刮削
+- **目录搬运**：显示移动进度，支持取消；同步更新相关路径，写库失败时回滚
+- **通关记录**：可保留游戏信息和备份，在移走或删除本体后继续查看
 
 ![游戏页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/games_page.png)
 
@@ -156,6 +171,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 - **标签 / 系列管理**：右键修改删除
 - **收藏分类**：支持收藏标签和系列
+- **自定义整理**：支持连续添加、拖拽排序，空标签保留到手动删除
 
 ![分类页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/categories_page.png)
 
@@ -168,6 +184,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 - **信息存储**：网盘链接、解压码按钮双击复制
 - **编辑模式**：可编辑版本号、标签、下载地址、解压码等
 - **检查更新**：根据已有版本号检查更新
+- **攻略浮窗**：独立窗口查看攻略，支持置顶、调整字号和全局快捷键
 
 ![游戏详情页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/game_detail_page.png)
 
@@ -179,14 +196,21 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 ### 💾 存档管理
 
-- **下载存档**：下载存档
+- **下载存档**：从 2DFan 搜索并下载存档
 - **导入自定义存档**：导入自定义备份，如：全CG存档等
 - **备份当前存档**：将当前的存档文件夹进行备份
 - **上传至云端**：通过webdav将存档上传，并能够进行下载、恢复等操作
+- **还原保护**：覆盖已有存档前先备份；保护备份失败或压缩包校验不通过时停止还原
 
 ![存档管理页面](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/game_save_manager_page.png)
 
 ![查看云端备份](https://raw.githubusercontent.com/LinYuanovo/pic_bed/refs/heads/main/HGame-Manager/game_save_cloud.png)
+
+### 📦 游戏库备份
+
+- 在「设置 → 备份」中导出或导入数据库和设置，可选择包含图片
+- WebDAV 支持增量图片备份，避免重复上传未变化的配图
+- 备份包含最新已保存记录；导入失败时回滚数据库和设置，回滚未完成时提示恢复文件位置
 
 ### 🔧 工具导入
 
@@ -209,7 +233,7 @@ build/windows/x64/runner/Release/hgame_manager.exe
 ## 项目结构
 
 <details>
-<summary>点击展开查看完整目录结构</summary>
+<summary>点击展开查看主要目录结构</summary>
 
 ```
 HGame-Manager/
@@ -224,6 +248,7 @@ HGame-Manager/
 │   │   └── utils/                # 工具类
 │   ├── ui/                       # 用户界面
 │   │   ├── controllers/          # UI 控制器
+│   │   ├── windows/              # 攻略浮窗
 │   │   ├── theme/                # 主题配置（玻璃拟态）
 │   │   ├── widgets/              # 共享组件
 │   │   └── pages/                # 页面模块
@@ -237,11 +262,15 @@ HGame-Manager/
 │       ├── parse_utils.dart      # 解析工具函数
 │       └── scraper_init.dart     # 抓取器初始化
 ├── docs/                         # VitePress 文档站（自动部署至 GitHub Pages）
+├── test/                         # 单元和组件测试
+├── integration_test/             # Windows 原生集成测试
 ├── windows/                      # Windows 平台代码
 └── pubspec.yaml                  # 项目配置
 ```
 
 </details>
+
+架构与数据流见 [ARCHITECTURE.md](ARCHITECTURE.md)，构建及 Windows Debug EXE 验证方式见[开发指南](docs/development/build.md)。README 顶部版本徽章显示最新 GitHub Release；本地源码版本以 `pubspec.yaml` 为准。
 
 ## 赞助
 

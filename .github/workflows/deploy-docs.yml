@@ -1,5 +1,5 @@
 # 构建文档站并部署到 GitHub Pages
-# 触发条件：master 分支上 docs/ 或本工作流发生变更时；也支持手动触发
+# 触发条件：master 分支上的文档、版本、依赖或本工作流变更；也支持手动触发
 name: Deploy Docs to GitHub Pages
 
 on:
@@ -7,6 +7,7 @@ on:
     branches: [master]
     paths:
       - 'docs/**'
+      - 'pubspec.yaml'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/deploy-docs.yml'

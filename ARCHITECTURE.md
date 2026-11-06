@@ -4,7 +4,7 @@
 
 **黄油仓库** - 基于 Flutter 开发的 Windows 本地 HGame 管理器
 
-- **版本**: 以 `pubspec.yaml` 的 `version` 字段为唯一来源（应用内、文档站、README 徽章均自动派生）
+- **源码版本**: 以 `pubspec.yaml` 的 `version` 字段为唯一来源；应用包和文档站读取该值，README 徽章显示最新 GitHub Release，未发布时可能不同
 - **平台**: Windows 10/11 (64位)
 - **Flutter SDK**: >= 3.41.9
 - **Dart SDK**: >= 3.11.5
@@ -14,7 +14,7 @@
 | 技术 | 用途 |
 |------|------|
 | Flutter | 跨平台 UI 框架 |
-| Riverpod | 状态管理 |
+| Riverpod | 手写 Provider / StateNotifier 状态管理（当前未使用代码生成） |
 | SQLite (sqflite_common_ffi) | 本地数据存储 |
 | window_manager | 窗口管理 |
 | desktop_multi_window | 攻略浮窗（独立系统子窗口） |
@@ -33,14 +33,21 @@ lib/
 │   ├── models/                  # 数据模型
 │   │   └── models.dart          # Game, Tag, GameImage 模型定义
 │   ├── providers/               # Riverpod 状态管理
-│   │   └── providers.dart       # 所有 Provider 定义
+│   │   ├── providers.dart       # 数据与业务 Provider
+│   │   └── theme_provider.dart  # 主题状态
 │   ├── repositories/            # 数据访问层
 │   │   ├── game_repository.dart # 游戏数据 CRUD 操作
-│   │   └── tag_repository.dart  # 标签数据 CRUD 操作
+│   │   ├── tag_repository.dart  # 标签数据 CRUD 操作
+│   │   └── tool_repository.dart # 工具数据 CRUD 操作
 │   ├── services/                # 业务服务层
 │   │   ├── app_logger.dart      # 日志服务
 │   │   ├── game_count_service.dart # 游戏计数服务
 │   │   ├── game_scanner_service.dart # 游戏扫描服务
+│   │   ├── game_move_service.dart # 目录搬运与数据库路径同步
+│   │   ├── scrape_apply_service.dart # 共享刮削处理
+│   │   ├── database_backup_service.dart # 数据库快照与还原
+│   │   ├── backup_service.dart  # 游戏存档备份与还原
+│   │   ├── app_data_migration_service.dart # 应用数据迁移
 │   │   ├── webdav_service.dart  # WebDAV 同步服务
 │   │   ├── steam_service.dart    # Steam API 服务
 │   │   └── fan2d_service.dart   # 2DFan 搜索和下载服务
@@ -63,6 +70,7 @@ lib/
 │   │   ├── categories/          # 分类页面
 │   │   ├── favorites/           # 收藏页面
 │   │   ├── played/              # 已玩游戏页面
+│   │   ├── tools/               # 工具页面
 │   │   ├── scraper/             # 刮削页面
 │   │   └── settings/            # 设置页面
 │   ├── theme/                   # 主题配置
@@ -124,6 +132,8 @@ Models (models/)
 
 ## 核心模型
 
+完整字段与序列化以 `lib/core/models/models.dart`、`backup_entry.dart` 和 `tool.dart` 为准。
+
 ### Game 模型
 ```dart
 class Game {
@@ -141,13 +151,23 @@ class Game {
   final DateTime? addedTime;   // 添加时间
   final bool isFavorite;       // 是否收藏
   final bool isPlayed;         // 是否已玩
+  final bool isCleared;        // 是否通关
+  final String? clearedBackupPath; // 通关备份路径
   final List<Tag> tags;        // 标签列表
   final List<GameImage> images; // 图片列表
   final int coverIndex;        // 封面图片索引
-  final int? rating;           // 评分 (1-10)
+  final double rating;         // 评分 (0-5，支持半星)
   final String? review;        // 评论内容
   final String? savePath;      // 存档路径
   final String? guide;         // 攻略内容（Markdown格式）
+  final int playDuration;      // 总游玩秒数
+  final String? maker;         // 厂商
+  final String? makerUrl;      // 厂商链接
+  final String? gameLauncher;  // 启动程序
+  final bool launcherLocked;   // 是否固定启动程序
+  final bool useLocaleEmulator; // 是否转区启动
+  final double introScrollPosition; // 简介滚动位置
+  final double guideScrollPosition; // 攻略滚动位置
 }
 ```
 
@@ -188,6 +208,8 @@ class BackupEntry {
 
 ## 数据库表结构
 
+当前 schema 版本为 **13**，建表与升级逻辑在 `lib/core/database/database_helper.dart`。数据库位于 `<exe_dir>/hgame_manager_data/hgame_manager.db`，启用外键和 WAL。除下列游戏与标签表外，还有 `tools`（工具记录）和 `settings`（保留表）；应用设置实际由 `AppSettings` 写入 JSON 文件。
+
 ### games 表
 ```sql
 CREATE TABLE games (
@@ -205,11 +227,21 @@ CREATE TABLE games (
   added_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   is_favorite INTEGER DEFAULT 0,
   is_played INTEGER DEFAULT 0,
+  is_cleared INTEGER NOT NULL DEFAULT 0,
+  cleared_backup_path TEXT,
   cover_index INTEGER DEFAULT 0,
   rating REAL DEFAULT 0,
   review TEXT,
   save_path TEXT,
-  guide TEXT
+  game_launcher TEXT,
+  launcher_locked INTEGER NOT NULL DEFAULT 0,
+  use_locale_emulator INTEGER NOT NULL DEFAULT 0,
+  maker TEXT,
+  maker_url TEXT,
+  play_duration INTEGER DEFAULT 0,
+  guide TEXT,
+  intro_scroll_position REAL DEFAULT 0,
+  guide_scroll_position REAL DEFAULT 0
 );
 ```
 
@@ -254,13 +286,15 @@ CREATE TABLE game_tag_relation (
 - `sharedPreferencesProvider` - AppSettings 配置文件
 - `gameRepositoryProvider` - 游戏数据仓库
 - `tagRepositoryProvider` - 标签数据仓库
-- `allGamesProvider` - 所有游戏列表
+- `allGamesProvider` - 游戏库页面列表，排除通关记录；是否保留已玩游戏由设置控制
 - `playedGamesProvider` - 已玩游戏列表
+- `clearedGamesProvider` - 通关列表，支持本体缺失时保留记录和备份引用
 - `favoriteGamesProvider` - 收藏游戏列表
 - `allTagsProvider` - 所有标签
 - `allSeriesProvider` - 所有系列
 - `gamesByTagProvider` - 按标签筛选游戏
 - `searchGamesProvider` - 搜索游戏
+- `allToolsProvider` - 工具列表
 
 ### 状态 Provider
 - `selectedNavIndexProvider` - 当前导航索引
@@ -289,6 +323,8 @@ enum NavRoute {
 }
 ```
 
+路由枚举还包含图标。七个内容页由 `AppRouter` 切换；「设置」通过侧边栏打开弹窗，游戏详情也是弹窗。
+
 ## 核心服务
 
 ### GameScannerService
@@ -297,6 +333,11 @@ enum NavRoute {
 - 批量写入数据库
 - 支持取消扫描
 - 增量扫描（跳过未修改游戏）
+- 按目录段判断所属游戏库，避免清理相邻目录的记录；游戏库刷新扫描元数据，刮削中心另行扫描来源链接
+
+### AppDataMigrationService / GameDataMigrationService
+- 前者在启动时查找旧安装数据，保留迁移备份；无权限的候选目录会跳过，迁移检查异常记录日志后继续启动
+- 后者迁移游戏目录中的管理器元数据和有明确引用的配图到 `HGMDatas`，保留游戏自带资源
 
 ### AppLogger
 - 统一日志管理
@@ -315,26 +356,31 @@ enum NavRoute {
 - 自定义备份导入（zip/文件夹，智能文件匹配还原）
 - 自动检测并导入"存档"文件夹
 - 备份重命名和批量删除
-- 通关备份文件夹命名规则: `[游戏ID] [游戏厂商] [系列标签] 游戏标题 游戏版本`（游戏ID仅Steam和DLsite有）
-- 标题变更时自动同步重命名通关备份文件夹
+- 还原前先读取并校验 ZIP，再创建「还原前备份」；保护备份失败时停止覆盖
+- 检查解压路径、链接、CRC 与 500 MiB 大小限制，防止越界写入；写盘失败不保证逐文件回滚，可使用保护备份恢复
+
+### FolderRenameService / ClearedMetadataBackupService
+- 前者按可配置规则组合游戏 ID、厂商、系列、标题和版本，过滤非法目录名，并调用共享搬运服务
+- 后者保存通关游戏元数据，支持本体删除后的记录保留；详情页标题变更也会同步调整通关备份目录名
 
 ### Fan2dService
 - 2DFan 论坛存档搜索和下载
 - 域名自动检测（访问 /domain 页面获取可用域名列表）
 - RAR 解压（调用系统 WinRAR）并重打包为 ZIP
 - 临时文件自动清理
+- 2DFan 攻略搜索和抓取，支持多个 walkthrough 页面及 XPath / CSS 选择器回退
 
 ### FolderTransferService
 - 游戏目录搬运（同卷 rename 快路径 / 跨卷 1MB 分块复制）
 - 进度回调（扫描 → 复制 → 校验 → 清理）、每文件失败重试（3 次退避）
 - 完整性校验（文件数量 + 每文件大小 + 目录结构），失败或取消时清理目标、保留源
 - 目标目录已存在、与源互相包含、含符号链接时直接拒绝
-- 两阶段提交：校验通过后先调 `commit`（写库），再删除源；`commit` 失败时跨卷删除目标副本、同卷 rename 回原名，保证源目录不变
+- 两阶段提交：校验通过后先调 `commit`（写库），再删除源；`commit` 失败时跨卷删除目标副本、同卷尝试 rename 回原名，回滚失败会报告文件实际位置
 
 ### GameMoveService
 - 移动游戏文件夹共享入口（列表移动、详情修改路径、自动重命名、刮削整理、通关移入/移回共用）
 - 委托 FolderTransferService 完成搬运，写库作为 `commit` 在两阶段提交中执行：`GameRepository.relocateGame` 在同一 SQLite 事务中更新数据库路径、图片引用、启动器、存档路径与正文引用；metadata 写入失败时回滚事务并还原原文件
-- 写库失败时自动回滚（源目录保持不变），瞬时锁冲突自动重试 2 次，用户无需手动补救
+- 写库失败时尝试回滚，瞬时锁冲突自动重试 2 次；回滚未完成时报告文件实际位置和清理提示
 - 搬运失败/取消时数据库保持不变
 
 ### DatabaseBackupService
@@ -346,31 +392,33 @@ enum NavRoute {
 ### 列表封面
 - ListView/GridView 按需构建 `Image`，使用 Flutter 图片缓存管理生命周期
 - 保留原始分辨率解码，不对封面做固定 1024×1024 降采样；多个图片加载可并发，详情媒体独立处理
+- 下载器写入及共享刮削发布同路径图片后失效文件缓存；列表以图片路径与图片记录 ID 更新组件，避免继续显示旧封面
 
 ### ScrapeApplyService
-- 刮削结果应用唯一共享层（快速/重新/刮削中心/单个/批量添加共用）
+- 快速刮削、重新刮削、刮削中心调用 `applyScrapeResult` 完成字段合并、元数据写入、标签、配图和目录整理
+- Steam/DLsite 单个与批量添加仍各自处理搜索结果、元数据和标签；共用 `markScraped` 标记、`ConcurrentImageDownloader` 下载及 `organizeFolder` 整理，并非五入口全部调用总编排
 - 纯函数：stripVersionFromTitle、resolveCategoryName、mergeGameInfo、buildMetadataJson、buildNumberedUrlMapping
 - 流程：syncTags 标签同步、downloadAndApplyImages 图片下载与引用重写、fixImageUrlsInMetadata 元数据修复、moveGameToSorted/organizeFolder 目录整理、applyScrapeResult 总编排
+- 图片默认并发 3；刮削中心线程数可选 1–8；取消后停止出队，已进入应用结果阶段的任务先完成写入
 
 ### ForumDomainUtils
 - 论坛自定义域名对旧 source_url 的自动重写（`resolveWithCustomDomain`）
 - 宽松但有限制的同站匹配：仅比较主域名（host 最后两段）首标签是否含站点品牌词
 - 访问来源/快速刮削/重新刮削/刮削中心入口统一调用
 
-### WebdavService (扩展)
+### WebdavService
 - 游戏级 WebDAV 备份文件夹管理
 - 模糊匹配云端游戏文件夹（双向近似匹配+置信度）
 - 单独游戏存档的上传/下载/删除
-
-### WebdavService
-- WebDAV 同步支持
-- 配置文件同步
+- 游戏库数据库、设置和可选图片备份，支持增量图片上传
+- 文件名按 URI 路径段编码；下载写入暂存文件，验证传输长度后再替换目标，gzip 响应按流解压
 
 ### ImageService
 - 图片文件管理（复制、删除）
 - 本地文件选择
 - URL图片下载
 - 图片存储目录管理
+- `invalidateFileCache` 供共享下载和刮削层失效 `FileImage` 缓存
 
 ### SteamService
 - Steam API 游戏搜索和详情获取
@@ -402,11 +450,6 @@ enum NavRoute {
   - 上滑/下滑：默认 CTRL+↑/↓（步长 300px）
 - 主窗口通过 `WindowController.invokeMethod` 转发 updateContent/scroll/togglePin/closeWindow/focus；子窗口关闭时回调 `guideWindowClosed`
 
-### Fan2dService (扩展)
-- 2DFan攻略搜索和刮削
-- XPath + CSS备选选择器
-- 支持多walkthrough页面
-
 ## UI 组件
 
 ### 玻璃拟态组件
@@ -417,7 +460,7 @@ enum NavRoute {
 - `GlassAppBar` - 毛玻璃应用栏
 - `GlassSearchBar` - 搜索栏
 - `GlassTabBar` - 标签栏
-- `GlassDialog` - 对话框
+- `showGlassDialog` - 对话框函数
 
 ### 多选控制器
 - `MultiSelectController<T>` - 通用多选状态管理（支持全选、范围选择）
@@ -430,6 +473,7 @@ enum NavRoute {
 ## 主题配置
 
 ### 颜色系统
+- 支持浅色和暗色模式，UI 通过 `AppTheme.get…(context)` 读取动态颜色；以下为浅色主题示例，常量定义以 `app_theme.dart` 为准
 - **主色调**: 蓝紫渐变 (#2563EB → #7C3AED)
 - **背景色**: 浅灰渐变 (#F0F4F8)
 - **表面色**: 半透明白 (#FFFFFF 80%)
@@ -466,17 +510,18 @@ class GlassConstants {
 ### 配置项
 - `font_family` - 字体
 - `font_size` - 字体大小
-- `view_mode` - 视图模式
-- `sort_mode` - 排序模式
+- `view_mode` / `sort_mode` - 通用 Provider 的视图/排序配置；主游戏列表使用下述 `game_list_*` 配置
 - `page_size` - 分页大小
-- `sorted_path` - 整理目录路径
+- `sorted_path` - 旧版单整理目录配置，兼容回退使用
 - `library_path` - 游戏库路径（JSON 数组格式，支持多目录）
 - `sorted_paths` - 各游戏库对应的整理目录（JSON 对象格式，键为库路径，值为整理路径）
+- `cleared_paths` - 各游戏库对应的通关目录（JSON 对象格式）
 - `domain_2dfan` - 2DFan 自定义域名
 - `fixed_column_count` - 海报视图是否固定列数 (bool)
 - `column_count` - 海报视图每行列数 (int, 2-8, 默认3)
 - `game_list_view_mode` - 游戏列表视图模式 ('poster' | 'list')
 - `game_list_sort_mode` - 游戏列表排序模式
+- `game_list_sort_mode_games` / `game_list_sort_mode_played` / `game_list_sort_mode_cleared` - 游戏、已玩、通关页面各自的排序模式
 - `game_list_pagination_mode` - 游戏列表分页模式 ('paginated' | 'infiniteScroll')
 - `game_list_items_per_page` - 列表视图每页显示数量 (int, 3-20, 默认5)
 - `guide_window_hotkey_toggle` / `guide_window_hotkey_pin` / `guide_window_hotkey_scroll_up` / `guide_window_hotkey_scroll_down` - 攻略浮窗全局快捷键（HotKey JSON 格式）
@@ -487,18 +532,21 @@ class GlassConstants {
 ### 支持站点
 - ACG嘤嘤怪
 - 飞雪ACG
-- 微咔ACG
+- 维咔ACG
 - DLsite
 - Steam
 
 ### 抓取流程
-1. 解析 HTML 页面
-2. 提取元数据（标题、版本、简介等）
-3. 下载图片
-4. 生成 metadata.json
-5. 保存 source_url.txt
+1. 根据入口调用站点 API 或 HTTP 获取页面，必要时经内置浏览器完成验证或渲染
+2. 解析为游戏信息；URL 刮削三入口交给 `applyScrapeResult`，Steam/DLsite 添加入口按其导入流程处理
+3. 保存游戏信息、元数据、来源和已刮削标记，更新标签与配图
+4. 按入口对应的 `ScrapeModeConfigs` 决定是否重命名和移动目录
+
+管理器元数据位于 `<game>/HGMDatas/`，存档备份位于其 `backup/` 子目录。兼容旧版游戏根目录的元数据；游戏自带 `image/`、`images/` 不作为可整体搬走的管理器资源。
 
 ## 构建和运行
+
+Windows 构建需要 Visual Studio 2022 / Build Tools 的 C++ 桌面工作负载、Windows SDK 和 PATH 中可用的 NuGet CLI。完整说明与串行测试命令见 `docs/development/build.md`。
 
 ```bash
 # 安装依赖
@@ -539,7 +587,7 @@ npm run docs:dev       # 开发模式，默认 http://localhost:5173
 npm run docs:build     # 输出到 docs/.vitepress/dist
 ```
 
-- 部署工作流：`.github/workflows/deploy-docs.yml`（push 到 master 且 `docs/` 变更时自动构建部署）
+- 部署工作流：`.github/workflows/deploy-docs.yml`（push 到 master 且文档、`pubspec.yaml`、Node 依赖或工作流变更时自动构建部署，也支持手动触发）
 - 线上地址：`https://linyuanovo.github.io/HGame-Manager/`
 - 首次部署需在仓库 **Settings → Pages → Source** 选择 **GitHub Actions**
 
@@ -553,6 +601,6 @@ build/windows/x64/runner/Release/hgame_manager.exe
 
 1. **数据库**: 使用 sqflite_common_ffi 支持桌面平台
 2. **窗口管理**: 使用 window_manager 实现自定义标题栏
-3. **状态管理**: 使用 Riverpod 2.x + 代码生成
+3. **状态管理**: 使用 Riverpod 2.x 手写 Provider / StateNotifier
 4. **主题**: 玻璃拟态设计风格
 5. **平台**: 仅支持 Windows 桌面
