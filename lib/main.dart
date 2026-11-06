@@ -58,7 +58,16 @@ void main(List<String> args) async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
 
-    await AppDataMigrationService().migrateIfNeeded();
+    try {
+      await AppDataMigrationService().migrateIfNeeded();
+    } catch (e, stackTrace) {
+      AppLogger.instance.error(
+        'AppDataMigration',
+        '启动应用数据迁移检查失败，继续启动',
+        e,
+        stackTrace,
+      );
+    }
     final prefs = await AppSettings.load();
     final windowController = WindowController(prefs);
     await windowController.initialize();
