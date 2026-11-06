@@ -1,6 +1,6 @@
 # WebDAV
 
-当你需要访问一个 WebDAV 服务器进行云端操作时，你可以使用 WebDAV 协议，在这里推荐使用[坚果云](https://www.jianguoyun.com/) (免费版提供 1GB 上传流量 / 月)，接下来的教程以坚果云为例，其余支持 WebDAV 的服务也类似。
+软件可连接支持 WebDAV 的服务器。以下以[坚果云](https://www.jianguoyun.com/)为配置示例，其他服务也类似；套餐额度、收费和使用限制以服务商当前说明为准。
 
 ## 获取 WebDAV 信息
 

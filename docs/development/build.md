@@ -67,6 +67,8 @@ npm run docs:build
 
 构建输出在 `docs/.vitepress/dist/`；`npm run docs:dev` 可启动本地预览。合并或提交本身不会发布应用，发布工作流由版本标签或手动操作触发。
 
+文档站在相关改动推送到 `master` 后才由 GitHub Actions 部署，本地构建不会更新线上页面。源码中的版本号变更也会触发部署。`docs/reviews/`、`docs/work/` 和 `docs/superpowers/` 属于历史审阅或工作记录，留在仓库中，不发布为使用指南，也不进入站点搜索。
+
 ## 技术栈
 
 | 技术 | 版本 | 用途 |

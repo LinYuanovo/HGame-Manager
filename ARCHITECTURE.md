@@ -589,6 +589,8 @@ npm run docs:build     # 输出到 docs/.vitepress/dist
 
 - 部署工作流：`.github/workflows/deploy-docs.yml`（push 到 master 且文档、`pubspec.yaml`、Node 依赖或工作流变更时自动构建部署，也支持手动触发）
 - 线上地址：`https://linyuanovo.github.io/HGame-Manager/`
+- 本地提交和构建不会修改线上站点，相关提交推送后由工作流部署；导航版本取构建时的源码版本
+- `docs/reviews/`、`docs/work/`、`docs/superpowers/` 为历史记录，通过 `srcExclude` 排除出文档站和搜索
 - 首次部署需在仓库 **Settings → Pages → Source** 选择 **GitHub Actions**
 
 ## 文件路径

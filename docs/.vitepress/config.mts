@@ -28,8 +28,8 @@ export default defineConfig({
   description: '基于 Flutter 开发的 Windows 本地 HGame 管理器 —— 使用文档与图文教程',
   cleanUrls: true,
   lastUpdated: true,
-  // 排除目录中已有的非文档站文件
-  srcExclude: ['dark-theme-preview.html', 'superpowers/**'],
+  // 历史审阅与工作记录留在仓库中，不作为当前使用指南发布或参与搜索
+  srcExclude: ['dark-theme-preview.html', 'superpowers/**', 'reviews/**', 'work/**'],
 
   head: [
     ['link', { rel: 'icon', type: 'image/png', href: '/HGame-Manager/logo.png' }],
