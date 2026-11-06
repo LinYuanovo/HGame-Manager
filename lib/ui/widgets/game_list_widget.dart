@@ -1767,6 +1767,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       source = FileImage(File(coverPath));
     }
     return Image(
+      key: ValueKey((coverPath, game.images[coverIndex].id)),
       image: source,
       width: width,
       height: height,

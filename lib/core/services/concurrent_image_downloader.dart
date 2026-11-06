@@ -4,6 +4,7 @@ import 'package:path/path.dart' as path;
 import '../utils/game_data_paths.dart';
 import '../utils/proxy_client.dart';
 import 'app_logger.dart';
+import 'image_service.dart';
 
 class ConcurrentImageDownloader {
   static final _log = AppLogger.instance;
@@ -120,6 +121,7 @@ class ConcurrentImageDownloader {
               retryResponse.bodyBytes.isNotEmpty) {
             await File(savePath)
                 .writeAsBytes(retryResponse.bodyBytes, flush: true);
+            await ImageService.invalidateFileCache(savePath);
             return savePath;
           }
           return null;
@@ -127,6 +129,7 @@ class ConcurrentImageDownloader {
 
         if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
           await File(savePath).writeAsBytes(response.bodyBytes, flush: true);
+          await ImageService.invalidateFileCache(savePath);
           return savePath;
         }
         return null;

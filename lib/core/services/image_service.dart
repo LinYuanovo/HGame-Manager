@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/painting.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
@@ -8,6 +9,9 @@ import '../utils/game_data_paths.dart';
 
 class ImageService {
   static const _uuid = Uuid();
+
+  static Future<bool> invalidateFileCache(String imagePath) =>
+      FileImage(File(imagePath)).evict();
 
   /// 获取图片存储目录
   Future<String> getImageStorageDir() async {

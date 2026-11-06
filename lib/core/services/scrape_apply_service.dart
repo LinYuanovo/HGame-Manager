@@ -17,6 +17,7 @@ import 'concurrent_image_downloader.dart';
 import 'folder_rename_service.dart';
 import 'game_data_migration_service.dart';
 import 'game_move_service.dart';
+import 'image_service.dart';
 
 class ScrapeApplyService {
   static final _versionPattern = RegExp(
@@ -188,6 +189,7 @@ class ScrapeApplyService {
           if (await oldFile.exists()) await oldFile.delete();
           await File(tmpPath).rename(finalPath);
         }
+        await ImageService.invalidateFileCache(finalPath);
         urlToLocal[url] = finalPath;
         finalImages.add(
             GameImage(gameId: game.id!, imagePath: finalPath, sortOrder: i));

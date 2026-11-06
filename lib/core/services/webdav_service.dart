@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 import 'package:xml/xml.dart';
 import 'backup_image_service.dart';
 
@@ -306,7 +307,7 @@ class WebdavService {
     required String remotePath,
     required String localPath,
   }) async {
-    final client = http.Client();
+    final client = IOClient(HttpClient()..autoUncompress = false);
     Directory? staging;
     try {
       final request = http.Request('GET', _buildUri(serverUrl, remotePath));
@@ -319,10 +320,18 @@ class WebdavService {
       staging = await destination.parent.createTemp('.webdav-');
       final pending = File('${staging.path}${Platform.pathSeparator}download');
       var receivedBytes = 0;
-      await response.stream.timeout(const Duration(seconds: 30)).map((chunk) {
+      final received =
+          response.stream.timeout(const Duration(seconds: 30)).map((chunk) {
         receivedBytes += chunk.length;
         return chunk;
-      }).pipe(pending.openWrite());
+      });
+      final content = response.headers[HttpHeaders.contentEncodingHeader]
+                  ?.trim()
+                  .toLowerCase() ==
+              'gzip'
+          ? received.transform(gzip.decoder)
+          : received;
+      await content.pipe(pending.openWrite());
       if (response.contentLength != null &&
           response.contentLength != receivedBytes) {
         throw const FormatException('WebDAV 下载不完整');
