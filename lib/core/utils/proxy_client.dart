@@ -144,8 +144,6 @@ Future<http.Client> createProxyClient(
     AppLogger.instance.info('Proxy', 'Using custom proxy: $proxyUrl');
   }
 
-  httpClient.badCertificateCallback = (cert, host, port) => true;
-
   return IOClient(httpClient);
 }
 
@@ -279,31 +277,38 @@ Future<String> getCookieForSite(String url) async {
   final domainFeixue = prefs.getString('domain_feixue') ?? '';
   final domainVikacg = prefs.getString('domain_vikacg') ?? '';
 
-  if (domainAcgying.isNotEmpty && host.contains(domainAcgying.toLowerCase())) {
+  if (_matchesCredentialHost(host, domainAcgying)) {
     return prefs.getString('cookie_acgying') ?? '';
   }
-  if (domainFeixue.isNotEmpty && host.contains(domainFeixue.toLowerCase())) {
+  if (_matchesCredentialHost(host, domainFeixue)) {
     return prefs.getString('cookie_feixue') ?? '';
   }
-  if (domainVikacg.isNotEmpty && host.contains(domainVikacg.toLowerCase())) {
+  if (_matchesCredentialHost(host, domainVikacg)) {
     return prefs.getString('cookie_vikacg') ?? '';
   }
 
   final domain2dfan = prefs.getString('domain_2dfan') ?? '';
-  if (domain2dfan.isNotEmpty && host.contains(domain2dfan.toLowerCase())) {
+  if (_matchesCredentialHost(host, domain2dfan)) {
     return prefs.getString('cookie_2dfan') ?? '';
   }
 
-  if (host.contains('acgyyg') || host.contains('acgying')) {
+  if (['acgyyg.ru', 'acgying.com']
+      .any((domain) => _matchesCredentialHost(host, domain))) {
     return prefs.getString('cookie_acgying') ?? '';
-  } else if (host.contains('feixueacg') || host.contains('feixue')) {
+  } else if (_matchesCredentialHost(host, 'feixueacg.org')) {
     return prefs.getString('cookie_feixue') ?? '';
-  } else if (host.contains('vikacg') || host.contains('weika')) {
+  } else if (await isVikacgUrl(url)) {
     return prefs.getString('cookie_vikacg') ?? '';
-  } else if (host.contains('fan2d') || host.contains('2dfan')) {
+  } else if (['fan2d.top', '2dfan.com']
+      .any((domain) => _matchesCredentialHost(host, domain))) {
     return prefs.getString('cookie_2dfan') ?? '';
   }
   return '';
+}
+
+bool _matchesCredentialHost(String host, String configured) {
+  final domain = _normalizeConfigDomain(configured);
+  return domain.isNotEmpty && (host == domain || host.endsWith('.$domain'));
 }
 
 Future<Map<String, String>?> getCustomXpathParserConfigForSite(
@@ -325,7 +330,7 @@ Map<String, String>? customXpathParserConfigFromJson(
     for (final item in list) {
       if (item is! Map<String, dynamic>) continue;
       final domain = _normalizeConfigDomain(item['domain']?.toString() ?? '');
-      if (domain.isEmpty || !host.contains(domain)) continue;
+      if (!_matchesCredentialHost(host, domain)) continue;
       return item.map(
           (key, value) => MapEntry(key.toString(), value?.toString() ?? ''));
     }
@@ -458,12 +463,7 @@ Future<Map<String, String>> buildScrapeHeaders(
     if (uri != null) 'Referer': url,
   };
   if (cookie.isNotEmpty) {
-    final host = uri?.host.toLowerCase() ?? '';
-    final prefs = await AppSettings.load();
-    final domainVikacg = prefs.getString('domain_vikacg') ?? '';
-    final isVikacg = host.contains('vikacg') ||
-        host.contains('weika') ||
-        (domainVikacg.isNotEmpty && host.contains(domainVikacg.toLowerCase()));
+    final isVikacg = await isVikacgUrl(url);
     if (isVikacg) {
       final authorization = extractVikacgAuthorization(cookie);
       if (authorization.isNotEmpty) {

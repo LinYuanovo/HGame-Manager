@@ -91,18 +91,33 @@ class ConcurrentImageDownloader {
     try {
       final uri = Uri.tryParse(url);
       final domain = uri?.host;
+      final requestHeaders = headers == null
+          ? <String, String>{
+              'User-Agent': defaultScrapeUserAgent,
+              'Accept':
+                  'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            }
+          : Map<String, String>.from(headers);
+      final source = Uri.tryParse(requestHeaders.entries
+              .where((entry) => entry.key.toLowerCase() == 'referer')
+              .map((entry) => entry.value)
+              .firstOrNull ??
+          '');
+      if (source == null ||
+          !source.hasAuthority ||
+          uri == null ||
+          !uri.hasAuthority ||
+          source.origin != uri.origin) {
+        requestHeaders.removeWhere((key, _) =>
+            key.toLowerCase() == 'cookie' ||
+            key.toLowerCase() == 'authorization');
+      }
       final client = await createProxyClientFromPrefs(domain: domain);
       try {
         final response = await client
             .get(
               Uri.parse(url),
-              headers: headers ??
-                  {
-                    'User-Agent':
-                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                    'Accept':
-                        'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-                  },
+              headers: requestHeaders,
             )
             .timeout(const Duration(seconds: 30));
 
@@ -112,7 +127,7 @@ class ConcurrentImageDownloader {
           final retryResponse = await client
               .get(
                 Uri.parse(url),
-                headers: headers,
+                headers: requestHeaders,
               )
               .timeout(const Duration(seconds: 30));
           if (retryResponse.statusCode == 200 &&

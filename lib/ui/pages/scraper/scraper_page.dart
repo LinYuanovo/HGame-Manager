@@ -54,6 +54,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   final _vikAcgService = VikAcgService();
   final ScrollController _logScrollController = ScrollController();
   bool _isProcessing = false;
+  bool _cancelRequested = false;
   String _processStatus = '空闲';
   final List<String> _logs = [];
   final _ScrapeStats _stats = _ScrapeStats();
@@ -66,6 +67,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
   @override
   void dispose() {
+    _cancelRequested = true;
     _logScrollController.dispose();
     super.dispose();
   }
@@ -684,6 +686,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   }
 
   Future<void> _startScan() async {
+    if (_isProcessing) return;
+    _cancelRequested = false;
     setState(() {
       _isProcessing = true;
       _processStatus = '扫描中';
@@ -735,6 +739,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
       final gamesToScrape = <Game>[];
       for (final libraryPath in libraryPaths) {
+        if (_cancelRequested || !mounted) break;
         final found =
             await _scanForSourceUrlFiles(libraryPath, scrapeIgnoreFolders);
         gamesToScrape.addAll(found);
@@ -773,6 +778,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     if (!await dir.exists()) return games;
 
     await for (final entity in dir.list(followLinks: false)) {
+      if (_cancelRequested || !mounted) break;
       if (entity is Directory) {
         final folderName = path.basename(entity.path);
 
@@ -821,6 +827,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   }
 
   Future<void> _startScrape() async {
+    if (_isProcessing) return;
+    _cancelRequested = false;
     if (_gameItems.isEmpty) {
       _addLog('错误: 没有待刮削的游戏，请先扫描');
       return;
@@ -852,7 +860,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       final completer = Completer<void>();
 
       void processNext() {
-        if (queue.isEmpty) {
+        if (_cancelRequested || !mounted || queue.isEmpty) {
           if (activeCount == 0 && !completer.isCompleted) {
             completer.complete();
           }
@@ -860,7 +868,9 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         }
         final idx = queue.removeAt(0);
         activeCount++;
-        _scrapeSingleGame(idx, gameRepo, tagRepo).then((_) {
+        _scrapeSingleGame(idx, gameRepo, tagRepo).catchError((Object error) {
+          _addLog('刮削任务失败: $error');
+        }).whenComplete(() {
           activeCount--;
           processNext();
         });
@@ -873,7 +883,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
       await completer.future;
 
-      _addLog('========== 刮削完成 ==========');
+      if (!mounted) return;
+      _addLog(_cancelRequested
+          ? '========== 刮削已取消 =========='
+          : '========== 刮削完成 ==========');
       _addLog(
           '总计: ${_gameItems.length}, 成功: ${_stats.success}, 失败: ${_stats.failed}');
       ref.invalidate(allGamesProvider);
@@ -897,7 +910,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     bool Function(String html)? isHtmlReady,
   }) {
     final task = _browserFallbackTail.then((_) async {
-      if (!mounted) return null;
+      if (!mounted || _cancelRequested) return null;
       return resolveCloudflareBrowserPage(
         context: context,
         url: url,
@@ -911,6 +924,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
   Future<void> _scrapeSingleGame(
       int i, dynamic gameRepo, dynamic tagRepo) async {
+    if (!mounted || _cancelRequested) return;
     final item = _gameItems[i];
     final game = item.game;
 
@@ -926,6 +940,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     // 自定义域名替换：旧域名来源链接自动重写为已配置的论坛自定义域名
     final sourceUrl =
         await ForumDomainUtils.resolveWithCustomDomain(game.sourceUrl!);
+    if (!mounted || _cancelRequested) return;
     if (sourceUrl != game.sourceUrl) {
       _addLog('  -> 已按自定义域名替换来源: $sourceUrl');
     }
@@ -955,8 +970,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       http.Response? response;
       Map<String, String> headers = {};
       if (gameInfo == null) {
-        final client = await createProxyClientFromPrefs(
-            domain: Uri.parse(sourceUrl).host);
+        final client =
+            await createProxyClientFromPrefs(domain: Uri.parse(sourceUrl).host);
         try {
           headers = await buildScrapeHeaders(sourceUrl);
           response = await httpGetWithRetry(Uri.parse(sourceUrl),
@@ -1051,6 +1066,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           }
         }
         if (gameInfo != null) {
+          if (!mounted || _cancelRequested) return;
           final updated = await ScrapeApplyService.applyScrapeResult(
             game: game,
             gameInfo: gameInfo,
@@ -1116,10 +1132,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   }
 
   void _cancelProcess() {
+    _cancelRequested = true;
     ref.read(scanCancelProvider.notifier).state = true;
     setState(() {
-      _isProcessing = false;
-      _processStatus = '已取消';
+      _processStatus = '正在取消，等待当前操作结束';
     });
     _addLog('用户取消了操作');
   }
@@ -1196,8 +1212,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   }
 
   void _addLog(String message) {
+    if (!mounted) return;
     setState(() {
       _logs.add('[${DateTime.now().toString().substring(11, 19)}] $message');
+      if (_logs.length > 1000) _logs.removeRange(0, _logs.length - 1000);
     });
     _scheduleLogScrollToBottom();
   }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../utils/app_paths.dart';
@@ -9,7 +10,10 @@ import '../services/app_data_migration_service.dart';
 class DatabaseHelper {
   static Database? _database;
   static Future<Database>? _databaseFuture;
+  static Future<void>? _maintenance;
+  static final Object _maintenanceZone = Object();
   static const int _databaseVersion = 13;
+  static int get schemaVersion => _databaseVersion;
 
   static Future<String> getDataDir() => AppPaths.rootDir;
 
@@ -21,8 +25,33 @@ class DatabaseHelper {
       _onUpgrade(db, oldVersion, _databaseVersion);
 
   static Future<Database> get database async {
+    if (Zone.current[_maintenanceZone] != true) {
+      while (_maintenance != null) {
+        await _maintenance;
+      }
+    }
     if (_database != null) return _database!;
-    return _databaseFuture ??= _initDatabase();
+    final opening = _databaseFuture ??= _initDatabase();
+    try {
+      return await opening;
+    } catch (_) {
+      if (identical(opening, _databaseFuture)) _databaseFuture = null;
+      rethrow;
+    }
+  }
+
+  static Future<T> runMaintenance<T>(Future<T> Function() operation) async {
+    while (_maintenance != null) {
+      await _maintenance;
+    }
+    final finished = Completer<void>();
+    _maintenance = finished.future;
+    try {
+      return await runZoned(operation, zoneValues: {_maintenanceZone: true});
+    } finally {
+      _maintenance = null;
+      finished.complete();
+    }
   }
 
   static Future<Database> _initDatabase() async {
@@ -41,7 +70,12 @@ class DatabaseHelper {
       },
     );
 
-    await AppDataMigrationService.rewriteMigratedPaths(db);
+    try {
+      await AppDataMigrationService.rewriteMigratedPaths(db);
+    } catch (_) {
+      await db.close();
+      rethrow;
+    }
 
     _database = db;
     return db;
@@ -309,9 +343,10 @@ class DatabaseHelper {
   }
 
   static Future<void> close() async {
-    final db = _database;
-    if (db != null) {
-      await db.close();
+    try {
+      final db = _database ?? await _databaseFuture;
+      if (db != null) await db.close();
+    } finally {
       _database = null;
       _databaseFuture = null;
     }

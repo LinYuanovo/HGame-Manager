@@ -168,9 +168,8 @@ class BackupService {
     final filePath = p.join(backupDir.path, fileName);
 
     // "还原前备份"始终只保留一个，已存在则覆盖
-    if (customName == _preRestorePrefix && await File(filePath).exists()) {
-      await File(filePath).delete();
-    } else if (await File(filePath).exists()) {
+    if (!_validBackupName(name)) return null;
+    if (customName != _preRestorePrefix && await File(filePath).exists()) {
       // 其他备份不允许重复
       debugPrint('[BackupService] 备份已存在: $filePath');
       return null;
@@ -178,7 +177,9 @@ class BackupService {
 
     // 检查存档文件夹大小，防止内存溢出（限制 500MB）
     int totalSize = 0;
-    await for (final entity in saveDir.list(recursive: true)) {
+    await for (final entity
+        in saveDir.list(recursive: true, followLinks: false)) {
+      if (entity is Link) return null;
       if (entity is File) {
         final stat = await entity.stat();
         totalSize += stat.size;
@@ -208,7 +209,14 @@ class BackupService {
         return null;
       }
 
-      await File(filePath).writeAsBytes(zipBytes);
+      final staging = await backupDir.createTemp('.backup-');
+      try {
+        final pending = File(p.join(staging.path, 'backup.zip'));
+        await pending.writeAsBytes(zipBytes, flush: true);
+        await pending.rename(filePath);
+      } finally {
+        await staging.delete(recursive: true);
+      }
 
       return BackupEntry(
         name: name,
@@ -242,31 +250,27 @@ class BackupService {
       }
 
       final saveDir = Directory(savePath);
+      final archive = await _readArchive(backupFile);
+      final files =
+          archive.files.where((file) => file.name != _metaFileName).toList();
+      await _validateExtraction(files, savePath);
 
       // 如果存档目录存在且有内容，先创建还原前备份
       if (await saveDir.exists()) {
         final hasContent = await saveDir.list().any((_) => true);
         if (hasContent) {
-          await createBackup(
+          final protection = await createBackup(
             gamePath: gamePath,
             savePath: savePath,
             customName: _preRestorePrefix,
           );
+          if (protection == null) return false;
         }
       }
 
-      // 读取并解压 zip
-      final bytes = await backupFile.readAsBytes();
-      final archive = ZipDecoder().decodeBytes(bytes);
-
       // 解压到存档目录
-      for (final file in archive) {
-        final filePath = p.join(savePath, file.name);
-        // 防止路径遍历攻击
-        if (!_isPathSafe(savePath, filePath)) {
-          debugPrint('[BackupService] 跳过不安全的路径: ${file.name}');
-          continue;
-        }
+      for (final file in files) {
+        final filePath = p.join(savePath, file.name.replaceAll('\\', '/'));
         if (file.isFile) {
           final parentDir = Directory(p.dirname(filePath));
           if (!await parentDir.exists()) {
@@ -302,6 +306,7 @@ class BackupService {
 
   /// 重命名备份文件（同时修改显示名和文件名）
   Future<bool> renameBackup(String oldFilePath, String newName) async {
+    if (!_validBackupName(newName)) return false;
     try {
       final file = File(oldFilePath);
       if (!await file.exists()) return false;
@@ -347,6 +352,7 @@ class BackupService {
       // 从文件夹名推导
       name = p.basename(sourcePath);
     }
+    if (!_validBackupName(name)) return null;
 
     // 处理名称冲突：如果同名文件已存在，添加序号
     String fileName = '$name.zip';
@@ -444,21 +450,21 @@ class BackupService {
   }) async {
     try {
       final saveDir = Directory(savePath);
+      final archive = await _readArchive(File(backupFilePath));
+      await _validateExtraction(archive.files, savePath);
 
       // 如果存档目录存在且有内容，先创建还原前备份
       if (await saveDir.exists()) {
         final hasContent = await saveDir.list().any((_) => true);
         if (hasContent) {
-          await createBackup(
+          final protection = await createBackup(
             gamePath: gamePath,
             savePath: savePath,
             customName: _preRestorePrefix,
           );
+          if (protection == null) return false;
         }
       }
-
-      final bytes = await File(backupFilePath).readAsBytes();
-      final archive = ZipDecoder().decodeBytes(bytes);
 
       // 收集压缩包中的所有文件（排除元数据文件）
       final archiveFiles = <ArchiveFile>[];
@@ -487,12 +493,22 @@ class BackupService {
       // 策略 2：递归搜索 savePath 子目录查找匹配文件
       if (await saveDir.exists()) {
         for (final archiveFile in archiveFiles) {
-          final archiveFileName = p.basename(archiveFile.name);
+          final relativeName = archiveFile.name.replaceAll('\\', '/');
+          final archiveFileName = p.posix.basename(relativeName);
           // 在 savePath 中递归搜索此文件
           final match = await _findFileInDirectory(saveDir, archiveFileName);
           if (match != null) {
             // 找到匹配 - 使用其父目录作为目标
-            final targetDir = p.dirname(match);
+            final normalizedMatch = match.replaceAll('\\', '/');
+            final suffix = '/$relativeName';
+            if (relativeName.contains('/') &&
+                !normalizedMatch.endsWith(suffix)) {
+              continue;
+            }
+            final targetDir = relativeName.contains('/')
+                ? normalizedMatch.substring(
+                    0, normalizedMatch.length - suffix.length)
+                : p.dirname(match);
             await _extractArchiveToPath(archiveFiles, targetDir);
             return true;
           }
@@ -511,7 +527,8 @@ class BackupService {
   /// 递归搜索目录中的指定文件名
   Future<String?> _findFileInDirectory(Directory dir, String fileName) async {
     try {
-      await for (final entity in dir.list(recursive: true)) {
+      await for (final entity
+          in dir.list(recursive: true, followLinks: false)) {
         if (entity is File && p.basename(entity.path) == fileName) {
           return entity.path;
         }
@@ -525,13 +542,9 @@ class BackupService {
   /// 将压缩包文件解压到目标路径，保留目录结构
   Future<void> _extractArchiveToPath(
       List<ArchiveFile> files, String targetPath) async {
+    await _validateExtraction(files, targetPath);
     for (final file in files) {
-      final filePath = p.join(targetPath, file.name);
-      // 防止路径遍历攻击
-      if (!_isPathSafe(targetPath, filePath)) {
-        debugPrint('[BackupService] 跳过不安全的路径: ${file.name}');
-        continue;
-      }
+      final filePath = p.join(targetPath, file.name.replaceAll('\\', '/'));
       final parentDir = Directory(p.dirname(filePath));
       if (!await parentDir.exists()) {
         await parentDir.create(recursive: true);
@@ -542,17 +555,67 @@ class BackupService {
 
   /// 验证解压路径是否安全（防止路径遍历攻击）
   /// 检查解析后的路径是否以目标目录开头，防止通过 ../ 逃逸
-  bool _isPathSafe(String targetDir, String filePath) {
-    final resolvedTarget = p.normalize(targetDir);
-    final resolvedFile = p.normalize(filePath);
-    return p.isWithin(resolvedTarget, resolvedFile) ||
-        resolvedFile == resolvedTarget;
+  Future<Archive> _readArchive(File file) async {
+    if (await file.length() > 500 * 1024 * 1024) {
+      throw const FormatException('备份文件超过 500 MiB 限制');
+    }
+    final archive = ZipDecoder().decodeBytes(await file.readAsBytes());
+    var totalBytes = 0;
+    for (final entry in archive) {
+      totalBytes += entry.size;
+      if (entry.isSymbolicLink || totalBytes > 500 * 1024 * 1024) {
+        throw const FormatException('备份包含链接或解压后超过 500 MiB 限制');
+      }
+      if (entry.isFile &&
+          entry.crc32 != null &&
+          getCrc32(entry.content) != entry.crc32) {
+        throw const FormatException('备份文件校验失败');
+      }
+    }
+    return archive;
+  }
+
+  Future<void> _validateExtraction(
+      List<ArchiveFile> files, String targetDir) async {
+    final root = p.normalize(p.absolute(targetDir));
+    for (final entry in files) {
+      final name = entry.name.replaceAll('\\', '/');
+      final target = p.normalize(p.join(root, name));
+      if (name.isEmpty ||
+          p.posix.isAbsolute(name) ||
+          p.windows.isAbsolute(name) ||
+          name.contains(':') ||
+          name.split('/').contains('..') ||
+          !p.isWithin(root, target)) {
+        throw FormatException('备份包含非法路径: ${entry.name}');
+      }
+      var ancestor = target;
+      while (true) {
+        if (await FileSystemEntity.type(ancestor, followLinks: false) ==
+            FileSystemEntityType.link) {
+          throw FileSystemException('还原路径包含符号链接', ancestor);
+        }
+        final parent = p.dirname(ancestor);
+        if (parent == ancestor) break;
+        ancestor = parent;
+      }
+    }
+  }
+
+  bool _validBackupName(String name) {
+    return name.trim().isNotEmpty &&
+        name != '.' &&
+        name != '..' &&
+        !RegExp(r'[<>:"/\\|?*\x00-\x1f]').hasMatch(name);
   }
 
   /// 递归将目录内容添加到压缩包
   Future<void> _addDirectoryToArchive(
       Archive archive, Directory dir, String prefix) async {
-    await for (final entity in dir.list()) {
+    await for (final entity in dir.list(followLinks: false)) {
+      if (entity is Link) {
+        throw FileSystemException('备份不支持符号链接', entity.path);
+      }
       final name = prefix.isEmpty
           ? p.basename(entity.path)
           : '$prefix${p.separator}${p.basename(entity.path)}';

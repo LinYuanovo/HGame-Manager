@@ -16,6 +16,7 @@ import '../utils/scraped_image_reference_rewriter.dart';
 import 'concurrent_image_downloader.dart';
 import 'folder_rename_service.dart';
 import 'game_data_migration_service.dart';
+import 'game_move_service.dart';
 
 class ScrapeApplyService {
   static final _versionPattern = RegExp(
@@ -157,8 +158,7 @@ class ScrapeApplyService {
       await for (final entity in imagesDir.list()) {
         if (entity is File &&
             !path.basenameWithoutExtension(entity.path).endsWith('.tmp')) {
-          final index =
-              GameDataPaths.parseScrapeImageIndex(entity.path);
+          final index = GameDataPaths.parseScrapeImageIndex(entity.path);
           if (index != null) oldImagePaths[index] = entity.path;
         }
       }
@@ -181,21 +181,21 @@ class ScrapeApplyService {
       final tmpPath = urlToTmp[url];
       if (tmpPath != null && await File(tmpPath).exists()) {
         final ext = path.extension(tmpPath).replaceAll('.tmp', '');
-        final finalPath = path.join(imagesDir.path,
-            '${GameDataPaths.scrapeImagePrefix}${i + 1}$ext');
+        final finalPath = path.join(
+            imagesDir.path, '${GameDataPaths.scrapeImagePrefix}${i + 1}$ext');
         if (finalPath != tmpPath) {
           final oldFile = File(finalPath);
           if (await oldFile.exists()) await oldFile.delete();
           await File(tmpPath).rename(finalPath);
         }
         urlToLocal[url] = finalPath;
-        finalImages.add(GameImage(
-            gameId: game.id!, imagePath: finalPath, sortOrder: i));
+        finalImages.add(
+            GameImage(gameId: game.id!, imagePath: finalPath, sortOrder: i));
       } else {
         final oldPath = oldImagePaths[i + 1];
         if (oldPath != null) {
-          finalImages.add(GameImage(
-              gameId: game.id!, imagePath: oldPath, sortOrder: i));
+          finalImages.add(
+              GameImage(gameId: game.id!, imagePath: oldPath, sortOrder: i));
         }
       }
     }
@@ -240,9 +240,8 @@ class ScrapeApplyService {
 
         final metadataFile = GameDataPaths.metadataFile(current.path);
         if (await metadataFile.exists()) {
-          final metaJson =
-              jsonDecode(await metadataFile.readAsString())
-                  as Map<String, dynamic>;
+          final metaJson = jsonDecode(await metadataFile.readAsString())
+              as Map<String, dynamic>;
           if (intro != null) metaJson['intro'] = intro;
           if (metaJson['intro_html'] is String) {
             metaJson['intro_html'] =
@@ -276,59 +275,20 @@ class ScrapeApplyService {
     if (!await categoryDir.exists()) {
       await categoryDir.create(recursive: true);
     }
-    final targetDir = Directory(path.join(sortedPath, categoryName, folderName));
+    final targetDir =
+        Directory(path.join(sortedPath, categoryName, folderName));
     if (await targetDir.exists()) {
       onLog?.call('目标目录已存在，跳过移动');
       return game;
     }
 
-    final existingGame = await repo.getGameByPath(targetDir.path);
-    if (existingGame != null) {
-      await repo.deleteGame(existingGame.id!);
-      onLog?.call('已删除目标路径的旧记录');
-    }
-
-    await sourceDir.rename(targetDir.path);
-    await repo.updateGamePath(game.id!, targetDir.path);
-    final images = await repo.getGameImages(game.id!);
-    if (images.isNotEmpty) {
-      await repo.setGameImages(
-          game.id!,
-          images
-              .map((img) => GameImage(
-                    id: img.id,
-                    gameId: img.gameId,
-                    imagePath:
-                        img.imagePath.replaceFirst(game.path, targetDir.path),
-                    sortOrder: img.sortOrder,
-                  ))
-              .toList());
-    }
-
-    await GameDataMigrationService(gameRepository: repo)
-        .rewriteGamePathReferences(
+    await GameMoveService(gameRepository: repo).moveGameFolderCrossDrive(
       gameId: game.id!,
       oldPath: game.path,
       newPath: targetDir.path,
     );
-
-    var current = await repo.getGameById(game.id!);
+    final current = await repo.getGameById(game.id!);
     if (current == null) return game;
-    if (current.gameLauncher != null &&
-        current.gameLauncher!.startsWith(game.path)) {
-      final relative = current.gameLauncher!.substring(game.path.length);
-      final newLauncher = '${targetDir.path}$relative';
-      await repo.updateGameLauncher(
-          game.id!, newLauncher, current.launcherLocked);
-      current = current.copyWith(gameLauncher: newLauncher);
-    }
-    if (current.savePath != null &&
-        current.savePath!.startsWith(game.path)) {
-      final relative = current.savePath!.substring(game.path.length);
-      final newSavePath = '${targetDir.path}$relative';
-      await repo.updateGame(current.copyWith(savePath: newSavePath));
-      current = current.copyWith(savePath: newSavePath);
-    }
     onLog?.call('已移动到: ${current.path}');
     return current;
   }

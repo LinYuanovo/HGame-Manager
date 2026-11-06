@@ -6,6 +6,7 @@ import 'package:hgame_manager/core/repositories/game_repository.dart';
 import 'package:hgame_manager/core/services/folder_move_progress.dart';
 import 'package:hgame_manager/core/services/folder_transfer_service.dart';
 import 'package:hgame_manager/core/services/game_move_service.dart';
+import 'package:hgame_manager/core/utils/path_reference_rewriter.dart';
 import 'package:path/path.dart' as path;
 
 class _FakeGameRepository extends GameRepository {
@@ -23,6 +24,26 @@ class _FakeGameRepository extends GameRepository {
   int updateSavePathCalls = 0;
   String? savePathValue;
   int updateGameCalls = 0;
+
+  @override
+  Future<void> relocateGame({
+    required int gameId,
+    required String oldPath,
+    required String newPath,
+    Future<void> Function()? beforeCommit,
+  }) async {
+    await updateGamePath(gameId, newPath);
+    await updateImagePaths(gameId, oldPath, newPath);
+    final launcher = PathReferenceRewriter.relocateLocalPath(
+        game?.gameLauncher, oldPath, newPath);
+    if (launcher != game?.gameLauncher) {
+      await updateGameLauncher(gameId, launcher, game!.launcherLocked);
+    }
+    final save = PathReferenceRewriter.relocateLocalPath(
+        game?.savePath, oldPath, newPath);
+    if (save != game?.savePath) await updateSavePath(gameId, save);
+    await beforeCommit?.call();
+  }
 
   @override
   Future<Game?> getGameById(int id) async => game;

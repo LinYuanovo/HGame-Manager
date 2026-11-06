@@ -2448,9 +2448,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     final title = _currentGame.title ?? '';
     final keyword = _extractSearchKeyword(title);
 
-    // 先删除旧的攻略图片（在下载新图片之前）
-    await _deleteGuideImages();
-
     final content = await showDialog<String>(
       context: context,
       builder: (context) =>
@@ -2458,20 +2455,22 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     );
 
     if (content != null && mounted) {
+      final repo = ref.read(gameRepositoryProvider);
+      await repo.updateGuide(_currentGame.id!, content);
+      if (!mounted) return;
       setState(() {
         _guideController.text = content;
         _currentGame = _currentGame.copyWith(guide: content);
       });
-      final repo = ref.read(gameRepositoryProvider);
-      await repo.updateGuide(_currentGame.id!, content);
       _syncGuideToMetadata(content);
+      await _deleteGuideImages(retainedContent: content);
       // 重新预加载媒体文件（包括攻略中的图片）
       await _preloadMediaFiles();
     }
   }
 
   /// 删除攻略相关的图片文件
-  Future<void> _deleteGuideImages() async {
+  Future<void> _deleteGuideImages({String? retainedContent}) async {
     final imagesDir = await GameDataPaths.existingImagesDir(_currentGame.path);
     if (!await imagesDir.exists()) return;
 
@@ -2479,7 +2478,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       if (entity is File) {
         final fileName = entity.path.split(Platform.pathSeparator).last;
         // 只删除 guide_ 开头的图片
-        if (fileName.startsWith('guide_')) {
+        if (fileName.startsWith('guide_') &&
+            !(retainedContent?.contains(fileName) ?? false) &&
+            !(_currentGame.intro?.contains(fileName) ?? false) &&
+            !(_currentGame.features?.contains(fileName) ?? false)) {
           try {
             await entity.delete();
           } catch (_) {}
@@ -3651,8 +3653,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           RegExp(r'https?://([^/]+)').firstMatch(url)?.group(1) ?? '其他';
       final displayLabel =
           (label == null || label.isEmpty) ? _getDomainLabel(domain) : label;
-      final linkLine =
-          extractCode == null ? url : '$url 提取码: $extractCode';
+      final linkLine = extractCode == null ? url : '$url 提取码: $extractCode';
       result.groups.putIfAbsent(displayLabel, () => []).add(linkLine);
       result.consumedLines.add(line);
       result.consumedUrls.add(url);
@@ -3738,7 +3739,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           isRemovableLine: (line) => _isConsumedDownloadLine(line, parsed),
           removableLabels: parsed.groups.keys.toSet(),
           normalizeLabel: _cleanLabelText,
-          triggersLabelCleanup: (line) => parsed.consumedUrls.any(line.contains),
+          triggersLabelCleanup: (line) =>
+              parsed.consumedUrls.any(line.contains),
         ) ??
         html;
   }
@@ -3763,9 +3765,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         parsed.decompressCodes.contains(decompressMatch.group(1)!.trim())) {
       return true;
     }
-    final codeMatch =
-        RegExp(r'^(?:提取码|密码)[：:]\s*(\w+)$').firstMatch(trimmed);
-    return codeMatch != null && parsed.extractCodes.contains(codeMatch.group(1));
+    final codeMatch = RegExp(r'^(?:提取码|密码)[：:]\s*(\w+)$').firstMatch(trimmed);
+    return codeMatch != null &&
+        parsed.extractCodes.contains(codeMatch.group(1));
   }
 
   String _getDomainLabel(String domain) {

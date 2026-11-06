@@ -3,7 +3,11 @@ import '../database/database_helper.dart';
 import '../models/models.dart';
 
 class TagRepository {
-  Future<Database> get _db => DatabaseHelper.database;
+  TagRepository({Database? database}) : _database = database;
+
+  final Database? _database;
+
+  Future<Database> get _db async => _database ?? await DatabaseHelper.database;
 
   Future<List<Tag>> getAllTags() async {
     final db = await _db;
@@ -82,21 +86,28 @@ class TagRepository {
     );
   }
 
-  Future<int> insertOrGetTag(String name, String type, {String? displayName}) async {
-    final existing = await getTagByNameAndType(name, type);
-    if (existing != null) return existing.id!;
-
+  Future<int> insertOrGetTag(String name, String type,
+      {String? displayName}) async {
     final db = await _db;
-    return await db.insert(
-      'tags',
-      {
-        'name': name,
-        'type': type,
-        'display_name': displayName ?? name,
-        'is_favorite': 0,
-      },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+    return db.transaction((transaction) async {
+      await transaction.insert(
+        'tags',
+        {
+          'name': name,
+          'type': type,
+          'display_name': displayName ?? name,
+          'is_favorite': 0,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      final rows = await transaction.query(
+        'tags',
+        columns: ['id'],
+        where: 'name = ? AND type = ?',
+        whereArgs: [name, type],
+      );
+      return rows.single['id'] as int;
+    });
   }
 
   Future<void> updateTag(Tag tag) async {

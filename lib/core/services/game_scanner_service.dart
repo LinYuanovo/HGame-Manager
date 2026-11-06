@@ -8,6 +8,7 @@ import '../models/models.dart';
 import '../repositories/game_repository.dart';
 import '../repositories/tag_repository.dart';
 import '../utils/app_settings.dart';
+import '../utils/cleared_game_path_utils.dart';
 import '../utils/game_data_paths.dart';
 import 'app_logger.dart';
 import 'game_data_migration_service.dart';
@@ -565,11 +566,7 @@ class GameScannerService {
           'game_images',
           where:
               'game_id = ? AND image_path NOT LIKE ? AND image_path NOT LIKE ?',
-          whereArgs: [
-            gameId,
-            '$gameImagesDir1%',
-            '$gameImagesDir2%'
-          ],
+          whereArgs: [gameId, '$gameImagesDir1%', '$gameImagesDir2%'],
         );
 
         // 删除所有图片
@@ -645,7 +642,8 @@ class GameScannerService {
           continue;
         }
 
-        if (!_normalizedPathKey(storedPath).startsWith(normalizedLibraryPath)) {
+        if (!ClearedGamePathUtils.isSameOrChildPath(
+            storedPath, normalizedLibraryPath)) {
           continue;
         }
 

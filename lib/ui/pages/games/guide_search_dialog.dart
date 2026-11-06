@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/services/pilipili_service.dart';
@@ -166,6 +167,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
 
     // 下载图片并保存为 guide_xx.xx 格式
     final localPaths = <String>[];
+    final downloadId = const Uuid().v4();
     final client = await createProxyClientFromPrefs(domain: 'i0.hdslb.com');
     try {
       for (int i = 0; i < imageUrls.length; i++) {
@@ -192,7 +194,11 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
               }
             }
 
-            final fileName = 'guide_${(i + 1).toString().padLeft(2, '0')}$ext';
+            if (!['.jpg', '.jpeg', '.png', '.gif', '.webp']
+                .contains(ext.toLowerCase())) {
+              ext = '.jpg';
+            }
+            final fileName = 'guide_${downloadId}_${i + 1}$ext';
             final filePath =
                 '${imagesDir.path}${Platform.pathSeparator}$fileName';
             if (kDebugMode)

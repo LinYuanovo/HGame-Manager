@@ -30,10 +30,22 @@ class WebdavService {
   static const String _backupFolder = 'hgame_manager_backups';
 
   Uri _buildUri(String serverUrl, String path) {
-    final base = serverUrl.endsWith('/')
-        ? serverUrl.substring(0, serverUrl.length - 1)
-        : serverUrl;
-    return Uri.parse('$base/$path');
+    final base = Uri.parse(serverUrl);
+    final segments = path.split('/');
+    if (segments.any((segment) => !_isSafeName(segment))) {
+      throw const FormatException('WebDAV 路径包含非法文件名');
+    }
+    return base.replace(pathSegments: [
+      ...base.pathSegments.where((segment) => segment.isNotEmpty),
+      ...segments,
+    ]);
+  }
+
+  bool _isSafeName(String name) {
+    return name.isNotEmpty &&
+        name != '.' &&
+        name != '..' &&
+        !RegExp(r'[/\\:\x00-\x1f]').hasMatch(name);
   }
 
   Map<String, String> _authHeaders(String username, String password) {
@@ -185,6 +197,14 @@ class WebdavService {
     if (manifest.isEmpty) return {};
 
     try {
+      if (manifest.values.any((value) {
+        final segments = value.split('/');
+        return segments.length != 2 ||
+            segments.first != 'images' ||
+            !_isSafeName(segments.last);
+      })) {
+        throw const FormatException('图片清单包含非法路径');
+      }
       final destination = Directory(destinationDir);
       if (!await destination.exists()) {
         await destination.create(recursive: true);
@@ -286,15 +306,33 @@ class WebdavService {
     required String remotePath,
     required String localPath,
   }) async {
-    final request = http.Request('GET', _buildUri(serverUrl, remotePath));
-    request.headers.addAll(_authHeaders(username, password));
-    final response = await request.send();
-    if (response.statusCode != 200) {
-      await response.stream.drain<void>();
-      return false;
+    final client = http.Client();
+    Directory? staging;
+    try {
+      final request = http.Request('GET', _buildUri(serverUrl, remotePath));
+      request.headers.addAll(_authHeaders(username, password));
+      final response =
+          await client.send(request).timeout(const Duration(seconds: 30));
+      if (response.statusCode != 200) return false;
+      final destination = File(localPath);
+      await destination.parent.create(recursive: true);
+      staging = await destination.parent.createTemp('.webdav-');
+      final pending = File('${staging.path}${Platform.pathSeparator}download');
+      var receivedBytes = 0;
+      await response.stream.timeout(const Duration(seconds: 30)).map((chunk) {
+        receivedBytes += chunk.length;
+        return chunk;
+      }).pipe(pending.openWrite());
+      if (response.contentLength != null &&
+          response.contentLength != receivedBytes) {
+        throw const FormatException('WebDAV 下载不完整');
+      }
+      await pending.rename(localPath);
+      return true;
+    } finally {
+      client.close();
+      if (staging != null) await staging.delete(recursive: true);
     }
-    await response.stream.pipe(File(localPath).openWrite());
-    return true;
   }
 
   Future<bool> downloadBackup({
@@ -305,21 +343,14 @@ class WebdavService {
     required String localPath,
   }) async {
     try {
-      final uri = _buildUri(serverUrl, '$_backupFolder/$remoteFileName');
-      final response = await http.get(
-        uri,
-        headers: _authHeaders(username, password),
+      if (!_isSafeName(remoteFileName)) return false;
+      return await _downloadFile(
+        serverUrl: serverUrl,
+        username: username,
+        password: password,
+        remotePath: '$_backupFolder/$remoteFileName',
+        localPath: localPath,
       );
-
-      if (response.statusCode == 200) {
-        final file = File(localPath);
-        await file.writeAsBytes(response.bodyBytes);
-        debugPrint('[WebDAV] Downloaded: $remoteFileName -> $localPath');
-        return true;
-      } else {
-        debugPrint('[WebDAV] Download failed: ${response.statusCode}');
-        return false;
-      }
     } catch (e) {
       debugPrint('[WebDAV] downloadBackup error: $e');
       return false;
@@ -486,26 +517,14 @@ class WebdavService {
   }) async {
     try {
       final sanitizedFolder = sanitizeGameTitle(gameFolder);
-      final uri = _buildUri(
-          serverUrl, '$_backupFolder/$sanitizedFolder/$remoteFileName');
-      final response = await http.get(
-        uri,
-        headers: _authHeaders(username, password),
+      if (!_isSafeName(remoteFileName)) return false;
+      return await _downloadFile(
+        serverUrl: serverUrl,
+        username: username,
+        password: password,
+        remotePath: '$_backupFolder/$sanitizedFolder/$remoteFileName',
+        localPath: localPath,
       );
-
-      if (response.statusCode == 200) {
-        final file = File(localPath);
-        final dir = file.parent;
-        if (!await dir.exists()) {
-          await dir.create(recursive: true);
-        }
-        await file.writeAsBytes(response.bodyBytes);
-        debugPrint('[WebDAV] 游戏备份已下载: $remoteFileName -> $localPath');
-        return true;
-      } else {
-        debugPrint('[WebDAV] 下载失败: ${response.statusCode}');
-        return false;
-      }
     } catch (e) {
       debugPrint('[WebDAV] downloadGameBackup 错误: $e');
       return false;
@@ -583,7 +602,7 @@ class WebdavService {
         // 跳过根文件夹本身
         if (segments.last == _backupFolder || segments.last.isEmpty) continue;
 
-        folders.add(segments[segments.length - 2]);
+        if (_isSafeName(segments.last)) folders.add(segments.last);
       }
     } catch (e) {
       debugPrint('[WebDAV] _parseFolderNames 错误: $e');
@@ -720,7 +739,7 @@ class WebdavService {
         if (href.endsWith('/')) continue;
 
         final name = href.split('/').last;
-        if (name.isEmpty) continue;
+        if (!_isSafeName(name)) continue;
 
         final propstat =
             _findChild(response, ['D:propstat', 'd:propstat', 'lp1:propstat']);
@@ -785,7 +804,9 @@ class WebdavService {
 
   XmlElement? _findChild(XmlElement parent, List<String> candidates) {
     for (final child in parent.children) {
-      if (child is XmlElement && candidates.contains(child.name.toString())) {
+      if (child is XmlElement &&
+          candidates.any(
+              (candidate) => candidate.split(':').last == child.name.local)) {
         return child;
       }
     }
@@ -794,7 +815,9 @@ class WebdavService {
 
   String? _findChildText(XmlElement parent, List<String> candidates) {
     for (final child in parent.children) {
-      if (child is XmlElement && candidates.contains(child.name.toString())) {
+      if (child is XmlElement &&
+          candidates.any(
+              (candidate) => candidate.split(':').last == child.name.local)) {
         return child.innerText;
       }
     }

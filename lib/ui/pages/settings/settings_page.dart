@@ -22,6 +22,7 @@ import '../../../core/utils/proxy_client.dart';
 import '../../../core/services/webdav_service.dart';
 import '../../../core/services/backup_image_service.dart';
 import '../../../core/services/backup_image_record_service.dart';
+import '../../../core/services/database_backup_service.dart';
 import '../../../core/services/image_service.dart';
 import '../../../core/services/guide_window_service.dart';
 import '../../controllers/window_controller.dart';
@@ -127,7 +128,15 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _SidebarCategory(
       label: '管理',
       icon: Icons.admin_panel_settings_outlined,
-      items: ['黑名单管理', '右键菜单管理', '侧边栏页面管理', '封面比例管理', '刮削行为管理', '重命名规则管理', '攻略浮窗快捷键'],
+      items: [
+        '黑名单管理',
+        '右键菜单管理',
+        '侧边栏页面管理',
+        '封面比例管理',
+        '刮削行为管理',
+        '重命名规则管理',
+        '攻略浮窗快捷键'
+      ],
     ),
     _SidebarCategory(
       label: '刮削',
@@ -1219,7 +1228,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     );
   }
 
-  Widget _buildKeepPlayedSection() {    return _buildSection(
+  Widget _buildKeepPlayedSection() {
+    return _buildSection(
       title: '已玩游戏保留库中',
       icon: Icons.library_books_outlined,
       children: [
@@ -3820,7 +3830,9 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       final settingsFile = File(settingsPath);
 
       final archive = Archive();
-      final dbBytes = await dbFile.readAsBytes();
+      await ref.read(sharedPreferencesProvider).flush();
+      final dbBytes =
+          await DatabaseBackupService.snapshot(await DatabaseHelper.database);
       archive.addFile(ArchiveFile('database.db', dbBytes.length, dbBytes));
       if (await settingsFile.exists()) {
         final settingsBytes = await settingsFile.readAsBytes();
@@ -3886,51 +3898,22 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _beginBackupImport();
     var preservedImages = <PreservedGameImages>[];
     try {
-      final dbPath = await DatabaseHelper.getDatabasePath();
-      final settingsPath = await AppPaths.settingsFile;
       final recordService = BackupImageRecordService();
       preservedImages = await recordService.capture(
         await DatabaseHelper.database,
       );
 
-      if (sourcePath.endsWith('.zip')) {
-        final zipBytes = await File(sourcePath).readAsBytes();
-        final archive = ZipDecoder().decodeBytes(zipBytes);
-        final hasImageManifest =
-            BackupImageService().readManifest(archive).isNotEmpty;
-
-        await DatabaseHelper.close();
-
-        for (final file in archive) {
-          if (file.name == 'database.db') {
-            final dbFile = File(dbPath);
-            if (await dbFile.exists()) await dbFile.delete();
-            await dbFile.writeAsBytes(file.content as List<int>);
-          } else if (file.name == 'settings.json') {
-            final settingsFile = File(settingsPath);
-            await settingsFile.writeAsBytes(file.content as List<int>);
-            await ref.read(sharedPreferencesProvider).reload();
-          }
-        }
-        if (hasImageManifest) {
-          await _restoreLocalImagesFromArchive(archive);
-        } else {
-          await _mergePreservedImages(preservedImages);
-        }
-      } else {
-        await DatabaseHelper.close();
-        final dbFile = File(dbPath);
-        if (await dbFile.exists()) await dbFile.delete();
-        await File(sourcePath).copy(dbPath);
-        await _mergePreservedImages(preservedImages);
-      }
+      await _restoreDatabaseBackup(
+        await File(sourcePath).readAsBytes(),
+        isZip: sourcePath.toLowerCase().endsWith('.zip'),
+        preservedImages: preservedImages,
+      );
 
       if (mounted) {
         AppTheme.showGlassToast(context, message: '导入成功！请重启应用使数据生效。');
       }
     } catch (e) {
       debugPrint('Import local backup error: $e');
-      await _mergePreservedImagesBestEffort(preservedImages);
       if (mounted) {
         AppTheme.showGlassToast(context,
             message: '导入失败',
@@ -4124,7 +4107,9 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       final settingsFile = File(settingsPath);
 
       final archive = Archive();
-      final dbBytes = await dbFile.readAsBytes();
+      await ref.read(sharedPreferencesProvider).flush();
+      final dbBytes =
+          await DatabaseBackupService.snapshot(await DatabaseHelper.database);
       archive.addFile(ArchiveFile('database.db', dbBytes.length, dbBytes));
       if (await settingsFile.exists()) {
         final settingsBytes = await settingsFile.readAsBytes();
@@ -4274,43 +4259,15 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 iconColor: AppTheme.errorColor);
           }
         } else {
-          await DatabaseHelper.close();
-
-          if (fileName.endsWith('.zip')) {
-            final zipBytes = await tempFile.readAsBytes();
-            final archive = ZipDecoder().decodeBytes(zipBytes);
-            final hasImageManifest =
-                BackupImageService().readManifest(archive).isNotEmpty;
-
-            for (final file in archive) {
-              if (file.name == 'database.db') {
-                final dbFile = File(dbPath);
-                if (await dbFile.exists()) await dbFile.delete();
-                await dbFile.writeAsBytes(file.content as List<int>);
-              } else if (file.name == 'settings.json') {
-                final settingsPath = await AppPaths.settingsFile;
-                final settingsFile = File(settingsPath);
-                await settingsFile.writeAsBytes(file.content as List<int>);
-                await ref.read(sharedPreferencesProvider).reload();
-              }
-            }
-            if (hasImageManifest) {
-              await _restoreWebdavImagesFromArchive(
-                archive,
-                service: service,
-                serverUrl: url,
-                username: username,
-                password: password,
-              );
-            } else {
-              await _mergePreservedImages(preservedImages);
-            }
-          } else {
-            final dbFile = File(dbPath);
-            if (await dbFile.exists()) await dbFile.delete();
-            await tempFile.copy(dbPath);
-            await _mergePreservedImages(preservedImages);
-          }
+          await _restoreDatabaseBackup(
+            await tempFile.readAsBytes(),
+            isZip: fileName.toLowerCase().endsWith('.zip'),
+            preservedImages: preservedImages,
+            service: service,
+            serverUrl: url,
+            username: username,
+            password: password,
+          );
 
           if (await tempFile.exists()) await tempFile.delete();
           ok = true;
@@ -4329,7 +4286,6 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       }
     } catch (e) {
       debugPrint('Failed to import backup: $e');
-      await _mergePreservedImagesBestEffort(preservedImages);
       if (mounted) {
         AppTheme.showGlassToast(context,
             message: '导入失败: $e',
@@ -4344,6 +4300,71 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   Future<void> _addReferencedImagesToArchive(Archive archive) async {
     final imagePaths = await _getReferencedImagePaths();
     await BackupImageService().addToArchive(archive, imagePaths);
+  }
+
+  Future<void> _restoreDatabaseBackup(
+    List<int> bytes, {
+    required bool isZip,
+    required List<PreservedGameImages> preservedImages,
+    WebdavService? service,
+    String serverUrl = '',
+    String username = '',
+    String password = '',
+  }) async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final archive = isZip ? ZipDecoder().decodeBytes(bytes) : null;
+    final databases =
+        archive?.files.where((file) => file.name == 'database.db').toList();
+    final settings =
+        archive?.files.where((file) => file.name == 'settings.json').toList();
+    if (archive != null && (databases!.length != 1 || settings!.length > 1)) {
+      throw const FormatException('备份必须包含且仅包含一份 database.db');
+    }
+    await prefs.flush();
+    try {
+      await DatabaseHelper.runMaintenance(() async =>
+          DatabaseBackupService.restore(
+            databasePath: await DatabaseHelper.getDatabasePath(),
+            databaseBytes: archive == null ? bytes : databases!.single.content,
+            settingsPath: await AppPaths.settingsFile,
+            settingsBytes: settings != null && settings.isNotEmpty
+                ? settings.single.content
+                : null,
+            closeDatabase: DatabaseHelper.close,
+            afterRestore: () async {
+              await prefs.reload();
+              final importedDatabase = await DatabaseHelper.database;
+              await importedDatabase.query('games',
+                  columns: [
+                    ...Game(path: '').toMap().keys,
+                    'id',
+                    'guide',
+                    'save_path',
+                    'review',
+                    'maker',
+                    'maker_url',
+                    'cleared_backup_path'
+                  ],
+                  limit: 1);
+              if (archive != null &&
+                  BackupImageService().readManifest(archive).isNotEmpty) {
+                if (service == null) {
+                  await _restoreLocalImagesFromArchive(archive);
+                } else {
+                  await _restoreWebdavImagesFromArchive(archive,
+                      service: service,
+                      serverUrl: serverUrl,
+                      username: username,
+                      password: password);
+                }
+              } else {
+                await _mergePreservedImages(preservedImages);
+              }
+            },
+          ));
+    } finally {
+      await prefs.reload();
+    }
   }
 
   Future<List<BackupImageAsset>> _addIncrementalImageManifestToArchive(
@@ -4448,16 +4469,6 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     final db = await DatabaseHelper.database;
     await BackupImageRecordService().merge(db, preservedImages);
     await DatabaseHelper.close();
-  }
-
-  Future<void> _mergePreservedImagesBestEffort(
-    List<PreservedGameImages> preservedImages,
-  ) async {
-    try {
-      await _mergePreservedImages(preservedImages);
-    } catch (e) {
-      debugPrint('Failed to preserve current image records: $e');
-    }
   }
 
   void _beginBackupImport() {
@@ -4861,10 +4872,10 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
             headers: headers,
             isHtmlReady: (html) =>
                 _parsePreviewInfo(testUrl: testUrl, html: html)
-                        ?.title
-                        ?.trim()
-                        .isNotEmpty ==
-                    true,
+                    ?.title
+                    ?.trim()
+                    .isNotEmpty ==
+                true,
           );
           stopwatch.stop();
           if (browserResult == null) {
@@ -4900,7 +4911,8 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
         return;
       }
 
-      final initialInfo = _parsePreviewInfo(testUrl: testUrl, html: response.body);
+      final initialInfo =
+          _parsePreviewInfo(testUrl: testUrl, html: response.body);
       final titleAvailable = initialInfo?.title?.trim().isNotEmpty == true;
       if (!titleAvailable || looksLikeClientRenderedPage(response.body)) {
         if (!mounted) return;
@@ -4910,10 +4922,10 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
           headers: headers,
           isHtmlReady: (html) =>
               _parsePreviewInfo(testUrl: testUrl, html: html)
-                      ?.title
-                      ?.trim()
-                      .isNotEmpty ==
-                  true,
+                  ?.title
+                  ?.trim()
+                  .isNotEmpty ==
+              true,
         );
         stopwatch.stop();
         if (browserResult == null) {

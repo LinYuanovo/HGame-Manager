@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'dart:convert';
 import '../repositories/game_repository.dart';
+import '../utils/game_data_paths.dart';
+import '../utils/path_reference_rewriter.dart';
 import 'app_logger.dart';
 import 'folder_move_progress.dart';
 import 'folder_transfer_service.dart';
-import 'game_data_migration_service.dart';
 
 class GameMoveService {
   static const String _logTag = 'GameMove';
@@ -120,31 +122,30 @@ class GameMoveService {
     required String oldPath,
     required String newPath,
   }) async {
-    await _gameRepository.updateGamePath(gameId, newPath);
-    await _gameRepository.updateImagePaths(gameId, oldPath, newPath);
-    await GameDataMigrationService(gameRepository: _gameRepository)
-        .rewriteGamePathReferences(
-      gameId: gameId,
-      oldPath: oldPath,
-      newPath: newPath,
-    );
-
-    final game = await _gameRepository.getGameById(gameId);
-    if (game != null &&
-        game.gameLauncher != null &&
-        game.gameLauncher!.startsWith(oldPath)) {
-      final relativeLauncher = game.gameLauncher!.substring(oldPath.length);
-      final newLauncher = '$newPath$relativeLauncher';
-      await _gameRepository.updateGameLauncher(
-          gameId, newLauncher, game.launcherLocked);
-    }
-
-    if (game != null &&
-        game.savePath != null &&
-        game.savePath!.startsWith(oldPath)) {
-      final relativeSave = game.savePath!.substring(oldPath.length);
-      final newSave = '$newPath$relativeSave';
-      await _gameRepository.updateSavePath(gameId, newSave);
+    final metadata = await GameDataPaths.existingMetadataFile(newPath);
+    final original =
+        await metadata.exists() ? await metadata.readAsBytes() : null;
+    var metadataWritten = false;
+    try {
+      await _gameRepository.relocateGame(
+        gameId: gameId,
+        oldPath: oldPath,
+        newPath: newPath,
+        beforeCommit: () async {
+          if (original == null) return;
+          final content = utf8.decode(original);
+          final updated =
+              PathReferenceRewriter.replacePath(content, oldPath, newPath);
+          if (content == updated) return;
+          metadataWritten = true;
+          await metadata.writeAsString(updated, flush: true);
+        },
+      );
+    } catch (_) {
+      if (metadataWritten && original != null) {
+        await metadata.writeAsBytes(original, flush: true);
+      }
+      rethrow;
     }
   }
 

@@ -9,21 +9,27 @@ import '../utils/app_settings.dart';
 import '../utils/backup_image_reference_resolver.dart';
 import '../utils/cleared_game_path_utils.dart';
 import '../utils/game_data_paths.dart';
+import '../utils/path_reference_rewriter.dart';
 
 class GameRepository implements PlayTimeRepository {
-  Future<Database> get _db => DatabaseHelper.database;
+  GameRepository({Database? database}) : _database = database;
+
+  final Database? _database;
+
+  Future<Database> get _db async => _database ?? await DatabaseHelper.database;
 
   final Map<String, bool> _pathExistsCache = {};
   DateTime? _pathCacheTime;
 
   Future<bool> _pathExists(String path) async {
-    if (_pathCacheTime != null &&
-        DateTime.now().difference(_pathCacheTime!) <
+    if (_pathCacheTime == null ||
+        DateTime.now().difference(_pathCacheTime!) >=
             const Duration(seconds: 30)) {
-      return _pathExistsCache[path] ?? false;
+      _pathExistsCache.clear();
+      _pathCacheTime = DateTime.now();
     }
-    _pathExistsCache.clear();
-    _pathCacheTime = DateTime.now();
+    final cached = _pathExistsCache[path];
+    if (cached != null) return cached;
     final exists = await Directory(path).exists();
     _pathExistsCache[path] = exists;
     return exists;
@@ -427,7 +433,7 @@ class GameRepository implements PlayTimeRepository {
     return await db.insert(
       'games',
       gameToInsert.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
+      conflictAlgorithm: ConflictAlgorithm.abort,
     );
   }
 
@@ -472,6 +478,55 @@ class GameRepository implements PlayTimeRepository {
       where: 'id = ?',
       whereArgs: [id],
     );
+    _pathExistsCache.clear();
+  }
+
+  Future<void> relocateGame({
+    required int gameId,
+    required String oldPath,
+    required String newPath,
+    Future<void> Function()? beforeCommit,
+  }) async {
+    final db = await _db;
+    await db.transaction((transaction) async {
+      final rows = await transaction
+          .query('games', where: 'id = ?', whereArgs: [gameId]);
+      if (rows.isEmpty ||
+          !ClearedGamePathUtils.isSameOrChildPath(
+              rows.single['path'] as String, oldPath) ||
+          !ClearedGamePathUtils.isSameOrChildPath(
+              oldPath, rows.single['path'] as String)) {
+        throw StateError('游戏路径已改变，请刷新后重试');
+      }
+      final updates = <String, Object?>{'path': newPath};
+      for (final column in [
+        'game_launcher',
+        'save_path',
+        'cleared_backup_path'
+      ]) {
+        updates[column] = PathReferenceRewriter.relocateLocalPath(
+            rows.single[column] as String?, oldPath, newPath);
+      }
+      for (final column in ['intro', 'features', 'changelog', 'guide']) {
+        updates[column] = PathReferenceRewriter.replace(
+            rows.single[column] as String?, {oldPath: newPath});
+      }
+      await transaction
+          .update('games', updates, where: 'id = ?', whereArgs: [gameId]);
+      final images = await transaction
+          .query('game_images', where: 'game_id = ?', whereArgs: [gameId]);
+      for (final image in images) {
+        final original = image['image_path'] as String;
+        final relocated =
+            PathReferenceRewriter.relocateLocalPath(original, oldPath, newPath);
+        if (relocated != original) {
+          await transaction.update('game_images', {'image_path': relocated},
+              where: 'id = ?', whereArgs: [image['id']]);
+        }
+      }
+      await beforeCommit?.call();
+    });
+    _pathExistsCache.clear();
   }
 
   Future<void> updateClearedStatus(

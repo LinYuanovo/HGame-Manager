@@ -6,23 +6,18 @@ import '../models/models.dart';
 import '../models/rename_rule.dart';
 import '../repositories/game_repository.dart';
 import '../utils/app_settings.dart';
-import '../utils/game_data_paths.dart';
-import '../utils/path_reference_rewriter.dart';
 import 'dlsite_service.dart';
-import 'steam_service.dart';
+import 'game_move_service.dart';
 
 class FolderRenameService {
   final GameRepository _gameRepository;
   final DlsiteService _dlsiteService;
-  final SteamService _steamService;
 
   FolderRenameService({
     GameRepository? gameRepository,
     DlsiteService? dlsiteService,
-    SteamService? steamService,
   })  : _gameRepository = gameRepository ?? GameRepository(),
-        _dlsiteService = dlsiteService ?? DlsiteService(),
-        _steamService = steamService ?? SteamService();
+        _dlsiteService = dlsiteService ?? DlsiteService();
 
   /// 加载重命名规则配置
   static Future<List<RenameRule>> loadRules() async {
@@ -105,7 +100,10 @@ class FolderRenameService {
       }
     }
 
-    return parts.isEmpty ? '' : parts.join(' ');
+    return parts
+        .join(' ')
+        .replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1f]'), '_')
+        .replaceAll(RegExp(r'[. ]+$'), '');
   }
 
   /// 构建备份文件夹名称（异步版本，供外部直接调用）
@@ -172,60 +170,9 @@ class FolderRenameService {
     debugPrint('[FolderRename] Renaming: $oldPath -> $newPath');
 
     try {
-      await Directory(oldPath).rename(newPath);
-      await _gameRepository.updateGamePath(game.id!, newPath);
-      await _gameRepository.updateImagePaths(game.id!, oldPath, newPath);
-
-      if (game.gameLauncher != null && game.gameLauncher!.startsWith(oldPath)) {
-        final relative = game.gameLauncher!.substring(oldPath.length);
-        final newLauncher = path.join(newPath, relative);
-        await _gameRepository.updateGameLauncher(
-            game.id!, newLauncher, game.launcherLocked);
-      }
-
-      if (game.savePath != null && game.savePath!.startsWith(oldPath)) {
-        final relative = game.savePath!.substring(oldPath.length);
-        final newSavePath = path.join(newPath, relative);
-        await _gameRepository.updateGame(game.copyWith(savePath: newSavePath));
-      }
-
-      final currentGame = await _gameRepository.getGameById(game.id!);
-      if (currentGame != null) {
-        final replacements = {oldPath: newPath};
-        final updatedIntro =
-            PathReferenceRewriter.replace(currentGame.intro, replacements);
-        final updatedFeatures =
-            PathReferenceRewriter.replace(currentGame.features, replacements);
-        final updatedChangelog =
-            PathReferenceRewriter.replace(currentGame.changelog, replacements);
-        final updatedGuide =
-            PathReferenceRewriter.replace(currentGame.guide, replacements);
-        if (updatedIntro != currentGame.intro ||
-            updatedFeatures != currentGame.features ||
-            updatedChangelog != currentGame.changelog ||
-            updatedGuide != currentGame.guide) {
-          await _gameRepository.updateGame(currentGame.copyWith(
-            intro: updatedIntro,
-            features: updatedFeatures,
-            changelog: updatedChangelog,
-            guide: updatedGuide,
-          ));
-        }
-      }
-
-      try {
-        final metadataFile = await GameDataPaths.existingMetadataFile(newPath);
-        if (await metadataFile.exists()) {
-          final content = await metadataFile.readAsString();
-          final updatedContent =
-              PathReferenceRewriter.replacePath(content, oldPath, newPath);
-          if (updatedContent != content) {
-            await metadataFile.writeAsString(updatedContent, flush: true);
-          }
-        }
-      } catch (e) {
-        debugPrint('[FolderRename] 更新metadata.json路径失败: $e');
-      }
+      await GameMoveService(gameRepository: _gameRepository)
+          .moveGameFolderCrossDrive(
+              gameId: game.id!, oldPath: oldPath, newPath: newPath);
 
       debugPrint('[FolderRename] Success: $newPath');
       return newPath;

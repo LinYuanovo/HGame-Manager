@@ -27,6 +27,23 @@ class PathReferenceRewriter {
     return replaceRequired(value, {oldPath: newPath});
   }
 
+  static String? relocateLocalPath(
+      String? value, String oldPath, String newPath) {
+    if (value == null || value.isEmpty) return value;
+    final normalizedValue = path.posix.normalize(value.replaceAll('\\', '/'));
+    final normalizedRoot = path.posix.normalize(oldPath.replaceAll('\\', '/'));
+    if (normalizedValue.toLowerCase() == normalizedRoot.toLowerCase()) {
+      return newPath;
+    }
+    if (!normalizedValue
+        .toLowerCase()
+        .startsWith('${normalizedRoot.toLowerCase()}/')) {
+      return value;
+    }
+    final suffix = normalizedValue.substring(normalizedRoot.length + 1);
+    return path.joinAll([newPath, ...suffix.split('/')]);
+  }
+
   static Set<(String, String)> _replacementPairs(
     String oldPath,
     String newPath,

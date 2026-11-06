@@ -284,7 +284,8 @@ enum NavRoute {
   favorites(3, '收藏'),  // 收藏游戏页面
   played(4, '已玩'),     // 已玩游戏页面
   cleared(5, '通关'),    // 通关游戏页面
-  settings(6, '设置');   // 设置页面
+  tools(6, '工具'),     // 工具页面
+  settings(7, '设置');   // 设置页面
 }
 ```
 
@@ -331,10 +332,20 @@ enum NavRoute {
 - 两阶段提交：校验通过后先调 `commit`（写库），再删除源；`commit` 失败时跨卷删除目标副本、同卷 rename 回原名，保证源目录不变
 
 ### GameMoveService
-- 移动游戏文件夹唯一入口（列表右键「移动文件夹」/ 详情页「修改路径」共用）
-- 委托 FolderTransferService 完成搬运，写库作为 `commit` 在两阶段提交中执行：更新数据库路径、图片引用、启动器、存档路径与 metadata 引用
+- 移动游戏文件夹共享入口（列表移动、详情修改路径、自动重命名、刮削整理、通关移入/移回共用）
+- 委托 FolderTransferService 完成搬运，写库作为 `commit` 在两阶段提交中执行：`GameRepository.relocateGame` 在同一 SQLite 事务中更新数据库路径、图片引用、启动器、存档路径与正文引用；metadata 写入失败时回滚事务并还原原文件
 - 写库失败时自动回滚（源目录保持不变），瞬时锁冲突自动重试 2 次，用户无需手动补救
 - 搬运失败/取消时数据库保持不变
+
+### DatabaseBackupService
+- 本地导出和 WebDAV 备份共用 `VACUUM INTO` 一致性数据库快照，包含 WAL 中已经提交的记录
+- 导入前检查 SQLite 完整性、核心表、版本与设置格式，保留原文件直到数据库和图片处理全部成功
+- 导入失败回滚数据库与设置；回滚失败保留恢复目录并报出位置
+- `DatabaseHelper.runMaintenance` 阻止新的数据库访问跨越替换阶段；文件系统与 SQLite 之间仍不具备断电原子性
+
+### 列表封面
+- ListView/GridView 按需构建 `Image`，使用 Flutter 图片缓存管理生命周期
+- `ResizeImagePolicy.fit` 将封面解码限制在 1024×1024 内，保持原始比例；详情媒体独立处理
 
 ### ScrapeApplyService
 - 刮削结果应用唯一共享层（快速/重新/刮削中心/单个/批量添加共用）

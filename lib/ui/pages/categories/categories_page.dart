@@ -273,27 +273,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
     final tagsAsync = ref.watch(provider);
     return tagsAsync.when(
       data: (tags) {
-        // 过滤空标签（仅标签tab适用，系列tab不适用）
-        final filteredEmptyTags = type == Tag.typeCustom
-            ? tags.where((t) => t.gameCount > 0).toList()
-            : tags;
-
-        // 异步删除空的自定义标签
-        if (type == Tag.typeCustom) {
-          final emptyTags = tags.where((t) => t.gameCount == 0).toList();
-          if (emptyTags.isNotEmpty) {
-            Future.microtask(() async {
-              final tagRepo = ref.read(tagRepositoryProvider);
-              for (final tag in emptyTags) {
-                if (tag.id != null) {
-                  await tagRepo.deleteTag(tag.id!);
-                }
-              }
-            });
-          }
-        }
-
-        if (filteredEmptyTags.isEmpty) {
+        if (tags.isEmpty) {
           return EmptyStateWidget(
             icon: type == Tag.typeCustom ? Icons.label : Icons.category,
             message: type == Tag.typeCustom ? '暂无标签' : '暂无系列',
@@ -302,7 +282,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                 : '系统预定义了 RPG、ADV 等系列，右键可管理自定义系列',
           );
         }
-        final orderedTags = _sortTags(filteredEmptyTags, type);
+        final orderedTags = _sortTags(tags, type);
         final searchQuery = _searchController.text.trim().toLowerCase();
         final filteredTags = orderedTags
             .where((tag) =>
