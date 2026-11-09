@@ -219,7 +219,6 @@ class GameScannerService {
             scanFingerprintsDirty || results.any((r) => r != null);
 
         onProgress?.call(i + batch.length, foldersToProcess.length);
-        onGameProcessed?.call();
         await Future<void>.delayed(const Duration(milliseconds: 16));
       }
 
@@ -257,6 +256,7 @@ class GameScannerService {
       rethrow;
     } finally {
       _isScanning = false;
+      onGameProcessed?.call();
     }
   }
 
@@ -451,8 +451,8 @@ class GameScannerService {
         metadataFingerprint: fingerprint,
         migrationChecked: migrationChecked,
       );
-    } catch (e) {
-      if (kDebugMode) debugPrint('[Scan] Error parsing $folderPath: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('Scan', '[Scan] Error parsing $folderPath: $e', e, stackTrace);
       return null;
     }
   }
@@ -656,8 +656,8 @@ class GameScannerService {
                 '[Scan] Removed DB entry for missing folder: $storedPath');
           }
         }
-      } catch (e) {
-        if (kDebugMode) debugPrint('[Scan] Error checking game folder: $e');
+      } catch (e, stackTrace) {
+        AppLogger.instance.error('Scan', '[Scan] Error checking game folder: $e', e, stackTrace);
       }
     }
   }

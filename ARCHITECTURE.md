@@ -382,7 +382,7 @@ enum NavRoute {
 ### GuideWindowService
 - 攻略浮窗主窗口侧管理（详情页右侧悬浮按钮栏「浮窗显示攻略」触发）
 - 基于 desktop_multi_window 创建独立系统子窗口（同进程新引擎，入口参数 `multi_window <id> <json>`）
-- **子窗口引擎只注册 window_manager 插件**（`flutter_window.cpp` 的 `DesktopMultiWindowSetWindowCreatedCallback`）：media_kit / flutter_inappwebview 等重型插件在子窗口注册会导致主窗口输入被冻结；跨窗口通信通道由插件内部自行注册，不受影响
+- **子窗口引擎注册 window_manager 与 screen_retriever 插件**（`flutter_window.cpp` 的 `DesktopMultiWindowSetWindowCreatedCallback`）：前者负责窗口控制，后者供首次居中读取屏幕信息；media_kit / flutter_inappwebview 等重型插件在子窗口注册会导致主窗口输入被冻结。跨窗口通信通道由插件内部自行注册。
 - 浮窗状态记忆（位置/大小/置顶/透明度/字号/各游戏滚动位置）存于独立文件 `guide_window_state.json`，避免与 settings.json 并发写
 - 关闭浮窗必须走 `setPreventClose(false)` + `close()` 系统 WM_CLOSE 流程；**禁止** `windowManager.destroy()`（其 Windows 实现是 PostQuitMessage，会退出整个进程）
 - 全局快捷键（hotkey_manager，可在 设置→管理→攻略浮窗快捷键 自定义）：

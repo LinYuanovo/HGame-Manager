@@ -8,6 +8,7 @@ import '../repositories/game_repository.dart';
 import '../repositories/tag_repository.dart';
 import '../repositories/tool_repository.dart';
 import '../services/game_scanner_service.dart';
+import '../services/app_logger.dart';
 import '../services/game_launch_service.dart';
 import '../services/game_count_service.dart';
 import '../services/save_path_service.dart';
@@ -146,9 +147,7 @@ final allGamesProvider = FutureProvider<List<Game>>((ref) async {
     // 通关记录即使只剩元数据，也只在“通关”页展示，不回到游戏库。
     return games.where((game) => !game.isCleared).toList();
   } catch (e, stackTrace) {
-    if (kDebugMode) {
-      debugPrint('ERROR Loading Games: $e\n$stackTrace');
-    }
+    AppLogger.instance.error('Providers', 'ERROR Loading Games', e, stackTrace);
     rethrow;
   }
 });
@@ -481,9 +480,7 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
 
     return result.values.toList();
   } catch (e, stackTrace) {
-    if (kDebugMode) {
-      debugPrint('ERROR Loading Cleared Games: $e\n$stackTrace');
-    }
+    AppLogger.instance.error('Providers', 'ERROR Loading Cleared Games', e, stackTrace);
     rethrow;
   }
 });
@@ -1002,9 +999,7 @@ final playedGamesProvider = FutureProvider<List<Game>>((ref) async {
     final repository = ref.watch(gameRepositoryProvider);
     return await repository.getPlayedGames();
   } catch (e, stackTrace) {
-    if (kDebugMode) {
-      debugPrint('ERROR Loading Played Games: $e\n$stackTrace');
-    }
+    AppLogger.instance.error('Providers', 'ERROR Loading Played Games', e, stackTrace);
     rethrow;
   }
 });
@@ -1015,9 +1010,7 @@ final favoriteGamesProvider = FutureProvider<List<Game>>((ref) async {
     final games = await repository.getFavoriteGames();
     return games;
   } catch (e, stackTrace) {
-    if (kDebugMode) {
-      debugPrint('ERROR Loading Favorite Games: $e\n$stackTrace');
-    }
+    AppLogger.instance.error('Providers', 'ERROR Loading Favorite Games', e, stackTrace);
     rethrow;
   }
 });
@@ -1027,9 +1020,7 @@ final allTagsProvider = FutureProvider<List<Tag>>((ref) async {
     final repository = ref.watch(tagRepositoryProvider);
     return await repository.getCustomTags();
   } catch (e, stackTrace) {
-    if (kDebugMode) {
-      debugPrint('ERROR Loading Tags: $e\n$stackTrace');
-    }
+    AppLogger.instance.error('Providers', 'ERROR Loading Tags', e, stackTrace);
     rethrow;
   }
 });
@@ -1039,9 +1030,7 @@ final allSeriesProvider = FutureProvider<List<Tag>>((ref) async {
     final repository = ref.watch(tagRepositoryProvider);
     return await repository.getSeriesTags();
   } catch (e, stackTrace) {
-    if (kDebugMode) {
-      debugPrint('ERROR Loading Series: $e\n$stackTrace');
-    }
+    AppLogger.instance.error('Providers', 'ERROR Loading Series', e, stackTrace);
     rethrow;
   }
 });
@@ -1051,9 +1040,7 @@ final favoriteTagsProvider = FutureProvider<List<Tag>>((ref) async {
     final repository = ref.watch(tagRepositoryProvider);
     return await repository.getFavoriteTags();
   } catch (e, stackTrace) {
-    if (kDebugMode) {
-      debugPrint('ERROR Loading Favorite Tags: $e\n$stackTrace');
-    }
+    AppLogger.instance.error('Providers', 'ERROR Loading Favorite Tags', e, stackTrace);
     rethrow;
   }
 });
@@ -1064,9 +1051,7 @@ final gamesByTagProvider =
     final repository = ref.watch(gameRepositoryProvider);
     return await repository.getGamesByTag(tagId);
   } catch (e, stackTrace) {
-    if (kDebugMode) {
-      debugPrint('ERROR Loading Games By Tag: $e\n$stackTrace');
-    }
+    AppLogger.instance.error('Providers', 'ERROR Loading Games By Tag', e, stackTrace);
     rethrow;
   }
 });
@@ -1148,9 +1133,7 @@ final allToolsProvider = FutureProvider<List<Tool>>((ref) async {
     final repository = ref.watch(toolRepositoryProvider);
     return await repository.getAllTools();
   } catch (e, stackTrace) {
-    if (kDebugMode) {
-      debugPrint('ERROR Loading Tools: $e\n$stackTrace');
-    }
+    AppLogger.instance.error('Providers', 'ERROR Loading Tools', e, stackTrace);
     rethrow;
   }
 });

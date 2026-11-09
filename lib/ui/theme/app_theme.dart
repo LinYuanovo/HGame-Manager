@@ -28,6 +28,24 @@ class LayoutConstants {
 }
 
 class GlassConstants {
+  static const double radiusIndicator = 3.0;
+  static const double radiusTiny = 4.0;
+  static const double radiusTight = 6.0;
+  static const double radiusCompact = 8.0;
+  static const double radiusControl = 10.0;
+  static const double spacingTiny = 4.0;
+  static const double spacingTight = 6.0;
+  static const double spacingCompact = 12.0;
+  static const double spacingComfortable = 20.0;
+  static const double fontCaption = 11.0;
+  static const double fontSmall = 12.0;
+  static const double fontBody = 13.0;
+  static const double fontControl = 14.0;
+  static const double fontBodyLarge = 15.0;
+  static const double fontTitle = 16.0;
+  static const double fontSection = 18.0;
+  static const double fontHeading = 20.0;
+  static const double fontDisplay = 24.0;
   // 圆角
   static const double radiusSmall = 12.0;
   static const double radiusMedium = 16.0;
@@ -183,9 +201,9 @@ class AppTheme {
   static ImageErrorWidgetBuilder imageErrorBuilder =
       (context, error, stackTrace) {
     return Container(
-      color: const Color(0xFFE8E8E8),
-      child: const Center(
-        child: Icon(Icons.broken_image, color: Color(0xFFBDBDBD), size: 32),
+      color: getInputFillColor(context),
+      child: Center(
+        child: Icon(Icons.broken_image, color: getTextSecondary(context), size: 32),
       ),
     );
   };
@@ -221,7 +239,7 @@ class AppTheme {
         centerTitle: false,
         titleTextStyle: TextStyle(
           color: textPrimary,
-          fontSize: 20,
+          fontSize: GlassConstants.fontHeading,
           fontWeight: FontWeight.w600,
         ),
         iconTheme: IconThemeData(
@@ -250,37 +268,37 @@ class AppTheme {
         ),
         titleLarge: TextStyle(
           color: textPrimary,
-          fontSize: 20,
+          fontSize: GlassConstants.fontHeading,
           fontWeight: FontWeight.w500,
         ),
         titleMedium: TextStyle(
           color: textPrimary,
-          fontSize: 18,
+          fontSize: GlassConstants.fontSection,
           fontWeight: FontWeight.w500,
         ),
         titleSmall: TextStyle(
           color: textSecondary,
-          fontSize: 16,
+          fontSize: GlassConstants.fontTitle,
           fontWeight: FontWeight.w400,
         ),
         bodyLarge: TextStyle(
           color: textPrimary,
-          fontSize: 18,
+          fontSize: GlassConstants.fontSection,
         ),
         bodyMedium: TextStyle(
           color: textSecondary,
-          fontSize: 15,
+          fontSize: GlassConstants.fontBodyLarge,
         ),
         bodySmall: TextStyle(
           color: textSecondary,
-          fontSize: 13,
+          fontSize: GlassConstants.fontBody,
         ),
       ).apply(fontFamily: effectiveFontFamily),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor.withValues(alpha: 0.7),
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingCompact),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
           ),
@@ -341,11 +359,11 @@ class AppTheme {
           borderSide: const BorderSide(color: primaryColor, width: 1.5),
         ),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: 14),
       ),
       scrollbarTheme: ScrollbarThemeData(
         thumbColor: WidgetStateProperty.all(Colors.grey.withValues(alpha: 0.3)),
-        radius: const Radius.circular(4),
+        radius: const Radius.circular(GlassConstants.radiusTiny),
         thickness: WidgetStateProperty.all(6),
       ),
       popupMenuTheme: PopupMenuThemeData(
@@ -358,7 +376,7 @@ class AppTheme {
         elevation: 12,
         textStyle: const TextStyle(
           color: textPrimary,
-          fontSize: 14,
+          fontSize: GlassConstants.fontControl,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -377,6 +395,7 @@ class AppTheme {
         brightness: Brightness.dark,
       ).copyWith(
         primary: darkPrimaryColor,
+        onPrimary: darkBackgroundColor,
         secondary: secondaryColor,
         tertiary: accentColor,
         surface: darkSurfaceColor,
@@ -396,7 +415,7 @@ class AppTheme {
         centerTitle: false,
         titleTextStyle: TextStyle(
           color: darkTextPrimary,
-          fontSize: 20,
+          fontSize: GlassConstants.fontHeading,
           fontWeight: FontWeight.w600,
         ),
         iconTheme: IconThemeData(
@@ -415,22 +434,22 @@ class AppTheme {
         headlineSmall: TextStyle(
             color: darkTextPrimary, fontSize: 22, fontWeight: FontWeight.w600),
         titleLarge: TextStyle(
-            color: darkTextPrimary, fontSize: 20, fontWeight: FontWeight.w500),
+            color: darkTextPrimary, fontSize: GlassConstants.fontHeading, fontWeight: FontWeight.w500),
         titleMedium: TextStyle(
-            color: darkTextPrimary, fontSize: 18, fontWeight: FontWeight.w500),
+            color: darkTextPrimary, fontSize: GlassConstants.fontSection, fontWeight: FontWeight.w500),
         titleSmall: TextStyle(
             color: darkTextSecondary,
-            fontSize: 16,
+            fontSize: GlassConstants.fontTitle,
             fontWeight: FontWeight.w400),
-        bodyLarge: TextStyle(color: darkTextPrimary, fontSize: 18),
-        bodyMedium: TextStyle(color: darkTextSecondary, fontSize: 15),
-        bodySmall: TextStyle(color: darkTextSecondary, fontSize: 13),
+        bodyLarge: TextStyle(color: darkTextPrimary, fontSize: GlassConstants.fontSection),
+        bodyMedium: TextStyle(color: darkTextSecondary, fontSize: GlassConstants.fontBodyLarge),
+        bodySmall: TextStyle(color: darkTextSecondary, fontSize: GlassConstants.fontBody),
       ).apply(fontFamily: effectiveFontFamily),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: darkPrimaryColor.withValues(alpha: 0.8),
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          foregroundColor: darkBackgroundColor,
+          padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingCompact),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
           ),
@@ -472,7 +491,7 @@ class AppTheme {
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: darkPrimaryColor.withValues(alpha: 0.8),
-        foregroundColor: Colors.white,
+        foregroundColor: darkBackgroundColor,
         elevation: 0,
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -491,11 +510,11 @@ class AppTheme {
           borderSide: BorderSide(color: darkPrimaryColor, width: 1.5),
         ),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: 14),
       ),
       scrollbarTheme: ScrollbarThemeData(
         thumbColor: WidgetStateProperty.all(Colors.grey.withValues(alpha: 0.4)),
-        radius: const Radius.circular(4),
+        radius: const Radius.circular(GlassConstants.radiusTiny),
         thickness: WidgetStateProperty.all(6),
       ),
       popupMenuTheme: PopupMenuThemeData(
@@ -508,7 +527,7 @@ class AppTheme {
         elevation: 0,
         textStyle: const TextStyle(
           color: darkTextPrimary,
-          fontSize: 14,
+          fontSize: GlassConstants.fontControl,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -520,7 +539,7 @@ class AppTheme {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingSmall),
           decoration: BoxDecoration(
             color: Theme.of(context).brightness == Brightness.dark
                 ? AppTheme.darkSurfaceColor.withValues(alpha: 0.92)
@@ -556,13 +575,13 @@ class AppTheme {
                 color: color ?? AppTheme.primaryColor,
                 size: 18,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: GlassConstants.spacingSmall),
               Flexible(
                 child: Text(
                   message,
                   style: TextStyle(
                     color: color ?? AppTheme.primaryColor,
-                    fontSize: 14,
+                    fontSize: GlassConstants.fontControl,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -641,7 +660,7 @@ class AppTheme {
                   context: context,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 12),
+                        horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingCompact),
                     decoration: BoxDecoration(
                       color: Theme.of(context).brightness == Brightness.dark
                           ? AppTheme.darkSurfaceColor.withValues(alpha: 0.85)
@@ -665,11 +684,11 @@ class AppTheme {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(icon, size: 18, color: iconColor),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: GlassConstants.spacingSmall),
                         Flexible(
                           child: Text(message,
                               style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: GlassConstants.fontTitle,
                                   color: AppTheme.getTextPrimary(context)),
                               overflow: TextOverflow.ellipsis,
                               maxLines: 2),
@@ -778,6 +797,22 @@ class AppTheme {
     return Theme.of(context).brightness == Brightness.dark
         ? darkPrimaryColor
         : primaryColor;
+  }
+
+  static Color getOnPrimaryColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkBackgroundColor
+        : surfaceColor;
+  }
+
+  static Color getSecondaryColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFC4B5FD)
+        : secondaryColor;
+  }
+
+  static Color getSearchHighlightColor(BuildContext context) {
+    return getStarColor(context).withValues(alpha: 0.4);
   }
 
   /// 获取主色渐变
@@ -958,7 +993,7 @@ class GlassCard extends StatefulWidget {
   const GlassCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(GlassConstants.spacingMedium),
     this.margin,
     this.borderRadius = GlassConstants.radiusLarge,
     this.color,
@@ -1215,7 +1250,7 @@ class GlassButton extends StatefulWidget {
     super.key,
     required this.child,
     this.onPressed,
-    this.padding = const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+    this.padding = const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingCompact),
     this.borderRadius = GlassConstants.radiusMedium,
     this.color,
     this.gradient,
@@ -1395,7 +1430,7 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final appBar = Container(
       height: preferredSize.height,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium),
       decoration: BoxDecoration(
         color: isDark
             ? AppTheme.darkSurfaceColor.withValues(alpha: 0.7)
@@ -1454,7 +1489,7 @@ class GlassSearchBar extends StatelessWidget {
       color: Theme.of(context).brightness == Brightness.dark
           ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5)
           : Colors.white.withValues(alpha: 0.5),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium),
       border: Border.all(
         color: Theme.of(context).brightness == Brightness.dark
             ? AppTheme.darkGlassBorderWhite.withValues(alpha: 0.4)
@@ -1474,12 +1509,12 @@ class GlassSearchBar extends StatelessWidget {
           controller: controller,
           onChanged: onChanged,
           style:
-              TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 14),
+              TextStyle(color: AppTheme.getTextPrimary(context), fontSize: GlassConstants.fontControl),
           decoration: InputDecoration(
             hintText: hintText ?? '搜索...',
             hintStyle: TextStyle(
               color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
-              fontSize: 14,
+              fontSize: GlassConstants.fontControl,
             ),
             prefixIcon: Icon(
               Icons.search,
@@ -1518,14 +1553,14 @@ class GlassChip extends StatelessWidget {
       child: AnimatedContainer(
         duration: GlassConstants.animFast,
         curve: GlassConstants.animCurve,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: GlassConstants.spacingSmall),
         decoration: BoxDecoration(
           color: isSelected
               ? chipColor.withValues(alpha: 0.2)
               : (Theme.of(context).brightness == Brightness.dark
                   ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5)
                   : Colors.white.withValues(alpha: 0.5)),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
           border: Border.all(
             color: isSelected
                 ? chipColor.withValues(alpha: 0.5)
@@ -1545,7 +1580,7 @@ class GlassChip extends StatelessWidget {
           label,
           style: TextStyle(
             color: isSelected ? chipColor : AppTheme.getTextSecondary(context),
-            fontSize: 13,
+            fontSize: GlassConstants.fontBody,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
           ),
         ),
@@ -1703,8 +1738,8 @@ class _CopyToastContentState extends State<_CopyToastContent>
       opacity: _opacityAnimation,
       child: Container(
         padding: const EdgeInsets.symmetric(
-          horizontal: 24,
-          vertical: 12,
+          horizontal: GlassConstants.spacingLarge,
+          vertical: GlassConstants.spacingCompact,
         ),
         decoration: BoxDecoration(
           color: Theme.of(context).brightness == Brightness.dark
@@ -1740,14 +1775,14 @@ class _CopyToastContentState extends State<_CopyToastContent>
               color: AppTheme.primaryColor,
               size: 18,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: GlassConstants.spacingSmall),
             Flexible(
               child: Text(
                 widget.text,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: AppTheme.primaryColor,
-                  fontSize: 14,
+                  fontSize: GlassConstants.fontControl,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1804,16 +1839,16 @@ class GlassTabBar extends StatelessWidget implements PreferredSizeWidget {
           child: TabBar(
             controller: controller,
             tabs: tabs,
-            labelColor: AppTheme.primaryColor,
-            unselectedLabelColor: AppTheme.textSecondary,
+            labelColor: AppTheme.getPrimaryColor(context),
+            unselectedLabelColor: AppTheme.getTextSecondary(context),
             labelStyle: const TextStyle(
               fontWeight: FontWeight.w600,
-              fontSize: 14,
+              fontSize: GlassConstants.fontControl,
               height: 1.0,
             ),
             unselectedLabelStyle: const TextStyle(
               fontWeight: FontWeight.w400,
-              fontSize: 14,
+              fontSize: GlassConstants.fontControl,
               height: 1.0,
             ),
             indicatorSize: TabBarIndicatorSize.tab,
@@ -1822,7 +1857,7 @@ class GlassTabBar extends StatelessWidget implements PreferredSizeWidget {
               borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
             ),
             indicatorPadding:
-                const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingTight),
             dividerColor: Colors.transparent,
             splashBorderRadius:
                 BorderRadius.circular(GlassConstants.radiusSmall),
@@ -1934,28 +1969,28 @@ class EmptyStateWidget extends StatelessWidget {
           Icon(icon,
               size: 64,
               color: AppTheme.getTextSecondary(context).withValues(alpha: 0.4)),
-          const SizedBox(height: 16),
+          const SizedBox(height: GlassConstants.spacingMedium),
           Text(
             message,
             style: TextStyle(
               color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
-              fontSize: 16,
+              fontSize: GlassConstants.fontTitle,
               fontWeight: FontWeight.w500,
             ),
           ),
           if (subMessage != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: GlassConstants.spacingSmall),
             Text(
               subMessage!,
               style: TextStyle(
                 color:
                     AppTheme.getTextSecondary(context).withValues(alpha: 0.4),
-                fontSize: 13,
+                fontSize: GlassConstants.fontBody,
               ),
             ),
           ],
           if (action != null) ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: GlassConstants.spacingComfortable),
             action!,
           ],
         ],

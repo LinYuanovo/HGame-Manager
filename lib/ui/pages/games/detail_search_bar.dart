@@ -46,7 +46,7 @@ class _DetailSearchBarState extends State<DetailSearchBar> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingSmall),
       decoration: BoxDecoration(
         color: AppTheme.getSurfaceColor(context),
         border: Border(
@@ -56,17 +56,17 @@ class _DetailSearchBarState extends State<DetailSearchBar> {
       child: Row(
         children: [
           Icon(Icons.search, size: 20, color: AppTheme.getTextSecondary(context)),
-          const SizedBox(width: 8),
+          const SizedBox(width: GlassConstants.spacingSmall),
           Expanded(
             child: TextField(
               controller: widget.controller,
               focusNode: _focusNode,
-              style: TextStyle(fontSize: 14, color: AppTheme.getTextPrimary(context)),
+              style: TextStyle(fontSize: GlassConstants.fontControl, color: AppTheme.getTextPrimary(context)),
               decoration: InputDecoration(
                 hintText: '搜索内容... (Ctrl+F)',
                 hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                contentPadding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingSmall),
               ),
               onChanged: widget.onSearch,
             ),
@@ -74,14 +74,14 @@ class _DetailSearchBarState extends State<DetailSearchBar> {
           if (widget.matches.isNotEmpty)
             Text(
               '${widget.currentMatchIndex + 1}/${widget.matches.length}',
-              style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
+              style: TextStyle(fontSize: GlassConstants.fontSmall, color: AppTheme.getTextSecondary(context)),
             )
           else if (widget.hasSearched)
             const Text(
               '无匹配',
-              style: TextStyle(fontSize: 12, color: AppTheme.warningColor),
+              style: TextStyle(fontSize: GlassConstants.fontSmall, color: AppTheme.warningColor),
             ),
-          const SizedBox(width: 8),
+          const SizedBox(width: GlassConstants.spacingSmall),
           _buildActionButton(
             icon: Icons.keyboard_arrow_up,
             onPressed: widget.matches.isEmpty ? null : widget.onPrevious,
@@ -92,7 +92,7 @@ class _DetailSearchBarState extends State<DetailSearchBar> {
             onPressed: widget.matches.isEmpty ? null : widget.onNext,
             tooltip: '下一个',
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: GlassConstants.spacingSmall),
           IconButton(
             icon: const Icon(Icons.close, size: 18),
             onPressed: widget.onClose,

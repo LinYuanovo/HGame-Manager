@@ -1,7 +1,8 @@
+import '../services/app_logger.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/widgets.dart' show VoidCallback;
 import 'app_paths.dart';
 import 'cleared_game_path_utils.dart';
@@ -92,12 +93,13 @@ class AppSettings {
             _data = jsonDecode(raw) as Map<String, dynamic>;
           } catch (e) {
             // JSON 解析失败，尝试从备份恢复
-            debugPrint('[AppSettings] JSON parse error, trying backup: $e');
+            AppLogger.instance.warning('Settings', '设置格式无效，尝试备份: ${e.runtimeType}');
             final backupFile = File('$_filePath.bak');
             if (await backupFile.exists()) {
               try {
                 final backupRaw = await backupFile.readAsString();
                 _data = jsonDecode(backupRaw) as Map<String, dynamic>;
+                AppLogger.instance.info('Settings', '已读取设置备份');
                 // 恢复备份
                 await file.writeAsString(backupRaw, flush: true);
               } catch (_) {
@@ -109,8 +111,8 @@ class AppSettings {
           }
         }
       }
-    } catch (e) {
-      debugPrint('[AppSettings] Load error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('Settings', '[AppSettings] Load error: ${e.runtimeType}', null, stackTrace);
       _data = {};
     }
   }
@@ -165,12 +167,14 @@ class AppSettings {
         }
       }
       _dirty = false;
-    } catch (e) {
-      debugPrint('[AppSettings] Save error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('Settings', '[AppSettings] Save error: ${e.runtimeType}', null, stackTrace);
     }
   }
 
   // ---- Read methods (same signatures as SharedPreferences) ----
+
+  Object? get(String key) => _data[key];
 
   String? getString(String key) => _data[key] as String?;
 

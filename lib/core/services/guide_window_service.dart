@@ -1,14 +1,15 @@
+import 'app_logger.dart';
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 
 import '../models/models.dart';
 import '../repositories/game_repository.dart';
 import '../utils/app_settings.dart';
+import '../utils/app_version.dart';
 
 /// 攻略浮窗内容载荷
 class GuideWindowPayload {
@@ -71,8 +72,8 @@ class GuideWindowService {
       await controller.setWindowMethodHandler(_onSubWindowCall);
       _windowsChangedSub = onWindowsChanged.listen((_) => _syncWindowId());
       await registerHotkeys();
-    } catch (e) {
-      debugPrint('[GuideWindow] initialize error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('GuideWindow', '[GuideWindow] initialize error: $e', e, stackTrace);
     }
   }
 
@@ -197,12 +198,13 @@ class GuideWindowService {
           arguments: jsonEncode({
             ...payload.toJson(),
             'mainWindowId': _mainWindowId ?? '',
+            'appVersion': appVersion,
           }),
         ),
       );
       _windowId = controller.windowId;
-    } catch (e) {
-      debugPrint('[GuideWindow] create window error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('GuideWindow', '[GuideWindow] create window error: $e', e, stackTrace);
       _windowId = null;
     }
   }
@@ -273,8 +275,8 @@ class GuideWindowService {
         loadHotkey(hotkeyScrollDownKey),
         keyDownHandler: (_) => scroll(scrollStep),
       );
-    } catch (e) {
-      debugPrint('[GuideWindow] register hotkeys error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('GuideWindow', '[GuideWindow] register hotkeys error: $e', e, stackTrace);
     }
   }
 

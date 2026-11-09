@@ -73,17 +73,17 @@ class _TagInputDialogState extends State<TagInputDialog> {
     return SizedBox(
       width: GlassConstants.dialogWidth,
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(GlassConstants.spacingLarge),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(widget.title,
                 style: TextStyle(
-                    fontSize: 18,
+                    fontSize: GlassConstants.fontSection,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.getTextPrimary(context))),
-            const SizedBox(height: 12),
+            const SizedBox(height: GlassConstants.spacingCompact),
             Flexible(
                 child: SingleChildScrollView(
                     child: Column(
@@ -94,7 +94,7 @@ class _TagInputDialogState extends State<TagInputDialog> {
                   Text('已选标签（${_selected.length}）',
                       style:
                           TextStyle(color: AppTheme.getTextSecondary(context))),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: GlassConstants.spacingSmall),
                   Wrap(
                       spacing: 6,
                       runSpacing: 6,
@@ -105,7 +105,7 @@ class _TagInputDialogState extends State<TagInputDialog> {
                                     setState(() => _selected.remove(tag)),
                               ))
                           .toList()),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: GlassConstants.spacingCompact),
                 ],
                 TextField(
                   key: const ValueKey('tag-input'),
@@ -123,11 +123,11 @@ class _TagInputDialogState extends State<TagInputDialog> {
                   ),
                 ),
                 if (widget.showAvailable) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: GlassConstants.spacingCompact),
                   Text('已有标签',
                       style:
                           TextStyle(color: AppTheme.getTextSecondary(context))),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: GlassConstants.spacingSmall),
                   if (candidates.isEmpty)
                     Text('暂无匹配的标签',
                         style: TextStyle(
@@ -151,12 +151,12 @@ class _TagInputDialogState extends State<TagInputDialog> {
                 ],
               ],
             ))),
-            const SizedBox(height: 20),
+            const SizedBox(height: GlassConstants.spacingComfortable),
             Row(mainAxisAlignment: MainAxisAlignment.end, children: [
               TextButton(
                   onPressed: () => Navigator.pop(context),
                   child: const Text('取消')),
-              const SizedBox(width: 8),
+              const SizedBox(width: GlassConstants.spacingSmall),
               ElevatedButton(
                   onPressed: () {
                     _addInput();

@@ -5,6 +5,7 @@ import '../utils/app_paths.dart';
 import '../utils/app_settings.dart';
 import '../utils/cleared_game_path_utils.dart';
 import '../services/app_data_migration_service.dart';
+import '../services/app_logger.dart';
 
 class DatabaseHelper {
   static Database? _database;
@@ -22,11 +23,19 @@ class DatabaseHelper {
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
-    return _databaseFuture ??= _initDatabase();
+    return _databaseFuture ??=
+        _initDatabase().catchError((Object error, StackTrace stackTrace) {
+      _databaseFuture = null;
+      AppLogger.instance.error('Database', '打开数据库失败，可重试', error, stackTrace);
+      Error.throwWithStackTrace(error, stackTrace);
+    });
   }
 
   static Future<Database> _initDatabase() async {
     final dbPath = await getDatabasePath();
+    final elapsed = Stopwatch()..start();
+    AppLogger.instance
+        .info('Database', '打开数据库: schema=$_databaseVersion, path=$dbPath');
 
     final db = await openDatabase(
       dbPath,
@@ -41,9 +50,16 @@ class DatabaseHelper {
       },
     );
 
-    await AppDataMigrationService.rewriteMigratedPaths(db);
+    try {
+      await AppDataMigrationService.rewriteMigratedPaths(db);
+    } catch (_) {
+      await db.close();
+      rethrow;
+    }
 
     _database = db;
+    AppLogger.instance
+        .info('Database', '数据库就绪: elapsedMs=${elapsed.elapsedMilliseconds}');
     return db;
   }
 
@@ -63,6 +79,7 @@ class DatabaseHelper {
 
   static Future<void> _onUpgrade(
       Database db, int oldVersion, int newVersion) async {
+    AppLogger.instance.info('Database', '开始升级: $oldVersion -> $newVersion');
     if (oldVersion < 2) {
       if (!await _columnExists(db, 'games', 'cover_index')) {
         await db.execute(
@@ -164,6 +181,7 @@ class DatabaseHelper {
             .execute('ALTER TABLE games ADD COLUMN cleared_backup_path TEXT');
       }
     }
+    AppLogger.instance.info('Database', '升级完成: $oldVersion -> $newVersion');
   }
 
   static Future<void> _migrateClearedPaths(Database db) async {

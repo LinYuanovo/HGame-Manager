@@ -59,15 +59,15 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: Row(
         children: [
           Icon(Icons.menu, color: AppTheme.getPrimaryColor(context), size: 24),
-          const SizedBox(width: 12),
+          const SizedBox(width: GlassConstants.spacingCompact),
           Text(
             '右键菜单管理',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: GlassConstants.fontHeading,
               fontWeight: FontWeight.bold,
               color: AppTheme.getTextPrimary(context),
             ),
@@ -84,8 +84,8 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
 
   Widget _buildTabBar() {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 24),
-      padding: EdgeInsets.all(4),
+      margin: EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge),
+      padding: EdgeInsets.all(GlassConstants.spacingTiny),
       decoration: BoxDecoration(
         color: AppTheme.getBackgroundColor(context),
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -120,7 +120,7 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
 
   Widget _buildActions() {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -128,12 +128,12 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
             onPressed: _resetToDefaults,
             child: Text('恢复默认', style: TextStyle(color: AppTheme.getTextSecondary(context))),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: GlassConstants.spacingCompact),
           ElevatedButton(
             onPressed: _saveAndClose,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.getPrimaryColor(context),
-              foregroundColor: Colors.white,
+              foregroundColor: AppTheme.getOnPrimaryColor(context),
             ),
             child: Text('保存'),
           ),
@@ -199,7 +199,7 @@ class _TabItemWidgetState extends State<_TabItemWidget> {
           child: Text(
             widget.label,
             style: TextStyle(
-              color: widget.isSelected ? AppTheme.getTextColorOnPrimary(context) : AppTheme.getTextSecondary(context),
+              color: widget.isSelected ? AppTheme.getOnPrimaryColor(context) : AppTheme.getTextSecondary(context),
               fontWeight: widget.isSelected ? FontWeight.w500 : FontWeight.normal,
             ),
           ),
@@ -223,7 +223,7 @@ class _MenuItemsList extends ConsumerWidget {
     final items = config.sortedItems;
 
     return ReorderableListView.builder(
-      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingMedium),
       itemCount: items.length,
       onReorder: (oldIndex, newIndex) {
         ref.read(provider.notifier).reorderItem(oldIndex, newIndex);
@@ -256,7 +256,7 @@ class _MenuItemsList extends ConsumerWidget {
 
         return Container(
           key: ValueKey(item.id),
-          margin: EdgeInsets.only(bottom: 8),
+          margin: EdgeInsets.only(bottom: GlassConstants.spacingSmall),
           decoration: BoxDecoration(
             color: item.enabled
                 ? AppTheme.getSurfaceColor(context)
@@ -283,7 +283,7 @@ class _MenuItemsList extends ConsumerWidget {
                     child: Icon(Icons.drag_handle, size: 20, color: AppTheme.getTextSecondary(context)),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: GlassConstants.spacingCompact),
                 Icon(
                   _getIconData(def.icon),
                   size: 20,
@@ -291,11 +291,11 @@ class _MenuItemsList extends ConsumerWidget {
                       ? AppTheme.getPrimaryColor(context)
                       : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: GlassConstants.spacingCompact),
                 Text(
                   def.label,
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: GlassConstants.fontBodyLarge,
                     color: item.enabled
                         ? AppTheme.getTextPrimary(context)
                         : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),

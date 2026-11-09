@@ -747,15 +747,15 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                     ? '添加游戏'
                     : '批量添加游戏',
                 style: TextStyle(
-                    fontSize: 18,
+                    fontSize: GlassConstants.fontSection,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.getTextPrimary(context))),
-            const SizedBox(height: 16),
+            const SizedBox(height: GlassConstants.spacingMedium),
             if (_isDragMode)
               // 拖拽模式：文件夹列表由调用方传入，仅展示数量，不提供浏览按钮
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: 10),
                 decoration: BoxDecoration(
                   color: AppTheme.getSurfaceColor(context)
                       .withValues(alpha: 0.5),
@@ -771,7 +771,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                       child: Text(
                         '已添加 ${widget.initialFolderPaths!.length} 个游戏文件夹',
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: GlassConstants.fontBody,
                           color: AppTheme.getTextPrimary(context),
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -786,7 +786,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
+                          horizontal: GlassConstants.spacingCompact, vertical: 10),
                       decoration: BoxDecoration(
                         color: AppTheme.getSurfaceColor(context)
                             .withValues(alpha: 0.5),
@@ -799,7 +799,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                       child: Text(
                         _parentPath ?? '未选择文件夹',
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: GlassConstants.fontBody,
                           color: _parentPath != null
                               ? AppTheme.getTextPrimary(context)
                               : AppTheme.getTextSecondary(context),
@@ -808,24 +808,24 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton.icon(
                     onPressed: _scanning || _importing ? null : _pickFolder,
                     icon: const Icon(Icons.folder_open, size: 16),
                     label: const Text('浏览'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.getPrimaryColor(context),
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppTheme.getOnPrimaryColor(context),
                     ),
                   ),
                 ],
               ),
-            const SizedBox(height: 8),
+            const SizedBox(height: GlassConstants.spacingSmall),
             Text(
               '提示: 若要刮削信息，需要游戏在该平台能搜到',
-              style: TextStyle(fontSize: 12, color: AppTheme.warningColor),
+              style: TextStyle(fontSize: GlassConstants.fontSmall, color: AppTheme.warningColor),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: GlassConstants.spacingSmall),
             if (_scanning)
               const Expanded(
                 child: Center(child: CircularProgressIndicator()),
@@ -837,7 +837,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                     _parentPath != null ? '未找到子文件夹' : '选择一个包含游戏子文件夹的目录',
                     style: TextStyle(
                         color: AppTheme.getTextSecondary(context),
-                        fontSize: 14),
+                        fontSize: GlassConstants.fontControl),
                   ),
                 ),
               )
@@ -847,7 +847,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                   Text(
                     '找到 ${_items.length} 个文件夹，已选 ${_items.where((i) => i.selected).length} 个',
                     style: TextStyle(
-                        fontSize: 13,
+                        fontSize: GlassConstants.fontBody,
                         color: AppTheme.getTextSecondary(context)),
                   ),
                   const Spacer(),
@@ -866,13 +866,13 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                     child: Text(
                       _items.every((i) => i.selected) ? '取消全选' : '全选',
                       style: TextStyle(
-                          fontSize: 13,
+                          fontSize: GlassConstants.fontBody,
                           color: AppTheme.getPrimaryColor(context)),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: GlassConstants.spacingSmall),
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
@@ -896,14 +896,14 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                       if (_importing) {
                         return Padding(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
+                              horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingTight),
                           child: Row(
                             children: [
                               SizedBox(
                                 width: 100,
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
+                                      horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingTiny),
                                   decoration: BoxDecoration(
                                     color:
                                         item.source == _BatchScrapeSource.none
@@ -911,7 +911,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                                                 .withValues(alpha: 0.1)
                                             : AppTheme.getPrimaryColor(context)
                                                 .withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(4),
+                                    borderRadius: BorderRadius.circular(GlassConstants.radiusTiny),
                                   ),
                                   child: Text(
                                     item.source == _BatchScrapeSource.none
@@ -921,7 +921,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                                             ? 'Steam'
                                             : 'DLsite',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: GlassConstants.fontSmall,
                                       color: item.source ==
                                               _BatchScrapeSource.none
                                           ? AppTheme.getTextSecondary(context)
@@ -934,13 +934,13 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: GlassConstants.spacingSmall),
                               SizedBox(
                                 width: 220,
                                 child: Text(
                                   name,
                                   style: TextStyle(
-                                      fontSize: 13,
+                                      fontSize: GlassConstants.fontBody,
                                       color: AppTheme.getTextPrimary(context),
                                       fontFamily: widget.userFont.isNotEmpty
                                           ? widget.userFont
@@ -948,7 +948,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: GlassConstants.spacingSmall),
                               Expanded(
                                 child: Row(
                                   children: [
@@ -956,7 +956,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                                       child: Text(
                                         item.status,
                                         style: TextStyle(
-                                            fontSize: 12,
+                                            fontSize: GlassConstants.fontSmall,
                                             color: AppTheme.getTextSecondary(
                                                 context),
                                             fontFamily:
@@ -967,12 +967,12 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                                       ),
                                     ),
                                     if (item.progress > 0) ...[
-                                      const SizedBox(width: 8),
+                                      const SizedBox(width: GlassConstants.spacingSmall),
                                       SizedBox(
                                         width: 200,
                                         child: ClipRRect(
                                           borderRadius:
-                                              BorderRadius.circular(3),
+                                              BorderRadius.circular(GlassConstants.radiusIndicator),
                                           child: LinearProgressIndicator(
                                             value: item.progress,
                                             backgroundColor:
@@ -998,7 +998,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                       }
                       return Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
+                            horizontal: GlassConstants.spacingSmall, vertical: 2),
                         child: Row(
                           children: [
                             Checkbox(
@@ -1019,9 +1019,9 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                               isExpanded: true,
                               isDense: true,
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
+                                  horizontal: GlassConstants.spacingSmall, vertical: 2),
                               textStyle: TextStyle(
-                                fontSize: 12,
+                                fontSize: GlassConstants.fontSmall,
                                 color: AppTheme.getTextPrimary(context),
                                 fontFamily: widget.userFont.isNotEmpty
                                     ? widget.userFont
@@ -1045,13 +1045,13 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                                         setState(() => item.source = val);
                                     },
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: GlassConstants.spacingSmall),
                             SizedBox(
                               width: 220,
                               child: Text(
                                 name,
                                 style: TextStyle(
-                                    fontSize: 13,
+                                    fontSize: GlassConstants.fontBody,
                                     color: AppTheme.getTextPrimary(context),
                                     fontFamily: widget.userFont.isNotEmpty
                                         ? widget.userFont
@@ -1059,25 +1059,25 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: GlassConstants.spacingSmall),
                             Expanded(
                               child: TextFormField(
                                 initialValue: item.keyword,
                                 style: TextStyle(
-                                    fontSize: 13,
+                                    fontSize: GlassConstants.fontBody,
                                     fontFamily: widget.userFont.isNotEmpty
                                         ? widget.userFont
                                         : null),
                                 decoration: InputDecoration(
                                   hintText: '搜索关键词',
                                   hintStyle: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: GlassConstants.fontSmall,
                                       color:
                                           AppTheme.getTextSecondary(context)),
                                   contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 8),
+                                      horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingSmall),
                                   border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(4),
+                                    borderRadius: BorderRadius.circular(GlassConstants.radiusTiny),
                                     borderSide: BorderSide(
                                         color:
                                             AppTheme.getTextSecondary(context)
@@ -1096,10 +1096,10 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                 ),
               ),
             ],
-            const SizedBox(height: 20),
+            const SizedBox(height: GlassConstants.spacingComfortable),
             if (_importDone) ...[
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(GlassConstants.spacingCompact),
                 decoration: BoxDecoration(
                   color: _failCount > 0
                       ? AppTheme.warningColor.withValues(alpha: 0.1)
@@ -1123,13 +1123,13 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                           : AppTheme.successColor,
                       size: 20,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: GlassConstants.spacingSmall),
                     Text(
                       _failCount > 0
                           ? '导入完成: $_successCount 成功, $_failCount 失败'
                           : '成功导入 $_successCount 个游戏',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: GlassConstants.fontControl,
                         fontWeight: FontWeight.w500,
                         color: _failCount > 0
                             ? AppTheme.warningColor
@@ -1139,7 +1139,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: GlassConstants.spacingCompact),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -1160,11 +1160,11 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
               if (_importing)
                 const Center(
                   child: Padding(
-                    padding: EdgeInsets.only(bottom: 12),
+                    padding: EdgeInsets.only(bottom: GlassConstants.spacingCompact),
                     child: Text(
                       '请不要退出该页面',
                       style:
-                          TextStyle(fontSize: 13, color: AppTheme.warningColor),
+                          TextStyle(fontSize: GlassConstants.fontBody, color: AppTheme.warningColor),
                     ),
                   ),
                 ),
@@ -1176,7 +1176,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                         _importing ? null : () => Navigator.of(context).pop(),
                     child: const Text('取消'),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: GlassConstants.spacingCompact),
                   ElevatedButton(
                     onPressed: _items.isEmpty ||
                             _importing ||
