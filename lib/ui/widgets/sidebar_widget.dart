@@ -116,7 +116,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                   ),
                    child: Column(
                     children: [
-                      const SizedBox(height: 16),
+                      const SizedBox(height: GlassConstants.spacingMedium),
                       ..._visibleRoutes.map((route) {
                         int? count;
                         if (route == NavRoute.games) {
@@ -145,7 +145,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                         fontSize: fontSize,
                         ref: ref,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: GlassConstants.spacingMedium),
                     ],
                   ),
                 );
@@ -157,7 +157,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
 
   Widget _buildToggleButton({double fontSize = 14.0}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: 2),
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -168,8 +168,8 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
             duration: GlassConstants.animFast,
             curve: GlassConstants.animCurve,
             padding: EdgeInsets.symmetric(
-              horizontal: widget.controller.isExpanded ? 16 : 0,
-              vertical: 12,
+              horizontal: widget.controller.isExpanded ? GlassConstants.spacingMedium : 0,
+              vertical: GlassConstants.spacingCompact,
             ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -186,7 +186,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                   size: 22,
                 ),
                 if (widget.controller.isExpanded) ...[
-                  const SizedBox(width: 12),
+                  const SizedBox(width: GlassConstants.spacingCompact),
                   Flexible(
                     child: Text(
                       '收起',
@@ -218,7 +218,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
     final isSelected = route.index == selectedIndex;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: 2),
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -235,8 +235,8 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
             duration: GlassConstants.animFast,
             curve: GlassConstants.animCurve,
             padding: EdgeInsets.symmetric(
-              horizontal: widget.controller.isExpanded ? 16 : 0,
-              vertical: 12,
+              horizontal: widget.controller.isExpanded ? GlassConstants.spacingMedium : 0,
+              vertical: GlassConstants.spacingCompact,
             ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -268,7 +268,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                   size: 22,
                 ),
                 if (widget.controller.isExpanded) ...[
-                  const SizedBox(width: 12),
+                  const SizedBox(width: GlassConstants.spacingCompact),
                   Flexible(
                     child: Text(
                       route.label,
@@ -285,8 +285,8 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                   if (count != null && count > 0)
                     Flexible(
                       child: Container(
-                        margin: const EdgeInsets.only(left: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        margin: const EdgeInsets.only(left: GlassConstants.spacingSmall),
+                        padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTight, vertical: 2),
                         decoration: BoxDecoration(
                           gradient: isSelected
                               ? LinearGradient(
@@ -299,7 +299,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                           color: isSelected
                               ? null
                               : AppTheme.getTextSecondary(context).withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(GlassConstants.radiusControl),
                         ),
                         constraints: const BoxConstraints(minHeight: 18),
                         child: Text(

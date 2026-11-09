@@ -21,8 +21,7 @@ import 'core/providers/theme_provider.dart';
 import 'ui/widgets/app_update_dialog.dart';
 import 'ui/windows/guide_window.dart';
 
-void main(List<String> args) async {
-  // Suppress noisy Flutter accessibility logs
+Future<void> main(List<String> args) async {
   final originalDebugPrint = debugPrint;
   debugPrint = (String? message, {int? wrapWidth}) {
     if (message != null &&
@@ -33,112 +32,71 @@ void main(List<String> args) async {
     }
     originalDebugPrint(message, wrapWidth: wrapWidth);
   };
-
   WidgetsFlutterBinding.ensureInitialized();
-
-  // desktop_multi_window 子窗口：以独立引擎运行攻略浮窗，
-  // 不初始化主窗口相关的数据库/媒体/迁移等基础设施
   if (args.isNotEmpty && args.first == 'multi_window') {
     await runGuideWindow(args);
     return;
   }
-
-  try {
-    MediaKit.ensureInitialized();
-  } catch (e) {
-    debugPrint('MediaKit init error: $e');
-  }
-
   await initAppVersion();
   await AppLogger.instance.init();
-
   _setupErrorHandling();
-
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-
+  final startup = Stopwatch()..start();
+  final log = AppLogger.instance;
+  try {
     try {
-      await AppDataMigrationService().migrateIfNeeded();
-    } catch (e, stackTrace) {
-      AppLogger.instance.error(
-        'AppDataMigration',
-        '启动应用数据迁移检查失败，继续启动',
-        e,
-        stackTrace,
-      );
+      MediaKit.ensureInitialized();
+    } catch (error, stackTrace) {
+      log.error('Startup', '媒体引擎初始化失败，继续启动', error, stackTrace);
+    }
+    WindowController? windowController;
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      try {
+        await AppDataMigrationService().migrateIfNeeded();
+      } catch (error, stackTrace) {
+        log.error('AppDataMigration', '启动应用数据迁移检查失败，继续启动', error, stackTrace);
+      }
+      log.info(
+          'Startup', '数据目录迁移检查完成: elapsedMs=${startup.elapsedMilliseconds}');
     }
     final prefs = await AppSettings.load();
-    final windowController = WindowController(prefs);
-    await windowController.initialize();
-
-    // Load custom fonts
+    log.info('Startup', '设置加载完成: elapsedMs=${startup.elapsedMilliseconds}');
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      windowController = WindowController(prefs);
+      await windowController.initialize();
+      log.info('Startup', '窗口初始化完成: elapsedMs=${startup.elapsedMilliseconds}');
+    }
     final customFonts = prefs.getString('custom_fonts') ?? '';
-    if (customFonts.isNotEmpty) {
-      for (final fontPath in customFonts.split(',')) {
-        if (fontPath.isNotEmpty) {
-          try {
-            final fontFile = File(fontPath);
-            if (await fontFile.exists()) {
-              final fontName = fontPath
-                  .split(RegExp(r'[/\\]'))
-                  .last
-                  .replaceAll(RegExp(r'\.ttf$', caseSensitive: false), '');
-              final fontData = await fontFile.readAsBytes();
-              final fontLoader = FontLoader(fontName);
-              fontLoader.addFont(Future.value(ByteData.view(fontData.buffer)));
-              await fontLoader.load();
-            }
-          } catch (e) {
-            debugPrint('Failed to load custom font: $e');
-          }
-        }
+    for (final fontPath
+        in customFonts.split(',').where((value) => value.isNotEmpty)) {
+      try {
+        final fontFile = File(fontPath);
+        if (!await fontFile.exists()) continue;
+        final fontName = fontPath
+            .split(RegExp(r'[/\\]'))
+            .last
+            .replaceAll(RegExp(r'\.ttf$', caseSensitive: false), '');
+        final fontData = await fontFile.readAsBytes();
+        final fontLoader = FontLoader(fontName);
+        fontLoader.addFont(Future.value(ByteData.view(fontData.buffer)));
+        await fontLoader.load();
+      } catch (error, stackTrace) {
+        log.error('Startup', '自定义字体加载失败', error, stackTrace);
       }
     }
-
-    runApp(
-      ProviderScope(
-        overrides: [
-          sharedPreferencesProvider.overrideWithValue(prefs),
-        ],
-        child: HGameManagerApp(windowController: windowController),
-      ),
-    );
-  } else {
-    final prefs = await AppSettings.load();
-
-    // Load custom fonts
-    final customFonts = prefs.getString('custom_fonts') ?? '';
-    if (customFonts.isNotEmpty) {
-      for (final fontPath in customFonts.split(',')) {
-        if (fontPath.isNotEmpty) {
-          try {
-            final fontFile = File(fontPath);
-            if (await fontFile.exists()) {
-              final fontName = fontPath
-                  .split(RegExp(r'[/\\]'))
-                  .last
-                  .replaceAll(RegExp(r'\.ttf$', caseSensitive: false), '');
-              final fontData = await fontFile.readAsBytes();
-              final fontLoader = FontLoader(fontName);
-              fontLoader.addFont(Future.value(ByteData.view(fontData.buffer)));
-              await fontLoader.load();
-            }
-          } catch (e) {
-            debugPrint('Failed to load custom font: $e');
-          }
-        }
-      }
-    }
-
-    runApp(
-      ProviderScope(
-        overrides: [
-          sharedPreferencesProvider.overrideWithValue(prefs),
-        ],
-        child: const HGameManagerApp(),
-      ),
-    );
+    runApp(ProviderScope(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      child: HGameManagerApp(windowController: windowController),
+    ));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      log.info('Startup',
+          '首帧完成: elapsedMs=${startup.elapsedMilliseconds}, rssBytes=${ProcessInfo.currentRss}');
+    });
+  } catch (error, stackTrace) {
+    log.error('Startup', '启动失败', error, stackTrace);
+    await log.flush();
+    rethrow;
   }
 }
 
@@ -497,6 +455,7 @@ class _HGameManagerAppState extends ConsumerState<HGameManagerApp> {
 
   ThemeData _getLightTheme(String fontFamily) {
     if (_cachedLightTheme == null || _lastFontFamily != fontFamily) {
+      _cachedDarkTheme = null;
       _cachedLightTheme = AppTheme.lightTheme(
         fontFamily: fontFamily.isEmpty ? null : fontFamily,
       );

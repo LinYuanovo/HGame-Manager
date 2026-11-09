@@ -433,7 +433,7 @@ class _ExternalBrowserDialogState extends State<_ExternalBrowserDialog> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: SizedBox(
         width: 520,
         child: Column(
@@ -443,24 +443,24 @@ class _ExternalBrowserDialogState extends State<_ExternalBrowserDialog> {
             Text('外部 ${widget.session.browserName} 页面验证',
                 style: TextStyle(
                   color: AppTheme.getTextPrimary(context),
-                  fontSize: 18,
+                  fontSize: GlassConstants.fontSection,
                   fontWeight: FontWeight.bold,
                 )),
-            const SizedBox(height: 12),
+            const SizedBox(height: GlassConstants.spacingCompact),
             Text(
               '${widget.session.browserName} 已打开目标页面。请在浏览器中完成 Cookie 或 Cloudflare 验证，等待文章内容完全加载后返回此窗口，点击“使用当前页面”。',
               style: TextStyle(
                 color: AppTheme.getTextSecondary(context),
-                fontSize: 13,
+                fontSize: GlassConstants.fontBody,
               ),
             ),
             if (_error != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: GlassConstants.spacingCompact),
               Text(_error!,
                   style: const TextStyle(
-                      color: AppTheme.errorColor, fontSize: 12)),
+                      color: AppTheme.errorColor, fontSize: GlassConstants.fontSmall)),
             ],
-            const SizedBox(height: 20),
+            const SizedBox(height: GlassConstants.spacingComfortable),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -468,7 +468,7 @@ class _ExternalBrowserDialogState extends State<_ExternalBrowserDialog> {
                   onPressed: _reading ? null : _cancel,
                   child: const Text('取消'),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: GlassConstants.spacingCompact),
                 ElevatedButton.icon(
                   onPressed: _reading ? null : _useCurrentPage,
                   icon: _reading
@@ -767,7 +767,7 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(GlassConstants.spacingComfortable),
       child: SizedBox(
         width: 980,
         height: 720,
@@ -778,13 +778,13 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
               children: [
                 Icon(Icons.security_outlined,
                     color: AppTheme.getPrimaryColor(context), size: 22),
-                const SizedBox(width: 12),
+                const SizedBox(width: GlassConstants.spacingCompact),
                 Expanded(
                   child: Text(
                     'Cloudflare 浏览器验证',
                     style: TextStyle(
                       color: AppTheme.getTextPrimary(context),
-                      fontSize: 20,
+                      fontSize: GlassConstants.fontHeading,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -803,17 +803,17 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: GlassConstants.spacingSmall),
             Text(
               '请在内置浏览器中完成站点验证，页面加载到目标内容后点击“使用当前页面”。',
               style: TextStyle(
                 color: AppTheme.getTextSecondary(context),
-                fontSize: 12,
+                fontSize: GlassConstants.fontSmall,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: GlassConstants.spacingCompact),
             _buildAddressBar(),
-            const SizedBox(height: 12),
+            const SizedBox(height: GlassConstants.spacingCompact),
             Expanded(
               child: Container(
                   decoration: BoxDecoration(
@@ -862,7 +862,7 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
               Text(
                 _error!,
                 style:
-                    const TextStyle(color: AppTheme.errorColor, fontSize: 12),
+                    const TextStyle(color: AppTheme.errorColor, fontSize: GlassConstants.fontSmall),
               ),
             ],
             const SizedBox(height: 14),
@@ -873,7 +873,7 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
                   onPressed: _isReadingHtml ? null : _closeDialog,
                   child: const Text('取消'),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: GlassConstants.spacingCompact),
                 ElevatedButton.icon(
                   onPressed: _isReadingHtml ? null : _useCurrentPage,
                   icon: _isReadingHtml
@@ -904,7 +904,7 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
   Widget _buildAddressBar() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
       decoration: BoxDecoration(
         color: AppTheme.getInputFillColor(context),
         borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
@@ -917,7 +917,7 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
         maxLines: 1,
         style: TextStyle(
           color: AppTheme.getTextSecondary(context),
-          fontSize: 12,
+          fontSize: GlassConstants.fontSmall,
         ),
       ),
     );

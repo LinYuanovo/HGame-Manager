@@ -8,6 +8,10 @@
 
 可以尝试**重启软件**解决。如果重启后问题仍然存在，请在 [GitHub Issues](https://github.com/LinYuanovo/HGame-Manager/issues) 或 [B站](https://space.bilibili.com/345721873)私信作者，说明具体情况和复现步骤。
 
+在「设置 → 关于 → 诊断日志」点击「导出诊断包」，可将最近的日志和版本信息保存为 ZIP。反馈时附上诊断包、发生问题的时间和操作步骤，便于定位启动、迁移、刮削、备份及窗口异常。
+
+日志默认存放在 exe 同级的 `logs` 目录；该目录不可写时回退到 `%LOCALAPPDATA%\HGame-Manager\logs`。日志保留约三天，按日期和大小轮转。攻略浮窗使用独立日志文件。导出会过滤常见凭据、网址中的认证信息和查询参数；本地游戏路径可能仍包含个人信息，分享前请检查。
+
 ## 能否支持xxx站点？
 
 一般站点不做特殊支持，请自行尝试 [添加自定义解析器](/guide/add-games#方式二-其他-acg-站点-自定义解析器)，如无法解决再去 [GitHub Issues](https://github.com/LinYuanovo/HGame-Manager/issues) 或 [B站](https://space.bilibili.com/345721873)私信作者，说明具体情况和复现步骤。

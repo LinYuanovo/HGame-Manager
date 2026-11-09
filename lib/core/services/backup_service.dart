@@ -1,9 +1,9 @@
+import 'app_logger.dart';
 // lib/core/services/backup_service.dart
 import 'dart:convert';
 import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
-import 'package:flutter/foundation.dart';
 import '../models/backup_entry.dart';
 import '../utils/game_data_paths.dart';
 import 'game_data_migration_service.dart';
@@ -153,7 +153,7 @@ class BackupService {
   }) async {
     final saveDir = Directory(savePath);
     if (!await saveDir.exists()) {
-      debugPrint('[BackupService] 存档目录不存在: $savePath');
+      AppLogger.instance.info('Backup', '[BackupService] 存档目录不存在: $savePath');
       return null;
     }
 
@@ -172,7 +172,7 @@ class BackupService {
       await File(filePath).delete();
     } else if (await File(filePath).exists()) {
       // 其他备份不允许重复
-      debugPrint('[BackupService] 备份已存在: $filePath');
+      AppLogger.instance.info('Backup', '[BackupService] 备份已存在: $filePath');
       return null;
     }
 
@@ -183,7 +183,7 @@ class BackupService {
         final stat = await entity.stat();
         totalSize += stat.size;
         if (totalSize > 500 * 1024 * 1024) {
-          debugPrint(
+          AppLogger.instance.info('Backup',
               '[BackupService] 存档文件夹过大，无法内存压缩: ${totalSize ~/ (1024 * 1024)}MB');
           return null;
         }
@@ -204,7 +204,7 @@ class BackupService {
       // 编码为 zip
       final zipBytes = ZipEncoder().encode(archive);
       if (zipBytes == null) {
-        debugPrint('[BackupService] Zip 编码失败');
+        AppLogger.instance.info('Backup', '[BackupService] Zip 编码失败');
         return null;
       }
 
@@ -220,8 +220,8 @@ class BackupService {
             : BackupSource.manual,
         filePath: filePath,
       );
-    } catch (e) {
-      debugPrint('[BackupService] createBackup 错误: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('Backup', '[BackupService] createBackup 错误: $e', e, stackTrace);
       return null;
     }
   }
@@ -237,7 +237,7 @@ class BackupService {
     try {
       final backupFile = File(backupFilePath);
       if (!await backupFile.exists()) {
-        debugPrint('[BackupService] 备份文件不存在: $backupFilePath');
+        AppLogger.instance.info('Backup', '[BackupService] 备份文件不存在: $backupFilePath');
         return false;
       }
 
@@ -264,7 +264,7 @@ class BackupService {
         final filePath = p.join(savePath, file.name);
         // 防止路径遍历攻击
         if (!_isPathSafe(savePath, filePath)) {
-          debugPrint('[BackupService] 跳过不安全的路径: ${file.name}');
+          AppLogger.instance.info('Backup', '[BackupService] 跳过不安全的路径: ${file.name}');
           continue;
         }
         if (file.isFile) {
@@ -279,8 +279,8 @@ class BackupService {
       }
 
       return true;
-    } catch (e) {
-      debugPrint('[BackupService] restoreBackup 错误: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('Backup', '[BackupService] restoreBackup 错误: $e', e, stackTrace);
       return false;
     }
   }
@@ -294,8 +294,8 @@ class BackupService {
         return true;
       }
       return false;
-    } catch (e) {
-      debugPrint('[BackupService] deleteBackup 错误: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('Backup', '[BackupService] deleteBackup 错误: $e', e, stackTrace);
       return false;
     }
   }
@@ -311,14 +311,14 @@ class BackupService {
 
       // 检查目标名称是否已存在
       if (await File(newFilePath).exists()) {
-        debugPrint('[BackupService] 目标名称已存在: $newFilePath');
+        AppLogger.instance.info('Backup', '[BackupService] 目标名称已存在: $newFilePath');
         return false;
       }
 
       await file.rename(newFilePath);
       return true;
-    } catch (e) {
-      debugPrint('[BackupService] renameBackup 错误: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('Backup', '[BackupService] renameBackup 错误: $e', e, stackTrace);
       return false;
     }
   }
@@ -379,8 +379,8 @@ class BackupService {
           source: BackupSource.imported,
           filePath: targetPath,
         );
-      } catch (e) {
-        debugPrint('[BackupService] importBackup（文件夹）错误: $e');
+      } catch (e, stackTrace) {
+        AppLogger.instance.error('Backup', '[BackupService] importBackup（文件夹）错误: $e', e, stackTrace);
         return null;
       }
     } else if (sourceEntity == FileSystemEntityType.file) {
@@ -389,7 +389,7 @@ class BackupService {
         final bytes = await File(sourcePath).readAsBytes();
         final archive = ZipDecoder().decodeBytes(bytes);
         if (archive.isEmpty) {
-          debugPrint('[BackupService] 空的 zip 文件');
+          AppLogger.instance.info('Backup', '[BackupService] 空的 zip 文件');
           return null;
         }
 
@@ -404,8 +404,8 @@ class BackupService {
           source: BackupSource.imported,
           filePath: targetPath,
         );
-      } catch (e) {
-        debugPrint('[BackupService] importBackup（zip）错误: $e');
+      } catch (e, stackTrace) {
+        AppLogger.instance.error('Backup', '[BackupService] importBackup（zip）错误: $e', e, stackTrace);
         return null;
       }
     }
@@ -502,8 +502,8 @@ class BackupService {
       // 策略 3：回退 - 直接解压到 savePath
       await _extractArchiveToPath(archiveFiles, savePath);
       return true;
-    } catch (e) {
-      debugPrint('[BackupService] restoreCustomBackup 错误: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('Backup', '[BackupService] restoreCustomBackup 错误: $e', e, stackTrace);
       return false;
     }
   }
@@ -516,8 +516,8 @@ class BackupService {
           return entity.path;
         }
       }
-    } catch (e) {
-      debugPrint('[BackupService] 搜索文件失败: $fileName, $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('Backup', '[BackupService] 搜索文件失败: $fileName, $e', e, stackTrace);
     }
     return null;
   }
@@ -529,7 +529,7 @@ class BackupService {
       final filePath = p.join(targetPath, file.name);
       // 防止路径遍历攻击
       if (!_isPathSafe(targetPath, filePath)) {
-        debugPrint('[BackupService] 跳过不安全的路径: ${file.name}');
+        AppLogger.instance.info('Backup', '[BackupService] 跳过不安全的路径: ${file.name}');
         continue;
       }
       final parentDir = Directory(p.dirname(filePath));

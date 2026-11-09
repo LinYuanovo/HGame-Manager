@@ -106,15 +106,15 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: Row(
         children: [
           Icon(Icons.view_sidebar_outlined, color: AppTheme.getPrimaryColor(context), size: 24),
-          const SizedBox(width: 12),
+          const SizedBox(width: GlassConstants.spacingCompact),
           Text(
             '侧边栏页面管理',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: GlassConstants.fontHeading,
               fontWeight: FontWeight.bold,
               color: AppTheme.getTextPrimary(context),
             ),
@@ -131,7 +131,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
 
   Widget _buildList() {
     return ReorderableListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingSmall),
       itemCount: _items.length,
       onReorder: (oldIndex, newIndex) {
         setState(() {
@@ -171,7 +171,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
 
         return Container(
           key: ValueKey(item.routeName),
-          margin: const EdgeInsets.only(bottom: 8),
+          margin: const EdgeInsets.only(bottom: GlassConstants.spacingSmall),
           decoration: BoxDecoration(
             color: item.visible
                 ? AppTheme.getSurfaceColor(context)
@@ -198,7 +198,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
                     child: Icon(Icons.drag_handle, size: 20, color: AppTheme.getTextSecondary(context)),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: GlassConstants.spacingCompact),
                 Icon(
                   route?.icon ?? Icons.help_outline,
                   size: 20,
@@ -206,11 +206,11 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
                       ? AppTheme.getPrimaryColor(context)
                       : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: GlassConstants.spacingCompact),
                 Text(
                   route?.label ?? item.routeName,
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: GlassConstants.fontBodyLarge,
                     color: item.visible
                         ? AppTheme.getTextPrimary(context)
                         : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
@@ -235,7 +235,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
 
   Widget _buildActions() {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -243,7 +243,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
             onPressed: _resetToDefaults,
             child: Text('恢复默认', style: TextStyle(color: AppTheme.getTextSecondary(context))),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: GlassConstants.spacingCompact),
           ElevatedButton(
             onPressed: () async {
               await _saveConfig();
@@ -254,7 +254,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.getPrimaryColor(context),
-              foregroundColor: Colors.white,
+              foregroundColor: AppTheme.getOnPrimaryColor(context),
             ),
             child: const Text('保存'),
           ),

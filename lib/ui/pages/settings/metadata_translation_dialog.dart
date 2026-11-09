@@ -227,7 +227,7 @@ class _MetadataTranslationDialogState extends State<MetadataTranslationDialog> {
             onPressed: _busy ? null : _save,
             style: FilledButton.styleFrom(
               backgroundColor: AppTheme.getPrimaryColor(context),
-              foregroundColor: AppTheme.getTextColorOnPrimary(context),
+              foregroundColor: AppTheme.getOnPrimaryColor(context),
             ),
             child: const Text('保存'),
           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/services/app_logger.dart';
 import '../theme/app_theme.dart';
 import 'games/games_page.dart';
 import 'categories/categories_page.dart';
@@ -77,6 +78,20 @@ class AppRouter extends StatefulWidget {
 
 class _AppRouterState extends State<AppRouter> {
   int _previousIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    AppLogger.instance.info('Navigation', '打开页面: ${NavRoute.fromIndex(widget.selectedIndex).label}');
+  }
+
+  @override
+  void didUpdateWidget(covariant AppRouter oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedIndex != widget.selectedIndex) {
+      AppLogger.instance.info('Navigation', '切换页面: ${NavRoute.fromIndex(widget.selectedIndex).label}');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

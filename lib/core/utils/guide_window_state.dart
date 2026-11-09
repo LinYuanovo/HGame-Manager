@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
+import '../services/app_logger.dart';
 
 import 'app_paths.dart';
 
@@ -74,8 +74,8 @@ class GuideWindowState {
       if (state.y != null && (state.y! < -10000 || state.y! > 10000)) {
         state.y = null;
       }
-    } catch (e) {
-      debugPrint('[GuideWindow] state load error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('GuideWindow', '读取窗口状态失败: ${e.runtimeType}', null, stackTrace);
     }
     return state;
   }
@@ -95,8 +95,8 @@ class GuideWindowState {
     try {
       final file = File(await _filePath);
       await file.writeAsString(jsonEncode(toJson()), flush: true);
-    } catch (e) {
-      debugPrint('[GuideWindow] state save error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('GuideWindow', '保存窗口状态失败', e, stackTrace);
     }
   }
 

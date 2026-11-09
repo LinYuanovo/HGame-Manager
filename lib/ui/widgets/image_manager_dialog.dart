@@ -184,7 +184,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
           borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
           border: Border.all(color: AppTheme.getBorderColor(context)),
         ),
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(GlassConstants.spacingLarge),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -192,12 +192,12 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
               children: [
                 Icon(Icons.photo_library,
                     color: AppTheme.getPrimaryColor(context), size: 24),
-                const SizedBox(width: 12),
+                const SizedBox(width: GlassConstants.spacingCompact),
                 Expanded(
                   child: Text(
                     '图片管理 - ${widget.game.title ?? "未命名游戏"}',
                     style: TextStyle(
-                        fontSize: 18,
+                        fontSize: GlassConstants.fontSection,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.getTextPrimary(context)),
                   ),
@@ -209,7 +209,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: GlassConstants.spacingMedium),
             Row(
               children: [
                 Expanded(
@@ -222,11 +222,11 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                       side: BorderSide(
                           color: AppTheme.getPrimaryColor(context)
                               .withValues(alpha: 0.3)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingCompact),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: GlassConstants.spacingCompact),
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _isLoading ? null : _addImageFromUrl,
@@ -237,19 +237,19 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                       side: BorderSide(
                           color: AppTheme.getPrimaryColor(context)
                               .withValues(alpha: 0.3)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingCompact),
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: GlassConstants.spacingSmall),
             Text(
               '点击图片设为封面，封面将显示在第一张',
               style: TextStyle(
-                  fontSize: 12, color: AppTheme.getTextSecondary(context)),
+                  fontSize: GlassConstants.fontSmall, color: AppTheme.getTextSecondary(context)),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: GlassConstants.spacingMedium),
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -263,7 +263,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                       },
                     ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: GlassConstants.spacingMedium),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -273,16 +273,16 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                       style:
                           TextStyle(color: AppTheme.getTextSecondary(context))),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: GlassConstants.spacingCompact),
                 ElevatedButton.icon(
                   onPressed: _isLoading ? null : _saveChanges,
                   icon: const Icon(Icons.save, size: 18),
                   label: const Text('保存'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.getPrimaryColor(context),
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppTheme.getOnPrimaryColor(context),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 12),
+                        horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingCompact),
                   ),
                 ),
               ],

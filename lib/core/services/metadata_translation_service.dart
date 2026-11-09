@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../models/metadata_translation_config.dart';
 import '../utils/app_settings.dart';
 import '../utils/proxy_client.dart';
+import 'app_logger.dart';
 
 class MetadataTranslationService {
   static const metadataKey = 'translation';
@@ -55,13 +56,17 @@ class MetadataTranslationService {
     List<String> translated;
     try {
       translated = await _translateTexts(document.texts, config, provider);
-    } catch (_) {
+    } catch (error) {
+      AppLogger.instance.warning('MetadataTranslation',
+          '翻译失败: provider=$provider, reason=${error.runtimeType}');
       if (provider == 'llm') {
         onNotice?.call('LLM 翻译不可用，已尝试 Google 翻译兜底');
         provider = 'google';
         try {
           translated = await _translateTexts(document.texts, config, provider);
-        } catch (_) {
+        } catch (error) {
+          AppLogger.instance.warning('MetadataTranslation',
+              '兜底失败: provider=google, reason=${error.runtimeType}');
           onNotice?.call('Google 翻译也失败，已保留原文；请检查网络或稍后重试');
           return metadata;
         }
@@ -78,6 +83,8 @@ class MetadataTranslationService {
       'target_language': 'zh-CN',
       'translated_at': DateTime.now().toIso8601String(),
     };
+    AppLogger.instance.info('MetadataTranslation',
+        '翻译完成: provider=$provider, entries=${document.texts.length}');
     return result;
   }
 
@@ -187,6 +194,8 @@ class MetadataTranslationService {
 
   static void _checkResponse(http.Response response) {
     if (response.statusCode != 200) {
+      AppLogger.instance.warning(
+          'MetadataTranslation', '服务响应失败: status=${response.statusCode}');
       throw StateError('翻译服务 HTTP ${response.statusCode}');
     }
   }
@@ -202,16 +211,22 @@ class _TranslationDocument {
   static final _protected = RegExp(
     r'\[(?:图片|视频):[^\]]*\]|!?\[[^\]]*\]\([^)]*\)|https?://[^\s<>]+|```[\s\S]*?```|`[^`]*`',
   );
+  static final _protectedCategories = RegExp(
+    '${_protected.pattern}|\\b(?:RPG|ADV|ACT|SLG|AVG|FPS|TPS|3D)\\b',
+    caseSensitive: false,
+  );
 
   _TranslationDocument(this.metadata) {
     for (final key in ['title', 'intro', 'features', 'changelog', 'series']) {
       final value = metadata[key];
-      if (value is String) _fields[key] = _plain(value);
+      if (value is String) {
+        _fields[key] = _plain(value, preserveCategories: key == 'series');
+      }
     }
     final tags = metadata['tags'];
     if (tags is List) {
       for (final tag in tags.whereType<String>()) {
-        _tags.add(_plain(tag));
+        _tags.add(_plain(tag, preserveCategories: true));
       }
     }
     final html = metadata['intro_html'];
@@ -239,7 +254,8 @@ class _TranslationDocument {
     }
   }
 
-  String Function(List<String>) _plain(String source) {
+  String Function(List<String>) _plain(String source,
+      {bool preserveCategories = false}) {
     final parts = <String Function(List<String>)>[];
     void addText(String value) {
       for (final line in value.split(RegExp(r'(?<=\n)'))) {
@@ -265,7 +281,8 @@ class _TranslationDocument {
     }
 
     var offset = 0;
-    for (final match in _protected.allMatches(source)) {
+    final protected = preserveCategories ? _protectedCategories : _protected;
+    for (final match in protected.allMatches(source)) {
       addText(source.substring(offset, match.start));
       final literal = match.group(0)!;
       parts.add((_) => literal);

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import '../../core/utils/app_settings.dart';
 import '../../core/utils/proxy_client.dart';
+import '../../core/services/app_logger.dart';
 
 class WindowController extends ChangeNotifier with WindowListener {
   static bool _closeBlocked = false;
@@ -74,8 +75,8 @@ class WindowController extends ChangeNotifier with WindowListener {
         'window_x': _lastNormalPosition?.dx ?? 0,
         'window_y': _lastNormalPosition?.dy ?? 0,
       });
-    } catch (e) {
-      debugPrint('Error saving settings: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('Window', 'Error saving settings: $e', e, stackTrace);
     }
   }
 
@@ -110,6 +111,11 @@ class WindowController extends ChangeNotifier with WindowListener {
     _isClosing = true;
     _saveWindowSettings();
     closeAllClients();
+    AppLogger.instance.info('Lifecycle', '关闭主窗口，刷新日志');
+    await AppLogger.instance.flush().timeout(
+      const Duration(seconds: 2),
+      onTimeout: () {},
+    );
     if (Platform.isWindows) {
       windowManager.removeListener(this);
       _terminateWindowsProcess();

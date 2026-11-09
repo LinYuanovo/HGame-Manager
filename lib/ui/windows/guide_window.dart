@@ -9,6 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../core/utils/app_settings.dart';
+import '../../core/services/app_logger.dart';
+import '../../core/utils/app_version.dart';
 import '../../core/utils/guide_window_state.dart';
 import '../../core/utils/media_reference_parser.dart';
 import '../theme/app_theme.dart';
@@ -19,7 +21,6 @@ import '../theme/app_theme.dart';
 /// 入口参数固定为 {"multi_window", windowId, arguments}。
 Future<void> runGuideWindow(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
-  _setupGuideWindowErrorHandling();
   await windowManager.ensureInitialized();
 
   final windowId = args.length > 1 ? args[1] : '';
@@ -31,6 +32,9 @@ Future<void> runGuideWindow(List<String> args) async {
     } catch (_) {}
   }
 
+  appVersion = arguments['appVersion'] as String? ?? appVersion;
+  await AppLogger.instance.init(channel: 'guide_$windowId');
+  _setupGuideWindowErrorHandling();
   final prefs = await AppSettings.load();
   await _loadCustomFonts(prefs);
 
@@ -59,24 +63,23 @@ Future<void> _loadCustomFonts(AppSettings prefs) async {
         fontLoader.addFont(Future.value(ByteData.view(fontData.buffer)));
         await fontLoader.load();
       }
-    } catch (e) {
-      debugPrint('Failed to load custom font: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('GuideWindow', '自定义字体加载失败', e, stackTrace);
     }
   }
 }
 
 /// 子窗口错误过滤：吞掉 Windows 平台已知的无害引擎噪音
-///（键盘状态断言、无障碍桥接等），其余异常仅打印调试输出，
-/// 不写主窗口的日志文件（避免两个引擎并发写同一文件）。
+///（键盘状态断言、无障碍桥接等），其余异常写入独立浮窗日志。
 /// 与 main.dart 的 _isWindowsKeyboardStateAssertion 保持同族过滤。
 void _setupGuideWindowErrorHandling() {
   FlutterError.onError = (details) {
     if (_isHarmlessWindowsNoise(details.exceptionAsString())) return;
-    debugPrint('GuideWindow FlutterError: ${details.exceptionAsString()}');
+    AppLogger.instance.error('GuideWindow', details.exceptionAsString(), null, details.stack);
   };
   PlatformDispatcher.instance.onError = (error, stackTrace) {
     if (_isHarmlessWindowsNoise(error.toString())) return true;
-    debugPrint('GuideWindow PlatformError: $error');
+    AppLogger.instance.error('GuideWindow', '浮窗异步异常', error, stackTrace);
     return true;
   };
 }
@@ -244,7 +247,7 @@ class _GuideWindowPageState extends State<GuideWindowPage>
           await _togglePin();
           return true;
         case 'closeWindow':
-          await _handleClose();
+          unawaited(Future<void>.delayed(Duration.zero, _handleClose));
           return true;
         case 'focus':
           await windowManager.show();
@@ -356,6 +359,8 @@ class _GuideWindowPageState extends State<GuideWindowPage>
       } catch (_) {}
     }
     windowManager.removeListener(this);
+    AppLogger.instance.info('GuideWindow', '关闭攻略浮窗');
+    await AppLogger.instance.flush().timeout(const Duration(seconds: 2), onTimeout: () {});
     // 解除拦截后重新触发关闭，由系统驱动窗口销毁（引擎随窗口安全销毁）
     await windowManager.setPreventClose(false);
     await windowManager.close();
@@ -409,7 +414,7 @@ class _GuideWindowPageState extends State<GuideWindowPage>
               Expanded(
                 child: SingleChildScrollView(
                   controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(GlassConstants.spacingMedium),
                   child: _buildGuideContent(),
                 ),
               ),
@@ -455,7 +460,7 @@ class _GuideWindowPageState extends State<GuideWindowPage>
   Widget _buildSettingsPanel() {
     return Container(
       width: 260,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: const EdgeInsets.fromLTRB(GlassConstants.spacingMedium, GlassConstants.spacingCompact, GlassConstants.spacingMedium, GlassConstants.spacingMedium),
       decoration: BoxDecoration(
         color: AppTheme.getSurfaceColor(context),
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -482,7 +487,7 @@ class _GuideWindowPageState extends State<GuideWindowPage>
               windowManager.setOpacity(v);
             },
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: GlassConstants.spacingSmall),
           _buildSliderRow(
             label: '文字大小',
             value: _fontSize,
@@ -511,7 +516,7 @@ class _GuideWindowPageState extends State<GuideWindowPage>
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: GlassConstants.fontBody,
               color: AppTheme.getTextPrimary(context),
             ),
           ),
@@ -537,7 +542,7 @@ class _GuideWindowPageState extends State<GuideWindowPage>
             valueText,
             textAlign: TextAlign.right,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: GlassConstants.fontSmall,
               color: AppTheme.getTextSecondary(context),
             ),
           ),
@@ -562,17 +567,17 @@ class _GuideWindowPageState extends State<GuideWindowPage>
         ),
         child: Row(
           children: [
-            const SizedBox(width: 12),
+            const SizedBox(width: GlassConstants.spacingCompact),
             Icon(Icons.menu_book,
                 size: 16, color: AppTheme.getPrimaryColor(context)),
-            const SizedBox(width: 8),
+            const SizedBox(width: GlassConstants.spacingSmall),
             Expanded(
               child: Text(
                 _title.isEmpty ? '攻略' : '$_title - 攻略',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: GlassConstants.fontBody,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.getTextPrimary(context),
                 ),
@@ -620,11 +625,11 @@ class _GuideWindowPageState extends State<GuideWindowPage>
     if (_content.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(GlassConstants.spacingXLarge),
           child: Text(
             '暂无攻略内容',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: GlassConstants.fontControl,
               color: AppTheme.getTextSecondary(context),
             ),
           ),
@@ -687,7 +692,7 @@ class _GuideWindowPageState extends State<GuideWindowPage>
             errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           );
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingSmall),
       child: Align(
         alignment: Alignment.centerLeft,
         child: ClipRRect(

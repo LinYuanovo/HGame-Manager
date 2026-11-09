@@ -32,7 +32,7 @@ class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAli
           title: Text(
             _selectedGames.isNotEmpty ? '已选 ${_selectedGames.length} 项' : '通关',
             style: TextStyle(
-                fontSize: 20,
+                fontSize: GlassConstants.fontHeading,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.getTextPrimary(context)),
           ),

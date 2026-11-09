@@ -17,13 +17,14 @@ class GameRepository implements PlayTimeRepository {
   DateTime? _pathCacheTime;
 
   Future<bool> _pathExists(String path) async {
-    if (_pathCacheTime != null &&
-        DateTime.now().difference(_pathCacheTime!) <
+    if (_pathCacheTime == null ||
+        DateTime.now().difference(_pathCacheTime!) >=
             const Duration(seconds: 30)) {
-      return _pathExistsCache[path] ?? false;
+      _pathExistsCache.clear();
+      _pathCacheTime = DateTime.now();
     }
-    _pathExistsCache.clear();
-    _pathCacheTime = DateTime.now();
+    final cached = _pathExistsCache[path];
+    if (cached != null) return cached;
     final exists = await Directory(path).exists();
     _pathExistsCache[path] = exists;
     return exists;
@@ -64,44 +65,12 @@ class GameRepository implements PlayTimeRepository {
       imagesByGameId[gameId]!.add(GameImage.fromMap(map));
     }
 
-    return Future.wait(games.map((game) async {
-      var images = imagesByGameId[game.id!] ?? [];
-      var resolvedGame = game;
-      final gamePathExists = await _pathExists(game.path);
-
-      // 通关游戏目录缺失时，尝试从对应 Backup 目录加载。
-      if (!gamePathExists && game.isCleared) {
-        // 尝试在 Backup 目录中模糊匹配
-        final backupPath = await findBackupPathForGame(game);
-        if (backupPath != null) {
-          images = await _loadImagesFromBackupDir(backupPath);
-          resolvedGame = game.copyWith(path: backupPath);
-        }
-      }
-      // 对于路径中直接包含 Backup 的游戏
-      else if (ClearedGamePathUtils.hasBackupSegment(game.path)) {
-        // 检查数据库中的图片是否存在
-        bool hasValidImages = false;
-        if (images.isNotEmpty) {
-          for (final img in images) {
-            if (await File(img.imagePath).exists()) {
-              hasValidImages = true;
-              break;
-            }
-          }
-        }
-        // 如果没有有效图片，从备份目录加载
-        if (!hasValidImages) {
-          images = await _loadImagesFromBackupDir(game.path);
-        }
-      }
-
-      resolvedGame = resolvedGame.copyWith(
-        tags: tagsByGameId[game.id!] ?? [],
-        images: images,
-      );
-      return BackupImageReferenceResolver.rewriteGameReferences(resolvedGame);
-    }));
+    return Future.wait(games.map((game) => _applyBackupImageFallback(
+      game.copyWith(
+        tags: tagsByGameId[game.id] ?? [],
+        images: imagesByGameId[game.id] ?? [],
+      ),
+    )));
   }
 
   Future<String?> _findBackupPath(String gamePath, String? gameTitle) async {
@@ -238,9 +207,7 @@ class GameRepository implements PlayTimeRepository {
   Future<Game> _applyBackupImageFallback(Game game) async {
     var images = game.images;
     var resolvedGame = game;
-    final gamePathExists = await _pathExists(game.path);
-
-    if (!gamePathExists && game.isCleared) {
+    if (game.isCleared && !await _pathExists(game.path)) {
       final backupPath = await findBackupPathForGame(game);
       if (backupPath != null) {
         images = await _loadImagesFromBackupDir(backupPath);

@@ -1,3 +1,4 @@
+import '../../../core/services/app_logger.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -44,7 +45,7 @@ class _GamesPageState extends ConsumerState<GamesPage>
       children: [
         GlassAppBar(
           title: const Text('游戏库',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              style: TextStyle(fontSize: GlassConstants.fontSection, fontWeight: FontWeight.w600)),
           actions: [
             IconButton(
               icon: Icon(Icons.add_circle_outline,
@@ -63,10 +64,10 @@ class _GamesPageState extends ConsumerState<GamesPage>
                     onTap: null,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
+                          horizontal: 10, vertical: GlassConstants.spacingTight),
                       decoration: BoxDecoration(
                         color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -79,13 +80,13 @@ class _GamesPageState extends ConsumerState<GamesPage>
                               color: AppTheme.primaryColor,
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: GlassConstants.spacingTight),
                           Text(
                             _refreshProgress.isNotEmpty
                                 ? _refreshProgress
                                 : '扫描中',
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: GlassConstants.fontBody,
                               color: AppTheme.primaryColor,
                               fontWeight: FontWeight.w500,
                             ),
@@ -372,7 +373,8 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       } else {
         await _searchSteam();
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('Import', '操作失败', e, stackTrace);
       if (mounted) setState(() => _statusText = '搜索失败: $e');
     } finally {
       if (mounted) {
@@ -468,7 +470,8 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           iconColor: AppTheme.successColor,
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('Import', '操作失败', e, stackTrace);
       if (mounted) setState(() => _statusText = '导入失败: $e');
     } finally {
       if (mounted) {
@@ -568,7 +571,8 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       } else {
         await _importSteam();
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('Import', '操作失败', e, stackTrace);
       if (mounted) setState(() => _statusText = '导入失败: $e');
     } finally {
       if (mounted) {
@@ -823,30 +827,30 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
             Text(
               '添加单个游戏',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: GlassConstants.fontSection,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.getTextPrimary(context),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: GlassConstants.spacingMedium),
 
             // Source selector
             Row(
               children: [
                 _buildSourceChip(ImportSource.none, '不刮削'),
-                const SizedBox(width: 8),
+                const SizedBox(width: GlassConstants.spacingSmall),
                 _buildSourceChip(ImportSource.dlsite, 'DLsite'),
-                const SizedBox(width: 8),
+                const SizedBox(width: GlassConstants.spacingSmall),
                 _buildSourceChip(ImportSource.steam, 'Steam'),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: GlassConstants.spacingSmall),
             if (_source != ImportSource.none)
               Text(
                 '提示: 若要刮削信息，需要游戏在该平台能搜到',
-                style: TextStyle(fontSize: 12, color: AppTheme.warningColor),
+                style: TextStyle(fontSize: GlassConstants.fontSmall, color: AppTheme.warningColor),
               ),
-            const SizedBox(height: 8),
+            const SizedBox(height: GlassConstants.spacingSmall),
 
             // Folder picker
             Row(
@@ -854,7 +858,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
+                        horizontal: GlassConstants.spacingCompact, vertical: 10),
                     decoration: BoxDecoration(
                       color: AppTheme.getSurfaceColor(context)
                           .withValues(alpha: 0.5),
@@ -867,7 +871,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                     child: Text(
                       _folderPath ?? '未选择文件夹',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: GlassConstants.fontBody,
                         color: _folderPath != null
                             ? AppTheme.getTextPrimary(context)
                             : AppTheme.getTextSecondary(context),
@@ -876,19 +880,19 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: GlassConstants.spacingSmall),
                 ElevatedButton.icon(
                   onPressed: _isLoading ? null : _pickFolder,
                   icon: const Icon(Icons.folder_open, size: 16),
                   label: const Text('浏览'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.getPrimaryColor(context),
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppTheme.getOnPrimaryColor(context),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: GlassConstants.spacingCompact),
 
             // ID input - hidden when no scrape
             if (_source != ImportSource.none) ...[
@@ -902,19 +906,19 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                             ? '输入DLsite ID (如 RJ123456)，留空则自动按游戏名称搜索'
                             : '输入Steam App ID或商店链接，留空按名称搜索',
                         hintStyle: TextStyle(
-                            fontSize: 12,
+                            fontSize: GlassConstants.fontSmall,
                             color: AppTheme.getTextSecondary(context)),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(
                               GlassConstants.radiusMedium),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
+                            horizontal: GlassConstants.spacingCompact, vertical: 10),
                       ),
-                      style: const TextStyle(fontSize: 13),
+                      style: const TextStyle(fontSize: GlassConstants.fontBody),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton.icon(
                     onPressed: _isLoading ? null : _searchGame,
                     icon: const Icon(Icons.search, size: 16),
@@ -926,17 +930,17 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: GlassConstants.spacingCompact),
             ],
 
             // Status text
             if (_statusText.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: GlassConstants.spacingCompact),
                 child: Text(
                   _statusText,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: GlassConstants.fontSmall,
                     color:
                         _statusText.contains('失败') || _statusText.contains('无效')
                             ? AppTheme.errorColor
@@ -950,15 +954,15 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
               Text(
                 '选择游戏:',
                 style: TextStyle(
-                    fontSize: 13,
+                    fontSize: GlassConstants.fontBody,
                     fontWeight: FontWeight.w500,
                     color: AppTheme.getTextPrimary(context)),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: GlassConstants.spacingSmall),
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: AppTheme.surfaceColor.withValues(alpha: 0.3),
+                    color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.3),
                     borderRadius:
                         BorderRadius.circular(GlassConstants.radiusMedium),
                     border: Border.all(
@@ -976,7 +980,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                 ),
               ),
             ],
-            const SizedBox(height: 20),
+            const SizedBox(height: GlassConstants.spacingComfortable),
 
             // Bottom buttons
             Row(
@@ -987,7 +991,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                       _isLoading ? null : () => Navigator.of(context).pop(),
                   child: const Text('取消'),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: GlassConstants.spacingCompact),
                 if (_source == ImportSource.none)
                   ElevatedButton(
                     onPressed: (_isLoading || _folderPath == null)
@@ -1056,7 +1060,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
               });
             },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingSmall),
         decoration: BoxDecoration(
           color: isSelected
               ? AppTheme.primaryColor.withValues(alpha: 0.15)
@@ -1071,7 +1075,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: GlassConstants.fontBody,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
             color: isSelected
                 ? AppTheme.primaryColor
@@ -1089,11 +1093,11 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           width: 50,
           height: 50,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            color: AppTheme.surfaceColor,
+            borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
+            color: AppTheme.getSurfaceColor(context),
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
             child: CachedNetworkImage(
               imageUrl:
                   'https://img.dlsite.jp/resize/images2/work/doujin/${result.id.substring(0, result.id.length - 4)}0000/${result.id}_img_main_240x240.jpg',
@@ -1112,7 +1116,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         title: Text(
           result.name ?? result.id,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: GlassConstants.fontBody,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             color: isSelected
                 ? AppTheme.primaryColor
@@ -1124,7 +1128,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         subtitle: Text(
           result.id,
           style: TextStyle(
-              fontSize: 11, color: AppTheme.getTextSecondary(context)),
+              fontSize: GlassConstants.fontCaption, color: AppTheme.getTextSecondary(context)),
         ),
         selected: isSelected,
         selectedTileColor: AppTheme.primaryColor.withValues(alpha: 0.1),
@@ -1136,11 +1140,11 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           width: 50,
           height: 50,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            color: AppTheme.surfaceColor,
+            borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
+            color: AppTheme.getSurfaceColor(context),
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
             child: result.tinyImage != null
                 ? CachedNetworkImage(
                     imageUrl: result.tinyImage!,
@@ -1161,7 +1165,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         title: Text(
           result.name ?? result.id,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: GlassConstants.fontBody,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             color: isSelected
                 ? AppTheme.primaryColor
@@ -1173,7 +1177,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         subtitle: Text(
           'Steam App ID: ${result.id}',
           style: TextStyle(
-              fontSize: 11, color: AppTheme.getTextSecondary(context)),
+              fontSize: GlassConstants.fontCaption, color: AppTheme.getTextSecondary(context)),
         ),
         selected: isSelected,
         selectedTileColor: AppTheme.primaryColor.withValues(alpha: 0.1),

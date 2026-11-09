@@ -117,7 +117,7 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
                 onPressed: _scrollToTop,
                 tooltip: '滚动到顶部',
               ),
-            const SizedBox(height: 8),
+            const SizedBox(height: GlassConstants.spacingSmall),
             if (widget.onToggleGuide != null)
               _buildButton(
                 icon: widget.showGuide ? Icons.menu_book : Icons.description,
@@ -125,14 +125,14 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
                 tooltip: widget.showGuide ? '切换到简介' : '切换到攻略',
               ),
             if (showFloatButton) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: GlassConstants.spacingSmall),
               _buildButton(
                 icon: Icons.picture_in_picture_alt_outlined,
                 onPressed: widget.onOpenGuideWindow!,
                 tooltip: '浮窗显示攻略',
               ),
             ],
-            const SizedBox(height: 8),
+            const SizedBox(height: GlassConstants.spacingSmall),
             if (_showBottom)
               _buildButton(
                 icon: Icons.keyboard_arrow_down,

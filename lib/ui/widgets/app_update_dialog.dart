@@ -23,7 +23,7 @@ Future<AppUpdatePromptAction?> showAppUpdatePrompt(
     child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 700, maxHeight: 620),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(GlassConstants.spacingLarge),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -44,7 +44,7 @@ Future<AppUpdatePromptAction?> showAppUpdatePrompt(
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: GlassConstants.spacingMedium),
             Text(
               '更新日志',
               style: textTheme.titleSmall?.copyWith(
@@ -52,7 +52,7 @@ Future<AppUpdatePromptAction?> showAppUpdatePrompt(
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: GlassConstants.spacingSmall),
             SizedBox(
               height: 380,
               child: SingleChildScrollView(
@@ -117,7 +117,7 @@ Widget _buildChangelogEntry(BuildContext context, ChangelogEntry entry) {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: GlassConstants.spacingSmall),
         MarkdownBody(
           data: entry.body,
           selectable: true,
@@ -161,7 +161,7 @@ Future<bool?> showAppUpdateFallbackDialog({
     child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 460),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(GlassConstants.spacingLarge),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,7 +189,7 @@ Future<bool?> showAppUpdateFallbackDialog({
                   onPressed: () => Navigator.of(context).pop(false),
                   child: const Text('取消'),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: GlassConstants.spacingSmall),
                 ElevatedButton.icon(
                   onPressed: () => Navigator.of(context).pop(true),
                   icon: const Icon(Icons.open_in_new, size: 16),
@@ -217,7 +217,7 @@ Future<void> showAppUpdateDownloadProgress(
     child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 420),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(GlassConstants.spacingLarge),
         child: ValueListenableBuilder<AppUpdateDownloadProgress>(
           valueListenable: progressListenable,
           builder: (context, progress, _) {
@@ -241,11 +241,11 @@ Future<void> showAppUpdateDownloadProgress(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: GlassConstants.spacingComfortable),
                 LinearProgressIndicator(
                   value: fraction,
                   minHeight: 6,
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusIndicator),
                   valueColor: AlwaysStoppedAnimation(
                     AppTheme.getPrimaryColor(context),
                   ),
@@ -278,7 +278,7 @@ Future<bool?> showAppUpdateResumeDialog(
     child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 460),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(GlassConstants.spacingLarge),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,7 +307,7 @@ Future<bool?> showAppUpdateResumeDialog(
                   onPressed: () => Navigator.of(context).pop(false),
                   child: const Text('删除缓存'),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: GlassConstants.spacingSmall),
                 ElevatedButton.icon(
                   onPressed: () => Navigator.of(context).pop(true),
                   icon: const Icon(Icons.system_update_alt, size: 16),

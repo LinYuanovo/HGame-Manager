@@ -39,7 +39,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
         GlassAppBar(
           title: Text('收藏',
               style: TextStyle(
-                  fontSize: 20,
+                  fontSize: GlassConstants.fontHeading,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.getTextPrimary(context))),
         ),
@@ -104,7 +104,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
           );
         }
         return GridView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          padding: const EdgeInsets.fromLTRB(GlassConstants.spacingMedium, GlassConstants.spacingCompact, GlassConstants.spacingMedium, GlassConstants.spacingMedium),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 6,
             mainAxisSpacing: 8,
@@ -115,7 +115,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
           itemBuilder: (context, index) {
             final tag = tags[index];
             return GlassCard(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
               onTap: () {
                 if (tag.id != null) {
                   Navigator.push(
@@ -138,12 +138,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
                         ? AppTheme.secondaryColor
                         : AppTheme.primaryColor,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: GlassConstants.spacingSmall),
                   Expanded(
                     child: Text(
                       tag.displayName ?? tag.name,
                       style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w500),
+                          fontSize: GlassConstants.fontTitle, fontWeight: FontWeight.w500),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),

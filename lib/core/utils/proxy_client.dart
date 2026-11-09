@@ -534,6 +534,7 @@ Future<http.Response> httpGetWithRetry(
   http.Client? client,
 }) async {
   final httpClient = client ?? http.Client();
+  final elapsed = Stopwatch()..start();
   try {
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
       final response = await httpClient
@@ -550,11 +551,15 @@ Future<http.Response> httpGetWithRetry(
         }
       }
 
+      AppLogger.instance.info('HTTP', 'GET $url status=${response.statusCode}, attempt=${attempt + 1}, elapsedMs=${elapsed.elapsedMilliseconds}');
       return response;
     }
     return await httpClient
         .get(url, headers: headers)
         .timeout(const Duration(seconds: 30));
+  } catch (error, stackTrace) {
+    AppLogger.instance.error('HTTP', 'GET $url 失败: elapsedMs=${elapsed.elapsedMilliseconds}', error, stackTrace);
+    rethrow;
   } finally {
     if (client == null) {
       httpClient.close();
