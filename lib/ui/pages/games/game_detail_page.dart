@@ -22,6 +22,7 @@ import '../../../core/utils/forum_domain_utils.dart';
 import '../../../core/utils/html_line_remover.dart';
 import '../../../core/utils/intro_html_sync.dart';
 import '../../../core/services/scrape_apply_service.dart';
+import '../../../core/services/metadata_translation_service.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../../scraper/html_parser.dart';
 import '../../../scraper/parse_utils.dart';
@@ -87,6 +88,27 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   Map<String, String> _mediaPathAliases = {};
 
   String? _introHtml;
+  Map<String, dynamic>? _translationOriginal;
+  bool _viewingOriginal = false;
+
+  Game get _displayGame {
+    final original = _translationOriginal;
+    if (!_viewingOriginal || _isEditing || original == null) return _currentGame;
+    final tags = (original['tags'] as List?)?.cast<String>() ?? [];
+    return ScrapeApplyService.gameWithMetadata(_currentGame, original).copyWith(
+      tags: [
+        if (_currentGame.maker?.isNotEmpty == true)
+          Tag(name: _currentGame.maker!, type: Tag.typeCustom),
+        for (final name in tags) Tag(name: name, type: Tag.typeCustom),
+        if (original['series'] is String)
+          Tag(name: original['series'] as String, type: Tag.typeSeries),
+      ],
+    );
+  }
+
+  String? get _displayIntroHtml => _viewingOriginal && !_isEditing
+      ? (_translationOriginal?['intro_html'] as String?)
+      : _introHtml;
   List<String> _metadataImageUrls = [];
   bool _showGuide = false;
   late TextEditingController _guideController;
@@ -325,9 +347,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     final paths = <String>{};
 
     for (final content in [
-      _currentGame.intro,
-      _currentGame.features,
-      _currentGame.changelog,
+      _displayGame.intro,
+      _displayGame.features,
+      _displayGame.changelog,
       _currentGame.guide
     ]) {
       if (content == null) continue;
@@ -338,20 +360,20 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         paths.add(videoPath);
       }
     }
-    if (_introHtml != null && _introHtml!.isNotEmpty) {
-      for (final imagePath in _collectHtmlImageSources(_introHtml!)) {
+    if (_displayIntroHtml != null && _displayIntroHtml!.isNotEmpty) {
+      for (final imagePath in _collectHtmlImageSources(_displayIntroHtml!)) {
         paths.add(imagePath);
       }
     }
 
     final aliases = await BackupImageReferenceResolver.buildAliases(
       contents: [
-        _currentGame.intro,
-        _currentGame.features,
-        _currentGame.changelog,
+        _displayGame.intro,
+        _displayGame.features,
+        _displayGame.changelog,
         _currentGame.guide,
       ],
-      html: _introHtml,
+      html: _displayIntroHtml,
       images: _currentGame.images,
     );
     final metadataAliases = _buildMetadataImageAliases();
@@ -441,18 +463,23 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   Future<void> _loadMetadataHtml() async {
     try {
       _introHtml = null;
+      _translationOriginal = null;
+      _viewingOriginal = false;
       _metadataImageUrls = [];
       final metadataFile =
           await GameDataPaths.existingMetadataFile(_currentGame.path);
       if (await metadataFile.exists()) {
         final json = jsonDecode(await metadataFile.readAsString());
         _introHtml = json['intro_html'] as String?;
+        _translationOriginal = MetadataTranslationService.originalFrom(
+            json as Map<String, dynamic>);
         _metadataImageUrls =
             (json['image_urls'] as List<dynamic>?)?.cast<String>() ?? [];
       }
     } catch (e) {
       debugPrint('[GameDetail] 加载metadata HTML失败: $e');
     }
+    if (mounted) setState(() {});
   }
 
   @override
@@ -627,7 +654,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   ? (_titleController.text.isEmpty
                       ? '游戏详情'
                       : _titleController.text)
-                  : (_currentGame.title ?? '游戏详情'),
+                  : (_displayGame.title ?? '游戏详情'),
               style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -819,7 +846,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               icon: Icon(Icons.edit_outlined,
                   size: 20, color: AppTheme.getDetailTextPrimary(context)),
               tooltip: '编辑',
-              onPressed: () => setState(() => _isEditing = true),
+              onPressed: () => setState(() {
+                _viewingOriginal = false;
+                _isEditing = true;
+              }),
             ),
             IconButton(
               icon: Icon(Icons.close,
@@ -1200,14 +1230,14 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           // Tags above path (Change 2)
           if (_isEditing) ...[
             _buildEditableTags(),
-          ] else if (_currentGame.tags.isNotEmpty) ...[
+          ] else if (_displayGame.tags.isNotEmpty) ...[
             Builder(
               builder: (context) {
                 final seen = <String>{};
                 final orderedTags = <Tag>[];
                 final makerName = _currentGame.maker?.trim();
                 if (makerName != null && makerName.isNotEmpty) {
-                  for (final t in _currentGame.tags) {
+                  for (final t in _displayGame.tags) {
                     if (t.name.toLowerCase() == makerName.toLowerCase() &&
                         !seen.contains(t.name.toLowerCase())) {
                       orderedTags.add(t);
@@ -1216,7 +1246,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     }
                   }
                 }
-                for (final t in _currentGame.tags) {
+                for (final t in _displayGame.tags) {
                   if (!seen.contains(t.name.toLowerCase())) {
                     orderedTags.add(t);
                     seen.add(t.name.toLowerCase());
@@ -1228,7 +1258,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   children: orderedTags
                       .map((tag) => GestureDetector(
                             onTap: () {
-                              if (widget.onTagTap != null) {
+                              if (!_viewingOriginal && widget.onTagTap != null) {
                                 Navigator.of(context).pop(tag);
                               }
                             },
@@ -1922,12 +1952,12 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
     final sections = <String, String?>{
       if (!_showGuide)
-        'intro': _introHtml != null && _introHtml!.isNotEmpty
-            ? _buildSearchTextFromHtml(_introHtml!)
-            : _currentGame.intro,
+        'intro': _displayIntroHtml != null && _displayIntroHtml!.isNotEmpty
+            ? _buildSearchTextFromHtml(_displayIntroHtml!)
+            : _displayGame.intro,
       if (_showGuide) 'guide': _currentGame.guide,
-      'features': _currentGame.features,
-      'changelog': _currentGame.changelog,
+      'features': _displayGame.features,
+      'changelog': _displayGame.changelog,
     };
 
     setState(() {
@@ -2076,7 +2106,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   )
                 else
                   SelectableText(
-                    _currentGame.title ?? '未命名游戏',
+                    _displayGame.title ?? '未命名游戏',
                     style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
@@ -2084,6 +2114,28 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                         height: 1.4),
                   ),
 
+                if (!_isEditing && _translationOriginal != null) ...[
+                  const SizedBox(height: GlassConstants.spacingSmall),
+                  TextButton.icon(
+                    onPressed: _isRescraping
+                        ? null
+                        : () async {
+                            setState(() {
+                              _viewingOriginal = !_viewingOriginal;
+                              _searchMatches = [];
+                              _currentMatchIndex = -1;
+                            });
+                            await _preloadMediaFiles();
+                            if (mounted && _isSearchOpen) {
+                              _performSearch(_searchController.text);
+                            }
+                          },
+                    icon: const Icon(Icons.translate),
+                    label: Text(_viewingOriginal ? '查看译文' : '查看原文'),
+                    style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.getPrimaryColor(context)),
+                  ),
+                ],
                 if (!_isEditing &&
                     _currentGame.maker != null &&
                     _currentGame.maker!.isNotEmpty) ...[
@@ -2276,30 +2328,30 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   _buildSectionWithImages(
                       title: '简介',
                       icon: Icons.description_outlined,
-                      content: _currentGame.intro,
+                      content: _displayGame.intro,
                       images: images,
                       sectionIndex: 0)
                 else
                   _buildGuideSection(),
 
-                if (_currentGame.features != null &&
-                    _currentGame.features!.isNotEmpty) ...[
+                if (_displayGame.features != null &&
+                    _displayGame.features!.isNotEmpty) ...[
                   const SizedBox(height: 32),
                   _buildSectionWithImages(
                       title: '特性',
                       icon: Icons.stars_outlined,
-                      content: _currentGame.features,
+                      content: _displayGame.features,
                       images: images,
                       sectionIndex: 1),
                 ],
 
-                if (_currentGame.changelog != null &&
-                    _currentGame.changelog!.isNotEmpty) ...[
+                if (_displayGame.changelog != null &&
+                    _displayGame.changelog!.isNotEmpty) ...[
                   const SizedBox(height: 32),
                   _buildSectionWithImages(
                       title: '更新日志',
                       icon: Icons.history,
-                      content: _currentGame.changelog,
+                      content: _displayGame.changelog,
                       images: images,
                       sectionIndex: 2),
                 ],
@@ -2609,9 +2661,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ],
           ),
         ] else if (title == '简介' &&
-            _introHtml != null &&
-            _introHtml!.isNotEmpty) ...[
-          _buildHtmlContent(_introHtml!, ref.watch(detailFontSizeProvider),
+            _displayIntroHtml != null &&
+            _displayIntroHtml!.isNotEmpty) ...[
+          _buildHtmlContent(_displayIntroHtml!, ref.watch(detailFontSizeProvider),
               sectionKey: 'intro'),
         ] else
           _buildRichIntro(
@@ -3109,9 +3161,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
     // 从所有详情正文中提取 [图片:path] 标记，避免更多图片重复展示已内嵌图片。
     for (final content in [
-      _currentGame.intro,
-      _currentGame.features,
-      _currentGame.changelog,
+      _displayGame.intro,
+      _displayGame.features,
+      _displayGame.changelog,
       _currentGame.guide,
     ]) {
       for (final imagePath in MediaReferenceParser.extractImagePaths(content)) {
@@ -3120,8 +3172,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     }
 
     // 从 intro_html 中提取实际会渲染的图片，覆盖 src/data-src/data-original。
-    if (_introHtml != null && _introHtml!.isNotEmpty) {
-      for (final imagePath in _collectHtmlImageSources(_introHtml!)) {
+    if (_displayIntroHtml != null && _displayIntroHtml!.isNotEmpty) {
+      for (final imagePath in _collectHtmlImageSources(_displayIntroHtml!)) {
         markUsed(imagePath);
       }
     }
@@ -4924,6 +4976,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       if (gameInfo != null) {
         final repo = ref.read(gameRepositoryProvider);
         final tagRepo = ref.read(tagRepositoryProvider);
+        final translationNotices = <String>[];
         final updated = await ScrapeApplyService.applyScrapeResult(
           game: _currentGame,
           gameInfo: gameInfo,
@@ -4932,6 +4985,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           tagRepo: tagRepo,
           configs: ref.read(scrapeModeConfigsProvider),
           sourceUrl: sourceUrl,
+          onTranslationNotice: translationNotices.add,
           onProgress: (current, total) {
             if (mounted) {
               setState(() {
@@ -4963,7 +5017,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         if (mounted) {
           Navigator.of(context).pop();
           _refreshAllProviders();
-          AppTheme.showGlassToast(context, message: '重新刮削完成');
+          AppTheme.showGlassToast(context,
+              message: ['重新刮削完成', ...translationNotices].join('\n'),
+              maxLines: null,
+              iconColor: translationNotices.isEmpty
+                  ? AppTheme.successColor
+                  : AppTheme.warningColor,
+              duration: const Duration(seconds: 8));
         }
       } else {
         if (mounted) {
@@ -5114,6 +5174,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
       final repo = ref.read(gameRepositoryProvider);
       final tagRepo = ref.read(tagRepositoryProvider);
+      final translationNotices = <String>[];
       final updated = await ScrapeApplyService.applyScrapeResult(
         game: _currentGame,
         gameInfo: gameInfo,
@@ -5122,6 +5183,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         tagRepo: tagRepo,
         configs: ref.read(scrapeModeConfigsProvider),
         sourceUrl: url,
+        onTranslationNotice: translationNotices.add,
         onProgress: (current, total) {
           if (mounted) {
             setState(() {
@@ -5156,7 +5218,15 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         Navigator.of(context).pop();
         _refreshAllProviders();
         AppTheme.showGlassToast(context,
-            message: '刮削成功: ${updated.title ?? "未知标题"}');
+            message: [
+              '刮削成功: ${updated.title ?? "未知标题"}',
+              ...translationNotices,
+            ].join('\n'),
+            maxLines: null,
+            iconColor: translationNotices.isEmpty
+                ? AppTheme.successColor
+                : AppTheme.warningColor,
+            duration: const Duration(seconds: 8));
       }
     } catch (e) {
       if (mounted) {

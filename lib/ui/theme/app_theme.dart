@@ -621,6 +621,7 @@ class AppTheme {
     IconData icon = Icons.check_circle,
     Color iconColor = const Color(0xFF10B981),
     Duration duration = const Duration(seconds: 2),
+    int? maxLines = 2,
   }) {
     final overlay = Overlay.of(context);
     late OverlayEntry overlayEntry;
@@ -672,7 +673,7 @@ class AppTheme {
                                   fontSize: 16,
                                   color: AppTheme.getTextPrimary(context)),
                               overflow: TextOverflow.ellipsis,
-                              maxLines: 2),
+                              maxLines: maxLines),
                         ),
                       ],
                     ),

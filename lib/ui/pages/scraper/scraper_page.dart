@@ -40,6 +40,7 @@ class _GameScrapeItem {
   double progress;
   String status;
   String? error;
+  final List<String> translationNotices = [];
 
   _GameScrapeItem({
     required this.game,
@@ -581,6 +582,11 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               ),
             ),
           ),
+          if (item.translationNotices.isNotEmpty)
+            Tooltip(
+              message: item.translationNotices.join('\n'),
+              child: const Icon(Icons.translate, color: AppTheme.warningColor),
+            ),
           SizedBox(
             width: 32,
             child: IconButton(
@@ -836,6 +842,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         item.progress = 0;
         item.status = '待处理';
         item.error = null;
+        item.translationNotices.clear();
       }
     });
 
@@ -1051,6 +1058,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           }
         }
         if (gameInfo != null) {
+          item.translationNotices.clear();
           final updated = await ScrapeApplyService.applyScrapeResult(
             game: game,
             gameInfo: gameInfo,
@@ -1068,6 +1076,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               }
             },
             onLog: (message) => _addLog('  -> $message'),
+            onTranslationNotice: (message) {
+              item.translationNotices.add(message);
+              _addLog('  -> $message');
+            },
           );
           item.game = updated;
           _addLog('  -> 成功: ${updated.title ?? "无标题"}');

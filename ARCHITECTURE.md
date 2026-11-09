@@ -340,6 +340,13 @@ enum NavRoute {
 - 刮削结果应用唯一共享层（快速/重新/刮削中心/单个/批量添加共用）
 - 纯函数：stripVersionFromTitle、resolveCategoryName、mergeGameInfo、buildMetadataJson、buildNumberedUrlMapping
 - 流程：syncTags 标签同步、downloadAndApplyImages 图片下载与引用重写、fixImageUrlsInMetadata 元数据修复、moveGameToSorted/organizeFolder 目录整理、applyScrapeResult 总编排
+- `translateGameMetadata` 在图片本地化后、目录整理前统一翻译并持久化，URL 三入口与 Steam/DLsite 导入共用。
+
+### MetadataTranslationService
+- 将标题、简介、特点、更新日志、标签和系列翻译为简体中文；富文本按文字节点处理，保留图片、链接和布局。
+- 支持免密钥 Google 翻译及 OpenAI 兼容 Chat Completions；LLM 失败时尝试 Google 并发出提示，全部失败时保留原文。
+- 完整翻译成功后在 `metadata.json` 的 `translation.original` 保存原文，附带服务名称、目标语言和完成时间；API Key 仅保存在应用设置。
+- 详情页按保存的原文切换显示，数据库维持译文；目录整理沿用已有路径引用重写。
 
 ### ForumDomainUtils
 - 论坛自定义域名对旧 source_url 的自动重写（`resolveWithCustomDomain`）
@@ -462,6 +469,7 @@ class GlassConstants {
 - `library_path` - 游戏库路径（JSON 数组格式，支持多目录）
 - `sorted_paths` - 各游戏库对应的整理目录（JSON 对象格式，键为库路径，值为整理路径）
 - `domain_2dfan` - 2DFan 自定义域名
+- `metadata_translation` - 自动翻译 JSON 配置：开关、服务、LLM 接口地址、模型和密钥
 - `fixed_column_count` - 海报视图是否固定列数 (bool)
 - `column_count` - 海报视图每行列数 (int, 2-8, 默认3)
 - `game_list_view_mode` - 游戏列表视图模式 ('poster' | 'list')

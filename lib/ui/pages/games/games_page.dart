@@ -298,6 +298,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
   String? _folderPath;
   bool _isLoading = false;
   String _statusText = '';
+  final List<String> _translationNotices = [];
   List<dynamic> _searchResults = [];
   dynamic _selectedResult;
   bool _showSearchResults = false;
@@ -323,10 +324,22 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
   Future<void> _postImportProcess(GameRepository repo, Game game) async {
     if (game.id == null) return;
     final configs = await _loadScrapeModeConfigs();
+    _translationNotices.clear();
+    final translated = _source == ImportSource.none
+        ? game
+        : await ScrapeApplyService.translateGameMetadata(
+            game: game,
+            repo: repo,
+            tagRepo: TagRepository(),
+            onNotice: (message) {
+              _translationNotices.add(message);
+              if (mounted) setState(() => _statusText = message);
+            },
+          );
 
     // 重命名/移动整理逻辑统一走共享层，保持各入口行为一致
     final organized = await ScrapeApplyService.organizeFolder(
-        game, ScrapeMode.singleAdd, repo, configs);
+        translated, ScrapeMode.singleAdd, repo, configs);
     debugPrint('[SingleImport] 整理完成: ${organized.path}');
   }
 
@@ -640,9 +653,16 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       widget.onImportComplete();
       AppTheme.showGlassToast(
         context,
-        message: existingGame != null ? '游戏信息已更新' : '游戏导入成功',
+        message: [
+          existingGame != null ? '游戏信息已更新' : '游戏导入成功',
+          ..._translationNotices,
+        ].join('\n'),
+        maxLines: null,
+        duration: const Duration(seconds: 8),
         icon: Icons.check_circle_outline,
-        iconColor: AppTheme.successColor,
+        iconColor: _translationNotices.isEmpty
+            ? AppTheme.successColor
+            : AppTheme.warningColor,
       );
     }
   }
@@ -737,9 +757,16 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       widget.onImportComplete();
       AppTheme.showGlassToast(
         context,
-        message: existingGame != null ? '游戏信息已更新' : '游戏导入成功',
+        message: [
+          existingGame != null ? '游戏信息已更新' : '游戏导入成功',
+          ..._translationNotices,
+        ].join('\n'),
+        maxLines: null,
+        duration: const Duration(seconds: 8),
         icon: Icons.check_circle_outline,
-        iconColor: AppTheme.successColor,
+        iconColor: _translationNotices.isEmpty
+            ? AppTheme.successColor
+            : AppTheme.warningColor,
       );
     }
   }

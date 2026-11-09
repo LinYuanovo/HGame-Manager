@@ -118,7 +118,9 @@ Future<String?> readWindowsSystemProxy() async {
 }
 
 Future<http.Client> createProxyClient(
-    {String? proxyMode, String? proxyUrl}) async {
+    {String? proxyMode,
+    String? proxyUrl,
+    bool allowInvalidCertificates = true}) async {
   final mode = proxyMode ?? 'none';
 
   if (mode == 'none') {
@@ -144,7 +146,9 @@ Future<http.Client> createProxyClient(
     AppLogger.instance.info('Proxy', 'Using custom proxy: $proxyUrl');
   }
 
-  httpClient.badCertificateCallback = (cert, host, port) => true;
+  if (allowInvalidCertificates) {
+    httpClient.badCertificateCallback = (cert, host, port) => true;
+  }
 
   return IOClient(httpClient);
 }

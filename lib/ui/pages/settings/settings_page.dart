@@ -40,6 +40,7 @@ import '../../../core/models/theme_mode.dart';
 import '../../widgets/cloudflare_browser_dialog.dart';
 import '../../widgets/app_update_dialog.dart';
 import '../../widgets/app_dropdown.dart';
+import 'metadata_translation_dialog.dart';
 
 Future<void> showSettingsDialog(BuildContext context, WidgetRef ref) async {
   await showGlassDialog(
@@ -132,7 +133,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _SidebarCategory(
       label: '刮削',
       icon: Icons.description_outlined,
-      items: ['论坛自定义域名', 'Cookie设置', '自定义解析器'],
+      items: ['元信息自动翻译', '论坛自定义域名', 'Cookie设置', '自定义解析器'],
     ),
     _SidebarCategory(
       label: '网络',
@@ -504,6 +505,31 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         return _buildGuideHotkeySection();
       case '论坛自定义域名':
         return _buildForumDomainSection();
+      case '元信息自动翻译':
+        return _buildSection(
+          title: '元信息自动翻译',
+          icon: Icons.translate,
+          children: [
+            Text('选择翻译服务，刮削后自动翻译并保留原文',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.getTextSecondary(context),
+                    )),
+            const SizedBox(height: GlassConstants.spacingMedium),
+            TextButton.icon(
+              icon: const Icon(Icons.translate),
+              label: const Text('配置自动翻译'),
+              style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.getPrimaryColor(context)),
+              onPressed: () => showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => MetadataTranslationDialog(
+                  settings: ref.read(sharedPreferencesProvider),
+                ),
+              ),
+            ),
+          ],
+        );
       case 'Cookie设置':
         return _buildCookieSection();
       case '自定义解析器':

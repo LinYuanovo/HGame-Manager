@@ -250,10 +250,27 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
     if (initialGame == null) return;
 
     final configs = await _loadScrapeModeConfigs();
+    item.translationNotices.clear();
+    item.status = '正在处理元信息...';
+    if (mounted) setState(() {});
+    final translated = item.source == _BatchScrapeSource.none
+        ? initialGame
+        : await ScrapeApplyService.translateGameMetadata(
+            game: initialGame,
+            repo: repo,
+            tagRepo: TagRepository(),
+            onNotice: (message) {
+              item.translationNotices.add(message);
+              if (mounted) setState(() {});
+            },
+          );
 
     // 重命名/移动整理逻辑统一走共享层，保持各入口行为一致
     final organized = await ScrapeApplyService.organizeFolder(
-        initialGame, ScrapeMode.batchAdd, repo, configs);
+        translated, ScrapeMode.batchAdd, repo, configs);
+    item.status =
+        item.translationNotices.isEmpty ? '导入完成' : '导入完成（翻译有提示）';
+    if (mounted) setState(() {});
     debugPrint('[BatchImport] 整理完成: ${organized.path}');
   }
 
@@ -967,6 +984,13 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                                       ),
                                     ),
                                     if (item.progress > 0) ...[
+                                      if (item.translationNotices.isNotEmpty)
+                                        Tooltip(
+                                          message:
+                                              item.translationNotices.join('\n'),
+                                          child: const Icon(Icons.translate,
+                                              color: AppTheme.warningColor),
+                                        ),
                                       const SizedBox(width: 8),
                                       SizedBox(
                                         width: 200,
@@ -1216,6 +1240,7 @@ class _BatchGameItem {
   String keyword;
   _BatchScrapeSource source;
   String status;
+  final List<String> translationNotices = [];
   double progress;
   bool selected;
 

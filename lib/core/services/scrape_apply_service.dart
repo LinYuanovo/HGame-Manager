@@ -6,6 +6,7 @@ import 'package:path/path.dart' as path;
 
 import '../../scraper/parse_utils.dart';
 import '../models/models.dart';
+import '../models/metadata_translation_config.dart';
 import '../repositories/game_repository.dart';
 import '../repositories/tag_repository.dart';
 import '../utils/app_settings.dart';
@@ -16,6 +17,7 @@ import '../utils/scraped_image_reference_rewriter.dart';
 import 'concurrent_image_downloader.dart';
 import 'folder_rename_service.dart';
 import 'game_data_migration_service.dart';
+import 'metadata_translation_service.dart';
 
 class ScrapeApplyService {
   static final _versionPattern = RegExp(
@@ -378,6 +380,7 @@ class ScrapeApplyService {
     int maxConcurrency = 3,
     void Function(int current, int total)? onProgress,
     void Function(String message)? onLog,
+    void Function(String message)? onTranslationNotice,
   }) async {
     // 旧布局迁移（根目录 metadata.json/images -> HGMDatas/）必须保留：
     // 现状由详情页 _downloadImagesWithMapping 内部与刮削中心入口承担，
@@ -397,11 +400,13 @@ class ScrapeApplyService {
 
     // 文件写入失败不应使整个刮削失败（保持快速刮削现状的容错语义）
     final effectiveSourceUrl = sourceUrl ?? gameInfo.sourceUrl;
+    var metadataSaved = false;
     try {
       await GameDataPaths.ensureDataDir(current.path);
       await GameDataPaths.metadataFile(current.path).writeAsString(
           jsonEncode(markScraped(buildMetadataJson(gameInfo))),
           flush: true);
+      metadataSaved = true;
     } catch (e) {
       debugPrint('[ScrapeApply] 写入 metadata.json 失败: $e');
     }
@@ -427,8 +432,80 @@ class ScrapeApplyService {
     );
 
     current = await repo.getGameById(gameId) ?? current;
+    if (metadataSaved) {
+      current = await translateGameMetadata(
+        game: current,
+        repo: repo,
+        tagRepo: tagRepo,
+        onNotice: onTranslationNotice,
+      );
+    } else if (MetadataTranslationConfig.fromSettings(await AppSettings.load())
+        .enabled) {
+      onTranslationNotice?.call('无法保存本次刮削元数据，已跳过翻译');
+    }
     current = await organizeFolder(current, mode, repo, configs, onLog: onLog);
     return current;
+  }
+
+  static Game gameWithMetadata(Game game, Map<String, dynamic> metadata) {
+    return game.copyWith(
+      title: metadata['title'] is String
+          ? stripVersionFromTitle(metadata['title'] as String, game.version)
+          : game.title,
+      intro: metadata['intro'] as String? ?? game.intro,
+      features: metadata['features'] as String? ?? game.features,
+      changelog: metadata['changelog'] as String? ?? game.changelog,
+    );
+  }
+
+  static Future<Game> translateGameMetadata({
+    required Game game,
+    required GameRepository repo,
+    required TagRepository tagRepo,
+    void Function(String message)? onNotice,
+  }) async {
+    final settings = await AppSettings.load();
+    final config = MetadataTranslationConfig.fromSettings(settings);
+    if (!config.enabled || game.id == null) return game;
+    final metadataFile = await GameDataPaths.existingMetadataFile(game.path);
+    Map<String, dynamic> metadata;
+    try {
+      metadata =
+          jsonDecode(await metadataFile.readAsString()) as Map<String, dynamic>;
+    } catch (_) {
+      onNotice?.call('无法读取游戏元数据，已跳过翻译');
+      return game;
+    }
+    final translated = await MetadataTranslationService()
+        .translate(metadata, config, onNotice: onNotice);
+    if (identical(translated, metadata)) return game;
+
+    final tempFile = File('${metadataFile.path}.translation.tmp');
+    try {
+      await tempFile.writeAsString(jsonEncode(translated), flush: true);
+      await tempFile.rename(metadataFile.path);
+    } catch (_) {
+      onNotice?.call('翻译结果保存失败，已保留原文');
+      return game;
+    } finally {
+      if (await tempFile.exists()) await tempFile.delete();
+    }
+
+    final current = await repo.getGameById(game.id!) ?? game;
+    final updated = gameWithMetadata(current, translated);
+    await repo.updateGame(updated);
+    await syncTags(
+      repo,
+      tagRepo,
+      game.id!,
+      GameInfo(
+        sourceUrl: current.sourceUrl ?? '',
+        tags: (translated['tags'] as List?)?.cast<String>() ?? [],
+        category: translated['series'] as String?,
+        maker: current.maker,
+      ),
+    );
+    return await repo.getGameById(game.id!) ?? updated;
   }
 
   static Future<void> syncTags(
