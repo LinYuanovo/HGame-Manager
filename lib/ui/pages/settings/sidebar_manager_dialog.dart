@@ -109,7 +109,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
       padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: Row(
         children: [
-          Icon(Icons.view_sidebar_outlined, color: AppTheme.getPrimaryColor(context), size: 24),
+          Icon(Icons.view_sidebar_outlined, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconMedium),
           const SizedBox(width: GlassConstants.spacingCompact),
           Text(
             '侧边栏页面管理',
@@ -151,7 +151,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
               borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -195,13 +195,13 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
                   index: index,
                   child: MouseRegion(
                     cursor: SystemMouseCursors.grab,
-                    child: Icon(Icons.drag_handle, size: 20, color: AppTheme.getTextSecondary(context)),
+                    child: Icon(Icons.drag_handle, size: GlassConstants.iconControl, color: AppTheme.getTextSecondary(context)),
                   ),
                 ),
                 const SizedBox(width: GlassConstants.spacingCompact),
                 Icon(
                   route?.icon ?? Icons.help_outline,
-                  size: 20,
+                  size: GlassConstants.iconControl,
                   color: item.visible
                       ? AppTheme.getPrimaryColor(context)
                       : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),

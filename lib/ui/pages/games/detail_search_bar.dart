@@ -55,7 +55,7 @@ class _DetailSearchBarState extends State<DetailSearchBar> {
       ),
       child: Row(
         children: [
-          Icon(Icons.search, size: 20, color: AppTheme.getTextSecondary(context)),
+          Icon(Icons.search, size: GlassConstants.iconControl, color: AppTheme.getTextSecondary(context)),
           const SizedBox(width: GlassConstants.spacingSmall),
           Expanded(
             child: TextField(
@@ -94,7 +94,7 @@ class _DetailSearchBarState extends State<DetailSearchBar> {
           ),
           const SizedBox(width: GlassConstants.spacingSmall),
           IconButton(
-            icon: const Icon(Icons.close, size: 18),
+            icon: const Icon(Icons.close, size: GlassConstants.iconAction),
             onPressed: widget.onClose,
             color: AppTheme.getTextSecondary(context),
             tooltip: '关闭搜索 (Ctrl+F)',
@@ -113,7 +113,7 @@ class _DetailSearchBarState extends State<DetailSearchBar> {
       builder: (context) => Tooltip(
         message: tooltip,
         child: IconButton(
-          icon: Icon(icon, size: 18),
+          icon: Icon(icon, size: GlassConstants.iconAction),
           onPressed: onPressed,
           color: AppTheme.getPrimaryColor(context),
           disabledColor: AppTheme.getTextSecondary(context).withValues(alpha: 0.3),

@@ -99,7 +99,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusLarge)),
             title: Row(
               children: [
-                Icon(Icons.cloud_queue, color: AppTheme.getPrimaryColor(context), size: 22),
+                Icon(Icons.cloud_queue, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconSection),
                 const SizedBox(width: GlassConstants.spacingSmall),
                 Expanded(
                   child: Text(
@@ -109,13 +109,13 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.refresh, size: 20),
+                  icon: const Icon(Icons.refresh, size: GlassConstants.iconControl),
                   color: AppTheme.getTextSecondary(context),
                   onPressed: _loadCloudBackups,
                   tooltip: '刷新',
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, size: 20),
+                  icon: const Icon(Icons.close, size: GlassConstants.iconControl),
                   color: AppTheme.getTextSecondary(context),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
@@ -216,7 +216,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
     final localPath = p.join(backupDir.path, file.name);
 
     if (mounted) {
-      AppTheme.showGlassToast(context, message: '正在下载...', icon: Icons.cloud_download, iconColor: AppTheme.primaryColor);
+      AppTheme.showGlassToast(context, message: '正在下载...', icon: Icons.cloud_download, iconColor: AppTheme.getPrimaryColor(context));
     }
 
     final service = ref.read(webdavServiceProvider);
@@ -259,7 +259,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
     final localPath = p.join(backupDir.path, file.name);
 
     if (mounted) {
-      AppTheme.showGlassToast(context, message: '正在下载并恢复...', icon: Icons.hourglass_empty, iconColor: AppTheme.primaryColor);
+      AppTheme.showGlassToast(context, message: '正在下载并恢复...', icon: Icons.hourglass_empty, iconColor: AppTheme.getPrimaryColor(context));
     }
 
     final service = ref.read(webdavServiceProvider);
@@ -318,7 +318,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                   const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context, true),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor, foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor, foregroundColor: AppTheme.lightForegroundColor),
                     child: const Text('删除'),
                   ),
                 ],
@@ -374,7 +374,7 @@ class _MiniIconButton extends StatelessWidget {
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.all(GlassConstants.spacingTight),
-          child: Icon(icon, size: 16, color: color),
+          child: Icon(icon, size: GlassConstants.iconSmall, color: color),
         ),
       ),
     );

@@ -49,13 +49,13 @@ class _GamesPageState extends ConsumerState<GamesPage>
           actions: [
             IconButton(
               icon: Icon(Icons.add_circle_outline,
-                  color: AppTheme.primaryColor, size: 20),
+                  color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconControl),
               tooltip: '添加单个游戏',
               onPressed: () => _showCloudImportDialog(),
             ),
             IconButton(
               icon: Icon(Icons.create_new_folder_outlined,
-                  color: AppTheme.primaryColor, size: 20),
+                  color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconControl),
               tooltip: '批量添加游戏',
               onPressed: () => _showAddGameDialog(),
             ),
@@ -64,9 +64,9 @@ class _GamesPageState extends ConsumerState<GamesPage>
                     onTap: null,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: GlassConstants.spacingTight),
+                          horizontal: GlassConstants.spacingInline, vertical: GlassConstants.spacingTight),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
                       ),
                       child: Row(
@@ -77,7 +77,7 @@ class _GamesPageState extends ConsumerState<GamesPage>
                             height: 14,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: AppTheme.primaryColor,
+                              color: AppTheme.getPrimaryColor(context),
                             ),
                           ),
                           const SizedBox(width: GlassConstants.spacingTight),
@@ -87,7 +87,7 @@ class _GamesPageState extends ConsumerState<GamesPage>
                                 : '扫描中',
                             style: TextStyle(
                               fontSize: GlassConstants.fontBody,
-                              color: AppTheme.primaryColor,
+                              color: AppTheme.getPrimaryColor(context),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -96,7 +96,7 @@ class _GamesPageState extends ConsumerState<GamesPage>
                     ),
                   )
                 : IconButton(
-                    icon: Icon(Icons.refresh, size: 20),
+                    icon: Icon(Icons.refresh, size: GlassConstants.iconControl),
                     tooltip: '刷新',
                     onPressed: () async {
                       setState(() => _isRefreshing = true);
@@ -816,7 +816,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(GlassConstants.spacingDialog),
       child: SizedBox(
         width: MediaQuery.of(context).size.width * 0.5,
         height: _showSearchResults ? 600 : 450,
@@ -858,7 +858,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: GlassConstants.spacingCompact, vertical: 10),
+                        horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingInline),
                     decoration: BoxDecoration(
                       color: AppTheme.getSurfaceColor(context)
                           .withValues(alpha: 0.5),
@@ -883,7 +883,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                 const SizedBox(width: GlassConstants.spacingSmall),
                 ElevatedButton.icon(
                   onPressed: _isLoading ? null : _pickFolder,
-                  icon: const Icon(Icons.folder_open, size: 16),
+                  icon: const Icon(Icons.folder_open, size: GlassConstants.iconSmall),
                   label: const Text('浏览'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.getPrimaryColor(context),
@@ -913,7 +913,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                               GlassConstants.radiusMedium),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
-                            horizontal: GlassConstants.spacingCompact, vertical: 10),
+                            horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingInline),
                       ),
                       style: const TextStyle(fontSize: GlassConstants.fontBody),
                     ),
@@ -921,11 +921,11 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                   const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton.icon(
                     onPressed: _isLoading ? null : _searchGame,
-                    icon: const Icon(Icons.search, size: 16),
+                    icon: const Icon(Icons.search, size: GlassConstants.iconSmall),
                     label: const Text('搜索'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppTheme.getPrimaryColor(context),
+                      foregroundColor: AppTheme.getOnPrimaryColor(context),
                     ),
                   ),
                 ],
@@ -998,10 +998,10 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                         ? null
                         : _importNone,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppTheme.getPrimaryColor(context),
+                      foregroundColor: AppTheme.getOnPrimaryColor(context),
                       disabledBackgroundColor:
-                          AppTheme.primaryColor.withValues(alpha: 0.4),
+                          AppTheme.getPrimaryColor(context).withValues(alpha: 0.4),
                     ),
                     child: _isLoading
                         ? SizedBox(
@@ -1020,10 +1020,10 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                         ? null
                         : _import,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppTheme.getPrimaryColor(context),
+                      foregroundColor: AppTheme.getOnPrimaryColor(context),
                       disabledBackgroundColor:
-                          AppTheme.primaryColor.withValues(alpha: 0.4),
+                          AppTheme.getPrimaryColor(context).withValues(alpha: 0.4),
                     ),
                     child: _isLoading
                         ? SizedBox(
@@ -1063,12 +1063,12 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingSmall),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppTheme.primaryColor.withValues(alpha: 0.15)
+              ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
           border: Border.all(
             color: isSelected
-                ? AppTheme.primaryColor
+                ? AppTheme.getPrimaryColor(context)
                 : AppTheme.getTextSecondary(context).withValues(alpha: 0.3),
           ),
         ),
@@ -1078,7 +1078,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
             fontSize: GlassConstants.fontBody,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
             color: isSelected
-                ? AppTheme.primaryColor
+                ? AppTheme.getPrimaryColor(context)
                 : AppTheme.getTextSecondary(context),
           ),
         ),
@@ -1119,7 +1119,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
             fontSize: GlassConstants.fontBody,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             color: isSelected
-                ? AppTheme.primaryColor
+                ? AppTheme.getPrimaryColor(context)
                 : AppTheme.getTextPrimary(context),
           ),
           maxLines: 2,
@@ -1131,7 +1131,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
               fontSize: GlassConstants.fontCaption, color: AppTheme.getTextSecondary(context)),
         ),
         selected: isSelected,
-        selectedTileColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+        selectedTileColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
         onTap: () => setState(() => _selectedResult = result),
       );
     } else if (_source == ImportSource.steam && result is SteamSearchResult) {
@@ -1168,7 +1168,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
             fontSize: GlassConstants.fontBody,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             color: isSelected
-                ? AppTheme.primaryColor
+                ? AppTheme.getPrimaryColor(context)
                 : AppTheme.getTextPrimary(context),
           ),
           maxLines: 2,
@@ -1180,7 +1180,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
               fontSize: GlassConstants.fontCaption, color: AppTheme.getTextSecondary(context)),
         ),
         selected: isSelected,
-        selectedTileColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+        selectedTileColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
         onTap: () => setState(() => _selectedResult = result),
       );
     }

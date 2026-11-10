@@ -110,7 +110,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     child: Center(
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 40, vertical: GlassConstants.spacingXLarge),
+                            horizontal: GlassConstants.spacingPage, vertical: GlassConstants.spacingXLarge),
                         decoration: BoxDecoration(
                           color: AppTheme.getSurfaceColor(context)
                               .withValues(alpha: 0.92),
@@ -126,7 +126,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           children: [
                             Icon(
                               Icons.create_new_folder_outlined,
-                              size: 48,
+                              size: GlassConstants.iconPlaceholder,
                               color: AppTheme.getPrimaryColor(context),
                             ),
                             const SizedBox(height: GlassConstants.spacingCompact),

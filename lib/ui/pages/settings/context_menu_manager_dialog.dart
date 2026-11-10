@@ -62,7 +62,7 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
       padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: Row(
         children: [
-          Icon(Icons.menu, color: AppTheme.getPrimaryColor(context), size: 24),
+          Icon(Icons.menu, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconMedium),
           const SizedBox(width: GlassConstants.spacingCompact),
           Text(
             '右键菜单管理',
@@ -186,7 +186,7 @@ class _TabItemWidgetState extends State<_TabItemWidget> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: GlassConstants.animFast,
-          padding: EdgeInsets.symmetric(vertical: 10),
+          padding: EdgeInsets.symmetric(vertical: GlassConstants.spacingInline),
           decoration: BoxDecoration(
             color: widget.isSelected
                 ? AppTheme.getPrimaryColor(context)
@@ -280,13 +280,13 @@ class _MenuItemsList extends ConsumerWidget {
                   index: index,
                   child: MouseRegion(
                     cursor: SystemMouseCursors.grab,
-                    child: Icon(Icons.drag_handle, size: 20, color: AppTheme.getTextSecondary(context)),
+                    child: Icon(Icons.drag_handle, size: GlassConstants.iconControl, color: AppTheme.getTextSecondary(context)),
                   ),
                 ),
                 const SizedBox(width: GlassConstants.spacingCompact),
                 Icon(
                   _getIconData(def.icon),
-                  size: 20,
+                  size: GlassConstants.iconControl,
                   color: item.enabled
                       ? AppTheme.getPrimaryColor(context)
                       : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),

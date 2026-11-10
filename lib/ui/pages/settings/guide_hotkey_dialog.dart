@@ -202,7 +202,7 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
       child: Row(
         children: [
           Icon(Icons.keyboard_outlined,
-              color: AppTheme.getPrimaryColor(context), size: 24),
+              color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconMedium),
           const SizedBox(width: GlassConstants.spacingCompact),
           Text(
             '攻略浮窗快捷键',
@@ -284,7 +284,7 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
 
   Widget _buildKeyChip(String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTrim, vertical: GlassConstants.spacingFine),
       decoration: BoxDecoration(
         color: Theme.of(context).canvasColor,
         border: Border.all(color: Theme.of(context).dividerColor),
@@ -315,12 +315,12 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
+              backgroundColor: AppTheme.getPrimaryColor(context),
               foregroundColor: AppTheme.getTextColorOnPrimary(context),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(GlassConstants.radiusCompact)),
               padding:
-                  const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: 10),
+                  const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingInline),
             ),
             child: const Text('完成'),
           ),

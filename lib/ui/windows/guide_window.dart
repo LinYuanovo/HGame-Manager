@@ -121,7 +121,7 @@ class GuideWindowApp extends StatelessWidget {
       home: GuideWindowPage(
         windowId: windowId,
         arguments: arguments,
-        fontSize: prefs.getDouble('detail_font_size') ?? 14.0,
+        fontSize: prefs.getDouble('detail_font_size') ?? GlassConstants.fontControl,
       ),
     );
   }
@@ -467,7 +467,7 @@ class _GuideWindowPageState extends State<GuideWindowPage>
         border: Border.all(color: AppTheme.getBorderColor(context)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
+            color: AppTheme.getShadowColor(context),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -569,7 +569,7 @@ class _GuideWindowPageState extends State<GuideWindowPage>
           children: [
             const SizedBox(width: GlassConstants.spacingCompact),
             Icon(Icons.menu_book,
-                size: 16, color: AppTheme.getPrimaryColor(context)),
+                size: GlassConstants.iconSmall, color: AppTheme.getPrimaryColor(context)),
             const SizedBox(width: GlassConstants.spacingSmall),
             Expanded(
               child: Text(
@@ -585,14 +585,14 @@ class _GuideWindowPageState extends State<GuideWindowPage>
             ),
             _TitleBarButton(
               icon: Icons.tune,
-              iconSize: 15,
+              iconSize: GlassConstants.iconInline,
               tooltip: '透明度 / 文字大小',
               isActive: _settingsOpen,
               onPressed: _toggleSettingsPanel,
             ),
             _TitleBarButton(
               icon: _alwaysOnTop ? Icons.push_pin : Icons.push_pin_outlined,
-              iconSize: 15,
+              iconSize: GlassConstants.iconInline,
               tooltip: _alwaysOnTop ? '取消置顶' : '置顶',
               isActive: _alwaysOnTop,
               onPressed: _togglePin,
@@ -604,7 +604,7 @@ class _GuideWindowPageState extends State<GuideWindowPage>
             ),
             _TitleBarButton(
               icon: _isMaximized ? Icons.filter_none : Icons.crop_square,
-              iconSize: 13,
+              iconSize: GlassConstants.iconBadge,
               tooltip: _isMaximized ? '还原' : '最大化',
               onPressed: _toggleMaximize,
             ),
@@ -718,7 +718,7 @@ class _TitleBarButton extends StatefulWidget {
     required this.tooltip,
     this.isClose = false,
     this.isActive = false,
-    this.iconSize = 16,
+    this.iconSize = GlassConstants.iconSmall,
   });
 
   @override
@@ -750,7 +750,7 @@ class _TitleBarButtonState extends State<_TitleBarButton> {
               widget.icon,
               size: widget.iconSize,
               color: _isHovered && widget.isClose
-                  ? AppTheme.getTextColorOnPrimary(context)
+                  ? AppTheme.lightForegroundColor
                   : widget.isActive
                       ? AppTheme.getPrimaryColor(context)
                       : AppTheme.getTextSecondary(context),

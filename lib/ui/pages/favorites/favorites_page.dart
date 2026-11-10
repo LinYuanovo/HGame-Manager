@@ -133,10 +133,10 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
                     tag.type == Tag.typeSeries
                         ? Icons.category
                         : Icons.label,
-                    size: 16,
+                    size: GlassConstants.iconSmall,
                     color: tag.type == Tag.typeSeries
-                        ? AppTheme.secondaryColor
-                        : AppTheme.primaryColor,
+                        ? AppTheme.getSecondaryColor(context)
+                        : AppTheme.getPrimaryColor(context),
                   ),
                   const SizedBox(width: GlassConstants.spacingSmall),
                   Expanded(
@@ -148,7 +148,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.favorite, size: 16, color: AppTheme.getFavoriteColor(context)),
+                    icon: Icon(Icons.favorite, size: GlassConstants.iconSmall, color: AppTheme.getFavoriteColor(context)),
                     onPressed: () async {
                       await ref.read(tagRepositoryProvider).toggleFavorite(tag.id!, false);
                       ref.invalidate(favoriteTagsProvider);

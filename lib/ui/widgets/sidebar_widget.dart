@@ -155,9 +155,9 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
     );
   }
 
-  Widget _buildToggleButton({double fontSize = 14.0}) {
+  Widget _buildToggleButton({double fontSize = GlassConstants.fontControl}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingMicro),
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -183,7 +183,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                 Icon(
                   widget.controller.isExpanded ? Icons.menu_open : Icons.menu,
                   color: AppTheme.getTextPrimary(context),
-                  size: 22,
+                  size: GlassConstants.iconSection,
                 ),
                 if (widget.controller.isExpanded) ...[
                   const SizedBox(width: GlassConstants.spacingCompact),
@@ -212,13 +212,13 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
     required NavRoute route,
     required int selectedIndex,
     int? count,
-    double fontSize = 14.0,
+    double fontSize = GlassConstants.fontControl,
     required WidgetRef ref,
   }) {
     final isSelected = route.index == selectedIndex;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingMicro),
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -244,7 +244,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                   ? LinearGradient(
                       colors: [
                         AppTheme.getPrimaryColor(context).withValues(alpha: 0.2),
-                        AppTheme.secondaryColor.withValues(alpha: 0.2),
+                        AppTheme.getSecondaryColor(context).withValues(alpha: 0.2),
                       ],
                     )
                   : null,
@@ -265,7 +265,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                   color: isSelected
                       ? AppTheme.getPrimaryColor(context)
                       : AppTheme.getTextPrimary(context),
-                  size: 22,
+                  size: GlassConstants.iconSection,
                 ),
                 if (widget.controller.isExpanded) ...[
                   const SizedBox(width: GlassConstants.spacingCompact),
@@ -286,13 +286,13 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                     Flexible(
                       child: Container(
                         margin: const EdgeInsets.only(left: GlassConstants.spacingSmall),
-                        padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTight, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingMicro),
                         decoration: BoxDecoration(
                           gradient: isSelected
                               ? LinearGradient(
                                   colors: [
                                     AppTheme.getPrimaryColor(context).withValues(alpha: 0.9),
-                                    AppTheme.secondaryColor.withValues(alpha: 0.9),
+                                    AppTheme.getSecondaryColor(context).withValues(alpha: 0.9),
                                   ],
                                 )
                               : null,
@@ -306,9 +306,10 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                           '$count',
                           style: TextStyle(
                             color: isSelected
-                                ? AppTheme.getTextColorOnPrimary(context)
+                                ? AppTheme.getOnPrimaryColor(context)
                                 : AppTheme.getTextPrimary(context),
-                            fontSize: (fontSize * 0.78).clamp(9, 14),
+                            fontSize: (fontSize * 0.78).clamp(
+                                GlassConstants.fontMicro, GlassConstants.fontControl),
                             fontWeight: FontWeight.w600,
                           ),
                           textAlign: TextAlign.center,

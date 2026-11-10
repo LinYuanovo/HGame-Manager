@@ -158,18 +158,18 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
           height: 36,
           decoration: BoxDecoration(
             color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(GlassConstants.radiusFloating),
             border: Border.all(color: AppTheme.getBorderColor(context)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
+                color: AppTheme.getShadowColor(context),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
             ],
           ),
           child: IconButton(
-            icon: Icon(icon, size: 20),
+            icon: Icon(icon, size: GlassConstants.iconControl),
             onPressed: onPressed,
             padding: EdgeInsets.zero,
             color: AppTheme.getPrimaryColor(context),

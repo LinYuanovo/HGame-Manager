@@ -425,6 +425,8 @@ enum NavRoute {
 
 ## 主题配置
 
+UI 使用 `AppTheme` 的动态取色接口和 `GlassConstants` 的字号、图标、间距及圆角档位。固定语义色与媒体遮罩前景也由主题层提供。`test/ui/theme/design_token_usage_test.dart` 检查各页面、共享组件和主错误页面的使用规则；新增视觉值先扩展主题定义，再引用到使用处。
+
 ### 颜色系统
 - **主色调**: 蓝紫渐变 (#2563EB → #7C3AED)
 - **背景色**: 浅灰渐变 (#F0F4F8)

@@ -35,7 +35,7 @@ Future<AppUpdatePromptAction?> showAppUpdatePrompt(
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: GlassConstants.spacingInline),
             Text(
               '当前版本：v${result.currentVersion}\n'
               '最新版本：v${result.latestEntry?.version ?? result.currentVersion}',
@@ -64,7 +64,7 @@ Future<AppUpdatePromptAction?> showAppUpdatePrompt(
                 ),
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: GlassConstants.spacingSection),
             Wrap(
               alignment: WrapAlignment.end,
               spacing: 8,
@@ -80,14 +80,14 @@ Future<AppUpdatePromptAction?> showAppUpdatePrompt(
                   onPressed: () => Navigator.of(context).pop(
                     AppUpdatePromptAction.manualDownload,
                   ),
-                  icon: const Icon(Icons.open_in_new, size: 16),
+                  icon: const Icon(Icons.open_in_new, size: GlassConstants.iconSmall),
                   label: const Text('手动下载'),
                 ),
                 ElevatedButton.icon(
                   onPressed: () => Navigator.of(context).pop(
                     AppUpdatePromptAction.install,
                   ),
-                  icon: const Icon(Icons.download_outlined, size: 16),
+                  icon: const Icon(Icons.download_outlined, size: GlassConstants.iconSmall),
                   label: const Text('立即更新'),
                 ),
               ],
@@ -104,7 +104,7 @@ Widget _buildChangelogEntry(BuildContext context, ChangelogEntry entry) {
   final secondaryColor = AppTheme.getTextSecondary(context);
   final textTheme = Theme.of(context).textTheme;
   return Padding(
-    padding: const EdgeInsets.only(bottom: 14),
+    padding: const EdgeInsets.only(bottom: GlassConstants.spacingControl),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -173,7 +173,7 @@ Future<bool?> showAppUpdateFallbackDialog({
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: GlassConstants.spacingControl),
             Text(
               message,
               style: textTheme.bodyMedium?.copyWith(
@@ -181,7 +181,7 @@ Future<bool?> showAppUpdateFallbackDialog({
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: GlassConstants.spacingSpacious),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -192,7 +192,7 @@ Future<bool?> showAppUpdateFallbackDialog({
                 const SizedBox(width: GlassConstants.spacingSmall),
                 ElevatedButton.icon(
                   onPressed: () => Navigator.of(context).pop(true),
-                  icon: const Icon(Icons.open_in_new, size: 16),
+                  icon: const Icon(Icons.open_in_new, size: GlassConstants.iconSmall),
                   label: const Text('打开网盘'),
                 ),
               ],
@@ -251,7 +251,7 @@ Future<void> showAppUpdateDownloadProgress(
                   ),
                   backgroundColor: AppTheme.getBorderColor(context),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: GlassConstants.spacingInline),
                 Text(
                   percentText == null ? sizeText : '$percentText（$sizeText）',
                   style: textTheme.bodySmall?.copyWith(
@@ -290,7 +290,7 @@ Future<bool?> showAppUpdateResumeDialog(
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: GlassConstants.spacingControl),
             Text(
               '检测到 v$version 的更新包已下载，但安装未能完成。'
               '是否继续安装？（无需重新下载）',
@@ -299,7 +299,7 @@ Future<bool?> showAppUpdateResumeDialog(
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: GlassConstants.spacingSpacious),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -310,7 +310,7 @@ Future<bool?> showAppUpdateResumeDialog(
                 const SizedBox(width: GlassConstants.spacingSmall),
                 ElevatedButton.icon(
                   onPressed: () => Navigator.of(context).pop(true),
-                  icon: const Icon(Icons.system_update_alt, size: 16),
+                  icon: const Icon(Icons.system_update_alt, size: GlassConstants.iconSmall),
                   label: const Text('继续安装'),
                 ),
               ],

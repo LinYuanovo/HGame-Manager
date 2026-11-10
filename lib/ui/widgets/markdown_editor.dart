@@ -13,7 +13,7 @@ class MarkdownEditor extends StatefulWidget {
     super.key,
     required this.controller,
     required this.imagePaths,
-    this.fontSize = 14,
+    this.fontSize = GlassConstants.fontControl,
   });
 
   @override
@@ -130,7 +130,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: GlassConstants.spacingTight),
+        padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingInline, vertical: GlassConstants.spacingTight),
         decoration: BoxDecoration(
           color: active
               ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15)
@@ -141,7 +141,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon,
-                size: 16,
+                size: GlassConstants.iconSmall,
                 color: active
                     ? AppTheme.getPrimaryColor(context)
                     : AppTheme.getTextSecondary(context)),
@@ -171,7 +171,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
         child: Padding(
           padding: const EdgeInsets.all(GlassConstants.spacingTight),
           child:
-              Icon(icon, size: 18, color: AppTheme.getTextSecondary(context)),
+              Icon(icon, size: GlassConstants.iconAction, color: AppTheme.getTextSecondary(context)),
         ),
       ),
     );
@@ -196,7 +196,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.add_photo_alternate,
-                size: 16, color: AppTheme.getPrimaryColor(context)),
+                size: GlassConstants.iconSmall, color: AppTheme.getPrimaryColor(context)),
             const SizedBox(width: GlassConstants.spacingTiny),
             Text('图片',
                 style: TextStyle(
@@ -243,15 +243,15 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
               height: 1.7,
               color: AppTheme.getTextPrimary(context)),
           h1: TextStyle(
-              fontSize: 22,
+              fontSize: GlassConstants.fontHeadline,
               fontWeight: FontWeight.bold,
               color: AppTheme.getTextPrimary(context)),
           h2: TextStyle(
-              fontSize: 19,
+              fontSize: GlassConstants.fontMarkdownTitle,
               fontWeight: FontWeight.bold,
               color: AppTheme.getTextPrimary(context)),
           h3: TextStyle(
-              fontSize: 17,
+              fontSize: GlassConstants.fontSubtitle,
               fontWeight: FontWeight.w600,
               color: AppTheme.getTextPrimary(context)),
           listBullet: TextStyle(

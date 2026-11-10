@@ -41,11 +41,11 @@ class _ClearedGamesPageState extends ConsumerState<ClearedGamesPage> {
                     children: [
                       IconButton(
                         icon: Icon(Icons.arrow_back,
-                            size: 20, color: AppTheme.getTextSecondary(context)),
+                            size: GlassConstants.iconControl, color: AppTheme.getTextSecondary(context)),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: GlassConstants.spacingSmall),
-                      const Icon(Icons.emoji_events, size: 20, color: Color.fromARGB(255, 255, 217, 0)),
+                      Icon(Icons.emoji_events, size: GlassConstants.iconControl, color: AppTheme.getStarColor(context)),
                       const SizedBox(width: GlassConstants.spacingSmall),
                       Text('已通关',
                           style: TextStyle(
@@ -66,7 +66,7 @@ class _ClearedGamesPageState extends ConsumerState<ClearedGamesPage> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.emoji_events_outlined,
-                                  size: 64,
+                                  size: GlassConstants.iconEmptyState,
                                   color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
                               const SizedBox(height: GlassConstants.spacingMedium),
                               Text('暂无已通关游戏',

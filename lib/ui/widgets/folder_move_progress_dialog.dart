@@ -25,7 +25,7 @@ Future<FolderMoveResult> runFolderMoveWithProgress({
   await showDialog<FolderMoveResult>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withValues(alpha: 0.3),
+    barrierColor: AppTheme.getDialogBarrierColor(context),
     builder: (dialogContext) => _FolderMoveProgressDialog(
       title: title,
       task: task,
@@ -167,10 +167,10 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
                       children: [
                         Icon(
                           Icons.drive_file_move,
-                          size: 22,
+                          size: GlassConstants.iconSection,
                           color: AppTheme.getPrimaryColor(context),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: GlassConstants.spacingInline),
                         Expanded(
                           child: Text(
                             widget.title,
@@ -238,7 +238,7 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: GlassConstants.spacingInline),
             ClipRRect(
               borderRadius: BorderRadius.circular(GlassConstants.radiusIndicator),
               child: LinearProgressIndicator(
@@ -248,7 +248,7 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
                 valueColor: AlwaysStoppedAnimation<Color>(primary),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: GlassConstants.spacingInline),
             Row(
               children: [
                 Expanded(
@@ -391,7 +391,7 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
       children: [
         Row(
           children: [
-            Icon(icon, color: iconColor, size: 32),
+            Icon(icon, color: iconColor, size: GlassConstants.iconLarge),
             const SizedBox(width: GlassConstants.spacingCompact),
             Expanded(
               child: Text(
@@ -404,7 +404,7 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: GlassConstants.spacingControl),
         for (final detail in details)
           Padding(
             padding: const EdgeInsets.only(bottom: GlassConstants.spacingTight),
@@ -421,7 +421,7 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
               children: [
                 Icon(
                   Icons.warning_amber_rounded,
-                  size: 16,
+                  size: GlassConstants.iconSmall,
                   color: warningIsError
                       ? AppTheme.errorColor
                       : AppTheme.warningColor,
@@ -442,7 +442,7 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
               ],
             ),
           ),
-        const SizedBox(height: 14),
+        const SizedBox(height: GlassConstants.spacingControl),
         Align(
           alignment: Alignment.centerRight,
           child: TextButton(onPressed: _close, child: Text(closeLabel)),

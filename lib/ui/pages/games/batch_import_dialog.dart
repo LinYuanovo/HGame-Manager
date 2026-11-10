@@ -751,7 +751,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(GlassConstants.spacingDialog),
       child: SizedBox(
         width: MediaQuery.of(context).size.width * 0.5,
         height: 500,
@@ -772,7 +772,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
               // 拖拽模式：文件夹列表由调用方传入，仅展示数量，不提供浏览按钮
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingInline),
                 decoration: BoxDecoration(
                   color: AppTheme.getSurfaceColor(context)
                       .withValues(alpha: 0.5),
@@ -803,7 +803,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: GlassConstants.spacingCompact, vertical: 10),
+                          horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingInline),
                       decoration: BoxDecoration(
                         color: AppTheme.getSurfaceColor(context)
                             .withValues(alpha: 0.5),
@@ -828,7 +828,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                   const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton.icon(
                     onPressed: _scanning || _importing ? null : _pickFolder,
-                    icon: const Icon(Icons.folder_open, size: 16),
+                    icon: const Icon(Icons.folder_open, size: GlassConstants.iconSmall),
                     label: const Text('浏览'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.getPrimaryColor(context),
@@ -942,7 +942,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                                       color: item.source ==
                                               _BatchScrapeSource.none
                                           ? AppTheme.getTextSecondary(context)
-                                          : AppTheme.primaryColor,
+                                          : AppTheme.getPrimaryColor(context),
                                       fontFamily: widget.userFont.isNotEmpty
                                           ? widget.userFont
                                           : null,
@@ -1006,7 +1006,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                                             valueColor: AlwaysStoppedAnimation(
                                               item.progress >= 1.0
                                                   ? AppTheme.successColor
-                                                  : AppTheme.primaryColor,
+                                                  : AppTheme.getPrimaryColor(context),
                                             ),
                                             minHeight: 6,
                                           ),
@@ -1022,7 +1022,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                       }
                       return Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: GlassConstants.spacingSmall, vertical: 2),
+                            horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingMicro),
                         child: Row(
                           children: [
                             Checkbox(
@@ -1033,7 +1033,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                                       setState(() =>
                                           item.selected = checked ?? false);
                                     },
-                              activeColor: AppTheme.primaryColor,
+                              activeColor: AppTheme.getPrimaryColor(context),
                               visualDensity:
                                   VisualDensity(horizontal: -4, vertical: -4),
                             ),
@@ -1043,7 +1043,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                               isExpanded: true,
                               isDense: true,
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: GlassConstants.spacingSmall, vertical: 2),
+                                  horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingMicro),
                               textStyle: TextStyle(
                                 fontSize: GlassConstants.fontSmall,
                                 color: AppTheme.getTextPrimary(context),
@@ -1145,7 +1145,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                       color: _failCount > 0
                           ? AppTheme.warningColor
                           : AppTheme.successColor,
-                      size: 20,
+                      size: GlassConstants.iconControl,
                     ),
                     const SizedBox(width: GlassConstants.spacingSmall),
                     Text(
@@ -1173,8 +1173,8 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                       widget.onImportComplete();
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppTheme.getPrimaryColor(context),
+                      foregroundColor: AppTheme.getOnPrimaryColor(context),
                     ),
                     child: const Text('确认'),
                   ),
@@ -1208,10 +1208,10 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                         ? null
                         : _startImport,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppTheme.getPrimaryColor(context),
+                      foregroundColor: AppTheme.getOnPrimaryColor(context),
                       disabledBackgroundColor:
-                          AppTheme.primaryColor.withValues(alpha: 0.4),
+                          AppTheme.getPrimaryColor(context).withValues(alpha: 0.4),
                     ),
                     child: _importing
                         ? SizedBox(

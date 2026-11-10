@@ -191,7 +191,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
             Row(
               children: [
                 Icon(Icons.photo_library,
-                    color: AppTheme.getPrimaryColor(context), size: 24),
+                    color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconMedium),
                 const SizedBox(width: GlassConstants.spacingCompact),
                 Expanded(
                   child: Text(
@@ -215,7 +215,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _isLoading ? null : _addLocalImage,
-                    icon: const Icon(Icons.folder_open, size: 18),
+                    icon: const Icon(Icons.folder_open, size: GlassConstants.iconAction),
                     label: const Text('本地图片'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.getPrimaryColor(context),
@@ -230,7 +230,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _isLoading ? null : _addImageFromUrl,
-                    icon: const Icon(Icons.link, size: 18),
+                    icon: const Icon(Icons.link, size: GlassConstants.iconAction),
                     label: const Text('URL图片'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.getPrimaryColor(context),
@@ -276,7 +276,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                 const SizedBox(width: GlassConstants.spacingCompact),
                 ElevatedButton.icon(
                   onPressed: _isLoading ? null : _saveChanges,
-                  icon: const Icon(Icons.save, size: 18),
+                  icon: const Icon(Icons.save, size: GlassConstants.iconAction),
                   label: const Text('保存'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.getPrimaryColor(context),

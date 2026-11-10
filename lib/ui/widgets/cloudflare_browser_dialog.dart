@@ -477,7 +477,7 @@ class _ExternalBrowserDialogState extends State<_ExternalBrowserDialog> {
                           height: 14,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.check_circle_outline, size: 16),
+                      : const Icon(Icons.check_circle_outline, size: GlassConstants.iconSmall),
                   label: Text(_reading ? '读取中' : '使用当前页面'),
                 ),
               ],
@@ -777,7 +777,7 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
             Row(
               children: [
                 Icon(Icons.security_outlined,
-                    color: AppTheme.getPrimaryColor(context), size: 22),
+                    color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconSection),
                 const SizedBox(width: GlassConstants.spacingCompact),
                 Expanded(
                   child: Text(
@@ -858,14 +858,14 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
               ),
             ),
             if (_error != null) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: GlassConstants.spacingInline),
               Text(
                 _error!,
                 style:
                     const TextStyle(color: AppTheme.errorColor, fontSize: GlassConstants.fontSmall),
               ),
             ],
-            const SizedBox(height: 14),
+            const SizedBox(height: GlassConstants.spacingControl),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -885,7 +885,7 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
                             color: AppTheme.getPrimaryColor(context),
                           ),
                         )
-                      : const Icon(Icons.check_circle_outline, size: 16),
+                      : const Icon(Icons.check_circle_outline, size: GlassConstants.iconSmall),
                   label: Text(_isReadingHtml ? '读取中' : '使用当前页面'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.getPrimaryColor(context)

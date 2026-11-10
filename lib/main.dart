@@ -541,8 +541,8 @@ class _ErrorBoundaryState extends State<ErrorBoundary>
           backgroundColor: Colors.transparent,
           body: Center(
             child: GlassContainer(
-              margin: const EdgeInsets.all(40),
-              padding: const EdgeInsets.all(32),
+              margin: const EdgeInsets.all(GlassConstants.spacingPage),
+              padding: const EdgeInsets.all(GlassConstants.spacingXLarge),
               borderRadius: GlassConstants.radiusXLarge,
               color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.85),
               child: Column(
@@ -551,20 +551,20 @@ class _ErrorBoundaryState extends State<ErrorBoundary>
                   Icon(
                     Icons.error_outline,
                     color: AppTheme.errorColor,
-                    size: 72,
+                    size: GlassConstants.iconErrorState,
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: GlassConstants.spacingComfortable),
                   const Text(
                     '应用发生错误',
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: GlassConstants.fontDisplay,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.errorColor,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: GlassConstants.spacingComfortable),
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(GlassConstants.spacingMedium),
                     decoration: BoxDecoration(
                       color: AppTheme.errorColor.withValues(alpha: 0.06),
                       borderRadius:
@@ -584,16 +584,16 @@ class _ErrorBoundaryState extends State<ErrorBoundary>
                             color: AppTheme.errorColor,
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: GlassConstants.spacingTight),
                         Text(
                           _error.toString(),
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: GlassConstants.fontControl,
                             color: AppTheme.getTextPrimary(context),
                           ),
                         ),
                         if (_stackTrace != null) ...[
-                          const SizedBox(height: 14),
+                          const SizedBox(height: GlassConstants.spacingControl),
                           const Text(
                             '堆栈跟踪:',
                             style: TextStyle(
@@ -601,14 +601,14 @@ class _ErrorBoundaryState extends State<ErrorBoundary>
                               color: AppTheme.errorColor,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: GlassConstants.spacingTight),
                           SizedBox(
                             height: 150,
                             child: SingleChildScrollView(
                               child: Text(
                                 _stackTrace.toString(),
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: GlassConstants.fontSmall,
                                   color: AppTheme.getTextSecondary(context),
                                 ),
                               ),
@@ -618,9 +618,9 @@ class _ErrorBoundaryState extends State<ErrorBoundary>
                       ],
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: GlassConstants.spacingDialog),
                   GlassButton(
-                    gradient: AppTheme.primaryGradient,
+                    gradient: AppTheme.getPrimaryGradient(context),
                     onPressed: () {
                       setState(() {
                         _error = null;
@@ -633,8 +633,8 @@ class _ErrorBoundaryState extends State<ErrorBoundary>
                       children: [
                         Icon(Icons.refresh,
                             color: AppTheme.getTextColorOnPrimary(context),
-                            size: 18),
-                        const SizedBox(width: 8),
+                            size: GlassConstants.iconAction),
+                        const SizedBox(width: GlassConstants.spacingSmall),
                         Text('重试',
                             style: TextStyle(
                                 color: AppTheme.getTextColorOnPrimary(context),

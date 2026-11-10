@@ -584,7 +584,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       Row(
                         children: [
                           Icon(Icons.cloud_download,
-                              size: 14,
+                              size: GlassConstants.iconCompact,
                               color: AppTheme.getPrimaryColor(context)),
                           const SizedBox(width: GlassConstants.spacingSmall),
                           Text(
@@ -648,7 +648,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       child: Row(
         children: [
           Icon(Icons.videogame_asset,
-              color: AppTheme.getPrimaryColor(context), size: 22),
+              color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconSection),
           const SizedBox(width: GlassConstants.spacingCompact),
           Expanded(
             child: Text(
@@ -718,7 +718,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                               : _quickScrapeChannel == 'dlsite'
                                   ? Icons.language
                                   : Icons.auto_fix_high,
-                          size: 16,
+                          size: GlassConstants.iconSmall,
                           color: AppTheme.getPrimaryColor(context),
                         ),
                         if (_showChannelSelector) ...[
@@ -730,7 +730,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             }),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: GlassConstants.spacingTight, vertical: 2),
+                                  horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingMicro),
                               decoration: BoxDecoration(
                                 color: _quickScrapeChannel == 'auto'
                                     ? AppTheme.getPrimaryColor(context)
@@ -740,7 +740,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                               ),
                               child: Text('自动',
                                   style: TextStyle(
-                                      fontSize: 10,
+                                      fontSize: GlassConstants.fontBadge,
                                       color: _quickScrapeChannel == 'auto'
                                           ? AppTheme.getPrimaryColor(context)
                                           : AppTheme.getTextSecondary(
@@ -754,7 +754,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             }),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: GlassConstants.spacingTight, vertical: 2),
+                                  horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingMicro),
                               decoration: BoxDecoration(
                                 color: _quickScrapeChannel == 'steam'
                                     ? AppTheme.getPrimaryColor(context)
@@ -764,7 +764,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                               ),
                               child: Text('Steam',
                                   style: TextStyle(
-                                      fontSize: 10,
+                                      fontSize: GlassConstants.fontBadge,
                                       color: _quickScrapeChannel == 'steam'
                                           ? AppTheme.getPrimaryColor(context)
                                           : AppTheme.getTextSecondary(
@@ -778,7 +778,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             }),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: GlassConstants.spacingTight, vertical: 2),
+                                  horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingMicro),
                               decoration: BoxDecoration(
                                 color: _quickScrapeChannel == 'dlsite'
                                     ? AppTheme.getPrimaryColor(context)
@@ -788,7 +788,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                               ),
                               child: Text('DLsite',
                                   style: TextStyle(
-                                      fontSize: 10,
+                                      fontSize: GlassConstants.fontBadge,
                                       color: _quickScrapeChannel == 'dlsite'
                                           ? AppTheme.getPrimaryColor(context)
                                           : AppTheme.getTextSecondary(
@@ -807,7 +807,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             setState(() {});
                           },
                           child: Icon(Icons.close,
-                              size: 16,
+                              size: GlassConstants.iconSmall,
                               color: AppTheme.getTextSecondary(context)),
                         )
                       : null,
@@ -830,7 +830,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2))
                       : Icon(Icons.refresh,
-                          size: 20,
+                          size: GlassConstants.iconControl,
                           color: _currentGame.sourceUrl != null &&
                                   _currentGame.sourceUrl!.isNotEmpty
                               ? AppTheme.getDetailTextPrimary(context)
@@ -846,7 +846,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ),
             IconButton(
               icon: Icon(Icons.edit_outlined,
-                  size: 20, color: AppTheme.getDetailTextPrimary(context)),
+                  size: GlassConstants.iconControl, color: AppTheme.getDetailTextPrimary(context)),
               tooltip: '编辑',
               onPressed: () => setState(() {
                 _viewingOriginal = false;
@@ -855,7 +855,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ),
             IconButton(
               icon: Icon(Icons.close,
-                  size: 22, color: AppTheme.getDetailTextPrimary(context)),
+                  size: GlassConstants.iconSection, color: AppTheme.getDetailTextPrimary(context)),
               tooltip: '关闭 (ESC)',
               onPressed: () => Navigator.of(context).pop(),
             ),
@@ -940,7 +940,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                           _currentGame.useLocaleEmulator
                               ? Icons.check_box
                               : Icons.check_box_outline_blank,
-                          size: 18,
+                          size: GlassConstants.iconAction,
                           color: AppTheme.getPrimaryColor(context),
                         ),
                         const SizedBox(width: GlassConstants.spacingSmall),
@@ -980,16 +980,16 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   _currentGame.useLocaleEmulator
                       ? Icons.language
                       : Icons.play_arrow,
-                  size: 20,
+                  size: GlassConstants.iconControl,
                 ),
                 label:
                     Text(_currentGame.useLocaleEmulator ? '开始游玩[转区]' : '开始游玩'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _currentGame.useLocaleEmulator
-                      ? AppTheme.secondaryColor
+                      ? AppTheme.getSecondaryColor(context)
                       : AppTheme.getPrimaryColor(context),
                   foregroundColor: AppTheme.getOnPrimaryColor(context),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingInline),
                   shape: RoundedRectangleBorder(
                       borderRadius:
                           BorderRadius.circular(GlassConstants.radiusMedium)),
@@ -1004,14 +1004,14 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: () => _openSaveLocation(),
-                icon: const Icon(Icons.folder_special, size: 18),
+                icon: const Icon(Icons.folder_special, size: GlassConstants.iconAction),
                 label: const Text('存档管理'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.getPrimaryColor(context),
                   side: BorderSide(
                       color: AppTheme.getPrimaryColor(context)
                           .withValues(alpha: 0.3)),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingInline),
                   shape: RoundedRectangleBorder(
                       borderRadius:
                           BorderRadius.circular(GlassConstants.radiusMedium)),
@@ -1043,7 +1043,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.image_not_supported_outlined,
-                      size: 48,
+                      size: GlassConstants.iconPlaceholder,
                       color: AppTheme.getDetailTextPrimary(context)
                           .withValues(alpha: 0.3)),
                   const SizedBox(height: GlassConstants.spacingSmall),
@@ -1085,7 +1085,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             .withValues(alpha: 0.3),
                         child: Center(
                             child: Icon(Icons.broken_image,
-                                size: 36,
+                                size: GlassConstants.iconFeature,
                                 color: AppTheme.getDetailTextPrimary(context)
                                     .withValues(alpha: 0.3))),
                       ),
@@ -1106,10 +1106,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                           ),
                           child: Text(
                               '${_currentImageIndex + 1} / ${images.length}',
-                              style: TextStyle(
+                              style: const TextStyle(
                                   fontSize: GlassConstants.fontCaption,
                                   color:
-                                      AppTheme.getTextColorOnPrimary(context))),
+                                      AppTheme.lightForegroundColor)),
                         ),
                       ),
                     ),
@@ -1122,7 +1122,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: _openImageManager,
-            icon: const Icon(Icons.edit, size: 16),
+            icon: const Icon(Icons.edit, size: GlassConstants.iconSmall),
             label: const Text('管理图片'),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.getPrimaryColor(context),
@@ -1266,12 +1266,12 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: GlassConstants.spacingSmall, vertical: 3),
+                                  horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingFine),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryLightColor.withValues(alpha: 0.1),
+                                color: AppTheme.getPrimaryLightColor(context).withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
                                 border: Border.all(
-                                    color: AppTheme.primaryLightColor.withValues(alpha: 0.2)),
+                                    color: AppTheme.getPrimaryLightColor(context).withValues(alpha: 0.2)),
                               ),
                               child: Text(tag.name,
                                   style: TextStyle(
@@ -1282,14 +1282,14 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 );
               },
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: GlassConstants.spacingInline),
           ],
           if (_isEditing) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.folder_outlined,
-                    size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                    size: GlassConstants.iconInline, color: AppTheme.getDetailTextPrimary(context)),
                 const SizedBox(width: GlassConstants.spacingSmall),
                 Text('路径:',
                     style: TextStyle(
@@ -1329,12 +1329,12 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 isPath: true),
           ],
           if (_isEditing) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: GlassConstants.spacingInline),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.tag,
-                    size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                    size: GlassConstants.iconInline, color: AppTheme.getDetailTextPrimary(context)),
                 const SizedBox(width: GlassConstants.spacingSmall),
                 Text('版本:',
                     style: TextStyle(
@@ -1362,12 +1362,12 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: GlassConstants.spacingInline),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.business,
-                    size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                    size: GlassConstants.iconInline, color: AppTheme.getDetailTextPrimary(context)),
                 const SizedBox(width: GlassConstants.spacingSmall),
                 Text('厂商:',
                     style: TextStyle(
@@ -1401,11 +1401,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               ],
             ),
           ] else if (_currentGame.version != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: GlassConstants.spacingInline),
             _InfoRow(
                 icon: Icons.tag, label: '版本', value: _currentGame.version!),
           ],
-          const SizedBox(height: 10),
+          const SizedBox(height: GlassConstants.spacingInline),
           _InfoRow(
             icon: _currentGame.isPlayed
                 ? Icons.check_circle
@@ -1419,19 +1419,19 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 : AppTheme.getDetailTextPrimary(context),
           ),
           if (_currentGame.lastPlayedTime != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: GlassConstants.spacingInline),
             _InfoRow(
                 icon: Icons.access_time,
                 label: '最后游玩',
                 value: _formatDate(_currentGame.lastPlayedTime!)),
           ],
           if (_isEditing) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: GlassConstants.spacingInline),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.link,
-                    size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                    size: GlassConstants.iconInline, color: AppTheme.getDetailTextPrimary(context)),
                 const SizedBox(width: GlassConstants.spacingSmall),
                 Text('来源:',
                     style: TextStyle(
@@ -1462,11 +1462,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ),
           ] else if (_currentGame.sourceUrl != null &&
               _currentGame.sourceUrl!.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: GlassConstants.spacingInline),
             Row(
               children: [
                 Icon(Icons.link,
-                    size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                    size: GlassConstants.iconInline, color: AppTheme.getDetailTextPrimary(context)),
                 const SizedBox(width: GlassConstants.spacingSmall),
                 Text('来源:',
                     style: TextStyle(
@@ -1485,7 +1485,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       // 外部浏览器打开失败时静默处理
                     }
                   },
-                  icon: const Icon(Icons.open_in_new, size: 12),
+                  icon: const Icon(Icons.open_in_new, size: GlassConstants.iconTiny),
                   label: const Text('来源', style: TextStyle(fontSize: GlassConstants.fontCaption)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.getPrimaryColor(context)
@@ -1558,7 +1558,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       _gameLauncherController.text = result.files.first.path!;
                     }
                   },
-                  icon: const Icon(Icons.folder_open, size: 16),
+                  icon: const Icon(Icons.folder_open, size: GlassConstants.iconSmall),
                   label: const Text('浏览', style: TextStyle(fontSize: GlassConstants.fontSmall)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.getPrimaryColor(context),
@@ -1577,12 +1577,12 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           // 存档路径信息（仅编辑模式或有存档路径时显示）
           if (_isEditing &&
               (_currentGame.isPlayed || _currentGame.playCount > 0)) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: GlassConstants.spacingInline),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.folder_special,
-                    size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                    size: GlassConstants.iconInline, color: AppTheme.getDetailTextPrimary(context)),
                 const SizedBox(width: GlassConstants.spacingSmall),
                 Text('存档:',
                     style: TextStyle(
@@ -1613,7 +1613,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ),
           ] else if (_currentGame.savePath != null &&
               _currentGame.savePath!.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: GlassConstants.spacingInline),
             _InfoRow(
                 icon: Icons.folder_special,
                 label: '存档',
@@ -1621,12 +1621,12 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 isPath: true),
           ],
           if (_isEditing) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: GlassConstants.spacingInline),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.timer,
-                    size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                    size: GlassConstants.iconInline, color: AppTheme.getDetailTextPrimary(context)),
                 const SizedBox(width: GlassConstants.spacingSmall),
                 Text('游玩时长:',
                     style: TextStyle(
@@ -1648,12 +1648,12 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ),
           ],
           if (_isEditing) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: GlassConstants.spacingInline),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.download,
-                    size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                    size: GlassConstants.iconInline, color: AppTheme.getDetailTextPrimary(context)),
                 const SizedBox(width: GlassConstants.spacingSmall),
                 Text('下载:',
                     style: TextStyle(
@@ -1685,7 +1685,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ),
           ] else if (_currentGame.downloadUrl != null &&
               _currentGame.downloadUrl!.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: GlassConstants.spacingInline),
             _buildDownloadLinks(_currentGame.downloadUrl!),
           ],
         ],
@@ -1699,11 +1699,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       runSpacing: 6,
       children: [
         ..._editedTags.map((tag) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingFine),
               decoration: BoxDecoration(
-                color: AppTheme.primaryLightColor.withValues(alpha: 0.1),
+                color: AppTheme.getPrimaryLightColor(context).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
-                border: Border.all(color: AppTheme.primaryLightColor.withValues(alpha: 0.2)),
+                border: Border.all(color: AppTheme.getPrimaryLightColor(context).withValues(alpha: 0.2)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1719,7 +1719,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   GestureDetector(
                     onTap: () => setState(() => _editedTags.remove(tag)),
                     child:
-                        Icon(Icons.close, size: 12, color: AppTheme.getPrimaryColor(context)),
+                        Icon(Icons.close, size: GlassConstants.iconTiny, color: AppTheme.getPrimaryColor(context)),
                   ),
                 ],
               ),
@@ -1727,7 +1727,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         GestureDetector(
           onTap: () => _showAddTagDialog(),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingFine),
             decoration: BoxDecoration(
               color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
@@ -1736,7 +1736,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       AppTheme.getPrimaryColor(context).withValues(alpha: 0.2)),
             ),
             child: Icon(Icons.add,
-                size: 12, color: AppTheme.getPrimaryColor(context)),
+                size: GlassConstants.iconTiny, color: AppTheme.getPrimaryColor(context)),
           ),
         ),
       ],
@@ -2080,7 +2080,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           child: SingleChildScrollView(
             key: _contentPanelKey,
             controller: _contentScrollController,
-            padding: const EdgeInsets.all(28),
+            padding: const EdgeInsets.all(GlassConstants.spacingDialog),
             child: Column(
               key: _scrollContentKey,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2089,7 +2089,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   TextField(
                     controller: _titleController,
                     style: TextStyle(
-                        fontSize: 26,
+                        fontSize: GlassConstants.fontDetailTitle,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.getDetailTextPrimary(context),
                         height: 1.4),
@@ -2110,7 +2110,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   SelectableText(
                     _displayGame.title ?? '未命名游戏',
                     style: TextStyle(
-                        fontSize: 26,
+                        fontSize: GlassConstants.fontDetailTitle,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.getDetailTextPrimary(context),
                         height: 1.4),
@@ -2145,7 +2145,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   Row(
                     children: [
                       Icon(Icons.business,
-                          size: 15, color: AppTheme.getTextSecondary(context)),
+                          size: GlassConstants.iconInline, color: AppTheme.getTextSecondary(context)),
                       const SizedBox(width: GlassConstants.spacingTight),
                       Expanded(
                         child: Wrap(
@@ -2173,7 +2173,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                               borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: GlassConstants.spacingSmall, vertical: 3),
+                                    horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingFine),
                                 decoration: BoxDecoration(
                                   color: AppTheme.getPrimaryColor(context)
                                       .withValues(alpha: 0.1),
@@ -2209,7 +2209,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       if (_currentGame.version != null)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: GlassConstants.spacingTiny),
+                              horizontal: GlassConstants.spacingInline, vertical: GlassConstants.spacingTiny),
                           decoration: BoxDecoration(
                             color: AppTheme.getPrimaryColor(context)
                                 .withValues(alpha: 0.1),
@@ -2238,7 +2238,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                                                 context)),
                                       )
                                     : Icon(Icons.browser_updated,
-                                        size: 16,
+                                        size: GlassConstants.iconSmall,
                                         color:
                                             AppTheme.getPrimaryColor(context)),
                               ),
@@ -2248,7 +2248,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       if (_currentGame.playDuration > 0)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: GlassConstants.spacingTiny),
+                              horizontal: GlassConstants.spacingInline, vertical: GlassConstants.spacingTiny),
                           decoration: BoxDecoration(
                             color: AppTheme.getPrimaryColor(context)
                                 .withValues(alpha: 0.1),
@@ -2258,7 +2258,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.timer,
-                                  size: 14,
+                                  size: GlassConstants.iconCompact,
                                   color: AppTheme.getPrimaryColor(context)),
                               const SizedBox(width: GlassConstants.spacingTiny),
                               Text(
@@ -2278,15 +2278,15 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             final starValue = index + 1;
                             if (_currentGame.rating >= starValue) {
                               return Icon(Icons.star,
-                                  size: 18,
+                                  size: GlassConstants.iconAction,
                                   color: AppTheme.getStarColor(context));
                             } else if (_currentGame.rating >= starValue - 0.5) {
                               return Icon(Icons.star_half,
-                                  size: 18,
+                                  size: GlassConstants.iconAction,
                                   color: AppTheme.getStarColor(context));
                             } else {
                               return Icon(Icons.star_border,
-                                  size: 18,
+                                  size: GlassConstants.iconAction,
                                   color: AppTheme.getTextSecondary(context));
                             }
                           }),
@@ -2440,7 +2440,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.menu_book,
-                  size: 24,
+                  size: GlassConstants.iconMedium,
                   color: AppTheme.getTextSecondary(context)
                       .withValues(alpha: 0.5)),
               const SizedBox(width: GlassConstants.spacingCompact),
@@ -2462,7 +2462,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           children: [
             OutlinedButton.icon(
               onPressed: _openGuideSearch,
-              icon: const Icon(Icons.search, size: 16),
+              icon: const Icon(Icons.search, size: GlassConstants.iconSmall),
               label: const Text('重新搜索'),
               style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.getPrimaryColor(context)),
@@ -2479,7 +2479,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 await repo.updateGuide(_currentGame.id!, null);
                 _syncGuideToMetadata(null);
               },
-              icon: const Icon(Icons.delete_outline, size: 16),
+              icon: const Icon(Icons.delete_outline, size: GlassConstants.iconSmall),
               label: const Text('清除攻略'),
               style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.errorColor),
@@ -2591,16 +2591,16 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       children: [
         Row(
           children: [
-            Icon(icon, size: 18, color: AppTheme.getPrimaryColor(context)),
+            Icon(icon, size: GlassConstants.iconAction, color: AppTheme.getPrimaryColor(context)),
             const SizedBox(width: GlassConstants.spacingSmall),
             Text(title,
                 style: TextStyle(
-                    fontSize: 17,
+                    fontSize: GlassConstants.fontSubtitle,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.getDetailTextPrimary(context))),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: GlassConstants.spacingControl),
         if (_isEditing && title == '简介') ...[
           ConstrainedBox(
             constraints: const BoxConstraints(
@@ -2644,7 +2644,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   children: [
                     IconButton(
                       onPressed: () => _insertImageToContent(title),
-                      icon: const Icon(Icons.add_photo_alternate, size: 20),
+                      icon: const Icon(Icons.add_photo_alternate, size: GlassConstants.iconControl),
                       tooltip: '插入图片',
                       style: IconButton.styleFrom(
                         backgroundColor: AppTheme.getPrimaryColor(context)
@@ -2655,7 +2655,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     const SizedBox(height: GlassConstants.spacingTiny),
                     Text('插入图片',
                         style: TextStyle(
-                            fontSize: 10,
+                            fontSize: GlassConstants.fontBadge,
                             color: AppTheme.getTextSecondary(context))),
                   ],
                 ),
@@ -3021,7 +3021,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           ));
         case _ContentBlockType.text:
           children.add(Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
+            padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingMicro),
             child: buildRichTextWidget(
               block.text,
               TextStyle(
@@ -3515,7 +3515,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(Icons.download,
-                size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                size: GlassConstants.iconInline, color: AppTheme.getDetailTextPrimary(context)),
             const SizedBox(width: GlassConstants.spacingSmall),
             Text('下载:',
                 style: TextStyle(
@@ -3548,7 +3548,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: GlassConstants.spacingTiny),
+                                  horizontal: GlassConstants.spacingInline, vertical: GlassConstants.spacingTiny),
                               decoration: BoxDecoration(
                                 color: AppTheme.getPrimaryColor(context)
                                     .withValues(alpha: 0.1),
@@ -3604,7 +3604,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(Icons.vpn_key_outlined,
-                  size: 15, color: AppTheme.getDetailTextPrimary(context)),
+                  size: GlassConstants.iconInline, color: AppTheme.getDetailTextPrimary(context)),
               const SizedBox(width: GlassConstants.spacingSmall),
               Text('解压码:',
                   style: TextStyle(
@@ -3620,16 +3620,16 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: GlassConstants.spacingTiny),
+                            horizontal: GlassConstants.spacingInline, vertical: GlassConstants.spacingTiny),
                         decoration: BoxDecoration(
-                          color: AppTheme.secondaryColor.withValues(alpha: 0.1),
+                          color: AppTheme.getSecondaryColor(context).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
                           border: Border.all(
-                              color: AppTheme.secondaryColor.withValues(alpha: 0.2)),
+                              color: AppTheme.getSecondaryColor(context).withValues(alpha: 0.2)),
                         ),
-                        child: const Text('解压码',
+                        child:  Text('解压码',
                             style:
-                                TextStyle(fontSize: GlassConstants.fontCaption, color: AppTheme.secondaryColor)),
+                                TextStyle(fontSize: GlassConstants.fontCaption, color: AppTheme.getSecondaryColor(context))),
                       ),
                     ),
                   )),
@@ -3907,16 +3907,16 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         Row(
           children: [
             Icon(Icons.photo_library_outlined,
-                size: 18, color: AppTheme.getPrimaryColor(context)),
+                size: GlassConstants.iconAction, color: AppTheme.getPrimaryColor(context)),
             const SizedBox(width: GlassConstants.spacingSmall),
             Text('更多图片',
                 style: TextStyle(
-                    fontSize: 17,
+                    fontSize: GlassConstants.fontSubtitle,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.getDetailTextPrimary(context))),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: GlassConstants.spacingControl),
         Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -3933,16 +3933,16 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         Row(
           children: [
             Icon(Icons.photo_library,
-                size: 18, color: AppTheme.getPrimaryColor(context)),
+                size: GlassConstants.iconAction, color: AppTheme.getPrimaryColor(context)),
             const SizedBox(width: GlassConstants.spacingSmall),
             Text('全部图片 (${images.length})',
                 style: TextStyle(
-                    fontSize: 17,
+                    fontSize: GlassConstants.fontSubtitle,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.getDetailTextPrimary(context))),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: GlassConstants.spacingControl),
         Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -3954,7 +3954,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   Widget _buildEditBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingControl),
       decoration: BoxDecoration(
         color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.05),
       ),
@@ -3963,7 +3963,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         children: [
           TextButton.icon(
             onPressed: () => setState(() => _isEditing = false),
-            icon: const Icon(Icons.close, size: 18),
+            icon: const Icon(Icons.close, size: GlassConstants.iconAction),
             label: const Text('取消'),
             style: TextButton.styleFrom(
                 foregroundColor: AppTheme.getDetailTextPrimary(context)),
@@ -3971,14 +3971,14 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           const SizedBox(width: GlassConstants.spacingCompact),
           ElevatedButton.icon(
             onPressed: _saveChanges,
-            icon: const Icon(Icons.save, size: 18),
+            icon: const Icon(Icons.save, size: GlassConstants.iconAction),
             label: const Text('保存修改'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.getPrimaryColor(context),
               foregroundColor: AppTheme.getOnPrimaryColor(context),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(GlassConstants.radiusControl)),
-              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingInline),
             ),
           ),
         ],
@@ -5262,7 +5262,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               Row(
                 children: [
                   Icon(Icons.system_update,
-                      color: AppTheme.successColor, size: 22),
+                      color: AppTheme.successColor, size: GlassConstants.iconSection),
                   const SizedBox(width: GlassConstants.spacingSmall),
                   Text('发现新版本',
                       style: TextStyle(
@@ -5311,7 +5311,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                               // 外部浏览器打开失败时静默处理
                             }
                           },
-                    icon: const Icon(Icons.open_in_new, size: 16),
+                    icon: const Icon(Icons.open_in_new, size: GlassConstants.iconSmall),
                     label: const Text('前往下载'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.getPrimaryColor(context),
@@ -5435,7 +5435,7 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
             color: Colors.transparent,
             child: Container(
               width: 320,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingControl, vertical: GlassConstants.spacingInline),
               decoration: BoxDecoration(
                 color: AppTheme.getSurfaceColor(context),
                 borderRadius: BorderRadius.circular(GlassConstants.radiusControl),
@@ -5444,7 +5444,7 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
                         .withValues(alpha: 0.3)),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
+                      color: AppTheme.getShadowColor(context),
                       blurRadius: 12,
                       offset: const Offset(0, 2)),
                 ],
@@ -5455,7 +5455,7 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.comment, size: 14, color: AppTheme.errorColor),
+                      Icon(Icons.comment, size: GlassConstants.iconCompact, color: AppTheme.errorColor),
                       SizedBox(width: GlassConstants.spacingTight),
                       Text('评论预览',
                           style: TextStyle(
@@ -5517,7 +5517,7 @@ class _HoverReviewButtonState extends State<_HoverReviewButton> {
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.comment, size: 14, color: AppTheme.errorColor),
+              Icon(Icons.comment, size: GlassConstants.iconCompact, color: AppTheme.errorColor),
               SizedBox(width: GlassConstants.spacingTiny),
               Text('评论',
                   style: TextStyle(
@@ -5554,7 +5554,7 @@ class _InfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 15, color: AppTheme.getDetailTextPrimary(context)),
+        Icon(icon, size: GlassConstants.iconInline, color: AppTheme.getDetailTextPrimary(context)),
         const SizedBox(width: GlassConstants.spacingSmall),
         Text('$label:',
             style: TextStyle(
@@ -5644,7 +5644,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
           children: [
             Row(
               children: [
-                const Icon(Icons.comment, color: AppTheme.errorColor, size: 20),
+                const Icon(Icons.comment, color: AppTheme.errorColor, size: GlassConstants.iconControl),
                 const SizedBox(width: GlassConstants.spacingSmall),
                 Expanded(
                   child: Text(
@@ -5658,7 +5658,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, size: 20),
+                  icon: const Icon(Icons.close, size: GlassConstants.iconControl),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
@@ -5673,7 +5673,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
             Builder(
               builder: (context) {
                 const starSize = 32.0;
-                const starGap = 4.0;
+                const starGap = GlassConstants.spacingTiny;
                 const starAreaWidth = 5 * (starSize + starGap) - starGap;
                 return Listener(
                   onPointerDown: (event) {
@@ -5743,9 +5743,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                     color: AppTheme.getTextSecondary(context)
                         .withValues(alpha: 0.5)),
                 filled: true,
-                fillColor: Theme.of(context).brightness == Brightness.dark
-                    ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5)
-                    : AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
+                fillColor: AppTheme.getInputFillColor(context),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
                   borderSide:
@@ -5774,7 +5772,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                     Navigator.of(context).pop();
                   },
                   icon: const Icon(Icons.delete_outline,
-                      size: 16, color: AppTheme.errorColor),
+                      size: GlassConstants.iconSmall, color: AppTheme.errorColor),
                   label: const Text('删除',
                       style: TextStyle(color: AppTheme.errorColor)),
                 ),
@@ -5937,7 +5935,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                           .withValues(alpha: 0.3)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
+                      color: AppTheme.getShadowColor(context),
                       blurRadius: 30,
                       offset: const Offset(0, 10),
                     ),
@@ -5958,7 +5956,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                                 alignment: Alignment.center,
                                 child: _currentIndex > 0
                                     ? Icon(Icons.chevron_left,
-                                        size: 48,
+                                        size: GlassConstants.iconPlaceholder,
                                         color: AppTheme.getDetailTextPrimary(
                                                 context)
                                             .withValues(alpha: 0.5))
@@ -5998,7 +5996,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                                 child: Container(
                                   color: Colors.transparent,
                                   padding:
-                                      const EdgeInsets.symmetric(vertical: 40),
+                                      const EdgeInsets.symmetric(vertical: GlassConstants.spacingPage),
                                   child: Center(
                                     child: widget.images.isNotEmpty &&
                                             _currentIndex < widget.images.length
@@ -6027,7 +6025,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                                 alignment: Alignment.center,
                                 child: _currentIndex < widget.images.length - 1
                                     ? Icon(Icons.chevron_right,
-                                        size: 48,
+                                        size: GlassConstants.iconPlaceholder,
                                         color: AppTheme.getDetailTextPrimary(
                                                 context)
                                             .withValues(alpha: 0.5))
@@ -6055,7 +6053,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                               shape: BoxShape.circle,
                             ),
                             child: Icon(Icons.close,
-                                size: 22,
+                                size: GlassConstants.iconSection,
                                 color: AppTheme.getDetailTextPrimary(context)),
                           ),
                         ),
@@ -6067,7 +6065,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                       left: 16,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: GlassConstants.spacingTiny),
+                            horizontal: GlassConstants.spacingInline, vertical: GlassConstants.spacingTiny),
                         decoration: BoxDecoration(
                           color: AppTheme.getBackgroundColor(context)
                               .withValues(alpha: 0.5),
@@ -6086,7 +6084,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                       left: 100,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: GlassConstants.spacingTiny),
+                            horizontal: GlassConstants.spacingInline, vertical: GlassConstants.spacingTiny),
                         decoration: BoxDecoration(
                           color: AppTheme.getBackgroundColor(context)
                               .withValues(alpha: 0.5),
@@ -6110,7 +6108,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                           }),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: GlassConstants.spacingTiny),
+                                horizontal: GlassConstants.spacingInline, vertical: GlassConstants.spacingTiny),
                             decoration: BoxDecoration(
                               color: AppTheme.getBackgroundColor(context)
                                   .withValues(alpha: 0.5),
@@ -6161,7 +6159,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
   Widget _buildBrokenImageIcon() {
     return Icon(
       Icons.broken_image,
-      size: 64,
+      size: GlassConstants.iconEmptyState,
       color: AppTheme.getDetailTextPrimary(context).withValues(alpha: 0.3),
     );
   }
@@ -6194,7 +6192,7 @@ class _ImageSelectionDialog extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.photo_library,
-                    color: AppTheme.getPrimaryColor(context), size: 24),
+                    color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconMedium),
                 const SizedBox(width: GlassConstants.spacingCompact),
                 Expanded(
                   child: Text(
@@ -6249,7 +6247,7 @@ class _ImageSelectionDialog extends StatelessWidget {
                             color: AppTheme.getBackgroundColor(context)
                                 .withValues(alpha: 0.3),
                             child: const Center(
-                                child: Icon(Icons.broken_image, size: 32)),
+                                child: Icon(Icons.broken_image, size: GlassConstants.iconLarge)),
                           ),
                         ),
                       ),
@@ -6366,7 +6364,7 @@ class _InlineVideoPlayerState extends State<_InlineVideoPlayer> {
       return Container(
         height: 200,
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.05),
+          color: AppTheme.getInputFillColor(context),
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
         ),
         child: const Center(child: CircularProgressIndicator()),

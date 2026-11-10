@@ -117,7 +117,7 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
       padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: Row(
         children: [
-          Icon(Icons.drive_file_rename_outline, color: AppTheme.getPrimaryColor(context), size: 24),
+          Icon(Icons.drive_file_rename_outline, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconMedium),
           const SizedBox(width: GlassConstants.spacingCompact),
           Text(
             '重命名规则管理',
@@ -225,7 +225,7 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
                   index: index,
                   child: MouseRegion(
                     cursor: SystemMouseCursors.grab,
-                    child: Icon(Icons.drag_handle, size: 20, color: AppTheme.getTextSecondary(context)),
+                    child: Icon(Icons.drag_handle, size: GlassConstants.iconControl, color: AppTheme.getTextSecondary(context)),
                   ),
                 ),
                 const SizedBox(width: GlassConstants.spacingCompact),

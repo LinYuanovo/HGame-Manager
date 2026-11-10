@@ -46,7 +46,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.build, color: AppTheme.getPrimaryColor(context), size: 28),
+        Icon(Icons.build, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconHeading),
         const SizedBox(width: GlassConstants.spacingCompact),
         Text(
           '工具',
@@ -59,12 +59,12 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
         const Spacer(),
         ElevatedButton.icon(
           onPressed: _importTool,
-          icon: const Icon(Icons.add, size: 18),
+          icon: const Icon(Icons.add, size: GlassConstants.iconAction),
           label: const Text('导入工具'),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.getPrimaryColor(context),
             foregroundColor: AppTheme.getOnPrimaryColor(context),
-            padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingInline),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
             ),
@@ -79,7 +79,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.build_circle_outlined, size: 64, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.2)),
+          Icon(Icons.build_circle_outlined, size: GlassConstants.iconEmptyState, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.2)),
           const SizedBox(height: GlassConstants.spacingMedium),
           Text(
             '还没有工具',
@@ -147,7 +147,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
                 children: [
                   Expanded(
                     child: Center(
-                      child: Icon(iconData, size: 80, color: iconColor),
+                      child: Icon(iconData, size: GlassConstants.iconBrand, color: iconColor),
                     ),
                   ),
                   const SizedBox(height: GlassConstants.spacingSmall),
@@ -213,7 +213,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
         PopupMenuItem(
           child: const Row(
             children: [
-              Icon(Icons.play_arrow, size: 18),
+              Icon(Icons.play_arrow, size: GlassConstants.iconAction),
               SizedBox(width: GlassConstants.spacingSmall),
               Text('启动该工具'),
             ],
@@ -223,7 +223,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
         PopupMenuItem(
           child: const Row(
             children: [
-              Icon(Icons.edit, size: 18),
+              Icon(Icons.edit, size: GlassConstants.iconAction),
               SizedBox(width: GlassConstants.spacingSmall),
               Text('编辑工具名'),
             ],
@@ -233,7 +233,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
         PopupMenuItem(
           child: const Row(
             children: [
-              Icon(Icons.folder_open, size: 18),
+              Icon(Icons.folder_open, size: GlassConstants.iconAction),
               SizedBox(width: GlassConstants.spacingSmall),
               Text('修改工具路径'),
             ],
@@ -243,7 +243,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
         PopupMenuItem(
           child: const Row(
             children: [
-              Icon(Icons.delete_outline, size: 18, color: AppTheme.errorColor),
+              Icon(Icons.delete_outline, size: GlassConstants.iconAction, color: AppTheme.errorColor),
               SizedBox(width: GlassConstants.spacingSmall),
               Text('删除', style: TextStyle(color: AppTheme.errorColor)),
             ],

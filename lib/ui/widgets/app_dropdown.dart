@@ -59,7 +59,7 @@ class AppDropdown<T> extends StatelessWidget {
           icon: icon ??
               Icon(
                 Icons.arrow_drop_down,
-                size: 20,
+                size: GlassConstants.iconControl,
                 color: AppTheme.getTextSecondary(context),
               ),
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),

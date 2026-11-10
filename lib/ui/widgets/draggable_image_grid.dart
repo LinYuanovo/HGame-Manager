@@ -37,7 +37,7 @@ class DraggableImageGrid extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.add_photo_alternate_outlined, size: 48, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.3)),
+              Icon(Icons.add_photo_alternate_outlined, size: GlassConstants.iconPlaceholder, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.3)),
               const SizedBox(height: GlassConstants.spacingSmall),
               Text('暂无图片，点击添加', style: TextStyle(color: AppTheme.getTextPrimary(context).withValues(alpha: 0.5), fontSize: GlassConstants.fontBody)),
             ],
@@ -79,7 +79,7 @@ class DraggableImageGrid extends StatelessWidget {
                     fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) => Container(
                       color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
-                      child: const Center(child: Icon(Icons.broken_image, size: 32)),
+                      child: const Center(child: Icon(Icons.broken_image, size: GlassConstants.iconLarge)),
                     ),
                   ),
                 ),
@@ -90,12 +90,12 @@ class DraggableImageGrid extends StatelessWidget {
                 top: 4,
                 left: 4,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTight, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingMicro),
                   decoration: BoxDecoration(
                     color: AppTheme.getPrimaryColor(context),
                     borderRadius: BorderRadius.circular(GlassConstants.radiusTiny),
                   ),
-                  child: Text('封面', style: TextStyle(fontSize: 10, color: AppTheme.getTextColorOnPrimary(context))),
+                  child: Text('封面', style: TextStyle(fontSize: GlassConstants.fontBadge, color: AppTheme.getTextColorOnPrimary(context))),
                 ),
               ),
             Positioned(
@@ -109,7 +109,7 @@ class DraggableImageGrid extends StatelessWidget {
                     color: AppTheme.getOverlayColor(context),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.close, size: 14, color: AppTheme.getTextColorOnPrimary(context)),
+                  child: const Icon(Icons.close, size: GlassConstants.iconCompact, color: AppTheme.lightForegroundColor),
                 ),
               ),
             ),

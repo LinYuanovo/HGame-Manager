@@ -79,7 +79,7 @@ class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
       padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: Row(
         children: [
-          Icon(Icons.tune, color: AppTheme.getPrimaryColor(context), size: 24),
+          Icon(Icons.tune, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconMedium),
           const SizedBox(width: GlassConstants.spacingCompact),
           Text(
             '刮削行为配置',
@@ -185,7 +185,7 @@ class _TabItemWidgetState extends State<_TabItemWidget> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: GlassConstants.animFast,
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingInline),
           decoration: BoxDecoration(
             color: widget.isSelected
                 ? AppTheme.getPrimaryColor(context)
@@ -239,7 +239,7 @@ class _ConfigTab extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, size: 14, color: AppTheme.getPrimaryColor(context)),
+                Icon(Icons.info_outline, size: GlassConstants.iconCompact, color: AppTheme.getPrimaryColor(context)),
                 const SizedBox(width: GlassConstants.spacingTight),
                 Expanded(
                   child: Text(

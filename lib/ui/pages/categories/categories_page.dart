@@ -113,7 +113,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
     if (box == null || !box.hasSize) return;
     final local = box.globalToLocal(globalPosition);
     const cross = 6;
-    const spacing = 8.0;
+    const spacing = GlassConstants.spacingSmall;
     const ratio = 2.5;
     const paddingH = 16.0;
     final cellWidth =
@@ -376,15 +376,15 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                       padding: const EdgeInsets.all(GlassConstants.spacingSmall),
                       decoration: BoxDecoration(
                         color: _isMultiSelectMode
-                            ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                            ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
                       ),
                       child: Icon(
                         _isMultiSelectMode ? Icons.deselect : Icons.checklist,
-                        size: 18,
+                        size: GlassConstants.iconAction,
                         color: _isMultiSelectMode
-                            ? AppTheme.primaryColor
+                            ? AppTheme.getPrimaryColor(context)
                             : AppTheme.getTextSecondary(context),
                       ),
                     ),
@@ -403,7 +403,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                 padding:
                     const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingSmall),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.08),
                   border: Border(
                       bottom: BorderSide(
                           color: AppTheme.getBorderColor(context)
@@ -416,7 +416,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                       style: TextStyle(
                           fontSize: GlassConstants.fontTitle,
                           fontWeight: FontWeight.w500,
-                          color: AppTheme.primaryColor),
+                          color: AppTheme.getPrimaryColor(context)),
                     ),
                     const SizedBox(width: GlassConstants.spacingMedium),
                     GestureDetector(
@@ -533,7 +533,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
         child: Container(
           decoration: isSelected
               ? BoxDecoration(
-                  border: Border.all(color: AppTheme.primaryColor, width: 2),
+                  border: Border.all(color: AppTheme.getPrimaryColor(context), width: 2),
                   borderRadius:
                       BorderRadius.circular(GlassConstants.radiusMedium),
                 )
@@ -542,10 +542,10 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
             children: [
               Icon(
                 tag.type == Tag.typeSeries ? Icons.category : Icons.label,
-                size: 16,
+                size: GlassConstants.iconSmall,
                 color: tag.type == Tag.typeSeries
-                    ? AppTheme.secondaryColor
-                    : AppTheme.primaryColor,
+                    ? AppTheme.getSecondaryColor(context)
+                    : AppTheme.getPrimaryColor(context),
               ),
               const SizedBox(width: GlassConstants.spacingSmall),
               Expanded(
@@ -558,15 +558,15 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
               if (tag.gameCount > 0)
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTight, vertical: 2),
+                      const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingMicro),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(GlassConstants.radiusControl),
                   ),
                   child: Text(
                     '${tag.gameCount}',
                     style:
-                        TextStyle(fontSize: GlassConstants.fontControl, color: AppTheme.primaryColor),
+                        TextStyle(fontSize: GlassConstants.fontControl, color: AppTheme.getPrimaryColor(context)),
                   ),
                 ),
               const SizedBox(width: GlassConstants.spacingTiny),
@@ -574,7 +574,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                 IconButton(
                   icon: Icon(
                       tag.isFavorite ? Icons.favorite : Icons.favorite_border,
-                      size: 16,
+                      size: GlassConstants.iconSmall,
                       color: tag.isFavorite
                           ? AppTheme.getFavoriteColor(context)
                           : null),
@@ -672,7 +672,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
               child: ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.edit, size: 18),
+                  leading: Icon(Icons.edit, size: GlassConstants.iconAction),
                   title: Text('修改'))),
           PopupMenuItem(
               value: 'delete',
@@ -680,7 +680,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   leading:
-                      Icon(Icons.delete, size: 18, color: AppTheme.errorColor),
+                      Icon(Icons.delete, size: GlassConstants.iconAction, color: AppTheme.errorColor),
                   title: Text('删除',
                       style: TextStyle(color: AppTheme.errorColor)))),
         ],
@@ -691,7 +691,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
               dense: true,
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.lock_outline,
-                  size: 18,
+                  size: GlassConstants.iconAction,
                   color: AppTheme.getTextSecondary(context)
                       .withValues(alpha: 0.5)),
               title: Text('默认系列（不可修改）',
