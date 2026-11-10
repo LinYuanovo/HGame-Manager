@@ -32,7 +32,23 @@ class CloudBackupDialog extends ConsumerStatefulWidget {
 class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
   List<WebDavFile> _files = [];
   bool _isLoading = true;
+  bool _isOperating = false;
   String? _matchedFolder;
+
+  Future<void> _runOperation(Future<void> Function() operation) async {
+    if (_isOperating || _isLoading) return;
+    setState(() => _isOperating = true);
+    try {
+      await operation();
+    } catch (error) {
+      if (mounted) {
+        AppTheme.showGlassToast(context, message: '备份操作失败: $error',
+            icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+      }
+    } finally {
+      if (mounted) setState(() => _isOperating = false);
+    }
+  }
 
   @override
   void initState() {
@@ -99,11 +115,20 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusLarge)),
             title: Row(
               children: [
-                Icon(Icons.cloud_queue, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconSection),
+                if (_isOperating)
+                  SizedBox(
+                    width: GlassConstants.iconSection,
+                    height: GlassConstants.iconSection,
+                    child: AppProgressIndicator(strokeWidth: 2,
+                        color: AppTheme.getPrimaryColor(context)),
+                  )
+                else
+                  Icon(Icons.cloud_queue, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconSection),
                 const SizedBox(width: GlassConstants.spacingSmall),
                 Expanded(
                   child: Text(
-                    '云端备份 - ${widget.game.title ?? "未知游戏"}',
+                    _isOperating ? '正在处理云端备份…'
+                        : '云端备份 - ${widget.game.title ?? "未知游戏"}',
                     style: TextStyle(color: AppTheme.getDetailTextPrimary(context), fontSize: GlassConstants.fontTitle),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -111,7 +136,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                 IconButton(
                   icon: const Icon(Icons.refresh, size: GlassConstants.iconControl),
                   color: AppTheme.getTextSecondary(context),
-                  onPressed: _isLoading ? null : _loadCloudBackups,
+                  onPressed: _isLoading || _isOperating ? null : _loadCloudBackups,
                   tooltip: '刷新',
                 ),
                 IconButton(
@@ -176,21 +201,24 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                                         icon: Icons.download,
                                         tooltip: '下载此备份',
                                         color: AppTheme.getPrimaryColor(context),
-                                        onTap: () => _downloadBackup(f),
+                                        onTap: _isOperating ? null
+                                            : () => _runOperation(() => _downloadBackup(f)),
                                       ),
                                       const SizedBox(width: GlassConstants.spacingTiny),
                                       _MiniIconButton(
                                         icon: Icons.restore,
                                         tooltip: '恢复到此备份',
                                         color: AppTheme.successColor,
-                                        onTap: () => _restoreFromCloud(f),
+                                        onTap: _isOperating ? null
+                                            : () => _runOperation(() => _restoreFromCloud(f)),
                                       ),
                                       const SizedBox(width: GlassConstants.spacingTiny),
                                       _MiniIconButton(
                                         icon: Icons.delete_outline,
                                         tooltip: '删除',
                                         color: AppTheme.errorColor,
-                                        onTap: () => _deleteCloudBackup(f),
+                                        onTap: _isOperating ? null
+                                            : () => _runOperation(() => _deleteCloudBackup(f)),
                                       ),
                                     ],
                                   ),
@@ -209,6 +237,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
   /// 下载云端备份到本地
   Future<void> _downloadBackup(WebDavFile file) async {
     final backupService = ref.read(backupServiceProvider);
+    final service = ref.read(webdavServiceProvider);
     final backupDir = backupService.getBackupDir(widget.game.path);
     if (!await backupDir.exists()) {
       await backupDir.create(recursive: true);
@@ -220,7 +249,6 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
       AppTheme.showGlassToast(context, message: '正在下载...', icon: Icons.cloud_download, iconColor: AppTheme.getPrimaryColor(context));
     }
 
-    final service = ref.read(webdavServiceProvider);
     final success = await service.downloadGameBackup(
       serverUrl: widget.webdavUrl,
       username: widget.webdavUsername,
@@ -252,6 +280,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
 
     // 先下载到本地，再还原
     final backupService = ref.read(backupServiceProvider);
+    final service = ref.read(webdavServiceProvider);
     final backupDir = backupService.getBackupDir(widget.game.path);
     if (!await backupDir.exists()) {
       await backupDir.create(recursive: true);
@@ -263,7 +292,6 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
       AppTheme.showGlassToast(context, message: '正在下载并恢复...', icon: Icons.hourglass_empty, iconColor: AppTheme.getPrimaryColor(context));
     }
 
-    final service = ref.read(webdavServiceProvider);
     final success = await service.downloadGameBackup(
       serverUrl: widget.webdavUrl,
       username: widget.webdavUsername,
@@ -330,7 +358,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
     final service = ref.read(webdavServiceProvider);
     final success = await service.deleteGameBackup(
@@ -344,7 +372,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
     if (mounted) {
       if (success) {
         AppTheme.showGlassToast(context, message: '已删除', icon: Icons.check_circle, iconColor: AppTheme.successColor);
-        _loadCloudBackups(); // 删除后刷新列表
+        await _loadCloudBackups(); // 删除后刷新列表
       } else {
         AppTheme.showGlassToast(context, message: '删除失败', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
@@ -357,7 +385,7 @@ class _MiniIconButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _MiniIconButton({
     required this.icon,
@@ -375,7 +403,8 @@ class _MiniIconButton extends StatelessWidget {
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.all(GlassConstants.spacingTight),
-          child: Icon(icon, size: GlassConstants.iconSmall, color: color),
+          child: Icon(icon, size: GlassConstants.iconSmall,
+              color: onTap == null ? AppTheme.getDisabledColor(context) : color),
         ),
       ),
     );

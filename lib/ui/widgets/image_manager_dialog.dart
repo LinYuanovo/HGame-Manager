@@ -151,6 +151,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
       }
 
       // 刷新数据
+      if (!mounted) return;
       ref.invalidate(allGamesProvider);
       ref.invalidate(playedGamesProvider);
       ref.invalidate(favoriteGamesProvider);
@@ -165,7 +166,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
         AppTheme.showGlassToast(context, message: '保存失败: $e');
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -244,18 +245,32 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
               ],
             ),
             const SizedBox(height: GlassConstants.spacingSmall),
-            Text(
-              '点击图片设为封面，封面将显示在第一张',
-              style: TextStyle(
-                  fontSize: GlassConstants.fontSmall, color: AppTheme.getTextSecondary(context)),
+            SizedBox(
+              height: 20,
+              child: Row(children: [
+                if (_isLoading) ...[
+                  const SizedBox(width: 16, height: 16,
+                      child: AppProgressIndicator(strokeWidth: 2)),
+                  const SizedBox(width: GlassConstants.spacingSmall),
+                ],
+                Text(
+                  _isLoading ? '正在处理图片…' : '点击图片设为封面，封面将显示在第一张',
+                  style: TextStyle(fontSize: GlassConstants.fontSmall,
+                      color: AppTheme.getTextSecondary(context)),
+                ),
+              ]),
             ),
             const SizedBox(height: GlassConstants.spacingMedium),
             Expanded(
-              child: _isLoading
+              child: _isLoading && _images.isEmpty
                   ? const AppSkeleton(
                       layout: SkeletonLayout.posters, columns: 4,
                       label: '正在处理图片')
-                  : DraggableImageGrid(
+                  : ExcludeFocus(
+                    excluding: _isLoading,
+                    child: AbsorbPointer(
+                      absorbing: _isLoading,
+                      child: DraggableImageGrid(
                       images: _images,
                       coverIndex: _coverIndex,
                       onReorder: _reorderImages,
@@ -263,7 +278,9 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                       onTap: (index) {
                         setState(() => _coverIndex = index);
                       },
+                      ),
                     ),
+                  ),
             ),
             const SizedBox(height: GlassConstants.spacingMedium),
             Row(

@@ -26,6 +26,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
   late String? _savePath;
   List<BackupEntry> _backups = [];
   bool _isLoading = false;
+  String? _loadError;
   bool _isBatchDeleteMode = false;
   final Set<String> _selectedForDelete = {};
   bool _isEditingPath = false;
@@ -58,14 +59,20 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
 
   /// 加载本地备份列表
   Future<void> _loadBackups() async {
-    setState(() => _isLoading = true);
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
     final service = ref.read(backupServiceProvider);
-    final backups = await service.listBackups(widget.game.path);
-    if (mounted) {
-      setState(() {
-        _backups = backups;
-        _isLoading = false;
-      });
+    try {
+      final backups = await service.listBackups(widget.game.path);
+      if (mounted) setState(() => _backups = backups);
+    } catch (error, stackTrace) {
+      AppLogger.instance.error('SaveUI', '加载存档失败', error, stackTrace);
+      if (mounted) setState(() => _loadError = error.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -275,7 +282,10 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
               const SizedBox(width: GlassConstants.spacingInline),
               _buildActionButton(Icons.add_circle_outline, '导入存档', AppTheme.warningColor, _addCustomBackup),
               const SizedBox(width: GlassConstants.spacingInline),
-              _buildActionButton(Icons.cloud_download_outlined, '下载存档', AppTheme.getPrimaryColor(context), _downloadFrom2dfan),
+              _buildActionButton(Icons.cloud_download_outlined,
+                  _isDownloading ? '正在获取存档…' : '下载存档',
+                  AppTheme.getPrimaryColor(context), _downloadFrom2dfan,
+                  loading: _isDownloading),
               const SizedBox(width: GlassConstants.spacingInline),
               _buildActionButton(Icons.save_alt, '备份存档', AppTheme.successColor, _backupCurrentSave),
               const SizedBox(width: GlassConstants.spacingInline),
@@ -295,13 +305,14 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
   }
 
   /// 构建单个操作按钮
-  Widget _buildActionButton(IconData icon, String label, Color color, VoidCallback onPressed) {
+  Widget _buildActionButton(IconData icon, String label, Color color, VoidCallback onPressed,
+      {bool loading = false}) {
     return Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
       child: InkWell(
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-        onTap: onPressed,
+        onTap: loading ? null : onPressed,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
           decoration: BoxDecoration(
@@ -312,7 +323,12 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: color, size: GlassConstants.iconSmall),
+              if (loading)
+                SizedBox(width: GlassConstants.iconSmall,
+                    height: GlassConstants.iconSmall,
+                    child: AppProgressIndicator(strokeWidth: 2, color: color))
+              else
+                Icon(icon, color: color, size: GlassConstants.iconSmall),
               const SizedBox(width: GlassConstants.spacingTiny),
               Text(label, style: TextStyle(color: color, fontSize: GlassConstants.fontSmall, fontWeight: FontWeight.w500)),
             ],
@@ -326,6 +342,18 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
   Widget _buildBackupList() {
     if (_isLoading) {
       return const AppSkeleton(label: '正在加载存档');
+    }
+
+    if (_loadError != null) {
+      return Center(child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('存档加载失败: $_loadError',
+              style: TextStyle(color: AppTheme.getTextSecondary(context))),
+          const SizedBox(height: GlassConstants.spacingSmall),
+          TextButton(onPressed: _loadBackups, child: const Text('重试')),
+        ],
+      ));
     }
 
     if (_backups.isEmpty) {

@@ -28,7 +28,10 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
   late TextEditingController _searchController;
   GuideSource _selectedSource = GuideSource.pilipili;
   bool _isSearching = false;
+  bool _isLoadingContent = false;
   List<dynamic> _results = [];
+
+  bool get _isBusy => _isSearching || _isLoadingContent;
 
   @override
   void initState() {
@@ -43,6 +46,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
   }
 
   Future<void> _search() async {
+    if (_isBusy) return;
     final keyword = _searchController.text.trim();
     if (keyword.isEmpty) return;
     setState(() {
@@ -80,6 +84,8 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
   }
 
   Future<void> _selectResult(dynamic result) async {
+    if (_isBusy || ModalRoute.of(context)?.isCurrent == false) return;
+    setState(() => _isLoadingContent = true);
     String? content;
     try {
       if (result is PilipiliSearchResult) {
@@ -91,7 +97,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
 
         // 如果有多个walkthrough，让用户选择
         if (scrapeResult.hasWalkthroughs) {
-          if (!mounted) return;
+          if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
           final selectedWalkthrough =
               await _showWalkthroughDialog(scrapeResult.walkthroughs);
           if (selectedWalkthrough == null) {
@@ -110,9 +116,20 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
         }
       }
 
+      if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
       // 下载图片并替换URL为本地路径
       if (content != null && content.isNotEmpty) {
         content = await _downloadGuideImages(content);
+      }
+
+      if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
+      if (content != null) {
+        Navigator.of(context).pop(content);
+      } else {
+        AppTheme.showGlassToast(context,
+            message: '获取攻略内容失败',
+            icon: Icons.error_outline,
+            iconColor: AppTheme.errorColor);
       }
     } catch (e) {
       final errorMsg = e.toString().replaceFirst('Exception: ', '');
@@ -122,16 +139,8 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
             icon: Icons.error_outline,
             iconColor: AppTheme.errorColor);
       }
-      return;
-    }
-
-    if (content != null && mounted) {
-      Navigator.of(context).pop(content);
-    } else if (mounted && content == null) {
-      AppTheme.showGlassToast(context,
-          message: '获取攻略内容失败',
-          icon: Icons.error_outline,
-          iconColor: AppTheme.errorColor);
+    } finally {
+      if (mounted) setState(() => _isLoadingContent = false);
     }
   }
 
@@ -350,6 +359,23 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
               _buildHeader(),
               _buildSearchBar(),
               Divider(height: 1, color: AppTheme.getBorderColor(context)),
+              if (_isLoadingContent)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: GlassConstants.spacingLarge,
+                      vertical: GlassConstants.spacingSmall),
+                  child: Row(children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: AppProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: GlassConstants.spacingSmall),
+                    Text('正在获取攻略及图片…',
+                        style: TextStyle(
+                            color: AppTheme.getTextSecondary(context))),
+                  ]),
+                ),
               Expanded(child: _buildResults()),
             ],
           ),
@@ -401,7 +427,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                 child: Text('2DFan'),
               ),
             ],
-            onChanged: (v) =>
+            onChanged: _isBusy ? null : (v) =>
                 setState(() => _selectedSource = v ?? GuideSource.pilipili),
           ),
           const SizedBox(width: GlassConstants.spacingCompact),
@@ -409,6 +435,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
             child: SizedBox(
               height: 40,
               child: TextField(
+                readOnly: _isBusy,
                 controller: _searchController,
                 style: TextStyle(
                     fontSize: GlassConstants.fontControl,
@@ -444,7 +471,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
           SizedBox(
             height: 40,
             child: ElevatedButton.icon(
-              onPressed: _isSearching ? null : _search,
+              onPressed: _isBusy ? null : _search,
               icon: _isSearching
                   ? const SizedBox(
                       width: 16,
@@ -485,7 +512,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
             borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
             child: InkWell(
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-              onTap: () => _selectResult(result),
+              onTap: _isBusy ? null : () => _selectResult(result),
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingCompact),

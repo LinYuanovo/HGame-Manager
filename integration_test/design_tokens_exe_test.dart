@@ -13,6 +13,9 @@ import 'package:hgame_manager/core/providers/providers.dart';
 import 'package:hgame_manager/core/repositories/game_repository.dart';
 import 'package:hgame_manager/core/repositories/tag_repository.dart';
 import 'package:hgame_manager/core/services/app_logger.dart';
+import 'package:hgame_manager/core/services/app_update_service.dart';
+import 'package:hgame_manager/core/services/fan2d_service.dart';
+import 'package:hgame_manager/core/services/webdav_service.dart';
 import 'package:hgame_manager/core/utils/app_paths.dart';
 import 'package:hgame_manager/core/utils/app_settings.dart';
 import 'package:hgame_manager/ui/pages/app_router.dart';
@@ -20,6 +23,7 @@ import 'package:hgame_manager/ui/pages/categories/cleared_games_page.dart';
 import 'package:hgame_manager/ui/pages/categories/categories_page.dart';
 import 'package:hgame_manager/ui/pages/categories/tag_games_page.dart';
 import 'package:hgame_manager/ui/pages/games/game_detail_page.dart';
+import 'package:hgame_manager/ui/pages/games/cloud_backup_dialog.dart';
 import 'package:hgame_manager/ui/pages/games/guide_search_dialog.dart';
 import 'package:hgame_manager/ui/pages/games/save_management_dialog.dart';
 import 'package:hgame_manager/ui/pages/home_page.dart';
@@ -33,6 +37,9 @@ import 'package:hgame_manager/ui/pages/settings/settings_page.dart';
 import 'package:hgame_manager/ui/pages/settings/sidebar_manager_dialog.dart';
 import 'package:hgame_manager/ui/theme/app_theme.dart';
 import 'package:hgame_manager/ui/widgets/image_manager_dialog.dart';
+import 'package:hgame_manager/ui/widgets/draggable_image_grid.dart';
+import 'package:hgame_manager/ui/widgets/app_update_dialog.dart';
+import 'package:hgame_manager/ui/widgets/tag_input_dialog.dart';
 import 'package:hgame_manager/ui/widgets/game_list_widget.dart';
 import 'package:hgame_manager/ui/widgets/markdown_editor.dart';
 import 'package:hgame_manager/ui/windows/guide_window.dart';
@@ -161,6 +168,18 @@ void main() {
             ? AppTheme.lightTheme()
             : AppTheme.darkTheme();
         final mode = brightness.name;
+        await render(theme, const HomePage());
+        for (final route in [
+          NavRoute.categories,
+          NavRoute.favorites,
+          NavRoute.tools,
+          NavRoute.games
+        ]) {
+          container.read(selectedNavIndexProvider.notifier).state =
+              route.navIndex;
+          await tester.pump(const Duration(milliseconds: 30));
+        }
+        await capture('${mode}_rapid_navigation');
         for (final route
             in NavRoute.values.where((route) => route != NavRoute.settings)) {
           container.read(selectedNavIndexProvider.notifier).state =
@@ -206,6 +225,17 @@ void main() {
             ]) {
               await render(theme, route.buildPage(), scope: scope);
               await capture('${mode}_${route.name}_$phase');
+              if (route == NavRoute.categories || route == NavRoute.favorites) {
+                await tester.tap(
+                    find.text(route == NavRoute.categories ? '标签' : '分类').last);
+                await capture('${mode}_${route.name}_second_$phase');
+              }
+              if (route == NavRoute.games && phase == 'loading') {
+                await settings.setString('game_list_view_mode', 'list');
+                await render(theme, route.buildPage(), scope: scope);
+                await capture('${mode}_games_rows_loading');
+                await settings.setString('game_list_view_mode', 'poster');
+              }
             }
           } finally {
             await tester.pumpWidget(const SizedBox.shrink());
@@ -247,6 +277,9 @@ void main() {
           'guide_search': GuideSearchDialog(game: game, initialKeyword: '主题检查'),
           'tag_games': TagGamesPage(tagId: tagId, tagName: '冒险'),
           'cleared_games': const ClearedGamesPage(),
+          'tag_input': TagInputDialog(selectedTags: const [], availableTags: [
+            Tag(id: tagId, name: '冒险', type: Tag.typeCustom)
+          ]),
         };
         for (final entry in dialogs.entries) {
           await render(theme, entry.value);
@@ -261,6 +294,118 @@ void main() {
               await capture('${mode}_scrape_modes_$label');
             }
           }
+        }
+        final images = _PausedImages();
+        final imageScope = ProviderContainer(parent: container, overrides: [
+          gameRepositoryProvider.overrideWithValue(images),
+        ]);
+        try {
+          await render(theme, ImageManagerDialog(game: game),
+              scope: imageScope);
+          final gridSize = tester.getSize(find.byType(DraggableImageGrid));
+          await tester.tap(find.text('保存'));
+          await capture('${mode}_images_saving');
+          expect(tester.getSize(find.byType(DraggableImageGrid)), gridSize);
+          expect(find.text('正在处理图片…'), findsOneWidget);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          images.saved.complete();
+          await settle();
+          imageScope.dispose();
+        }
+
+        final guides = _PausedGuides();
+        final guideScope = ProviderContainer(parent: container, overrides: [
+          fan2dServiceProvider.overrideWithValue(guides),
+        ]);
+        try {
+          await render(
+              theme, GuideSearchDialog(game: game, initialKeyword: '测试'),
+              scope: guideScope);
+          await tester.tap(find.text('pilipili'));
+          await settle();
+          await tester.tap(find.text('2DFan').last);
+          await settle();
+          await tester.tap(find.text('搜索'));
+          await capture('${mode}_guide_search_loading');
+          guides.results.complete([
+            Fan2dGuideResult(
+                title: '示例攻略', guideUrl: 'https://example.invalid'),
+          ]);
+          await settle();
+          await tester.tap(find.text('示例攻略'));
+          await capture('${mode}_guide_content_loading');
+          expect(find.text('正在获取攻略及图片…'), findsOneWidget);
+          await render(theme, SaveManagementDialog(game: game),
+              scope: guideScope);
+          await tester.tap(find.text('下载存档'));
+          await capture('${mode}_save_search_loading');
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          guides.content.complete(Fan2dGuideScrapeResult());
+          guides.saves.complete([]);
+          await settle();
+          guideScope.dispose();
+        }
+
+        final cloud = _PausedCloud();
+        final cloudScope = ProviderContainer(parent: container, overrides: [
+          webdavServiceProvider.overrideWithValue(cloud),
+        ]);
+        try {
+          await render(
+              theme,
+              CloudBackupDialog(
+                  game: game,
+                  webdavUrl: 'https://example.invalid',
+                  webdavUsername: '',
+                  webdavPassword: '',
+                  onBackupDownloaded: () {}),
+              scope: cloudScope);
+          await capture('${mode}_cloud_loading');
+          cloud.folders.complete([]);
+          await capture('${mode}_cloud_ready');
+          await tester.tap(find.byTooltip('删除'));
+          await settle();
+          await tester.tap(find.widgetWithText(ElevatedButton, '删除'));
+          await capture('${mode}_cloud_operating');
+          expect(find.text('正在处理云端备份…'), findsOneWidget);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          cloud.deletion.complete(false);
+          await settle();
+          cloudScope.dispose();
+        }
+
+        final updateProgress =
+            ValueNotifier(const AppUpdateDownloadProgress(receivedBytes: 4096));
+        try {
+          await render(theme, const SizedBox.shrink());
+          unawaited(showAppUpdateDownloadProgress(
+              tester.element(find.byType(Scaffold)),
+              version: '1.5.5',
+              progressListenable: updateProgress));
+          await capture('${mode}_update_unknown');
+          updateProgress.value = const AppUpdateDownloadProgress(
+              receivedBytes: 4200, totalBytes: 10000);
+          await capture('${mode}_update_known');
+          expect(
+              tester
+                  .widget<AppLinearProgress>(find.byType(AppLinearProgress))
+                  .value,
+              0.42);
+          await render(theme, const SizedBox.shrink(), reduced: true);
+          updateProgress.value =
+              const AppUpdateDownloadProgress(receivedBytes: 4096);
+          unawaited(showAppUpdateDownloadProgress(
+              tester.element(find.byType(Scaffold)),
+              version: '1.5.5',
+              progressListenable: updateProgress));
+          await capture('${mode}_update_reduced');
+          expect(find.byType(LinearProgressIndicator), findsNothing);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          updateProgress.dispose();
         }
         container.read(selectedNavIndexProvider.notifier).state =
             NavRoute.games.navIndex;
@@ -298,20 +443,24 @@ void main() {
         await render(theme, const AppSkeleton(), reduced: true);
         await capture('${mode}_reduced_loading');
       }
-      await render(
-          AppTheme.lightTheme(),
-          GuideWindowPage(
-            windowId: '',
-            arguments: {
-              'title': '攻略动效检查',
-              'content': '攻略\n\n图片与正文加载。\n\n[图片:${cover.path}]',
-              'gameKey': 'motion_review',
-            },
-            fontSize: GlassConstants.fontBody,
-          ));
-      await capture('light_guide_window');
+      for (final brightness in [Brightness.light, Brightness.dark]) {
+        await render(
+            brightness == Brightness.light
+                ? AppTheme.lightTheme()
+                : AppTheme.darkTheme(),
+            GuideWindowPage(
+              windowId: '',
+              arguments: {
+                'title': '攻略动效检查',
+                'content': '攻略\n\n图片与正文加载。\n\n[图片:${cover.path}]',
+                'gameKey': 'motion_review',
+              },
+              fontSize: GlassConstants.fontBody,
+            ));
+        await capture('${brightness.name}_guide_window');
+      }
       await windowManager.setPreventClose(false);
-      expect(states, 127);
+      expect(states, 166);
       AppLogger.instance.info('DesignTokens', '原生主题检查完成: states=$states');
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
@@ -324,4 +473,71 @@ void main() {
       await Directory(dataRoot).delete(recursive: true);
     }
   });
+}
+
+class _PausedImages extends Fake implements GameRepository {
+  final saved = Completer<void>();
+
+  @override
+  Future<void> deleteGameImagesByGameId(int gameId) => saved.future;
+
+  @override
+  Future<void> addGameImage(
+      int gameId, String imagePath, int sortOrder) async {}
+
+  @override
+  Future<void> updateCoverIndex(int gameId, int coverIndex) async {}
+}
+
+class _PausedGuides extends Fake implements Fan2dService {
+  final results = Completer<List<Fan2dGuideResult>>();
+  final content = Completer<Fan2dGuideScrapeResult>();
+  final saves = Completer<List<Fan2dSearchResult>>();
+
+  @override
+  Future<List<Fan2dGuideResult>> searchGuides(String keyword) => results.future;
+
+  @override
+  Future<Fan2dGuideScrapeResult> scrapeGuideContent(String url) =>
+      content.future;
+
+  @override
+  Future<List<Fan2dSearchResult>> searchWithFallback({
+    required String gamePath,
+    String? gameLauncher,
+    required String gameTitle,
+  }) =>
+      saves.future;
+}
+
+class _PausedCloud extends Fake implements WebdavService {
+  final folders = Completer<List<String>>();
+  final deletion = Completer<bool>();
+
+  @override
+  Future<List<String>> listGameFolders({
+    required String serverUrl,
+    required String username,
+    required String password,
+  }) =>
+      folders.future;
+
+  @override
+  Future<List<WebDavFile>> listGameBackups({
+    required String serverUrl,
+    required String username,
+    required String password,
+    required String gameFolder,
+  }) async =>
+      [const WebDavFile(name: '示例备份.zip', sizeBytes: 1024)];
+
+  @override
+  Future<bool> deleteGameBackup({
+    required String serverUrl,
+    required String username,
+    required String password,
+    required String gameFolder,
+    required String remoteFileName,
+  }) =>
+      deletion.future;
 }

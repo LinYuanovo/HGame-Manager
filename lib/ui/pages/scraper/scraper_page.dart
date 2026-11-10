@@ -459,7 +459,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               borderRadius: BorderRadius.circular(GlassConstants.radiusIndicator),
               child: AppLinearProgress(
                 value: _gameItems.isEmpty
-                    ? 0
+                    ? null
                     : _gameItems.where((i) => i.progress >= 1).length /
                         _gameItems.length,
                 backgroundColor:
@@ -471,7 +471,9 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             const SizedBox(height: GlassConstants.spacingCompact),
           ],
           Expanded(
-            child: _gameItems.isEmpty
+            child: _isProcessing && _gameItems.isEmpty
+                ? const AppSkeleton(label: '正在扫描游戏库')
+                : _gameItems.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
