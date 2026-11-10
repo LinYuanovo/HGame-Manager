@@ -449,7 +449,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2))
+                      child: AppProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.search, size: GlassConstants.iconAction),
               label: const Text('搜索'),
               style: ElevatedButton.styleFrom(
@@ -463,7 +463,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
   }
 
   Widget _buildResults() {
-    if (_isSearching) return const Center(child: CircularProgressIndicator());
+    if (_isSearching) return const AppSkeleton(label: '正在搜索攻略');
     if (_results.isEmpty)
       return Center(
           child: Text('无搜索结果',

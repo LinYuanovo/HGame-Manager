@@ -77,7 +77,7 @@ class AppRouter extends StatefulWidget {
 }
 
 class _AppRouterState extends State<AppRouter> {
-  int _previousIndex = 0;
+  bool _isForward = true;
 
   @override
   void initState() {
@@ -89,6 +89,7 @@ class _AppRouterState extends State<AppRouter> {
   void didUpdateWidget(covariant AppRouter oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedIndex != widget.selectedIndex) {
+      _isForward = widget.selectedIndex >= oldWidget.selectedIndex;
       AppLogger.instance.info('Navigation', '切换页面: ${NavRoute.fromIndex(widget.selectedIndex).label}');
     }
   }
@@ -96,26 +97,8 @@ class _AppRouterState extends State<AppRouter> {
   @override
   Widget build(BuildContext context) {
     final page = NavRoute.fromIndex(widget.selectedIndex).buildPage();
-    final isForward = widget.selectedIndex >= _previousIndex;
-    _previousIndex = widget.selectedIndex;
-
-    return AnimatedSwitcher(
-      duration: GlassConstants.animMedium,
-      switchInCurve: GlassConstants.animCurve,
-      switchOutCurve: GlassConstants.animCurve,
-      transitionBuilder: (child, animation) {
-        final offsetAnimation = Tween<Offset>(
-          begin: Offset(isForward ? 0.03 : -0.03, 0),
-          end: Offset.zero,
-        ).animate(animation);
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(
-            position: offsetAnimation,
-            child: child,
-          ),
-        );
-      },
+    return AppContentSwitcher(
+      direction: _isForward ? 1 : -1,
       child: KeyedSubtree(
         key: ValueKey(widget.selectedIndex),
         child: page,

@@ -845,7 +845,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
             const SizedBox(height: GlassConstants.spacingSmall),
             if (_scanning)
               const Expanded(
-                child: Center(child: CircularProgressIndicator()),
+                child: AppSkeleton(label: '正在扫描文件夹'),
               )
             else if (_items.isEmpty)
               Expanded(
@@ -997,7 +997,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                                         child: ClipRRect(
                                           borderRadius:
                                               BorderRadius.circular(GlassConstants.radiusIndicator),
-                                          child: LinearProgressIndicator(
+                                          child: AppLinearProgress(
                                             value: item.progress,
                                             backgroundColor:
                                                 AppTheme.getTextSecondary(
@@ -1217,7 +1217,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                         ? SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(
+                            child: AppProgressIndicator(
                                 strokeWidth: 2,
                                 color: AppTheme.getTextColorOnPrimary(context)))
                         : Text(

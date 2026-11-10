@@ -73,7 +73,10 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
         children: [
           _buildToolbar(),
           Expanded(
-            child: _isPreview ? _buildPreview() : _buildEditor(),
+            child: AppContentSwitcher(child: KeyedSubtree(
+              key: ValueKey(_isPreview),
+              child: _isPreview ? _buildPreview() : _buildEditor(),
+            )),
           ),
         ],
       ),
@@ -212,6 +215,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       controller: widget.controller,
       maxLines: null,
       expands: true,
+      textAlignVertical: TextAlignVertical.top,
       style: TextStyle(
           fontSize: widget.fontSize,
           height: 1.7,
@@ -268,16 +272,19 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
               final filePath = parsedUri.toFilePath();
               final file = File(filePath);
               if (file.existsSync()) {
-                return Image.file(file, fit: BoxFit.contain);
+                return Image.file(file, fit: BoxFit.contain,
+                    frameBuilder: appImageFrameBuilder);
               }
               debugPrint('[MarkdownPreview] File not found: $filePath');
             } else if (uriStr.startsWith('http://') ||
                 uriStr.startsWith('https://')) {
-              return Image.network(uriStr, fit: BoxFit.contain);
+              return Image.network(uriStr, fit: BoxFit.contain,
+                  frameBuilder: appImageFrameBuilder);
             } else {
               final file = File(uriStr);
               if (file.existsSync()) {
-                return Image.file(file, fit: BoxFit.contain);
+                return Image.file(file, fit: BoxFit.contain,
+                    frameBuilder: appImageFrameBuilder);
               }
             }
           } catch (e) {

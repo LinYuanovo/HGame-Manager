@@ -325,7 +325,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
   /// 构建备份列表
   Widget _buildBackupList() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppSkeleton(label: '正在加载存档');
     }
 
     if (_backups.isEmpty) {
@@ -624,7 +624,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
     }
 
     if (mounted) {
-      showDialog(
+      showAppDialog(
         context: context,
         builder: (ctx) => CloudBackupDialog(
           game: widget.game,

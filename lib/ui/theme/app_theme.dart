@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
 import '../../core/models/models.dart';
+import 'app_motion.dart';
+export 'app_motion.dart';
+export '../widgets/app_loading.dart';
 
 // ===== 统一常量 =====
 class LayoutConstants {
@@ -97,12 +100,12 @@ class GlassConstants {
   static const double blurLarge = 30.0;
 
   // 动画时长
-  static const Duration animFast = Duration(milliseconds: 200);
-  static const Duration animMedium = Duration(milliseconds: 300);
-  static const Duration animSlow = Duration(milliseconds: 400);
+  static const Duration animFast = AppMotion.fast;
+  static const Duration animMedium = AppMotion.medium;
+  static const Duration animSlow = AppMotion.slow;
 
   // 动画曲线
-  static const Curve animCurve = Curves.easeInOut;
+  static const Curve animCurve = AppMotion.curve;
 
   // 间距
   static const double spacingSmall = 8.0;
@@ -253,6 +256,9 @@ class AppTheme {
     return ThemeData(
       fontFamily: effectiveFontFamily,
       brightness: Brightness.light,
+      pageTransitionsTheme: const PageTransitionsTheme(builders: {
+        TargetPlatform.windows: AppPageTransitionsBuilder(),
+      }),
       primaryColor: primaryColor,
       scaffoldBackgroundColor: backgroundColor,
       colorScheme: ColorScheme.fromSwatch(
@@ -428,6 +434,9 @@ class AppTheme {
     return ThemeData(
       fontFamily: effectiveFontFamily,
       brightness: Brightness.dark,
+      pageTransitionsTheme: const PageTransitionsTheme(builders: {
+        TargetPlatform.windows: AppPageTransitionsBuilder(),
+      }),
       primaryColor: darkPrimaryColor,
       scaffoldBackgroundColor: darkBackgroundColor,
       colorScheme: ColorScheme.fromSwatch(
@@ -1061,8 +1070,8 @@ class _GlassCardState extends State<GlassCard>
   Animation<double>? _borderAnimation;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     _setupBorderAnimation();
   }
 
@@ -1076,15 +1085,18 @@ class _GlassCardState extends State<GlassCard>
 
   void _setupBorderAnimation() {
     _borderController?.removeListener(_onBorderTick);
-    if (widget.enableBorderBreathing) {
-      _borderController?.dispose();
-      _borderController = AnimationController(
+    if (widget.enableBorderBreathing &&
+        !AppMotion.reduced(context) && TickerMode.valuesOf(context).enabled) {
+      _borderController ??= AnimationController(
         duration: const Duration(seconds: 3),
         vsync: this,
-      )..repeat(reverse: true);
-      _borderAnimation = Tween<double>(begin: 0.15, end: 0.35).animate(
-        CurvedAnimation(parent: _borderController!, curve: Curves.easeInOut),
       );
+      if (!_borderController!.isAnimating) {
+        _borderController!.repeat(reverse: true);
+      }
+      _borderAnimation = Tween<double>(begin: 0.15, end: 0.35)
+          .chain(CurveTween(curve: Curves.easeInOut))
+          .animate(_borderController!);
       _borderController!.addListener(_onBorderTick);
     } else {
       _borderController?.stop();
@@ -1126,13 +1138,13 @@ class _GlassCardState extends State<GlassCard>
         onTapCancel: () => setState(() => _isPressed = false),
         onTap: widget.onTap,
         child: AnimatedScale(
-          scale: _isPressed
+          scale: AppMotion.reduced(context) ? 1 : _isPressed
               ? GlassConstants.pressScale
               : (_isHovered ? GlassConstants.hoverScale : 1.0),
-          duration: GlassConstants.animFast,
+          duration: AppMotion.duration(context, GlassConstants.animFast),
           curve: GlassConstants.animCurve,
           child: AnimatedContainer(
-            duration: GlassConstants.animFast,
+            duration: AppMotion.duration(context, GlassConstants.animFast),
             curve: GlassConstants.animCurve,
             margin: widget.margin,
             padding: widget.padding,
@@ -1219,8 +1231,8 @@ class _BreathingBorderState extends State<BreathingBorder>
   Animation<double>? _animation;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     _setupAnimation();
   }
 
@@ -1236,18 +1248,18 @@ class _BreathingBorderState extends State<BreathingBorder>
   }
 
   void _setupAnimation() {
-    if (widget.isBreathing) {
-      _controller?.dispose();
-      _controller = AnimationController(
+    if (widget.isBreathing &&
+        !AppMotion.reduced(context) && TickerMode.valuesOf(context).enabled) {
+      _controller ??= AnimationController(
         duration: widget.duration,
         vsync: this,
-      )..repeat(reverse: true);
+      );
+      _controller!.duration = widget.duration;
+      if (!_controller!.isAnimating) _controller!.repeat(reverse: true);
       _animation = Tween<double>(
         begin: widget.minOpacity,
         end: widget.maxOpacity,
-      ).animate(
-        CurvedAnimation(parent: _controller!, curve: Curves.easeInOut),
-      );
+      ).chain(CurveTween(curve: Curves.easeInOut)).animate(_controller!);
     } else {
       _controller?.stop();
       _animation = null;
@@ -1333,7 +1345,7 @@ class _GlassButtonState extends State<GlassButton> {
             widget.isEnabled ? () => setState(() => _isPressed = false) : null,
         onTap: widget.isEnabled ? widget.onPressed : null,
         child: AnimatedContainer(
-          duration: GlassConstants.animFast,
+          duration: AppMotion.duration(context, GlassConstants.animFast),
           curve: GlassConstants.animCurve,
           padding: widget.padding,
           decoration: BoxDecoration(
@@ -1599,7 +1611,7 @@ class GlassChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: GlassConstants.animFast,
+        duration: AppMotion.duration(context, GlassConstants.animFast),
         curve: GlassConstants.animCurve,
         padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingControl, vertical: GlassConstants.spacingSmall),
         decoration: BoxDecoration(
@@ -1638,70 +1650,26 @@ class GlassChip extends StatelessWidget {
 }
 
 // ===== 交错动画列表项 =====
-class StaggeredItem extends StatefulWidget {
+class StaggeredItem extends StatelessWidget {
   final Widget child;
   final int index;
   final Duration baseDelay;
+  final bool animate;
 
   const StaggeredItem({
     super.key,
     required this.child,
     required this.index,
-    this.baseDelay = const Duration(milliseconds: 50),
+    this.baseDelay = const Duration(milliseconds: 30),
+    this.animate = true,
   });
 
   @override
-  State<StaggeredItem> createState() => _StaggeredItemState();
-}
-
-class _StaggeredItemState extends State<StaggeredItem>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 200),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.03),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-    final delay = Duration(milliseconds: 30 * (widget.index % 10));
-    Future.delayed(delay, () {
-      if (mounted) _controller.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Opacity(
-          opacity: _fadeAnimation.value,
-          child: SlideTransition(
-            position: _slideAnimation,
-            child: child,
-          ),
-        );
-      },
-      child: widget.child,
+    return AppEntrance(
+      animate: animate && index < 6,
+      delay: baseDelay * index.clamp(0, 4),
+      child: child,
     );
   }
 }
@@ -1767,6 +1735,7 @@ class _CopyToastContentState extends State<_CopyToastContent>
     // Display for 1.5 seconds, then fade out
     Future.delayed(const Duration(seconds: 1, milliseconds: 500), () {
       if (mounted) {
+        _controller.duration = AppMotion.duration(context, AppMotion.fast);
         _controller.forward().then((_) {
           widget.onRemove();
         });
@@ -1850,7 +1819,7 @@ IconData getViewModeIcon(ViewMode mode) => switch (mode) {
 
 // ===== 玻璃拟态 TabBar =====
 class GlassTabBar extends StatelessWidget implements PreferredSizeWidget {
-  final TabController controller;
+  final AppTabController controller;
   final List<Widget> tabs;
 
   const GlassTabBar({
@@ -1864,6 +1833,7 @@ class GlassTabBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    controller.reducedMotion = AppMotion.reduced(context);
     return ClipRRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(
@@ -1917,12 +1887,32 @@ class GlassTabBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 // ===== 玻璃拟态对话框 =====
+Future<T?> showAppDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool barrierDismissible = true,
+  Color? barrierColor,
+}) {
+  return showDialog<T>(
+    context: context,
+    builder: builder,
+    barrierDismissible: barrierDismissible,
+    barrierColor: barrierColor,
+    animationStyle: AnimationStyle(
+      duration: AppMotion.duration(context, AppMotion.medium),
+      reverseDuration: AppMotion.duration(context, AppMotion.fast),
+      curve: AppMotion.curve,
+      reverseCurve: Curves.easeInCubic,
+    ),
+  );
+}
+
 Future<T?> showGlassDialog<T>({
   required BuildContext context,
   required Widget child,
   bool barrierDismissible = true,
 }) {
-  return showDialog<T>(
+  return showAppDialog<T>(
     context: context,
     barrierDismissible: barrierDismissible,
     barrierColor: AppTheme.getDialogBarrierColor(context),

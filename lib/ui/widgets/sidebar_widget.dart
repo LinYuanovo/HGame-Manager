@@ -24,6 +24,7 @@ class SidebarWidget extends ConsumerStatefulWidget {
 }
 
 class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
+  bool _isResizing = false;
   List<NavRoute> _visibleRoutes = NavRoute.values.where((r) => r != NavRoute.settings).toList();
 
   @override
@@ -96,6 +97,9 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
     return MouseRegion(
       cursor: SystemMouseCursors.resizeColumn,
       child: GestureDetector(
+        onHorizontalDragStart: (_) => setState(() => _isResizing = true),
+        onHorizontalDragEnd: (_) => setState(() => _isResizing = false),
+        onHorizontalDragCancel: () => setState(() => _isResizing = false),
         onHorizontalDragUpdate: (details) {
           widget.controller.updateWidth(details.delta.dx);
         },
@@ -103,7 +107,8 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
           listenable: widget.controller,
           builder: (context, _) {
             return AnimatedContainer(
-                  duration: GlassConstants.animMedium,
+                  duration: _isResizing ? Duration.zero
+                      : AppMotion.duration(context, GlassConstants.animMedium),
                   curve: GlassConstants.animCurve,
                   width: widget.controller.width,
                   decoration: BoxDecoration(
@@ -165,7 +170,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
           onTap: () => widget.controller.toggle(),
           child: AnimatedContainer(
-            duration: GlassConstants.animFast,
+            duration: AppMotion.duration(context, GlassConstants.animFast),
             curve: GlassConstants.animCurve,
             padding: EdgeInsets.symmetric(
               horizontal: widget.controller.isExpanded ? GlassConstants.spacingMedium : 0,
@@ -232,7 +237,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
             }
           },
           child: AnimatedContainer(
-            duration: GlassConstants.animFast,
+            duration: AppMotion.duration(context, GlassConstants.animFast),
             curve: GlassConstants.animCurve,
             padding: EdgeInsets.symmetric(
               horizontal: widget.controller.isExpanded ? GlassConstants.spacingMedium : 0,

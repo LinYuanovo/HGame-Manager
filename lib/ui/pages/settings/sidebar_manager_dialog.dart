@@ -96,7 +96,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
         child: Column(
           children: [
             _buildHeader(),
-            Expanded(child: _loading ? const Center(child: CircularProgressIndicator()) : _buildList()),
+            Expanded(child: _loading ? const AppSkeleton(label: '正在加载页面配置') : _buildList()),
             _buildActions(),
           ],
         ),

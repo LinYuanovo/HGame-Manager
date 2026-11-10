@@ -18,7 +18,7 @@ class CategoriesPage extends ConsumerStatefulWidget {
 
 class _CategoriesPageState extends ConsumerState<CategoriesPage>
     with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+  late AppTabController _tabController;
   final _searchController = TextEditingController();
   bool _isMultiSelectMode = false;
   final Set<int> _selectedTagIds = {};
@@ -37,7 +37,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = AppTabController(length: 2, vsync: this);
     _loadTagOrders();
   }
 
@@ -217,7 +217,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
     return TweenAnimationBuilder<Offset>(
       key: ValueKey('shift-${tag.id}-$_shiftTick'),
       tween: Tween(begin: shift, end: Offset.zero),
-      duration: const Duration(milliseconds: 180),
+      duration: AppMotion.duration(context, AppMotion.fast),
       curve: Curves.easeOutCubic,
       onEnd: () {
         _shiftStarts.remove(tag.id);
@@ -494,7 +494,8 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           ],
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const AppSkeleton(
+          layout: SkeletonLayout.tags, showToolbar: true, label: '正在加载分类'),
       error: (e, _) => Center(child: Text('加载失败: $e')),
     );
   }

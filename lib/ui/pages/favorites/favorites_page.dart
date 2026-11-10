@@ -17,12 +17,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
-  late TabController _tabController;
+  late AppTabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = AppTabController(length: 2, vsync: this);
   }
 
   @override
@@ -87,7 +87,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
         ),
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const GameListSkeleton(),
       error: (e, _) => Center(child: Text('加载失败: $e')),
     );
   }
@@ -163,7 +163,8 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
           },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const AppSkeleton(
+          layout: SkeletonLayout.tags, label: '正在加载收藏分类'),
       error: (e, _) => Center(child: Text('加载失败: $e')),
     );
   }

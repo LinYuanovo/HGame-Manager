@@ -339,7 +339,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             child: Row(
               children: [
                 _buildSidebar(),
-                Expanded(child: _buildContent()),
+                Expanded(child: SizedBox.expand(
+                    child: AppContentSwitcher(child: _buildContent()))),
               ],
             ),
           ),
@@ -525,7 +526,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               label: const Text('配置自动翻译'),
               style: TextButton.styleFrom(
                   foregroundColor: AppTheme.getPrimaryColor(context)),
-              onPressed: () => showDialog(
+              onPressed: () => showAppDialog(
                 context: context,
                 barrierDismissible: false,
                 builder: (_) => MetadataTranslationDialog(
@@ -1368,7 +1369,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: () => showDialog(
+            onPressed: () => showAppDialog(
               context: context,
               builder: (_) => const ScrapeModeConfigDialog(),
             ),
@@ -1432,7 +1433,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   void _showRenameManager() {
-    showDialog<bool>(
+    showAppDialog<bool>(
       context: context,
       builder: (context) => const RenameManagerDialog(),
     );
@@ -1474,7 +1475,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   void _showGuideHotkeyManager() {
-    showDialog<bool>(
+    showAppDialog<bool>(
       context: context,
       builder: (context) => const GuideHotkeyDialog(),
     );
@@ -1540,7 +1541,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                   ? SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(
+                      child: AppProgressIndicator(
                           strokeWidth: 2,
                           color: AppTheme.getTextColorOnPrimary(context)))
                   : Icon(Icons.network_check, size: GlassConstants.iconAction),
@@ -1697,7 +1698,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                     ? SizedBox(
                         width: 14,
                         height: 14,
-                        child: CircularProgressIndicator(
+                        child: AppProgressIndicator(
                             strokeWidth: 2,
                             color: AppTheme.getPrimaryColor(context)))
                     : const Icon(Icons.search, size: GlassConstants.iconSmall),
@@ -3095,7 +3096,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: AppProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.refresh, size: GlassConstants.iconSmall),
               label: Text(
@@ -3384,7 +3385,15 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               ),
             )
           else
-            ...visibleEntries.map(_buildChangelogEntry),
+            AnimatedSize(
+              duration: AppMotion.duration(context, AppMotion.medium),
+              curve: AppMotion.curve,
+              alignment: Alignment.topCenter,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: visibleEntries.map(_buildChangelogEntry).toList(),
+              ),
+            ),
         ],
       ),
     );
@@ -3536,7 +3545,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   void _showContextMenuManager() {
-    showDialog<bool>(
+    showAppDialog<bool>(
       context: context,
       builder: (context) => const ContextMenuManagerDialog(),
     ).then((saved) {
@@ -3579,7 +3588,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   void _showSidebarManager() {
-    showDialog<bool>(
+    showAppDialog<bool>(
       context: context,
       builder: (context) => const SidebarManagerDialog(),
     ).then((saved) {
@@ -3730,7 +3739,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                     ? const SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2))
+                        child: AppProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.cloud_queue, size: GlassConstants.iconAction),
                 label: const Text('查看备份'),
                 style: ElevatedButton.styleFrom(
@@ -3754,7 +3763,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                     ? const SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2))
+                        child: AppProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.backup, size: GlassConstants.iconAction),
                 label: const Text('备份数据'),
                 style: ElevatedButton.styleFrom(
@@ -3953,7 +3962,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   Future<void> _importLocalBackup() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.getSurfaceColor(context),
@@ -4082,7 +4091,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   void _showBackupDialog() {
     final files = _backupFiles ?? [];
 
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.getSurfaceColor(context),
@@ -4321,7 +4330,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   Future<void> _importBackupFile(String fileName) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.getSurfaceColor(context),
@@ -4585,7 +4594,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   }
 
   Future<void> _deleteBackupWithConfirm(String fileName) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.getSurfaceColor(context),
@@ -5332,7 +5341,7 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
                     ? SizedBox(
                         width: 14,
                         height: 14,
-                        child: CircularProgressIndicator(
+                        child: AppProgressIndicator(
                           strokeWidth: 2,
                           color: AppTheme.getPrimaryColor(context),
                         ),

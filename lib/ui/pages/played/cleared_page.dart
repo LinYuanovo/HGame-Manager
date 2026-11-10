@@ -67,7 +67,7 @@ class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAli
                 ),
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const GameListSkeleton(),
             error: (e, _) => Center(child: Text('加载失败: $e')),
           ),
         ),

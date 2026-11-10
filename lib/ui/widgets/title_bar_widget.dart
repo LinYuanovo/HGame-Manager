@@ -134,7 +134,7 @@ class _WindowButtonState extends State<_WindowButton> {
       child: GestureDetector(
         onTap: widget.onPressed,
         child: AnimatedContainer(
-          duration: GlassConstants.animFast,
+          duration: AppMotion.duration(context, GlassConstants.animFast),
           width: 46,
           height: 40,
           color: _isHovered

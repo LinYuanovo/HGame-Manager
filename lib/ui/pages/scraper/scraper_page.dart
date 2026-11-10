@@ -165,7 +165,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            if (isRunning)
+              const SizedBox(width: GlassConstants.iconAction, height: GlassConstants.iconAction,
+                  child: AppProgressIndicator(strokeWidth: 2, color: AppTheme.successColor))
+            else Icon(
               isRunning ? Icons.sync : Icons.circle_outlined,
               size: GlassConstants.iconAction,
               color: isRunning
@@ -205,7 +208,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
           onTap: isEnabled ? onPressed : null,
           child: AnimatedContainer(
-            duration: GlassConstants.animFast,
+            duration: AppMotion.duration(context, GlassConstants.animFast),
             padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingControl),
             decoration: BoxDecoration(
               color: isEnabled
@@ -454,7 +457,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           if (_isProcessing) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(GlassConstants.radiusIndicator),
-              child: LinearProgressIndicator(
+              child: AppLinearProgress(
                 value: _gameItems.isEmpty
                     ? 0
                     : _gameItems.where((i) => i.progress >= 1).length /
@@ -552,7 +555,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(GlassConstants.radiusIndicator),
-                child: LinearProgressIndicator(
+                child: AppLinearProgress(
                   value: item.progress,
                   backgroundColor:
                       AppTheme.getTextSecondary(context).withValues(alpha: 0.1),

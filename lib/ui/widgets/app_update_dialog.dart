@@ -242,7 +242,7 @@ Future<void> showAppUpdateDownloadProgress(
                   ),
                 ),
                 const SizedBox(height: GlassConstants.spacingComfortable),
-                LinearProgressIndicator(
+                AppLinearProgress(
                   value: fraction,
                   minHeight: 6,
                   borderRadius: BorderRadius.circular(GlassConstants.radiusIndicator),

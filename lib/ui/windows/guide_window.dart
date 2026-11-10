@@ -263,11 +263,7 @@ class _GuideWindowPageState extends State<GuideWindowPage>
     final position = _scrollController.position;
     final target =
         (_scrollController.offset + delta).clamp(0.0, position.maxScrollExtent);
-    _scrollController.animateTo(
-      target,
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
-    );
+    AppMotion.scrollTo(context, _scrollController, target);
   }
 
   Future<void> _togglePin() async {
@@ -683,11 +679,13 @@ class _GuideWindowPageState extends State<GuideWindowPage>
     final image = isRemote
         ? Image.network(
             imagePath,
+            frameBuilder: appImageFrameBuilder,
             fit: BoxFit.contain,
             errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           )
         : Image.file(
             File(imagePath),
+            frameBuilder: appImageFrameBuilder,
             fit: BoxFit.contain,
             errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           );
@@ -738,7 +736,7 @@ class _TitleBarButtonState extends State<_TitleBarButton> {
         child: GestureDetector(
           onTap: widget.onPressed,
           child: AnimatedContainer(
-            duration: GlassConstants.animFast,
+            duration: AppMotion.duration(context, GlassConstants.animFast),
             width: 40,
             height: 40,
             color: _isHovered

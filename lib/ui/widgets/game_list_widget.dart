@@ -24,6 +24,7 @@ import '../../../core/utils/cleared_game_path_utils.dart';
 import '../../../core/utils/game_data_paths.dart';
 import 'multi_select_controller.dart';
 import 'folder_move_progress_dialog.dart';
+export 'game_list_skeleton.dart';
 
 enum PaginationMode { paginated, infiniteScroll }
 
@@ -86,6 +87,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   int _listItemsPerPage = 5; // 列表视图每页显示数量
   Timer? _searchDebounce;
   int _coverRevision = 0;
+  final Set<String> _enteredGames = {};
 
   int get _itemsPerPage {
     if (_viewMode == ViewMode.list) return _listItemsPerPage;
@@ -993,7 +995,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               SizedBox(
                 width: 14,
                 height: 14,
-                child: CircularProgressIndicator(
+                child: AppProgressIndicator(
                     strokeWidth: 2, color: AppTheme.getPrimaryColor(context)),
               ),
               const SizedBox(width: GlassConstants.spacingTight),
@@ -1236,7 +1238,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             height: 1,
             color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
         itemBuilder: (_, index) => StaggeredItem(
+          key: ValueKey(games[index].path),
           index: index,
+          animate: _enteredGames.add(games[index].path) &&
+              (!_scrollController.hasClients || _scrollController.offset == 0),
           child: _buildListItem(games[index], coverWidth, coverHeight),
         ),
       );
@@ -1498,7 +1503,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         ),
         itemCount: games.length,
         itemBuilder: (_, index) => StaggeredItem(
+          key: ValueKey(games[index].path),
           index: index,
+          animate: _enteredGames.add(games[index].path) &&
+              (!_scrollController.hasClients || _scrollController.offset == 0),
           child: _buildPosterItem(games[index]),
         ),
       );
@@ -1809,6 +1817,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       height: height,
       fit: fit,
       cacheWidth: cacheWidth,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded || frame != null) return child;
+        return SizedBox(
+          width: width,
+          height: height,
+          child: const AppSkeleton(layout: SkeletonLayout.image, label: '正在加载封面'),
+        );
+      },
       errorBuilder: (context, error, stackTrace) =>
           _buildCoverPlaceholder(width, height),
     );
@@ -1973,7 +1989,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       widget.onGameTap!(game);
       return;
     }
-    showDialog<Tag>(
+    showAppDialog<Tag>(
       context: context,
       barrierDismissible: true,
       builder: (dialogContext) => GameDetailDialog(
@@ -2239,7 +2255,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           _showMoveToSeriesDialog(targets);
           break;
         case 'cover':
-          final selected = await showDialog<int>(
+          final selected = await showAppDialog<int>(
             context: context,
             builder: (ctx) => _CoverPickerDialog(game: game),
           );
@@ -2250,7 +2266,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           break;
         case 'open_save':
           if (game.savePath != null && game.savePath!.isNotEmpty) {
-            showDialog(
+            showAppDialog(
               context: context,
               builder: (ctx) => SaveManagementDialog(game: game),
             );
@@ -2413,7 +2429,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   void _showReviewDialog(Game game) {
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (dialogContext) => _ReviewDialog(
         game: game,
@@ -3105,7 +3121,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         ? (firstGame.title ?? '未命名游戏')
         : '已选择 ${games.length} 个游戏';
 
-    final result = await showDialog<List<int>>(
+    final result = await showAppDialog<List<int>>(
       context: context,
       builder: (ctx) => _MoveToSeriesDialog(
         customTags: customTags,
@@ -3257,6 +3273,7 @@ class _CoverPickerDialog extends StatelessWidget {
                                   children: [
                                     Image.file(
                                       File(game.images[i].imagePath!),
+                                      frameBuilder: appImageFrameBuilder,
                                       fit: BoxFit.contain,
                                       errorBuilder: (_, __, ___) => Container(
                                         color:

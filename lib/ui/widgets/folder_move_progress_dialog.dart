@@ -22,7 +22,7 @@ Future<FolderMoveResult> runFolderMoveWithProgress({
   ) task,
 }) async {
   final outcome = _MoveOutcome();
-  await showDialog<FolderMoveResult>(
+  await showAppDialog<FolderMoveResult>(
     context: context,
     barrierDismissible: false,
     barrierColor: AppTheme.getDialogBarrierColor(context),
@@ -241,7 +241,7 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
             const SizedBox(height: GlassConstants.spacingInline),
             ClipRRect(
               borderRadius: BorderRadius.circular(GlassConstants.radiusIndicator),
-              child: LinearProgressIndicator(
+              child: AppLinearProgress(
                 value: progress.fraction,
                 minHeight: 6,
                 backgroundColor: primary.withValues(alpha: 0.15),

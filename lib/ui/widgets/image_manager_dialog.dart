@@ -55,7 +55,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
 
   Future<void> _addImageFromUrl() async {
     final controller = TextEditingController();
-    final url = await showDialog<String>(
+    final url = await showAppDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('从URL添加图片'),
@@ -252,7 +252,9 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
             const SizedBox(height: GlassConstants.spacingMedium),
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const AppSkeleton(
+                      layout: SkeletonLayout.posters, columns: 4,
+                      label: '正在处理图片')
                   : DraggableImageGrid(
                       images: _images,
                       coverIndex: _coverIndex,

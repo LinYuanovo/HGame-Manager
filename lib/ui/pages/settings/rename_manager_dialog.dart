@@ -104,7 +104,7 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
           children: [
             _buildHeader(),
             _buildPreview(),
-            Expanded(child: _loading ? const Center(child: CircularProgressIndicator()) : _buildList()),
+            Expanded(child: _loading ? const AppSkeleton(label: '正在加载重命名规则') : _buildList()),
             _buildActions(),
           ],
         ),

@@ -75,7 +75,7 @@ class _GamesPageState extends ConsumerState<GamesPage>
                           SizedBox(
                             width: 14,
                             height: 14,
-                            child: CircularProgressIndicator(
+                            child: AppProgressIndicator(
                               strokeWidth: 2,
                               color: AppTheme.getPrimaryColor(context),
                             ),
@@ -220,7 +220,7 @@ class _GamesPageState extends ConsumerState<GamesPage>
                 });
               },
             ),
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const GameListSkeleton(),
             error: (e, _) => Center(child: Text('加载失败: $e')),
           ),
         ),
@@ -363,6 +363,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     setState(() {
       _isLoading = true;
       _statusText = '正在搜索...';
+      _showSearchResults = true;
       _searchResults = [];
       _selectedResult = null;
     });
@@ -950,7 +951,9 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
               ),
 
             // Search results
-            if (_showSearchResults && _searchResults.isNotEmpty) ...[
+            if (_isLoading && _showSearchResults && _searchResults.isEmpty)
+              Expanded(child: AppSkeleton(label: _statusText))
+            else if (_showSearchResults && _searchResults.isNotEmpty) ...[
               Text(
                 '选择游戏:',
                 style: TextStyle(
@@ -1007,7 +1010,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                         ? SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(
+                            child: AppProgressIndicator(
                               strokeWidth: 2,
                               color: AppTheme.getTextColorOnPrimary(context),
                             ),
@@ -1029,7 +1032,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                         ? SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(
+                            child: AppProgressIndicator(
                               strokeWidth: 2,
                               color: AppTheme.getTextColorOnPrimary(context),
                             ),
@@ -1102,12 +1105,10 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
               imageUrl:
                   'https://img.dlsite.jp/resize/images2/work/doujin/${result.id.substring(0, result.id.length - 4)}0000/${result.id}_img_main_240x240.jpg',
               fit: BoxFit.cover,
-              placeholder: (context, url) => const Center(
-                child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2)),
-              ),
+              placeholder: (context, url) => const AppSkeleton(
+                  layout: SkeletonLayout.image, label: '正在加载封面'),
+              fadeInDuration: AppMotion.duration(context, AppMotion.fast),
+              fadeOutDuration: AppMotion.duration(context, AppMotion.fast),
               errorWidget: (context, url, error) => Icon(Icons.gamepad,
                   color: AppTheme.getTextSecondary(context)),
             ),
@@ -1149,12 +1150,10 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                 ? CachedNetworkImage(
                     imageUrl: result.tinyImage!,
                     fit: BoxFit.cover,
-                    placeholder: (context, url) => const Center(
-                      child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2)),
-                    ),
+                    placeholder: (context, url) => const AppSkeleton(
+                        layout: SkeletonLayout.image, label: '正在加载封面'),
+                    fadeInDuration: AppMotion.duration(context, AppMotion.fast),
+                    fadeOutDuration: AppMotion.duration(context, AppMotion.fast),
                     errorWidget: (context, url, error) => Icon(Icons.gamepad,
                         color: AppTheme.getTextSecondary(context)),
                   )

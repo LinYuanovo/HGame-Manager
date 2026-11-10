@@ -75,20 +75,12 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
   }
 
   void _scrollToTop() {
-    widget.scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+    AppMotion.scrollTo(context, widget.scrollController, 0);
   }
 
   void _scrollToBottom() {
     final maxScroll = widget.scrollController.position.maxScrollExtent;
-    widget.scrollController.animateTo(
-      maxScroll,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+    AppMotion.scrollTo(context, widget.scrollController, maxScroll);
   }
 
   @override

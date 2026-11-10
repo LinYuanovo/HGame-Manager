@@ -34,7 +34,8 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
                 }
                 return _buildToolGrid(tools);
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const AppSkeleton(
+                  layout: SkeletonLayout.tools, label: '正在加载工具'),
               error: (e, _) => Center(child: Text('加载失败: $e')),
             ),
           ),

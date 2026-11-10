@@ -605,7 +605,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       const SizedBox(height: GlassConstants.spacingTight),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(GlassConstants.radiusTiny),
-                        child: LinearProgressIndicator(
+                        child: AppLinearProgress(
                           value: _downloadProgress,
                           backgroundColor: AppTheme.getPrimaryColor(context)
                               .withValues(alpha: 0.15),
@@ -828,7 +828,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2))
+                          child: AppProgressIndicator(strokeWidth: 2))
                       : Icon(Icons.refresh,
                           size: GlassConstants.iconControl,
                           color: _currentGame.sourceUrl != null &&
@@ -1077,6 +1077,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                         BorderRadius.circular(GlassConstants.radiusMedium - 1),
                     child: Image.file(
                       File(images[_currentImageIndex].imagePath),
+                      frameBuilder: appImageFrameBuilder,
                       key: ValueKey(
                           'img_${_imageVersion}_${images[_currentImageIndex].imagePath}'),
                       fit: BoxFit.cover,
@@ -1138,7 +1139,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   void _openImageManager() async {
-    final result = await showDialog<bool>(
+    final result = await showAppDialog<bool>(
       context: context,
       builder: (context) => ImageManagerDialog(game: _currentGame),
     );
@@ -1171,7 +1172,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     }
 
     // 显示图片选择对话框
-    final selectedImage = await showDialog<GameImage>(
+    final selectedImage = await showAppDialog<GameImage>(
       context: context,
       builder: (context) => _ImageSelectionDialog(images: images),
     );
@@ -2038,8 +2039,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       await Scrollable.ensureVisible(
         targetKey!.currentContext!,
         alignment: 0.1,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
+        duration: AppMotion.duration(context, AppMotion.slow),
+        curve: AppMotion.curve,
       );
     } catch (e) {
       debugPrint('[Search] ensureVisible error: $e');
@@ -2232,7 +2233,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                                     ? SizedBox(
                                         width: 14,
                                         height: 14,
-                                        child: CircularProgressIndicator(
+                                        child: AppProgressIndicator(
                                             strokeWidth: 2,
                                             color: AppTheme.getPrimaryColor(
                                                 context)),
@@ -2505,7 +2506,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     // 先删除旧的攻略图片（在下载新图片之前）
     await _deleteGuideImages();
 
-    final content = await showDialog<String>(
+    final content = await showAppDialog<String>(
       context: context,
       builder: (context) =>
           GuideSearchDialog(game: _currentGame, initialKeyword: keyword),
@@ -3106,7 +3107,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       final image =
           GameImage(gameId: _currentGame.id ?? 0, imagePath: viewerPath);
       setState(() => _isImageViewerOpen = true);
-      showDialog(
+      showAppDialog(
         context: context,
         barrierDismissible: true,
         barrierColor: AppTheme.getOverlayColor(context),
@@ -3123,7 +3124,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       return;
     }
     setState(() => _isImageViewerOpen = true);
-    showDialog(
+    showAppDialog(
       context: context,
       barrierDismissible: true,
       barrierColor: AppTheme.getOverlayColor(context),
@@ -3244,6 +3245,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       return Image.file(
         File(resolvedPath),
         key: ValueKey('img_${_imageVersion}_$resolvedPath'),
+        frameBuilder: appImageFrameBuilder,
         fit: BoxFit.contain,
         errorBuilder: (_, __, ___) => const SizedBox.shrink(),
       );
@@ -3254,10 +3256,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       return CachedNetworkImage(
         imageUrl: url,
         fit: BoxFit.contain,
-        placeholder: (_, __) => const SizedBox(
-          height: 100,
-          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        ),
+        placeholder: (_, __) => const AppSkeleton(
+            layout: SkeletonLayout.image, height: 160, label: '正在加载图片'),
+        fadeInDuration: AppMotion.duration(context, AppMotion.fast),
+        fadeOutDuration: AppMotion.duration(context, AppMotion.fast),
         errorWidget: (_, __, ___) => const SizedBox.shrink(),
         httpHeaders: const {
           'User-Agent':
@@ -3271,6 +3273,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       return Image.file(
         File(mediaPath),
         key: ValueKey('img_${_imageVersion}_$mediaPath'),
+        frameBuilder: appImageFrameBuilder,
         fit: BoxFit.contain,
         errorBuilder: (_, __, ___) => const SizedBox.shrink(),
       );
@@ -3416,6 +3419,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                           child: Image.file(
                             File(resolvedPath),
                             key: ValueKey('img_${_imageVersion}_$resolvedPath'),
+                            frameBuilder: appImageFrameBuilder,
                             fit: BoxFit.contain,
                             errorBuilder: (_, __, ___) =>
                                 const SizedBox.shrink(),
@@ -3486,7 +3490,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     final images = imagePaths
         .map((p) => GameImage(gameId: _currentGame.id ?? 0, imagePath: p))
         .toList();
-    showDialog(
+    showAppDialog(
       context: context,
       barrierDismissible: true,
       barrierColor: AppTheme.getOverlayColor(context),
@@ -3870,6 +3874,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           child: Image.file(
             File(image.imagePath!),
             key: ValueKey('img_${_imageVersion}_${image.imagePath}'),
+            frameBuilder: appImageFrameBuilder,
             fit: BoxFit.contain,
             errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           ),
@@ -3884,7 +3889,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   void _showImageViewer(int initialIndex) {
     setState(() => _isImageViewerOpen = true);
-    showDialog(
+    showAppDialog(
       context: context,
       barrierDismissible: true,
       barrierColor: AppTheme.getOverlayColor(context),
@@ -4623,7 +4628,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     }
 
     // 打开存档管理对话框
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => SaveManagementDialog(game: _currentGame),
     );
@@ -5334,7 +5339,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   void _showReviewDetail(BuildContext context) {
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (dialogContext) => _DetailReviewDialog(
         game: _currentGame,
@@ -6137,9 +6142,10 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
       return CachedNetworkImage(
         imageUrl: url,
         fit: BoxFit.contain,
-        placeholder: (_, __) => const Center(
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+        placeholder: (_, __) => const AppSkeleton(
+            layout: SkeletonLayout.image, label: '正在加载图片'),
+        fadeInDuration: AppMotion.duration(context, AppMotion.fast),
+        fadeOutDuration: AppMotion.duration(context, AppMotion.fast),
         errorWidget: (_, __, ___) => _buildBrokenImageIcon(),
         httpHeaders: const {
           'User-Agent':
@@ -6151,6 +6157,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
 
     return Image.file(
       File(imagePath),
+      frameBuilder: appImageFrameBuilder,
       fit: BoxFit.contain,
       errorBuilder: (_, __, ___) => _buildBrokenImageIcon(),
     );
@@ -6242,6 +6249,7 @@ class _ImageSelectionDialog extends StatelessWidget {
                             GlassConstants.radiusSmall - 1),
                         child: Image.file(
                           File(image.imagePath),
+                          frameBuilder: appImageFrameBuilder,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => Container(
                             color: AppTheme.getBackgroundColor(context)
@@ -6367,7 +6375,7 @@ class _InlineVideoPlayerState extends State<_InlineVideoPlayer> {
           color: AppTheme.getInputFillColor(context),
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
         ),
-        child: const Center(child: CircularProgressIndicator()),
+        child: const Center(child: AppProgressIndicator()),
       );
     }
 

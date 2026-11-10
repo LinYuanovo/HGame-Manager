@@ -111,7 +111,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                 IconButton(
                   icon: const Icon(Icons.refresh, size: GlassConstants.iconControl),
                   color: AppTheme.getTextSecondary(context),
-                  onPressed: _loadCloudBackups,
+                  onPressed: _isLoading ? null : _loadCloudBackups,
                   tooltip: '刷新',
                 ),
                 IconButton(
@@ -123,10 +123,11 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
             ),
             content: SizedBox(
               width: 700,
+              height: 360,
               child: _isLoading
                   ? const Padding(
                       padding: EdgeInsets.symmetric(vertical: GlassConstants.spacingXLarge),
-                      child: Center(child: CircularProgressIndicator()),
+                      child: AppSkeleton(label: '正在加载云端备份', height: 220),
                     )
                   : _files.isEmpty
                       ? Padding(

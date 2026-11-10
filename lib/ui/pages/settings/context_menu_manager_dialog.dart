@@ -13,12 +13,12 @@ class ContextMenuManagerDialog extends ConsumerStatefulWidget {
 
 class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDialog>
     with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+  late AppTabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = AppTabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
   }
 
@@ -35,6 +35,7 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
 
   @override
   Widget build(BuildContext context) {
+    _tabController.reducedMotion = AppMotion.reduced(context);
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
@@ -104,7 +105,8 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
     return _TabItemWidget(
       label: label,
       isSelected: isSelected,
-      onTap: () => _tabController.animateTo(index),
+      onTap: () => _tabController.animateTo(index,
+          duration: AppMotion.duration(context, AppMotion.medium)),
     );
   }
 
@@ -185,7 +187,7 @@ class _TabItemWidgetState extends State<_TabItemWidget> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: GlassConstants.animFast,
+          duration: AppMotion.duration(context, GlassConstants.animFast),
           padding: EdgeInsets.symmetric(vertical: GlassConstants.spacingInline),
           decoration: BoxDecoration(
             color: widget.isSelected

@@ -93,7 +93,7 @@ class _TagGamesPageState extends ConsumerState<TagGamesPage> {
                           },
                         );
                       },
-                      loading: () => const Center(child: CircularProgressIndicator()),
+                      loading: () => const GameListSkeleton(),
                       error: (error, _) => Center(
                           child: Text('加载失败: $error',
                               style: const TextStyle(color: AppTheme.errorColor))),

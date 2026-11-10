@@ -76,6 +76,7 @@ class DraggableImageGrid extends StatelessWidget {
                   borderRadius: BorderRadius.circular(GlassConstants.radiusSmall - 1),
                   child: Image.file(
                     File(image.imagePath),
+                    frameBuilder: appImageFrameBuilder,
                     fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) => Container(
                       color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),

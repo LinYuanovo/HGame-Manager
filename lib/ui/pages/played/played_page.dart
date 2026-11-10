@@ -69,7 +69,7 @@ class _PlayedPageState extends ConsumerState<PlayedPage>
                 ),
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const GameListSkeleton(),
             error: (e, _) => Center(child: Text('加载失败: $e')),
           ),
         ),
