@@ -460,6 +460,7 @@ class GlassConstants {
 - 替代 SharedPreferences，保持数据本地化
 
 ### 配置项
+- `cover_memory_saving` - 封面节省内存模式，默认 false 使用原图分辨率；true 按 768px 宽解码，列表与海报共用。
 - `font_family` - 字体
 - `font_size` - 字体大小
 - `view_mode` - 视图模式

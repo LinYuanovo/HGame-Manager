@@ -405,6 +405,19 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<bool>(coverMemorySavingProvider, (previous, current) {
+      if (previous == null || previous == current) return;
+      for (final game in widget.games) {
+        if (game.images.isEmpty) continue;
+        final index = game.coverIndex.clamp(0, game.images.length - 1);
+        final original = FileImage(File(game.images[index].imagePath));
+        unawaited(ResizeImage.resizeIfNeeded(
+          previous ? 768 : null,
+          null,
+          original,
+        ).evict());
+      }
+    });
     return ListenableBuilder(
       listenable: _multiSelectController,
       builder: (context, _) {
@@ -1795,13 +1808,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       return _buildCoverPlaceholder(width, height);
     }
 
+    final cacheWidth = ref.watch(coverMemorySavingProvider) ? 768 : null;
     return Image.file(
       File(coverPath),
-      key: ValueKey((coverPath, _coverRevision)),
+      key: ValueKey((coverPath, _coverRevision, cacheWidth)),
       width: width,
       height: height,
       fit: fit,
-      cacheWidth: 768,
+      cacheWidth: cacheWidth,
       errorBuilder: (context, error, stackTrace) =>
           _buildCoverPlaceholder(width, height),
     );
@@ -1974,8 +1988,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         onTagTap: (tag) => Navigator.of(dialogContext).pop(tag),
       ),
     ).then((tag) async {
-      await Future.wait(game.images.map((image) =>
-          ResizeImage(FileImage(File(image.imagePath)), width: 768).evict()));
+      await Future.wait(game.images.expand((image) {
+        final original = FileImage(File(image.imagePath));
+        return [original.evict(), ResizeImage(original, width: 768).evict()];
+      }));
       if (!mounted) return;
       setState(() => _coverRevision++);
       // 关闭详情页后刷新列表

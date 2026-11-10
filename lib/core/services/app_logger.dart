@@ -77,27 +77,20 @@ class AppLogger {
   }
 
   Future<void> _initialize(String? directory) async {
-    final candidates = [
-      directory ?? path.join(path.dirname(Platform.resolvedExecutable), 'logs'),
-      if (directory == null && Platform.environment['LOCALAPPDATA'] != null)
-        path.join(
-            Platform.environment['LOCALAPPDATA']!, 'HGame-Manager', 'logs'),
-    ];
-    for (final candidate in candidates) {
-      try {
-        await Directory(candidate).create(recursive: true);
-        _logDir = candidate;
-        await _openDailyFile();
-        info('AppLogger',
-            '启动会话: version=$appVersion, os=${Platform.operatingSystemVersion}, locale=${Platform.localeName}, processors=${Platform.numberOfProcessors}, logs=$candidate');
-        await flush();
-        await _cleanOldLogs();
-        return;
-      } catch (error) {
-        _logFile = null;
-        _logDir = null;
-        debugPrint('[AppLogger] 初始化失败: ${sanitize(error.toString())}');
-      }
+    final candidate =
+        directory ?? path.join(path.dirname(Platform.resolvedExecutable), 'logs');
+    try {
+      await Directory(candidate).create(recursive: true);
+      _logDir = candidate;
+      await _openDailyFile();
+      info('AppLogger',
+          '启动会话: version=$appVersion, os=${Platform.operatingSystemVersion}, locale=${Platform.localeName}, processors=${Platform.numberOfProcessors}, logs=$candidate');
+      await flush();
+      await _cleanOldLogs();
+    } catch (error) {
+      _logFile = null;
+      _logDir = null;
+      debugPrint('[AppLogger] 初始化失败: ${sanitize(error.toString())}');
     }
   }
 

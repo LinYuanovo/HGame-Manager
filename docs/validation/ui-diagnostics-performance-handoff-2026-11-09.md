@@ -9,6 +9,7 @@
 - 工作树：`C:\Users\Administrator\.codex\worktrees\ui-diagnostics-performance\HGame-Manager`。
 - 实现和验收已完成，成果保存为本地提交 `377db9d`，后续整合到 `codex/integration-ui-translation`。最终审阅、验证与清理状态见 [整合审阅报告](ui-translation-merge-review-2026-11-10.md)；以下记录来源分支的验收范围。
 - [检查计划](ui-diagnostics-performance-plan-2026-11-09.md) 在实现前建立，本文件随检查更新。
+- 后续封面默认画质、可选内存模式与日志目录策略已调整，当前结果见 [封面设置与构建目录恢复记录](cover-quality-runtime-recovery-2026-11-10.md)。
 
 ## 已完成的修改
 

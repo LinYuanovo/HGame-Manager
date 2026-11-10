@@ -21,6 +21,7 @@ import 'package:hgame_manager/core/utils/game_data_paths.dart';
 import 'package:hgame_manager/scraper/parse_utils.dart';
 import 'package:hgame_manager/ui/pages/games/game_detail_page.dart';
 import 'package:hgame_manager/ui/pages/settings/metadata_translation_dialog.dart';
+import 'package:hgame_manager/ui/pages/settings/settings_page.dart';
 import 'package:hgame_manager/ui/theme/app_theme.dart';
 import 'package:hgame_manager/ui/widgets/game_list_widget.dart';
 import 'package:integration_test/integration_test.dart';
@@ -71,7 +72,9 @@ void main() {
     final settings = await AppSettings.loadFromFileForTest(
         path.join(temporary.path, 'settings.json'));
     final logger = AppLogger.instance;
-    await logger.init(directory: path.join(temporary.path, 'logs'));
+    await logger.init();
+    expect(logger.logDir,
+        path.join(File(Platform.resolvedExecutable).parent.path, 'logs'));
     final config = MetadataTranslationConfig(
       enabled: true,
       provider: 'llm',
@@ -194,9 +197,9 @@ void main() {
       Future<void> writeCover(Color color) async {
         final recorder = ui.PictureRecorder();
         Canvas(recorder).drawRect(
-            const Rect.fromLTWH(0, 0, 16, 16), Paint()..color = color);
+            const Rect.fromLTWH(0, 0, 1536, 864), Paint()..color = color);
         final picture = recorder.endRecording();
-        final image = await picture.toImage(16, 16);
+        final image = await picture.toImage(1536, 864);
         final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
         await coverFile.writeAsBytes(bytes!.buffer.asUint8List(), flush: true);
         image.dispose();
@@ -216,14 +219,28 @@ void main() {
               ]),
         ],
         child: MaterialApp(
-          theme: AppTheme.lightTheme(),
-          home: Scaffold(body: Consumer(builder: (context, ref, child) {
-            return ref.watch(allGamesProvider).when(
-                  data: (games) => GameListWidget(games: games),
-                  error: (error, stackTrace) => Text(error.toString()),
-                  loading: () => const CircularProgressIndicator(),
-                );
-          })),
+          theme: AppTheme.darkTheme(),
+          home: Scaffold(
+            appBar: AppBar(actions: [
+              Builder(
+                  builder: (context) => IconButton(
+                        tooltip: '调整封面画质',
+                        icon: const Icon(Icons.settings),
+                        onPressed: () => showDialog<void>(
+                          context: context,
+                          builder: (_) =>
+                              const Dialog(child: SettingsDialogContent()),
+                        ),
+                      )),
+            ]),
+            body: Consumer(builder: (context, ref, child) {
+              return ref.watch(allGamesProvider).when(
+                    data: (games) => GameListWidget(games: games),
+                    error: (error, stackTrace) => Text(error.toString()),
+                    loading: () => const CircularProgressIndicator(),
+                  );
+            }),
+          ),
         ),
       ));
       final coverFinder = find.descendant(
@@ -236,7 +253,44 @@ void main() {
         await tester.pump(const Duration(milliseconds: 50));
       }
       final beforeImage = tester.widget<RawImage>(coverFinder.first).image!;
+      expect(beforeImage.width, 1536, reason: '默认使用原图分辨率');
+      final originalCoverBytes = await coverFile.readAsBytes();
       final beforePixels = await beforeImage.toByteData();
+      for (final memorySaving in [true, false]) {
+        await tester.tap(find.byTooltip('调整封面画质'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('管理'));
+        await tester.pumpAndSettle();
+        final qualitySwitch = find.widgetWithText(SwitchListTile, '节省封面内存');
+        await tester.ensureVisible(qualitySwitch);
+        await tester.pumpAndSettle();
+        expect(
+            tester.widget<SwitchListTile>(qualitySwitch).value, !memorySaving);
+        await tester.tap(
+            find.descendant(of: qualitySwitch, matching: find.byType(Switch)));
+        await tester.pumpAndSettle();
+        expect(
+            tester.widget<SwitchListTile>(qualitySwitch).value, memorySaving);
+        final saved = jsonDecode(
+            await File(path.join(temporary.path, 'settings.json'))
+                .readAsString());
+        expect(saved[AppSettings.coverMemorySavingKey], memorySaving);
+        Navigator.of(tester.element(find.byType(SettingsDialogContent))).pop();
+        await tester.pumpAndSettle();
+        final expectedWidth = memorySaving ? 768 : 1536;
+        for (var attempt = 0; attempt < 100; attempt++) {
+          await tester.pump(const Duration(milliseconds: 50));
+          if (coverFinder.evaluate().isNotEmpty &&
+              tester.widget<RawImage>(coverFinder.first).image?.width ==
+                  expectedWidth) {
+            break;
+          }
+        }
+        expect(tester.widget<RawImage>(coverFinder.first).image!.width,
+            expectedWidth);
+        expect(await coverFile.readAsBytes(), originalCoverBytes);
+        expect(tester.takeException(), isNull);
+      }
       await tester.tap(find.text(selectedGame.title!).first);
       await tester.pumpAndSettle();
       expect(find.byType(GameDetailDialog), findsOneWidget);

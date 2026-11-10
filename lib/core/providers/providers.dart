@@ -1333,4 +1333,9 @@ final noImageModeProvider = StateProvider<bool>((ref) {
   return prefs.getBool(AppSettings.noImageModeKey) ?? false;
 });
 
+final coverMemorySavingProvider = StateProvider<bool>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return prefs.getBool(AppSettings.coverMemorySavingKey) ?? false;
+});
+
 final sidebarRefreshProvider = StateProvider<int>((ref) => 0);

@@ -130,7 +130,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _SidebarCategory(
       label: '管理',
       icon: Icons.admin_panel_settings_outlined,
-      items: ['黑名单管理', '右键菜单管理', '侧边栏页面管理', '封面比例管理', '刮削行为管理', '重命名规则管理', '攻略浮窗快捷键'],
+      items: ['黑名单管理', '右键菜单管理', '侧边栏页面管理', '封面比例管理', '封面画质', '刮削行为管理', '重命名规则管理', '攻略浮窗快捷键'],
     ),
     _SidebarCategory(
       label: '刮削',
@@ -498,6 +498,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         return _buildSidebarManagerSection();
       case '封面比例管理':
         return _buildPosterCoverAspectRatioSection();
+      case '封面画质':
+        return _buildCoverQualitySection();
       case '黑名单管理':
         return _buildBlacklistSection();
       case '刮削行为管理':
@@ -2127,6 +2129,36 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               activeColor: AppTheme.primaryColor,
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCoverQualitySection() {
+    return _buildSection(
+      title: '封面画质',
+      icon: Icons.photo_size_select_large_outlined,
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text('节省封面内存',
+              style: TextStyle(
+                  fontSize: GlassConstants.fontControl,
+                  color: AppTheme.getTextPrimary(context))),
+          subtitle: Text(
+            '默认关闭，使用原图清晰度。开启后降低列表和海报封面的分辨率，减少内存占用。切换立即生效，原图片文件保持不变。',
+            style: TextStyle(
+                fontSize: GlassConstants.fontSmall,
+                color: AppTheme.getTextSecondary(context)),
+          ),
+          activeThumbColor: AppTheme.getPrimaryColor(context),
+          value: ref.watch(coverMemorySavingProvider),
+          onChanged: (value) async {
+            final prefs = ref.read(sharedPreferencesProvider);
+            ref.read(coverMemorySavingProvider.notifier).state = value;
+            await prefs.setBool(AppSettings.coverMemorySavingKey, value);
+            await prefs.flush();
+          },
         ),
       ],
     );
