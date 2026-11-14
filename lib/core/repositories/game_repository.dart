@@ -11,7 +11,11 @@ import '../utils/cleared_game_path_utils.dart';
 import '../utils/game_data_paths.dart';
 
 class GameRepository implements PlayTimeRepository {
-  Future<Database> get _db => DatabaseHelper.database;
+  final Database? _database;
+
+  GameRepository({Database? database}) : _database = database;
+
+  Future<Database> get _db async => _database ?? await DatabaseHelper.database;
 
   final Map<String, bool> _pathExistsCache = {};
   DateTime? _pathCacheTime;
@@ -398,8 +402,13 @@ class GameRepository implements PlayTimeRepository {
     );
   }
 
-  Future<void> updateGame(Game game) async {
+  Future<T> transaction<T>(Future<T> Function(Transaction) action) async {
     final db = await _db;
+    return db.transaction(action);
+  }
+
+  Future<void> updateGame(Game game, {DatabaseExecutor? executor}) async {
+    final db = executor ?? await _db;
     await db.update(
       'games',
       game.toMap(),
@@ -699,8 +708,9 @@ class GameRepository implements PlayTimeRepository {
     return maps.map((map) => GameImage.fromMap(map)).toList();
   }
 
-  Future<void> addTagToGame(int gameId, int tagId) async {
-    final db = await _db;
+  Future<void> addTagToGame(int gameId, int tagId,
+      {DatabaseExecutor? executor}) async {
+    final db = executor ?? await _db;
     await db.insert(
       'game_tag_relation',
       {'game_id': gameId, 'tag_id': tagId},
@@ -717,8 +727,8 @@ class GameRepository implements PlayTimeRepository {
     );
   }
 
-  Future<void> clearGameTags(int gameId) async {
-    final db = await _db;
+  Future<void> clearGameTags(int gameId, {DatabaseExecutor? executor}) async {
+    final db = executor ?? await _db;
     await db.delete(
       'game_tag_relation',
       where: 'game_id = ?',

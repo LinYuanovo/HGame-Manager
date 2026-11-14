@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as path;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart' show DatabaseExecutor;
 
 import '../../scraper/parse_utils.dart';
 import '../models/models.dart';
@@ -505,42 +506,62 @@ class ScrapeApplyService {
     if (!config.enabled || game.id == null) return game;
     final metadataFile = await GameDataPaths.existingMetadataFile(game.path);
     Map<String, dynamic> metadata;
+    String originalContent;
     try {
-      metadata =
-          jsonDecode(await metadataFile.readAsString()) as Map<String, dynamic>;
+      originalContent = await metadataFile.readAsString();
+      metadata = jsonDecode(originalContent) as Map<String, dynamic>;
     } catch (_) {
       onNotice?.call('无法读取游戏元数据，已跳过翻译');
       return game;
     }
     final translated = await MetadataTranslationService()
         .translate(metadata, config, onNotice: onNotice);
-    if (identical(translated, metadata)) return game;
+    if (MetadataTranslationService.originalFrom(translated) == null) return game;
 
     final tempFile = File('${metadataFile.path}.translation.tmp');
+    final metadataChanged = !identical(translated, metadata);
+    var fileReplaced = false;
+    var keepRecoveryFile = false;
+    late Game updated;
     try {
-      await tempFile.writeAsString(jsonEncode(translated), flush: true);
-      await tempFile.rename(metadataFile.path);
-    } catch (_) {
-      onNotice?.call('翻译结果保存失败，已保留原文');
+      if (metadataChanged) {
+        await tempFile.writeAsString(jsonEncode(translated), flush: true);
+      }
+      final current = await repo.getGameById(game.id!) ?? game;
+      updated = gameWithMetadata(current, translated);
+      await repo.transaction((transaction) async {
+        await repo.updateGame(updated, executor: transaction);
+        await syncTags(
+          repo,
+          tagRepo,
+          game.id!,
+          GameInfo(
+            sourceUrl: current.sourceUrl ?? '',
+            tags: (translated['tags'] as List?)?.cast<String>() ?? [],
+            category: translated['series'] as String?,
+            maker: current.maker,
+          ),
+          executor: transaction,
+        );
+        if (metadataChanged) {
+          await tempFile.rename(metadataFile.path);
+          fileReplaced = true;
+        }
+      });
+    } catch (error, stackTrace) {
+      AppLogger.instance.error('MetadataTranslation',
+          '同步翻译结果失败: ${error.runtimeType}', null, stackTrace);
+      if (fileReplaced) {
+        keepRecoveryFile = true;
+        await tempFile.writeAsString(originalContent, flush: true);
+        await tempFile.rename(metadataFile.path);
+        keepRecoveryFile = false;
+      }
+      onNotice?.call('翻译结果同步失败，已保留此前数据，可稍后重试');
       return game;
     } finally {
-      if (await tempFile.exists()) await tempFile.delete();
+      if (!keepRecoveryFile && await tempFile.exists()) await tempFile.delete();
     }
-
-    final current = await repo.getGameById(game.id!) ?? game;
-    final updated = gameWithMetadata(current, translated);
-    await repo.updateGame(updated);
-    await syncTags(
-      repo,
-      tagRepo,
-      game.id!,
-      GameInfo(
-        sourceUrl: current.sourceUrl ?? '',
-        tags: (translated['tags'] as List?)?.cast<String>() ?? [],
-        category: translated['series'] as String?,
-        maker: current.maker,
-      ),
-    );
     return await repo.getGameById(game.id!) ?? updated;
   }
 
@@ -548,28 +569,30 @@ class ScrapeApplyService {
     GameRepository repo,
     TagRepository tagRepo,
     int gameId,
-    GameInfo gameInfo,
-  ) async {
-    await repo.clearGameTags(gameId);
+    GameInfo gameInfo, {
+    DatabaseExecutor? executor,
+  }) async {
+    await repo.clearGameTags(gameId, executor: executor);
     if (gameInfo.maker != null && gameInfo.maker!.isNotEmpty) {
-      final makerTagId =
-          await tagRepo.insertOrGetTag(gameInfo.maker!, Tag.typeCustom);
-      await repo.addTagToGame(gameId, makerTagId);
+      final makerTagId = await tagRepo.insertOrGetTag(
+          gameInfo.maker!, Tag.typeCustom, executor: executor);
+      await repo.addTagToGame(gameId, makerTagId, executor: executor);
     }
     for (final tagName in gameInfo.tags) {
-      final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
-      await repo.addTagToGame(gameId, tagId);
+      final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom,
+          executor: executor);
+      await repo.addTagToGame(gameId, tagId, executor: executor);
     }
     if (gameInfo.category != null) {
-      final tagId =
-          await tagRepo.insertOrGetTag(gameInfo.category!, Tag.typeSeries);
-      await repo.addTagToGame(gameId, tagId);
+      final tagId = await tagRepo.insertOrGetTag(
+          gameInfo.category!, Tag.typeSeries, executor: executor);
+      await repo.addTagToGame(gameId, tagId, executor: executor);
     }
     final gameTagNames = [
       ...gameInfo.tags,
       if (gameInfo.category != null) gameInfo.category!,
     ];
-    final allTags = await tagRepo.getAllTags();
+    final allTags = await tagRepo.getAllTags(executor: executor);
     for (final existingTag in allTags) {
       final alreadyHas = gameTagNames
           .any((t) => t.toLowerCase() == existingTag.name.toLowerCase());
@@ -578,7 +601,7 @@ class ScrapeApplyService {
           t.toLowerCase().contains(existingTag.name.toLowerCase()) &&
           t.toLowerCase() != existingTag.name.toLowerCase());
       if (isOverlapping) {
-        await repo.addTagToGame(gameId, existingTag.id!);
+        await repo.addTagToGame(gameId, existingTag.id!, executor: executor);
       }
     }
   }

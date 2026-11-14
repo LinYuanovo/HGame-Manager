@@ -463,18 +463,18 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Future<void> _loadMetadataHtml() async {
+    if (!mounted) return;
     try {
       _introHtml = null;
       _translationOriginal = null;
       _viewingOriginal = false;
       _metadataImageUrls = [];
-      final metadataFile =
-          await GameDataPaths.existingMetadataFile(_currentGame.path);
-      if (await metadataFile.exists()) {
-        final json = jsonDecode(await metadataFile.readAsString());
+      final json = await ref
+          .read(clearedMetadataBackupServiceProvider)
+          .loadMetadata(_currentGame);
+      if (json != null) {
         _introHtml = json['intro_html'] as String?;
-        _translationOriginal = MetadataTranslationService.originalFrom(
-            json as Map<String, dynamic>);
+        _translationOriginal = MetadataTranslationService.originalFrom(json);
         _metadataImageUrls =
             (json['image_urls'] as List<dynamic>?)?.cast<String>() ?? [];
       }

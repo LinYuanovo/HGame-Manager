@@ -21,6 +21,10 @@ class DatabaseHelper {
   static Future<void> upgradeForTesting(Database db, int oldVersion) =>
       _onUpgrade(db, oldVersion, _databaseVersion);
 
+  @visibleForTesting
+  static Future<void> createForTesting(Database db) =>
+      _onCreate(db, _databaseVersion);
+
   static Future<Database> get database async {
     if (_database != null) return _database!;
     return _databaseFuture ??=

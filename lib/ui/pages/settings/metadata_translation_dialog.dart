@@ -24,6 +24,7 @@ class _MetadataTranslationDialogState extends State<MetadataTranslationDialog> {
   late final TextEditingController _baseUrl;
   late final TextEditingController _model;
   late final TextEditingController _apiKey;
+  late final TextEditingController _prompt;
   bool _busy = false;
   bool _hideKey = true;
   String? _result;
@@ -37,6 +38,7 @@ class _MetadataTranslationDialogState extends State<MetadataTranslationDialog> {
     _baseUrl = TextEditingController(text: config.baseUrl);
     _model = TextEditingController(text: config.model);
     _apiKey = TextEditingController(text: config.apiKey);
+    _prompt = TextEditingController(text: config.prompt);
   }
 
   @override
@@ -44,6 +46,7 @@ class _MetadataTranslationDialogState extends State<MetadataTranslationDialog> {
     _baseUrl.dispose();
     _model.dispose();
     _apiKey.dispose();
+    _prompt.dispose();
     super.dispose();
   }
 
@@ -54,6 +57,7 @@ class _MetadataTranslationDialogState extends State<MetadataTranslationDialog> {
         baseUrl: _baseUrl.text,
         model: _model.text,
         apiKey: _apiKey.text,
+        prompt: _prompt.text,
       );
 
   Future<void> _test() async {
@@ -103,13 +107,16 @@ class _MetadataTranslationDialogState extends State<MetadataTranslationDialog> {
   }
 
   Widget _field(TextEditingController controller, String label,
-      {String? hint, bool secret = false}) {
+      {String? hint, bool secret = false, bool multiline = false}) {
     return Padding(
       padding: const EdgeInsets.only(top: GlassConstants.spacingMedium),
       child: TextField(
         controller: controller,
         enabled: !_busy,
         obscureText: secret && _hideKey,
+        minLines: multiline ? 4 : null,
+        maxLines: multiline ? 8 : 1,
+        keyboardType: multiline ? TextInputType.multiline : null,
         autocorrect: false,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: AppTheme.getTextPrimary(context),
@@ -117,6 +124,10 @@ class _MetadataTranslationDialogState extends State<MetadataTranslationDialog> {
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
+          hintMaxLines: multiline ? 8 : null,
+          floatingLabelBehavior: multiline
+              ? FloatingLabelBehavior.always
+              : FloatingLabelBehavior.auto,
           filled: true,
           fillColor: AppTheme.getSurfaceColor(context),
           border: OutlineInputBorder(
@@ -201,6 +212,9 @@ class _MetadataTranslationDialogState extends State<MetadataTranslationDialog> {
                       hint: 'https://服务地址/v1 或完整 chat/completions 地址'),
                   _field(_model, '模型名称'),
                   _field(_apiKey, 'API Key（服务无需鉴权时可留空）', secret: true),
+                  _field(_prompt, '翻译 Prompt（留空使用默认）',
+                      hint: MetadataTranslationConfig.defaultPrompt,
+                      multiline: true),
                 ],
                 if (_result != null) ...[
                   const SizedBox(height: GlassConstants.spacingMedium),

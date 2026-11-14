@@ -3,10 +3,14 @@ import '../database/database_helper.dart';
 import '../models/models.dart';
 
 class TagRepository {
-  Future<Database> get _db => DatabaseHelper.database;
+  final Database? _database;
 
-  Future<List<Tag>> getAllTags() async {
-    final db = await _db;
+  TagRepository({Database? database}) : _database = database;
+
+  Future<Database> get _db async => _database ?? await DatabaseHelper.database;
+
+  Future<List<Tag>> getAllTags({DatabaseExecutor? executor}) async {
+    final db = executor ?? await _db;
     final List<Map<String, dynamic>> maps = await db.rawQuery('''
       SELECT t.*, COUNT(gtr.game_id) as game_count
       FROM tags t
@@ -60,8 +64,9 @@ class TagRepository {
     return Tag.fromMap(maps.first);
   }
 
-  Future<Tag?> getTagByNameAndType(String name, String type) async {
-    final db = await _db;
+  Future<Tag?> getTagByNameAndType(String name, String type,
+      {DatabaseExecutor? executor}) async {
+    final db = executor ?? await _db;
     final List<Map<String, dynamic>> maps = await db.rawQuery('''
       SELECT t.*, COUNT(gtr.game_id) as game_count
       FROM tags t
@@ -82,11 +87,12 @@ class TagRepository {
     );
   }
 
-  Future<int> insertOrGetTag(String name, String type, {String? displayName}) async {
-    final existing = await getTagByNameAndType(name, type);
+  Future<int> insertOrGetTag(String name, String type,
+      {String? displayName, DatabaseExecutor? executor}) async {
+    final existing = await getTagByNameAndType(name, type, executor: executor);
     if (existing != null) return existing.id!;
 
-    final db = await _db;
+    final db = executor ?? await _db;
     return await db.insert(
       'tags',
       {
