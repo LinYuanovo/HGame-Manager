@@ -368,6 +368,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     });
 
     try {
+      if (await _skipExistingFolder(GameRepository())) return;
       if (_source == ImportSource.dlsite) {
         await _searchDlsite();
       } else {
@@ -381,6 +382,24 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<bool> _skipExistingFolder(GameRepository repo) async {
+    if (await repo.getStoredGameByPath(_folderPath!) == null) return false;
+    _showExistingFolderNotice();
+    return true;
+  }
+
+  void _showExistingFolderNotice() {
+    AppLogger.instance.info('Import', '单个导入完成: 已在库中，跳过 1 个');
+    if (!mounted) return;
+    setState(() => _statusText = '该游戏已在库中，已跳过');
+    AppTheme.showGlassToast(
+      context,
+      message: '该游戏已在库中，已跳过',
+      icon: Icons.info_outline,
+      iconColor: AppTheme.getPrimaryColor(context),
+    );
   }
 
   Future<void> _importNone() async {
@@ -401,14 +420,9 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
 
     try {
       final repo = GameRepository();
-      final existingGame = await repo.getGameByPath(_folderPath!);
-      if (existingGame != null) {
-        await GameDataMigrationService(gameRepository: repo)
-            .migrateGameDirectory(_folderPath!, gameId: existingGame.id);
-      } else {
-        await GameDataMigrationService(gameRepository: repo)
-            .migrateGameDirectory(_folderPath!);
-      }
+      if (await _skipExistingFolder(repo)) return;
+      await GameDataMigrationService(gameRepository: repo)
+          .migrateGameDirectory(_folderPath!);
 
       String? title;
       String? version;
@@ -449,11 +463,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         sourceUrl: sourceUrl,
       );
 
-      if (existingGame != null) {
-        await repo.updateGame(game.copyWith(id: existingGame.id));
-      } else {
-        await repo.insertGame(game);
-      }
+      await repo.insertGame(game);
 
       final savedGame = await repo.getGameByPath(_folderPath!);
       if (savedGame != null) {
@@ -465,11 +475,13 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         widget.onImportComplete();
         AppTheme.showGlassToast(
           context,
-          message: existingGame != null ? '游戏信息已更新' : '游戏导入成功',
+          message: '游戏导入成功',
           icon: Icons.check_circle_outline,
           iconColor: AppTheme.successColor,
         );
       }
+    } on GameAlreadyExistsException {
+      _showExistingFolderNotice();
     } catch (e, stackTrace) {
       AppLogger.instance.error('Import', '操作失败', e, stackTrace);
       if (mounted) setState(() => _statusText = '导入失败: $e');
@@ -566,11 +578,14 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     });
 
     try {
+      if (await _skipExistingFolder(GameRepository())) return;
       if (_source == ImportSource.dlsite) {
         await _importDlsite();
       } else {
         await _importSteam();
       }
+    } on GameAlreadyExistsException {
+      _showExistingFolderNotice();
     } catch (e, stackTrace) {
       AppLogger.instance.error('Import', '操作失败', e, stackTrace);
       if (mounted) setState(() => _statusText = '导入失败: $e');
@@ -585,8 +600,9 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     final repo = GameRepository();
     final tagRepo = TagRepository();
     final existingGame = await repo.getGameByPath(_folderPath!);
+    if (existingGame != null) throw GameAlreadyExistsException(_folderPath!);
     await GameDataMigrationService(gameRepository: repo)
-        .migrateGameDirectory(_folderPath!, gameId: existingGame?.id);
+        .migrateGameDirectory(_folderPath!);
 
     if (!mounted) return;
     setState(() => _statusText = '正在通过ID获取: ${_selectedResult.id}');
@@ -622,13 +638,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       makerUrl: gameInfo.makerUrl,
     );
 
-    int gameId;
-    if (existingGame != null) {
-      await repo.updateGame(game.copyWith(id: existingGame.id));
-      gameId = existingGame.id!;
-    } else {
-      gameId = await repo.insertGame(game);
-    }
+    final gameId = await repo.insertGame(game);
 
     await repo.clearGameTags(gameId);
     for (final tagName in gameInfo.tags) {
@@ -658,7 +668,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       AppTheme.showGlassToast(
         context,
         message: [
-          existingGame != null ? '游戏信息已更新' : '游戏导入成功',
+          '游戏导入成功',
           ..._translationNotices,
         ].join('\n'),
         maxLines: null,
@@ -675,8 +685,9 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     final repo = GameRepository();
     final tagRepo = TagRepository();
     final existingGame = await repo.getGameByPath(_folderPath!);
+    if (existingGame != null) throw GameAlreadyExistsException(_folderPath!);
     await GameDataMigrationService(gameRepository: repo)
-        .migrateGameDirectory(_folderPath!, gameId: existingGame?.id);
+        .migrateGameDirectory(_folderPath!);
 
     if (!mounted) return;
     setState(() => _statusText = '正在通过ID获取: ${_selectedResult.id}');
@@ -728,13 +739,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       maker: developers.isNotEmpty ? developers.join(', ') : null,
     );
 
-    int gameId;
-    if (existingGame != null) {
-      await repo.updateGame(game.copyWith(id: existingGame.id));
-      gameId = existingGame.id!;
-    } else {
-      gameId = await repo.insertGame(game);
-    }
+    final gameId = await repo.insertGame(game);
 
     await repo.clearGameTags(gameId);
     for (final tagName in gameInfo.tags) {
@@ -762,7 +767,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       AppTheme.showGlassToast(
         context,
         message: [
-          existingGame != null ? '游戏信息已更新' : '游戏导入成功',
+          '游戏导入成功',
           ..._translationNotices,
         ].join('\n'),
         maxLines: null,

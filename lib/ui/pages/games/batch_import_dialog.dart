@@ -3,10 +3,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 import '../../../core/models/models.dart';
+import '../../../core/providers/providers.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../../core/utils/game_data_paths.dart';
+import '../../../core/utils/game_path_utils.dart';
+import '../../../core/services/app_logger.dart';
 import '../../../core/services/scrape_apply_service.dart';
 import '../../../core/repositories/game_repository.dart';
 import '../../../core/repositories/tag_repository.dart';
@@ -24,7 +28,7 @@ import '../../widgets/app_dropdown.dart';
 ///   扫描其子文件夹生成导入列表；
 /// - 拖拽模式：传入 [initialFolderPaths] 直接给定游戏目录列表（可选
 ///   [presetKeywords] 提供各目录的预设刮削关键词），跳过父目录选择流程。
-class BatchImportDialog extends StatefulWidget {
+class BatchImportDialog extends ConsumerStatefulWidget {
   final VoidCallback onImportComplete;
   final String userFont;
 
@@ -43,10 +47,10 @@ class BatchImportDialog extends StatefulWidget {
   });
 
   @override
-  State<BatchImportDialog> createState() => _BatchImportDialogState();
+  ConsumerState<BatchImportDialog> createState() => _BatchImportDialogState();
 }
 
-class _BatchImportDialogState extends State<BatchImportDialog> {
+class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
   String? _parentPath;
   List<_BatchGameItem> _items = [];
   bool _scanning = false;
@@ -54,6 +58,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
   bool _importDone = false;
   int _successCount = 0;
   int _failCount = 0;
+  int _skippedCount = 0;
 
   /// 是否为拖拽模式（直接传入游戏目录列表，跳过父目录选择）
   bool get _isDragMode =>
@@ -188,28 +193,55 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
 
     int successCount = 0;
     int failCount = 0;
+    int skippedCount = 0;
 
-    final queue = List<_BatchGameItem>.from(selected);
-    const workerCount = 3;
-    final workers = <Future>[];
-
-    for (int i = 0; i < workerCount; i++) {
-      workers.add(_processQueue(queue, () async {
-        successCount++;
-      }, () {
-        failCount++;
-      }));
-    }
-
-    await Future.wait(workers);
-
-    if (mounted) {
-      setState(() {
-        _importing = false;
-        _importDone = true;
-        _successCount = successCount;
-        _failCount = failCount;
-      });
+    try {
+      final repo = ref.read(gameRepositoryProvider);
+      final existingKeys = (await repo.getGameIdsByPathKey()).keys.toSet();
+      final selectedKeys = <String>{};
+      final queue = <_BatchGameItem>[];
+      for (final item in selected) {
+        final key = GamePathUtils.comparisonKey(item.folder.path);
+        if (existingKeys.contains(key) || !selectedKeys.add(key)) {
+          item.status = existingKeys.contains(key) ? '已在库中，已跳过' : '本批路径重复，已跳过';
+          item.progress = 1.0;
+          skippedCount++;
+        } else {
+          queue.add(item);
+        }
+      }
+      if (mounted) setState(() {});
+      const workerCount = 3;
+      final workers = <Future>[];
+      for (int worker = 0; worker < workerCount; worker++) {
+        workers.add(_processQueue(queue, () {
+          successCount++;
+        }, () {
+          failCount++;
+        }, () {
+          skippedCount++;
+        }));
+      }
+      await Future.wait(workers);
+    } catch (error, stackTrace) {
+      failCount = selected.length - successCount - skippedCount;
+      AppLogger.instance.error(
+          'Import', '准备批量导入失败: 共 ${selected.length} 个目录', error, stackTrace);
+      for (final item in selected.where((item) => item.status.isEmpty)) {
+        item.status = '失败: $error';
+      }
+    } finally {
+      AppLogger.instance.info('Import',
+          '批量导入完成: 成功 $successCount 个，跳过 $skippedCount 个，失败 $failCount 个');
+      if (mounted) {
+        setState(() {
+          _importing = false;
+          _importDone = true;
+          _successCount = successCount;
+          _failCount = failCount;
+          _skippedCount = skippedCount;
+        });
+      }
     }
   }
 
@@ -217,8 +249,9 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
     List<_BatchGameItem> queue,
     VoidCallback onSuccess,
     VoidCallback onFail,
+    VoidCallback onSkipped,
   ) async {
-    final repo = GameRepository();
+    final repo = ref.read(gameRepositoryProvider);
     final tagRepo = TagRepository();
     final dlsiteService = DlsiteService();
     final steamService = SteamService();
@@ -226,6 +259,9 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
     while (queue.isNotEmpty) {
       final item = queue.removeAt(0);
       try {
+        if (await repo.getStoredGameByPath(item.folder.path) != null) {
+          throw GameAlreadyExistsException(item.folder.path);
+        }
         if (item.source == _BatchScrapeSource.none) {
           await _importNone(repo, item);
         } else if (item.source == _BatchScrapeSource.steam) {
@@ -235,7 +271,14 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
         }
         await _postImportProcess(repo, item);
         onSuccess();
-      } catch (e) {
+      } on GameAlreadyExistsException {
+        item.status = '已在库中，已跳过';
+        item.progress = 1.0;
+        if (mounted) setState(() {});
+        onSkipped();
+      } catch (e, stackTrace) {
+        AppLogger.instance
+            .error('Import', '导入游戏失败: path=${item.folder.path}', e, stackTrace);
         item.status = '失败: $e';
         if (mounted) setState(() {});
         onFail();
@@ -278,11 +321,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
     final folderPath = item.folder.path;
     final existing = await repo.getGameByPath(folderPath);
     if (existing != null) {
-      await GameDataMigrationService(gameRepository: repo)
-          .migrateGameDirectory(folderPath, gameId: existing.id);
-      item.status = '已存在，跳过';
-      if (mounted) setState(() {});
-      return;
+      throw GameAlreadyExistsException(folderPath);
     }
 
     item.status = '正在导入...';
@@ -444,9 +483,11 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
     _BatchGameItem item,
   ) async {
     final folderPath = item.folder.path;
-    final existing = await repo.getGameByPath(folderPath);
+    if (await repo.getGameByPath(folderPath) != null) {
+      throw GameAlreadyExistsException(folderPath);
+    }
     await GameDataMigrationService(gameRepository: repo)
-        .migrateGameDirectory(folderPath, gameId: existing?.id);
+        .migrateGameDirectory(folderPath);
 
     item.status = '搜索中...';
     if (mounted) setState(() {});
@@ -475,11 +516,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
         path: folderPath,
         title: path.basename(folderPath),
       );
-      if (existing != null) {
-        await repo.updateGame(game.copyWith(id: existing.id));
-      } else {
-        await repo.insertGame(game);
-      }
+      await repo.insertGame(game);
       item.progress = 1.0;
       if (mounted) setState(() {});
       return;
@@ -496,11 +533,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
         path: folderPath,
         title: path.basename(folderPath),
       );
-      if (existing != null) {
-        await repo.updateGame(game.copyWith(id: existing.id));
-      } else {
-        await repo.insertGame(game);
-      }
+      await repo.insertGame(game);
       item.progress = 1.0;
       if (mounted) setState(() {});
       return;
@@ -549,13 +582,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
       maker: developers.isNotEmpty ? developers.join(', ') : null,
     );
 
-    int gameId;
-    if (existing != null) {
-      await repo.updateGame(game.copyWith(id: existing.id));
-      gameId = existing.id!;
-    } else {
-      gameId = await repo.insertGame(game);
-    }
+    final gameId = await repo.insertGame(game);
 
     await repo.clearGameTags(gameId);
     for (final tagName in gameInfo.tags) {
@@ -585,9 +612,11 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
     _BatchGameItem item,
   ) async {
     final folderPath = item.folder.path;
-    final existing = await repo.getGameByPath(folderPath);
+    if (await repo.getGameByPath(folderPath) != null) {
+      throw GameAlreadyExistsException(folderPath);
+    }
     await GameDataMigrationService(gameRepository: repo)
-        .migrateGameDirectory(folderPath, gameId: existing?.id);
+        .migrateGameDirectory(folderPath);
 
     item.status = '搜索中...';
     if (mounted) setState(() {});
@@ -613,11 +642,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
         path: folderPath,
         title: path.basename(folderPath),
       );
-      if (existing != null) {
-        await repo.updateGame(game.copyWith(id: existing.id));
-      } else {
-        await repo.insertGame(game);
-      }
+      await repo.insertGame(game);
       item.progress = 1.0;
       if (mounted) setState(() {});
       return;
@@ -634,11 +659,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
         path: folderPath,
         title: path.basename(folderPath),
       );
-      if (existing != null) {
-        await repo.updateGame(game.copyWith(id: existing.id));
-      } else {
-        await repo.insertGame(game);
-      }
+      await repo.insertGame(game);
       item.progress = 1.0;
       if (mounted) setState(() {});
       return;
@@ -674,13 +695,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
       makerUrl: gameInfo.makerUrl,
     );
 
-    int gameId;
-    if (existing != null) {
-      await repo.updateGame(game.copyWith(id: existing.id));
-      gameId = existing.id!;
-    } else {
-      gameId = await repo.insertGame(game);
-    }
+    final gameId = await repo.insertGame(game);
 
     await repo.clearGameTags(gameId);
     for (final tagName in gameInfo.tags) {
@@ -1148,16 +1163,16 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                       size: GlassConstants.iconControl,
                     ),
                     const SizedBox(width: GlassConstants.spacingSmall),
-                    Text(
-                      _failCount > 0
-                          ? '导入完成: $_successCount 成功, $_failCount 失败'
-                          : '成功导入 $_successCount 个游戏',
-                      style: TextStyle(
-                        fontSize: GlassConstants.fontControl,
-                        fontWeight: FontWeight.w500,
-                        color: _failCount > 0
-                            ? AppTheme.warningColor
-                            : AppTheme.successColor,
+                    Expanded(
+                      child: Text(
+                        '导入完成: 成功 $_successCount 个，跳过 $_skippedCount 个，失败 $_failCount 个',
+                        style: TextStyle(
+                          fontSize: GlassConstants.fontControl,
+                          fontWeight: FontWeight.w500,
+                          color: _failCount > 0
+                              ? AppTheme.warningColor
+                              : AppTheme.successColor,
+                        ),
                       ),
                     ),
                   ],

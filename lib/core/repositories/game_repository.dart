@@ -9,6 +9,16 @@ import '../utils/app_settings.dart';
 import '../utils/backup_image_reference_resolver.dart';
 import '../utils/cleared_game_path_utils.dart';
 import '../utils/game_data_paths.dart';
+import '../utils/game_path_utils.dart';
+
+class GameAlreadyExistsException implements Exception {
+  final String gamePath;
+
+  const GameAlreadyExistsException(this.gamePath);
+
+  @override
+  String toString() => '该游戏已在库中，已跳过';
+}
 
 class GameRepository implements PlayTimeRepository {
   final Database? _database;
@@ -349,14 +359,9 @@ class GameRepository implements PlayTimeRepository {
   }
 
   Future<Game?> getGameByPath(String path) async {
-    final db = await _db;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'games',
-      where: 'path = ?',
-      whereArgs: [path],
-    );
-    if (maps.isEmpty) return null;
-    final game = Game.fromMap(maps.first);
+    final map = await _getGameMapByPath(path);
+    if (map == null) return null;
+    final game = Game.fromMap(map);
     final tags = await getGameTags(game.id!);
     final images = await getGameImages(game.id!);
     return _applyBackupImageFallback(game.copyWith(tags: tags, images: images));
@@ -376,18 +381,38 @@ class GameRepository implements PlayTimeRepository {
   }
 
   Future<Game?> getStoredGameByPath(String path) async {
+    final map = await _getGameMapByPath(path);
+    if (map == null) return null;
+    final game = Game.fromMap(map);
+    final tags = await getGameTags(game.id!);
+    final images = await getGameImages(game.id!);
+    return game.copyWith(tags: tags, images: images);
+  }
+
+  Future<Map<String, int>> getGameIdsByPathKey(
+      {DatabaseExecutor? executor}) async {
+    final db = executor ?? await _db;
+    final maps = await db.query('games', columns: ['id', 'path']);
+    return {
+      for (final map in maps)
+        GamePathUtils.comparisonKey(map['path'] as String): map['id'] as int,
+    };
+  }
+
+  Future<Map<String, dynamic>?> _getGameMapByPath(String gamePath) async {
     final db = await _db;
     final maps = await db.query(
       'games',
       where: 'path = ?',
-      whereArgs: [path],
+      whereArgs: [gamePath],
       limit: 1,
     );
-    if (maps.isEmpty) return null;
-    final game = Game.fromMap(maps.first);
-    final tags = await getGameTags(game.id!);
-    final images = await getGameImages(game.id!);
-    return game.copyWith(tags: tags, images: images);
+    if (maps.isNotEmpty) return maps.first;
+    final id =
+        (await getGameIdsByPathKey())[GamePathUtils.comparisonKey(gamePath)];
+    if (id == null) return null;
+    final matches = await db.query('games', where: 'id = ?', whereArgs: [id]);
+    return matches.isEmpty ? null : matches.first;
   }
 
   Future<int> insertGame(Game game) async {
@@ -395,11 +420,17 @@ class GameRepository implements PlayTimeRepository {
     final gameToInsert = game.addedTime == null
         ? game.copyWith(addedTime: DateTime.now())
         : game;
-    return await db.insert(
-      'games',
-      gameToInsert.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    return db.transaction((txn) async {
+      final existingPaths = await getGameIdsByPathKey(executor: txn);
+      if (existingPaths.containsKey(GamePathUtils.comparisonKey(game.path))) {
+        throw GameAlreadyExistsException(game.path);
+      }
+      return txn.insert(
+        'games',
+        gameToInsert.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.abort,
+      );
+    });
   }
 
   Future<T> transaction<T>(Future<T> Function(Transaction) action) async {
