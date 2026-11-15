@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hgame_manager/core/database/database_helper.dart';
 import 'package:hgame_manager/core/models/models.dart';
+import 'package:hgame_manager/core/models/metadata_translation_config.dart';
 import 'package:hgame_manager/core/providers/providers.dart';
 import 'package:hgame_manager/core/repositories/game_repository.dart';
 import 'package:hgame_manager/core/repositories/tag_repository.dart';
@@ -23,7 +24,7 @@ import 'package:hgame_manager/ui/pages/games/save_management_dialog.dart';
 import 'package:hgame_manager/ui/pages/home_page.dart';
 import 'package:hgame_manager/ui/pages/settings/context_menu_manager_dialog.dart';
 import 'package:hgame_manager/ui/pages/settings/guide_hotkey_dialog.dart';
-import 'package:hgame_manager/ui/pages/settings/metadata_translation_dialog.dart';
+import 'package:hgame_manager/ui/pages/settings/metadata_translation_settings.dart';
 import 'package:hgame_manager/ui/pages/settings/rename_manager_dialog.dart';
 import 'package:hgame_manager/ui/pages/settings/scrape_mode_config_dialog.dart';
 import 'package:hgame_manager/ui/pages/settings/settings_page.dart';
@@ -176,7 +177,10 @@ void main() {
           'rename': const RenameManagerDialog(),
           'scrape_modes': const ScrapeModeConfigDialog(),
           'guide_hotkeys': const GuideHotkeyDialog(),
-          'translation': MetadataTranslationDialog(settings: settings),
+          'translation': MetadataTranslationSettings(
+            config: MetadataTranslationConfig.fromSettings(settings),
+            onChanged: (_) {},
+          ),
           'detail': GameDetailDialog(game: game),
           'images': ImageManagerDialog(game: game),
           'saves': SaveManagementDialog(game: game),

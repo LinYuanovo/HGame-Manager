@@ -76,13 +76,19 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
         minimumSize: WidgetStatePropertyAll(Size(0, _controlHeight)),
         padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium)),
-        textStyle: const WidgetStatePropertyAll(
-            TextStyle(fontSize: GlassConstants.fontControl)),
+        textStyle: WidgetStatePropertyAll(Theme.of(context).textTheme.labelLarge),
         shape: const WidgetStatePropertyAll(RoundedRectangleBorder(
             borderRadius: BorderRadius.all(
                 Radius.circular(GlassConstants.radiusMedium)))),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         visualDensity: VisualDensity.standard,
+      );
+
+  ButtonStyle get _selectionButtonStyle => _buttonStyle.merge(
+        OutlinedButton.styleFrom(
+          foregroundColor: AppTheme.getPrimaryColor(context),
+          side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
+        ),
       );
 
   ButtonStyle get _iconButtonStyle => IconButton.styleFrom(
@@ -399,8 +405,8 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
               color: AppTheme.getTextSecondary(context),
               fontSize: GlassConstants.fontBody,
             )),
-        TextButton(
-          style: _buttonStyle,
+        OutlinedButton(
+          style: _selectionButtonStyle,
           onPressed: _locked
               ? null
               : () => setState(() {
@@ -409,13 +415,13 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
                   }),
           child: const Text('全选'),
         ),
-        TextButton(
-          style: _buttonStyle,
+        OutlinedButton(
+          style: _selectionButtonStyle,
           onPressed: _locked ? null : () => setState(() => _selected.clear()),
           child: const Text('清空选择'),
         ),
-        TextButton(
-          style: _buttonStyle,
+        OutlinedButton(
+          style: _selectionButtonStyle,
           onPressed: _locked
               ? null
               : () => setState(() {
@@ -430,7 +436,7 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
           child: const Text('选择放弃和失败项'),
         ),
         OutlinedButton(
-          style: _buttonStyle,
+          style: _selectionButtonStyle,
           onPressed: _locked ||
                   _selected.every((item) => item.applied || !item.canKeep)
               ? null
@@ -438,7 +444,7 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
           child: const Text('保留所选'),
         ),
         OutlinedButton(
-          style: _buttonStyle,
+          style: _selectionButtonStyle,
           onPressed: _locked || _selected.every((item) => item.applied)
               ? null
               : () => _decide(_selected, ScrapeReviewDecision.discard),

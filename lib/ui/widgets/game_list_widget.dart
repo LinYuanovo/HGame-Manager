@@ -993,7 +993,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 width: 14,
                 height: 14,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: AppTheme.getPrimaryColor(context)),
+                    strokeWidth: GlassConstants.spacingMicro, color: AppTheme.getPrimaryColor(context)),
               ),
               const SizedBox(width: GlassConstants.spacingTight),
               Text(widget.scanProgress,
@@ -1262,7 +1262,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             ? BoxDecoration(
                 borderRadius:
                     BorderRadius.circular(GlassConstants.radiusMedium),
-                border: Border.all(color: AppTheme.getPrimaryColor(context), width: 2),
+                border: Border.all(color: AppTheme.getPrimaryColor(context), width: GlassConstants.spacingMicro),
               )
             : null,
         child: InkWell(
@@ -1535,7 +1535,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         decoration: isSelected
             ? BoxDecoration(
                 borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
-                border: Border.all(color: AppTheme.getPrimaryColor(context), width: 2),
+                border: Border.all(color: AppTheme.getPrimaryColor(context), width: GlassConstants.spacingMicro),
               )
             : null,
         child: GlassCard(

@@ -22,7 +22,7 @@ import 'package:hgame_manager/core/utils/app_settings.dart';
 import 'package:hgame_manager/core/utils/game_data_paths.dart';
 import 'package:hgame_manager/scraper/parse_utils.dart';
 import 'package:hgame_manager/ui/pages/games/game_detail_page.dart';
-import 'package:hgame_manager/ui/pages/settings/metadata_translation_dialog.dart';
+import 'package:hgame_manager/ui/pages/settings/metadata_translation_settings.dart';
 import 'package:hgame_manager/ui/pages/settings/settings_page.dart';
 import 'package:hgame_manager/ui/theme/app_theme.dart';
 import 'package:hgame_manager/ui/widgets/game_list_widget.dart';
@@ -198,7 +198,10 @@ void main() {
           key: captureKey,
           child: MaterialApp(
             theme: theme,
-            home: Scaffold(body: MetadataTranslationDialog(settings: settings)),
+            home: Scaffold(body: SingleChildScrollView(child: MetadataTranslationSettings(
+                config: config,
+                onChanged: (_) {},
+            ))),
           ),
         ));
         await tester.pumpAndSettle();
@@ -209,10 +212,7 @@ void main() {
         expect(tester.widget<TextField>(prompt).controller!.text, isEmpty);
         expect(find.text(MetadataTranslationConfig.defaultPrompt), findsOneWidget);
         await capture('prompt-${brightness.name}');
-        final button = tester
-            .widget<FilledButton>(find.widgetWithText(FilledButton, '保存'));
-        expect(button.style!.foregroundColor!.resolve({}),
-            theme.colorScheme.onPrimary);
+        expect(find.byKey(const ValueKey('metadata-translation-test')), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pumpAndSettle();

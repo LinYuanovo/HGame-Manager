@@ -513,7 +513,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
         child: Container(
           decoration: isSelected
               ? BoxDecoration(
-                  border: Border.all(color: AppTheme.getPrimaryColor(context), width: 2),
+                  border: Border.all(color: AppTheme.getPrimaryColor(context), width: GlassConstants.spacingMicro),
                   borderRadius:
                       BorderRadius.circular(GlassConstants.radiusMedium),
                 )

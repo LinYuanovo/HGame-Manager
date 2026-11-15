@@ -759,10 +759,10 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
               GlassConstants.fontControl)
           .clamp(1.0, double.infinity);
 
-  TextStyle get _controlTextStyle => TextStyle(
+  TextStyle get _controlTextStyle => Theme.of(context).textTheme.labelLarge!.copyWith(
         fontSize: GlassConstants.fontControl,
         color: AppTheme.getTextPrimary(context),
-        fontFamily: widget.userFont.isNotEmpty ? widget.userFont : null,
+        fontFamily: widget.userFont.isNotEmpty ? widget.userFont : Theme.of(context).textTheme.labelLarge!.fontFamily,
       );
 
   ButtonStyle get _controlButtonStyle => ButtonStyle(
@@ -1366,7 +1366,7 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
                                   width: GlassConstants.iconSmall,
                                   height: GlassConstants.iconSmall,
                                   child: CircularProgressIndicator(
-                                      strokeWidth: 2,
+                                      strokeWidth: GlassConstants.spacingMicro,
                                       color: AppTheme.getTextColorOnPrimary(
                                           context)))
                               : Text(

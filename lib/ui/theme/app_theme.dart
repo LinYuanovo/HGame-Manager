@@ -42,6 +42,7 @@ class LayoutConstants {
 }
 
 class GlassConstants {
+  static const double lineHeightCompact = 1.4;
   static const double iconTiny = 12.0;
   static const double iconBadge = 13.0;
   static const double iconCompact = 14.0;
@@ -305,6 +306,9 @@ class AppTheme {
         size: GlassConstants.iconMedium,
       ),
       textTheme: TextTheme(
+        labelLarge: const TextStyle(fontSize: GlassConstants.fontControl, fontWeight: FontWeight.w500),
+        labelMedium: const TextStyle(fontSize: GlassConstants.fontSmall, fontWeight: FontWeight.w500),
+        labelSmall: const TextStyle(fontSize: GlassConstants.fontCaption, fontWeight: FontWeight.w500),
         headlineLarge: TextStyle(
           color: textPrimary,
           fontSize: GlassConstants.fontHero,
@@ -428,10 +432,11 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.black26,
         elevation: 12,
-        textStyle: const TextStyle(
+        textStyle: TextStyle(
           color: textPrimary,
           fontSize: GlassConstants.fontControl,
           fontWeight: FontWeight.w500,
+          fontFamily: effectiveFontFamily,
         ),
       ),
     );
@@ -481,6 +486,9 @@ class AppTheme {
         size: GlassConstants.iconMedium,
       ),
       textTheme: TextTheme(
+        labelLarge: const TextStyle(fontSize: GlassConstants.fontControl, fontWeight: FontWeight.w500),
+        labelMedium: const TextStyle(fontSize: GlassConstants.fontSmall, fontWeight: FontWeight.w500),
+        labelSmall: const TextStyle(fontSize: GlassConstants.fontCaption, fontWeight: FontWeight.w500),
         headlineLarge: TextStyle(
             color: darkTextPrimary, fontSize: GlassConstants.fontHero, fontWeight: FontWeight.bold),
         headlineMedium: TextStyle(
@@ -579,10 +587,11 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.transparent,
         elevation: 0,
-        textStyle: const TextStyle(
+        textStyle: TextStyle(
           color: darkTextPrimary,
           fontSize: GlassConstants.fontControl,
           fontWeight: FontWeight.w500,
+          fontFamily: effectiveFontFamily,
         ),
       ),
     );

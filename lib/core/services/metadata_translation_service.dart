@@ -12,6 +12,7 @@ import 'app_logger.dart';
 
 class MetadataTranslationService {
   static const metadataKey = 'translation';
+  static const connectionTestTimeout = Duration(seconds: 20);
   static final googleEndpoint =
       Uri.https('translate.googleapis.com', '/translate_a/single');
 
@@ -41,6 +42,43 @@ class MetadataTranslationService {
     final translation = metadata[metadataKey];
     if (translation is! Map || translation['original'] is! Map) return null;
     return Map<String, dynamic>.from(translation['original'] as Map);
+  }
+
+  Future<String> testConnection(
+    MetadataTranslationConfig config, {
+    Future<void>? cancelled,
+  }) async {
+    http.Client? client;
+    var finished = false;
+    final service = MetadataTranslationService(
+      clientFactory: () async {
+        final created = await clientFactory();
+        if (finished) {
+          created.close();
+          throw StateError('连接测试已结束');
+        }
+        client = created;
+        return created;
+      },
+      googleUri: googleUri,
+      requestTimeout: connectionTestTimeout,
+      providerTimeout: connectionTestTimeout,
+    );
+    try {
+      final result = await Future.any([
+        service._translateTexts(
+          ['Explore a peaceful village and meet new friends.'],
+          config,
+          config.provider,
+        ),
+        if (cancelled != null)
+          cancelled.then<List<String>>((_) => throw StateError('连接测试已取消')),
+      ]).timeout(connectionTestTimeout);
+      return result.single;
+    } finally {
+      finished = true;
+      client?.close();
+    }
   }
 
   Future<Map<String, dynamic>> translate(

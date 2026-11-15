@@ -32,6 +32,7 @@ import '../../../scraper/parse_utils.dart';
 import '../../theme/app_theme.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../../core/models/models.dart';
+import '../../../core/models/metadata_translation_config.dart';
 import 'context_menu_manager_dialog.dart';
 import 'sidebar_manager_dialog.dart';
 import 'scrape_mode_config_dialog.dart';
@@ -42,7 +43,7 @@ import '../../../core/models/theme_mode.dart';
 import '../../widgets/cloudflare_browser_dialog.dart';
 import '../../widgets/app_update_dialog.dart';
 import '../../widgets/app_dropdown.dart';
-import 'metadata_translation_dialog.dart';
+import 'metadata_translation_settings.dart';
 
 Future<void> showSettingsDialog(BuildContext context, WidgetRef ref) async {
   AppLogger.instance.info('Navigation', '打开设置');
@@ -81,6 +82,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   late TextEditingController _webdavPasswordController;
   String _proxyMode = 'none';
   bool _isTestingProxy = false;
+  late MetadataTranslationConfig _translationConfig;
   String? _proxyTestResult;
   String _selectedFont = '';
   double _fontSize = GlassConstants.fontControl;
@@ -185,6 +187,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
 
   void _loadSettings() {
     final prefs = ref.read(sharedPreferencesProvider);
+    _translationConfig = MetadataTranslationConfig.fromSettings(prefs);
     final proxyMode = prefs.getString('proxy_mode') ?? 'none';
     final proxyUrl = prefs.getString('proxy_url') ?? '';
     final font = prefs.getString('font_family') ?? '';
@@ -525,23 +528,9 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
           title: '元信息自动翻译',
           icon: Icons.translate,
           children: [
-            Text('选择翻译服务，刮削后自动翻译并保留原文',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.getTextSecondary(context),
-                    )),
-            const SizedBox(height: GlassConstants.spacingMedium),
-            TextButton.icon(
-              icon: const Icon(Icons.translate),
-              label: const Text('配置自动翻译'),
-              style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.getPrimaryColor(context)),
-              onPressed: () => showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (_) => MetadataTranslationDialog(
-                  settings: ref.read(sharedPreferencesProvider),
-                ),
-              ),
+            MetadataTranslationSettings(
+              config: _translationConfig,
+              onChanged: (config) => setState(() => _translationConfig = config),
             ),
           ],
         );
@@ -596,8 +585,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
           const SizedBox(width: GlassConstants.spacingCompact),
           ElevatedButton(
             onPressed: () async {
-              await _saveSettings();
-              if (mounted) Navigator.of(context).pop();
+              final saved = await _saveSettings();
+              if (saved && mounted) Navigator.of(context).pop();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.getPrimaryColor(context),
@@ -2193,7 +2182,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 value: _selectedFont.isEmpty ? null : _selectedFont,
                 isExpanded: true,
                 hint: const Text('默认 (Microsoft YaHei)'),
-                textStyle: TextStyle(
+                textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppTheme.getTextPrimary(context),
                   fontSize: GlassConstants.fontControl,
                 ),
@@ -2299,23 +2288,23 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 ],
               ),
             ),
-            const SizedBox(width: GlassConstants.spacingMedium),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
-              decoration: BoxDecoration(
-                color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
-              ),
-              child: Text(
-                '预览 AaBbCc 中文 123',
-                style: TextStyle(
-                  fontSize: _fontSize,
-                  fontFamily: _selectedFont.isNotEmpty ? _selectedFont : null,
-                  color: AppTheme.getTextPrimary(context),
-                ),
-              ),
-            ),
           ],
+        ),
+        const SizedBox(height: GlassConstants.spacingSmall),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
+          decoration: BoxDecoration(
+            color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
+          ),
+          child: Text(
+            '预览 AaBbCc 中文 123',
+            style: TextStyle(
+              fontSize: _fontSize,
+              fontFamily: _selectedFont.isNotEmpty ? _selectedFont : null,
+              color: AppTheme.getTextPrimary(context),
+            ),
+          ),
         ),
         const SizedBox(height: GlassConstants.spacingMedium),
         Row(
@@ -2383,23 +2372,23 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 ],
               ),
             ),
-            const SizedBox(width: GlassConstants.spacingMedium),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
-              decoration: BoxDecoration(
-                color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
-              ),
-              child: Text(
-                '预览 AaBbCc 中文 123',
-                style: TextStyle(
-                  fontSize: _detailFontSize,
-                  fontFamily: _selectedFont.isNotEmpty ? _selectedFont : null,
-                  color: AppTheme.getTextPrimary(context),
-                ),
-              ),
-            ),
           ],
+        ),
+        const SizedBox(height: GlassConstants.spacingSmall),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
+          decoration: BoxDecoration(
+            color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
+          ),
+          child: Text(
+            '预览 AaBbCc 中文 123',
+            style: TextStyle(
+              fontSize: _detailFontSize,
+              fontFamily: _selectedFont.isNotEmpty ? _selectedFont : null,
+              color: AppTheme.getTextPrimary(context),
+            ),
+          ),
         ),
         const SizedBox(height: GlassConstants.spacingSmall),
         Text(
@@ -2836,7 +2825,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             const SizedBox(width: GlassConstants.spacingMedium),
             AppDropdown<AppThemeMode>(
               value: currentMode,
-              textStyle: TextStyle(
+              textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: AppTheme.getTextPrimary(context),
                 fontSize: GlassConstants.fontControl,
                 fontFamily: _selectedFont.isEmpty ? null : _selectedFont,
@@ -3494,9 +3483,23 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     }
   }
 
-  Future<void> _saveSettings() async {
+  Future<bool> _saveSettings() async {
+    if (_translationConfig.enabled && _translationConfig.provider == 'llm') {
+      try {
+        _translationConfig.completionsUri;
+      } on FormatException {
+        setState(() => _selectedSidebarIndex =
+            _categories.indexWhere((category) => category.label == '刮削'));
+        AppTheme.showGlassToast(context,
+            message: '请填写有效的 LLM 接口地址和模型名称',
+            icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        return false;
+      }
+    }
     final prefs = ref.read(sharedPreferencesProvider);
 
+    await prefs.setString(MetadataTranslationConfig.settingsKey,
+        jsonEncode(_translationConfig.toMap()));
     await prefs.setString('library_path', jsonEncode(_libraryPaths));
     await prefs.setString('sorted_paths', jsonEncode(_sortedPaths));
     await prefs.setString('cleared_paths', jsonEncode(_clearedPaths));
@@ -3525,8 +3528,9 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     await prefs.setDouble('detail_font_size', _detailFontSize);
     await prefs.setBool(AppSettings.noImageModeKey, _noImageMode);
     await prefs.setBool(AppSettings.keepPlayedInGamesKey, _keepPlayedInGames);
+    await prefs.flush();
 
-    if (!mounted) return;
+    if (!mounted) return true;
 
     ref.invalidate(fontSizeProvider);
     ref.invalidate(detailFontSizeProvider);
@@ -3537,6 +3541,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     if (mounted) {
       AppTheme.showGlassToast(context, message: '设置已保存');
     }
+    return true;
   }
 
   void _showBlacklistDialog() {
@@ -3609,7 +3614,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       return;
     }
 
-    await _saveSettings();
+    if (!await _saveSettings()) return;
 
     try {
       final scanner = ref.read(gameScannerServiceProvider);
