@@ -15,6 +15,20 @@ class LayoutConstants {
   // Detail page
   static const double detailAvatarSize = 180;
   static const double detailInfoPanelWidth = 320;
+  static const double reviewDialogWidth = 1120;
+  static const double reviewDialogHeight = 820;
+  static const double reviewSplitWidth = 880;
+  static const double reviewImageHeight = 160;
+  static const double scraperControlPanelWidth = 300;
+  static const double scraperControlWidth = 240;
+  // 表单控件与批量导入布局
+  static const double controlHeight = 44;
+  static const double formCompactWidth = 640;
+  static const double batchImportDialogWidth = 860;
+  static const double batchImportDialogHeight = 600;
+  static const double batchImportSourceWidth = 104;
+  static const double batchImportNameWidth = 220;
+  static const double batchImportCompactWidth = 640;
   static const double smallPosterWidth = 140;
   static const double smallPosterHeight = 200;
 

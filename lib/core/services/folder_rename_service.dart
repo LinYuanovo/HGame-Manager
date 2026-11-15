@@ -172,13 +172,15 @@ class FolderRenameService {
     try {
       await GameMoveService(gameRepository: _gameRepository)
           .moveGameFolderCrossDrive(
-              gameId: game.id!, oldPath: oldPath, newPath: newPath);
-
+        gameId: game.id!,
+        oldPath: oldPath,
+        newPath: newPath,
+      );
       AppLogger.instance.info('FolderRename', '[FolderRename] Success: $newPath');
       return newPath;
     } catch (e, stackTrace) {
       AppLogger.instance.error('FolderRename', '[FolderRename] Failed: $e', e, stackTrace);
-      return null;
+      rethrow;
     }
   }
 
@@ -215,8 +217,12 @@ class FolderRenameService {
       final results = await Future.wait(
         batch.map((game) async {
           if (game.id == null) return false;
-          final result = await renameGameFolder(game);
-          return result != null;
+          try {
+            final result = await renameGameFolder(game);
+            return result != null;
+          } catch (_) {
+            return false;
+          }
         }),
       );
       renamed += results.where((r) => r).length;

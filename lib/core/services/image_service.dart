@@ -10,8 +10,14 @@ import '../utils/game_data_paths.dart';
 class ImageService {
   static const _uuid = Uuid();
 
-  static Future<bool> invalidateFileCache(String imagePath) =>
-      FileImage(File(imagePath)).evict();
+  static Future<bool> invalidateFileCache(String imagePath) async {
+    final original = FileImage(File(imagePath));
+    final results = await Future.wait([
+      original.evict(),
+      ResizeImage(original, width: 768).evict(),
+    ]);
+    return results.any((evicted) => evicted);
+  }
 
   /// 获取图片存储目录
   Future<String> getImageStorageDir() async {

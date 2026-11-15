@@ -83,7 +83,8 @@ void main() {
           ),
         ),
       ));
-      await waitForText('导入 (${folders.length})');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('batch-import-start')), findsOneWidget);
     }
 
     try {
@@ -123,7 +124,7 @@ void main() {
 
       for (final dark in [false, true]) {
         await showBatch(duplicateFolders, dark);
-        await tester.tap(find.text('导入 (45)'));
+        await tester.tap(find.byKey(const ValueKey('batch-import-start')));
         await waitForText('导入完成: 成功 0 个，跳过 45 个，失败 0 个');
         await tester.pumpAndSettle();
         await capture('duplicate-45-${dark ? "dark" : "light"}');
@@ -151,7 +152,7 @@ void main() {
         await tester.pumpAndSettle();
       }
       expect(find.text('不刮削'), findsNWidgets(3));
-      await tester.tap(find.text('导入 (3)'));
+      await tester.tap(find.byKey(const ValueKey('batch-import-start')));
       await waitForText('导入完成: 成功 1 个，跳过 2 个，失败 0 个');
       expect(await database.query('games'), hasLength(71));
       expect((await repo.getGameByPath(newFolder))?.title, '新游戏');

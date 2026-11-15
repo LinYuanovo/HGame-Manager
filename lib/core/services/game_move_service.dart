@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:convert';
 import '../repositories/game_repository.dart';
 import '../utils/game_data_paths.dart';
 import '../utils/path_reference_rewriter.dart';
@@ -24,7 +23,7 @@ class GameMoveService {
         _transfer = transfer ?? FolderTransferService();
 
   Future<FolderMoveResult> moveGameFolderCrossDrive({
-    required int gameId,
+    required int? gameId,
     required String oldPath,
     required String newPath,
     void Function(FolderMoveProgress progress)? onProgress,
@@ -88,7 +87,7 @@ class GameMoveService {
   }
 
   Future<void> _updateGameRecords({
-    required int gameId,
+    required int? gameId,
     required String oldPath,
     required String newPath,
   }) async {
@@ -118,34 +117,64 @@ class GameMoveService {
   }
 
   Future<void> _applyGameRecords({
-    required int gameId,
+    required int? gameId,
     required String oldPath,
     required String newPath,
   }) async {
     final metadata = await GameDataPaths.existingMetadataFile(newPath);
-    final original =
-        await metadata.exists() ? await metadata.readAsBytes() : null;
-    var metadataWritten = false;
+    final suffix = DateTime.now().microsecondsSinceEpoch;
+    final staged = File('${metadata.path}.move-$suffix.tmp');
+    final original = File('${metadata.path}.move-original-$suffix.tmp');
+    var metadataChanged = false;
+    var committed = false;
     try {
-      await _gameRepository.relocateGame(
-        gameId: gameId,
-        oldPath: oldPath,
-        newPath: newPath,
-        beforeCommit: () async {
-          if (original == null) return;
-          final content = utf8.decode(original);
-          final updated =
-              PathReferenceRewriter.replacePath(content, oldPath, newPath);
-          if (content == updated) return;
-          metadataWritten = true;
-          await metadata.writeAsString(updated, flush: true);
-        },
-      );
-    } catch (_) {
-      if (metadataWritten && original != null) {
-        await metadata.writeAsBytes(original, flush: true);
+      if (await metadata.exists()) {
+        final content = await metadata.readAsString();
+        final updated =
+            PathReferenceRewriter.replaceRequired(content, {oldPath: newPath});
+        if (updated != content) {
+          await staged.writeAsString(updated, flush: true);
+          metadataChanged = true;
+        }
       }
-      rethrow;
+      Future<void> replaceMetadata() async {
+        if (!metadataChanged) return;
+        await metadata.rename(original.path);
+        await staged.rename(metadata.path);
+      }
+      if (gameId == null) {
+        await replaceMetadata();
+      } else {
+        await _gameRepository.moveGameRecords(
+          gameId: gameId,
+          oldPath: oldPath,
+          newPath: newPath,
+          beforeCommit: replaceMetadata,
+        );
+      }
+      committed = true;
+    } catch (error, stackTrace) {
+      if (await original.exists()) {
+        try {
+          if (await metadata.exists()) await metadata.delete();
+          await original.rename(metadata.path);
+        } catch (restoreError) {
+          throw FolderMoveException(
+            '移动记录提交失败，元数据恢复失败：$restoreError；'
+            '原文件保存在 ${original.path}',
+          );
+        }
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    } finally {
+      // 清理失败不能撤销已提交的搬运，否则数据库和目录会重新分离。
+      for (final file in [staged, if (committed) original]) {
+        try {
+          if (await file.exists()) await file.delete();
+        } catch (error) {
+          AppLogger.instance.warning(_logTag, '移动临时文件清理失败：${file.path}，$error');
+        }
+      }
     }
   }
 

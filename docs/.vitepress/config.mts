@@ -29,7 +29,7 @@ export default defineConfig({
   cleanUrls: true,
   lastUpdated: true,
   // 历史审阅与工作记录留在仓库中，不作为当前使用指南发布或参与搜索
-  srcExclude: ['dark-theme-preview.html', 'superpowers/**', 'reviews/**', 'work/**'],
+  srcExclude: ['dark-theme-preview.html', 'superpowers/**', 'reviews/**', 'work/**', 'validation/**', 'development/*-plan.md', 'development/*-handoff.md'],
 
   head: [
     ['link', { rel: 'icon', type: 'image/png', href: '/HGame-Manager/logo.png' }],

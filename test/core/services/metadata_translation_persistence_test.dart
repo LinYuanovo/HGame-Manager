@@ -178,6 +178,24 @@ void main() {
     expect(notices, isNotEmpty);
   });
 
+  test('翻译文件替换后的真实 COMMIT 失败恢复原文且数据库可继续使用', () async {
+    await database.execute('''CREATE TABLE deferred_translation_failure (
+      game_id INTEGER REFERENCES games(id) DEFERRABLE INITIALLY DEFERRED
+    )''');
+    await database.execute('''CREATE TRIGGER fail_translation_commit
+      AFTER UPDATE ON games WHEN NEW.title = '村庄' BEGIN
+        INSERT INTO deferred_translation_failure(game_id) VALUES(999);
+      END''');
+    final notices = <String>[];
+    await translate(notices: notices);
+    expect(await metadataFile.readAsString(), original);
+    expect((await repo.getGameById(game.id!))!.title, 'Village');
+    expect(await database.query('deferred_translation_failure'), isEmpty);
+    expect(notices, isNotEmpty);
+    await database.execute('DROP TRIGGER fail_translation_commit');
+    expect((await translate()).title, '村庄');
+  });
+
   test('已有译文快照时补齐数据库和标签且不再次请求翻译', () async {
     await metadataFile.writeAsString(jsonEncode({
       'title': '村庄',

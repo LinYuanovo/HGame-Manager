@@ -379,7 +379,7 @@ enum NavRoute {
 
 ### GameMoveService
 - 移动游戏文件夹共享入口（列表移动、详情修改路径、自动重命名、刮削整理、通关移入/移回共用）
-- 委托 FolderTransferService 完成搬运，写库作为 `commit` 在两阶段提交中执行：`GameRepository.relocateGame` 在同一 SQLite 事务中更新数据库路径、图片引用、启动器、存档路径与正文引用；metadata 写入失败时回滚事务并还原原文件
+- 委托 FolderTransferService 完成搬运，写库作为 `commit` 在两阶段提交中执行：`GameRepository.moveGameRecords` 在同一 SQLite 事务中更新数据库路径、图片引用、启动器、存档路径与正文引用；metadata 写入或事务提交失败时回滚并还原原文件
 - 写库失败时尝试回滚，瞬时锁冲突自动重试 2 次；回滚未完成时报告文件实际位置和清理提示
 - 搬运失败/取消时数据库保持不变
 
@@ -391,16 +391,27 @@ enum NavRoute {
 
 ### 列表封面
 - ListView/GridView 按需构建 `Image`，使用 Flutter 图片缓存管理生命周期
-- 保留原始分辨率解码，不对封面做固定 1024×1024 降采样；多个图片加载可并发，详情媒体独立处理
-- 下载器写入及共享刮削发布同路径图片后失效文件缓存；列表以图片路径与图片记录 ID 更新组件，避免继续显示旧封面
+- 默认保留原始分辨率；启用「节省封面内存」后按宽度 768 解码，原文件保持不变，详情媒体独立处理
+- 下载器写入及共享刮削发布同路径图片后同时失效原图和省内存缓存；列表以图片路径、图片记录 ID 和刷新状态更新组件
 
 ### ScrapeApplyService
-- 快速刮削、重新刮削、刮削中心调用 `applyScrapeResult` 完成字段合并、元数据写入、标签、配图和目录整理
-- Steam/DLsite 单个与批量添加仍各自处理搜索结果、元数据和标签；共用 `markScraped` 标记、`ConcurrentImageDownloader` 下载及 `organizeFolder` 整理，并非五入口全部调用总编排
+- 快速刮削、重新刮削及刮削中心、批量添加的确认保存调用 `applyScrapeResult` 完成字段合并、元数据写入、标签、配图和目录整理
+- Steam/DLsite 单个添加负责搜索与导入；复用 `markScraped` 标记、`ConcurrentImageDownloader` 下载、`translateGameMetadata` 翻译及 `organizeFolder` 整理
 - 纯函数：stripVersionFromTitle、resolveCategoryName、mergeGameInfo、buildMetadataJson、buildNumberedUrlMapping
 - 流程：syncTags 标签同步、downloadAndApplyImages 图片下载与引用重写、fixImageUrlsInMetadata 元数据修复、moveGameToSorted/organizeFolder 目录整理、applyScrapeResult 总编排
-- 图片默认并发 3；刮削中心线程数可选 1–8；取消后停止出队，已进入应用结果阶段的任务先完成写入
+- 图片默认并发 3；刮削中心抓取线程数可选 1–8；停止抓取后保留已取得的候选，确认前不写入刮削资料
 - `translateGameMetadata` 在图片本地化后、目录整理前统一翻译并持久化，URL 三入口与 Steam/DLsite 导入共用。
+- `requirePersistence` 用于批量确认：元数据或图片失败时恢复本次刮削字段、标签、图片及原文件；游玩时长等运行数据独立保留。
+
+### ScrapeReviewService
+- 刮削中心与 Steam/DLsite 批量添加先产生 `ScrapeReviewItem`，由独立确认表单逐项或批量选择，再调用共享 `ScrapeApplyService` 保存。
+- `scrapeReviewItemsProvider` 在当前应用运行期间保留候选，支持关闭表单、切换页面后继续确认。
+- 目录移动统一经 `GameMoveService` 和底层 `FolderTransferService`；尚未入库的文件夹保持未入库，同名目标与陈旧记录均拒绝覆盖。
+
+### GameTagEditService
+- 详情页直接编辑标签和全局资料编辑共用，数据库资料与标签在一个事务内保存，并同步游戏元数据。
+- 文件替换或事务提交失败恢复旧数据；扫描服务同步普通标签的新增与移除。
+- 本体已删除时，标签未变的通关资料仍可编辑，并同步现有通关备份。
 
 ### MetadataTranslationService
 - 将标题、简介、特点、更新日志、标签和系列翻译为简体中文；富文本按文字节点处理，保留图片、链接和布局。

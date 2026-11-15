@@ -29,24 +29,35 @@ class ClearedMetadataBackupService {
     return await file.exists() ? file : null;
   }
 
-  Future<File> save(Game game) async {
+  Future<File> save(Game game, {Map<String, dynamic> metadataChanges = const {}}) async {
     final file = await _fileFor(game);
-    final metadata = await loadMetadata(game);
+    var metadata = await loadMetadata(game);
+    if (metadataChanges.isNotEmpty) {
+      metadata = {...?metadata, ...metadataChanges};
+    }
     await file.parent.create(recursive: true);
-    await file.writeAsString(
-      jsonEncode({
-        'version': 1,
-        'game': game.toMap(),
-        'tags': game.tags.map((tag) => tag.toMap()).toList(),
-        'images': game.images.map((image) => image.toMap()).toList(),
-        if (metadata != null) 'metadata': metadata,
-      }),
-      flush: true,
-    );
+    final snapshot = await file.exists()
+        ? jsonDecode(await file.readAsString()) as Map<String, dynamic>
+        : <String, dynamic>{};
+    snapshot.addAll({
+      'version': 1,
+      'game': game.toMap(),
+      'tags': game.tags.map((tag) => tag.toMap()).toList(),
+      'images': game.images.map((image) => image.toMap()).toList(),
+      if (metadata != null) 'metadata': metadata,
+    });
+    final temporary = File('${file.path}.tmp');
+    try {
+      await temporary.writeAsString(jsonEncode(snapshot), flush: true);
+      await temporary.rename(file.path);
+    } finally {
+      if (await temporary.exists()) await temporary.delete();
+    }
     return file;
   }
 
-  Future<File> refresh(Game game) => save(game);
+  Future<File> refresh(Game game, {Map<String, dynamic> metadataChanges = const {}}) =>
+      save(game, metadataChanges: metadataChanges);
 
   Future<Map<String, dynamic>?> loadMetadata(Game game) async {
     final source = await GameDataPaths.existingMetadataFile(game.path);

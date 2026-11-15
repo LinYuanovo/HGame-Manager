@@ -42,7 +42,7 @@ void main() {
           GamePathUtils.comparisonKey(folders[index]): index + 1,
       });
       await showImport(tester, repo, folders, dark);
-      await tester.tap(find.text('导入 (45)'));
+      await tester.tap(find.byKey(const ValueKey('batch-import-start')));
       await tester.pumpAndSettle();
       expect(find.text('导入完成: 成功 0 个，跳过 45 个，失败 0 个'), findsOneWidget);
       expect(repo.lookups, 0);
@@ -57,7 +57,7 @@ void main() {
         repo,
         [r'C:\Library\Example', 'c:/library/example/', r'C:\Library\Example\.'],
         false);
-    await tester.tap(find.text('导入 (3)'));
+    await tester.tap(find.byKey(const ValueKey('batch-import-start')));
     await tester.pumpAndSettle();
     expect(find.text('导入完成: 成功 0 个，跳过 3 个，失败 0 个'), findsOneWidget);
     expect(repo.lookups, 1);
@@ -70,10 +70,17 @@ void main() {
       ..failingPath = r'C:\Library\Broken';
     await showImport(
         tester, repo, [r'C:\Library\Broken', r'C:\Library\Existing'], false);
-    await tester.tap(find.text('导入 (2)'));
+    final dropdowns = find.byWidgetPredicate((widget) => widget is DropdownButton);
+    for (var index = 0; index < dropdowns.evaluate().length; index++) {
+      await tester.tap(dropdowns.at(index));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('不刮削').last);
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(find.byKey(const ValueKey('batch-import-start')));
     await tester.pumpAndSettle();
     expect(find.text('导入完成: 成功 0 个，跳过 1 个，失败 1 个'), findsOneWidget);
-    expect(find.text('确认'), findsOneWidget);
+    expect(find.byKey(const ValueKey('batch-import-finish')), findsOneWidget);
     expect(repo.lookups, 2);
     expect(tester.takeException(), isNull);
   });
