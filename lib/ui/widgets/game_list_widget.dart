@@ -9,6 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../../core/models/models.dart';
 import '../../../core/models/context_menu_config.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/services/app_logger.dart';
 import '../../../core/services/image_service.dart';
 import '../../../core/services/folder_rename_service.dart';
 import '../../../core/services/game_launch_service.dart';
@@ -83,6 +84,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   final TextEditingController _pageJumpController = TextEditingController();
   int _listItemsPerPage = 5; // 列表视图每页显示数量
   Timer? _searchDebounce;
+  int _coverRevision = 0;
 
   int get _itemsPerPage {
     if (_viewMode == ViewMode.list) return _listItemsPerPage;
@@ -98,25 +100,27 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   SortMode? _cachedSortMode;
   List<Game>? _cachedSourceGames;
 
-  bool _isBackupOnly(Game game) {
+  final Map<String, Future<bool>> _backupChecks = {};
+
+  Future<bool> _isBackupOnly(Game game) async {
     if (!game.isCleared) return false;
 
     if (!ClearedGamePathUtils.hasBackupSegment(game.path)) {
-      return !Directory(game.path).existsSync();
+      return !await Directory(game.path).exists();
     }
 
     // game.path 可能已被切换成实际存在的 Backup 目录，需要检查同级的本体目录。
     final backupDir = Directory(game.path).parent;
     final clearedDir = backupDir.parent;
-    if (!Directory(game.path).existsSync() ||
+    if (!await Directory(game.path).exists() ||
         path.basename(backupDir.path).toLowerCase() != 'backup' ||
-        !clearedDir.existsSync()) {
+        !await clearedDir.exists()) {
       return true;
     }
 
     final backupName = path.basename(game.path);
     final localNames = <String>{};
-    for (final entity in clearedDir.listSync(followLinks: false)) {
+    await for (final entity in clearedDir.list(followLinks: false)) {
       if (entity is! Directory ||
           path.basename(entity.path).toLowerCase() == 'backup') {
         continue;
@@ -126,9 +130,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         GameDataPaths.metadataFile(entity.path),
         GameDataPaths.legacyMetadataFile(entity.path),
       ]) {
-        if (!metadataFile.existsSync()) continue;
+        if (!await metadataFile.exists()) continue;
         try {
-          final metadata = jsonDecode(metadataFile.readAsStringSync())
+          final metadata = jsonDecode(await metadataFile.readAsString())
               as Map<String, dynamic>;
           final title = metadata['title'] as String?;
           if (title != null && title.isNotEmpty) localNames.add(title);
@@ -171,6 +175,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         _currentPage = savedPage;
       }
     }
+  }
+
+  @override
+  void didUpdateWidget(covariant GameListWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.games, widget.games)) _backupChecks.clear();
   }
 
   String get _sortModeKey {
@@ -219,9 +229,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     _columnCountController.text = savedColumnCount.toString();
 
     // 兼容旧版以 String 存储的情况
-    final rawItemsPerPage = prefs.getString('game_list_items_per_page');
+    final rawItemsPerPage = prefs.get('game_list_items_per_page');
     _listItemsPerPage = rawItemsPerPage != null
-        ? (int.tryParse(rawItemsPerPage) ?? 5)
+        ? (int.tryParse(rawItemsPerPage.toString()) ?? 5)
         : (prefs.getInt('game_list_items_per_page') ?? 5);
 
     if (mounted) {
@@ -361,6 +371,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   void _invalidateCache() {
+    _backupChecks.clear();
     _cachedSortedGames = null;
     _cachedSourceGames = null;
   }
@@ -393,6 +404,19 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<bool>(coverMemorySavingProvider, (previous, current) {
+      if (previous == null || previous == current) return;
+      for (final game in widget.games) {
+        if (game.images.isEmpty) continue;
+        final index = game.coverIndex.clamp(0, game.images.length - 1);
+        final original = FileImage(File(game.images[index].imagePath));
+        unawaited(ResizeImage.resizeIfNeeded(
+          previous ? 768 : null,
+          null,
+          original,
+        ).evict());
+      }
+    });
     return ListenableBuilder(
       listenable: _multiSelectController,
       builder: (context, _) {
@@ -440,7 +464,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           children: [
             // Toolbar row
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingCompact),
               child: Row(
                 children: [
                   if (widget.showSearchBar) ...[
@@ -467,8 +491,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                 setState(() {});
                               },
                               child: Container(
-                                padding: const EdgeInsets.all(4),
-                                margin: const EdgeInsets.only(right: 30),
+                                padding: const EdgeInsets.all(GlassConstants.spacingTiny),
+                                margin: const EdgeInsets.only(right: GlassConstants.spacingLoose),
                                 decoration: BoxDecoration(
                                   color: AppTheme.getTextSecondary(context)
                                       .withValues(alpha: 0.2),
@@ -476,7 +500,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                 ),
                                 child: Icon(
                                   Icons.close,
-                                  size: 14,
+                                  size: GlassConstants.iconCompact,
                                   color: AppTheme.getTextSecondary(context),
                                 ),
                               ),
@@ -484,27 +508,27 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: GlassConstants.spacingMedium),
                   ],
                   _buildViewModeToggle(),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: GlassConstants.spacingCompact),
                   _buildPosterColumnCountInput(),
-                  if (_viewMode == ViewMode.poster) const SizedBox(width: 12),
+                  if (_viewMode == ViewMode.poster) const SizedBox(width: GlassConstants.spacingCompact),
                   _buildSortDropdown(),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: GlassConstants.spacingTiny),
                   _buildSortDirectionToggle(),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: GlassConstants.spacingCompact),
                   _buildPaginationModeToggle(),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: GlassConstants.spacingCompact),
                   _buildListItemsPerPageInput(),
                   if (_viewMode == ViewMode.list &&
                       _paginationMode == PaginationMode.paginated)
-                    const SizedBox(width: 12),
+                    const SizedBox(width: GlassConstants.spacingCompact),
                   _buildMultiSelectToggle(sortedGames),
                   // 扫描存档按钮（始终显示，如果有回调）
                   if (widget.onScanSavePaths != null ||
                       widget.scanProgress.isNotEmpty) ...[
-                    const SizedBox(width: 4),
+                    const SizedBox(width: GlassConstants.spacingTiny),
                     _buildScanSaveButton(),
                   ],
                 ],
@@ -542,18 +566,18 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     mode == ViewMode.poster ? 'poster' : 'list');
               },
               child: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(GlassConstants.spacingSmall),
                 decoration: BoxDecoration(
                   color: _viewMode == mode
-                      ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                      ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15)
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
                 ),
                 child: Icon(
                   _getViewModeIcon(mode),
-                  size: 18,
+                  size: GlassConstants.iconAction,
                   color: _viewMode == mode
-                      ? AppTheme.primaryColor
+                      ? AppTheme.getPrimaryColor(context)
                       : AppTheme.getTextSecondary(context),
                 ),
               ),
@@ -585,16 +609,16 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               if (current > 2) _updateColumnCount(current - 1);
             },
             child: Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(GlassConstants.spacingTight),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
+                color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
               ),
-              child: Icon(Icons.remove, size: 16, color: AppTheme.primaryColor),
+              child: Icon(Icons.remove, size: GlassConstants.iconSmall, color: AppTheme.getPrimaryColor(context)),
             ),
           ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: GlassConstants.spacingTiny),
         Container(
           width: 36,
           height: 28,
@@ -605,7 +629,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             textAlign: TextAlign.center,
             style: TextStyle(
-                fontSize: 13,
+                fontSize: GlassConstants.fontBody,
                 color: AppTheme.getTextPrimary(context),
                 fontWeight: FontWeight.w600),
             decoration: InputDecoration(
@@ -614,17 +638,17 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               fillColor:
                   AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
                 borderSide: BorderSide.none,
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
                 borderSide: BorderSide.none,
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
                 borderSide: BorderSide(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.5)),
+                    color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.5)),
               ),
               isDense: true,
             ),
@@ -639,7 +663,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             },
           ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: GlassConstants.spacingTiny),
         Tooltip(
           message: '增加每行数量',
           child: GestureDetector(
@@ -648,12 +672,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               if (current < 8) _updateColumnCount(current + 1);
             },
             child: Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(GlassConstants.spacingTight),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
+                color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
               ),
-              child: Icon(Icons.add, size: 16, color: AppTheme.primaryColor),
+              child: Icon(Icons.add, size: GlassConstants.iconSmall, color: AppTheme.getPrimaryColor(context)),
             ),
           ),
         ),
@@ -697,31 +721,31 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 _updateListItemsPerPage(_listItemsPerPage - 1);
             },
             child: Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(GlassConstants.spacingTight),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
+                color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
               ),
-              child: Icon(Icons.remove, size: 16, color: AppTheme.primaryColor),
+              child: Icon(Icons.remove, size: GlassConstants.iconSmall, color: AppTheme.getPrimaryColor(context)),
             ),
           ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: GlassConstants.spacingTiny),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingTiny),
           decoration: BoxDecoration(
             color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
           ),
           child: Text(
             '$_listItemsPerPage',
             style: TextStyle(
-                fontSize: 13,
+                fontSize: GlassConstants.fontBody,
                 color: AppTheme.getTextPrimary(context),
                 fontWeight: FontWeight.w600),
           ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: GlassConstants.spacingTiny),
         Tooltip(
           message: '增加每页数量',
           child: GestureDetector(
@@ -730,12 +754,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 _updateListItemsPerPage(_listItemsPerPage + 1);
             },
             child: Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(GlassConstants.spacingTight),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
+                color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
               ),
-              child: Icon(Icons.add, size: 16, color: AppTheme.primaryColor),
+              child: Icon(Icons.add, size: GlassConstants.iconSmall, color: AppTheme.getPrimaryColor(context)),
             ),
           ),
         ),
@@ -772,7 +796,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         final isSelected =
             _sortMode == mode || _isSameSortField(_sortMode, mode);
         return Padding(
-          padding: const EdgeInsets.only(left: 4),
+          padding: const EdgeInsets.only(left: GlassConstants.spacingTiny),
           child: GlassChip(
             label: sortLabels[
                     mode.name.replaceFirst(RegExp(r'(Asc|Desc)$'), '')] ??
@@ -823,15 +847,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           _saveSetting(_sortModeKey, _sortMode.name);
         },
         child: Container(
-          padding: const EdgeInsets.all(6),
+          padding: const EdgeInsets.all(GlassConstants.spacingTight),
           decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(6),
+            color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
           ),
           child: Icon(
             isAsc ? Icons.arrow_upward : Icons.arrow_downward,
-            size: 16,
-            color: AppTheme.primaryColor,
+            size: GlassConstants.iconSmall,
+            color: AppTheme.getPrimaryColor(context),
           ),
         ),
       ),
@@ -871,17 +895,17 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               _saveSetting('game_list_pagination_mode', 'paginated');
             },
             child: Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(GlassConstants.spacingSmall),
               decoration: BoxDecoration(
                 color: _paginationMode == PaginationMode.paginated
-                    ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                    ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15)
                     : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
               ),
               child: Icon(Icons.list_alt,
-                  size: 18,
+                  size: GlassConstants.iconAction,
                   color: _paginationMode == PaginationMode.paginated
-                      ? AppTheme.primaryColor
+                      ? AppTheme.getPrimaryColor(context)
                       : AppTheme.getTextSecondary(context)),
             ),
           ),
@@ -900,17 +924,17 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               _saveSetting('game_list_pagination_mode', 'infiniteScroll');
             },
             child: Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(GlassConstants.spacingSmall),
               decoration: BoxDecoration(
                 color: _paginationMode == PaginationMode.infiniteScroll
-                    ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                    ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15)
                     : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
               ),
               child: Icon(Icons.auto_awesome,
-                  size: 18,
+                  size: GlassConstants.iconAction,
                   color: _paginationMode == PaginationMode.infiniteScroll
-                      ? AppTheme.primaryColor
+                      ? AppTheme.getPrimaryColor(context)
                       : AppTheme.getTextSecondary(context)),
             ),
           ),
@@ -931,20 +955,20 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           }
         },
         child: Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(GlassConstants.spacingSmall),
           decoration: BoxDecoration(
             color: _multiSelectController.isMultiSelectMode
-                ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
           ),
           child: Icon(
             _multiSelectController.isMultiSelectMode
                 ? Icons.deselect
                 : Icons.checklist,
-            size: 18,
+            size: GlassConstants.iconAction,
             color: _multiSelectController.isMultiSelectMode
-                ? AppTheme.primaryColor
+                ? AppTheme.getPrimaryColor(context)
                 : AppTheme.getTextSecondary(context),
           ),
         ),
@@ -957,10 +981,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       return Tooltip(
         message: '扫描中...',
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingTight),
           decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
+            color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -969,11 +993,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 width: 14,
                 height: 14,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: AppTheme.primaryColor),
+                    strokeWidth: 2, color: AppTheme.getPrimaryColor(context)),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: GlassConstants.spacingTight),
               Text(widget.scanProgress,
-                  style: TextStyle(fontSize: 13, color: AppTheme.primaryColor)),
+                  style: TextStyle(fontSize: GlassConstants.fontBody, color: AppTheme.getPrimaryColor(context))),
             ],
           ),
         ),
@@ -984,13 +1008,13 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       child: GestureDetector(
         onTap: widget.onScanSavePaths,
         child: Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(GlassConstants.spacingSmall),
           decoration: BoxDecoration(
             color: Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
           ),
           child: Icon(Icons.manage_search,
-              size: 18, color: AppTheme.getTextSecondary(context)),
+              size: GlassConstants.iconAction, color: AppTheme.getTextSecondary(context)),
         ),
       ),
     );
@@ -1010,9 +1034,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingSmall),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withValues(alpha: 0.08),
+        color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.08),
         border: Border(
             bottom: BorderSide(
                 color:
@@ -1026,30 +1050,30 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               _multiSelectController.selectAll(currentPageGames);
             },
             child: Text('全选',
-                style: TextStyle(fontSize: 16, color: AppTheme.primaryColor)),
+                style: TextStyle(fontSize: GlassConstants.fontTitle, color: AppTheme.getPrimaryColor(context))),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: GlassConstants.spacingMedium),
           GestureDetector(
             onTap: () {
               _multiSelectController.invertSelection(currentPageGames);
             },
             child: Text('反选',
-                style: TextStyle(fontSize: 16, color: AppTheme.primaryColor)),
+                style: TextStyle(fontSize: GlassConstants.fontTitle, color: AppTheme.getPrimaryColor(context))),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: GlassConstants.spacingMedium),
           GestureDetector(
             onTap: () => _multiSelectController.exitMultiSelectMode(),
             child: Text('取消选择',
                 style: TextStyle(
-                    fontSize: 16, color: AppTheme.getTextSecondary(context))),
+                    fontSize: GlassConstants.fontTitle, color: AppTheme.getTextSecondary(context))),
           ),
-          const SizedBox(width: 24),
+          const SizedBox(width: GlassConstants.spacingLarge),
           Text(
             '已选择 ${_multiSelectController.selectedCount} 项',
             style: TextStyle(
-                fontSize: 16,
+                fontSize: GlassConstants.fontTitle,
                 fontWeight: FontWeight.w500,
-                color: AppTheme.primaryColor),
+                color: AppTheme.getPrimaryColor(context)),
           ),
         ],
       ),
@@ -1058,7 +1082,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   Widget _buildPageNavigation(int totalPages) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingInline),
       decoration: BoxDecoration(
         color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
         border: Border(
@@ -1074,26 +1098,26 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               _currentPage > 0
                   ? () => _updateCurrentPage(_currentPage - 1)
                   : null),
-          const SizedBox(width: 8),
+          const SizedBox(width: GlassConstants.spacingSmall),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingTight),
             decoration: BoxDecoration(
               color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
             ),
             child: Text('${_currentPage + 1} / $totalPages',
                 style: TextStyle(
-                    fontSize: 13,
+                    fontSize: GlassConstants.fontBody,
                     fontWeight: FontWeight.w500,
                     color: AppTheme.getPrimaryColor(context))),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: GlassConstants.spacingSmall),
           _buildPageButton(
               Icons.chevron_right,
               _currentPage < totalPages - 1
                   ? () => _updateCurrentPage(_currentPage + 1)
                   : null),
-          const SizedBox(width: 16),
+          const SizedBox(width: GlassConstants.spacingMedium),
           SizedBox(
             width: 80,
             height: 30,
@@ -1104,24 +1128,24 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               decoration: InputDecoration(
                 hintText: '页码',
                 hintStyle: TextStyle(
-                    fontSize: 12,
+                    fontSize: GlassConstants.fontSmall,
                     color: AppTheme.getTextSecondary(context)
                         .withValues(alpha: 0.5)),
                 contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingInline),
                 filled: true,
                 fillColor:
                     AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
                   borderSide: BorderSide.none,
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
                   borderSide: BorderSide.none,
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
                   borderSide: BorderSide(
                       color: AppTheme.getPrimaryColor(context)
                           .withValues(alpha: 0.5)),
@@ -1129,7 +1153,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 isDense: true,
               ),
               style: TextStyle(
-                  fontSize: 12, color: AppTheme.getTextPrimary(context)),
+                  fontSize: GlassConstants.fontSmall, color: AppTheme.getTextPrimary(context)),
               onSubmitted: (value) {
                 final page = int.tryParse(value);
                 if (page != null && page >= 1 && page <= totalPages) {
@@ -1148,15 +1172,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     return GestureDetector(
       onTap: onPressed,
       child: Container(
-        padding: const EdgeInsets.all(6),
+        padding: const EdgeInsets.all(GlassConstants.spacingTight),
         decoration: BoxDecoration(
           color: onPressed != null
               ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15)
               : AppTheme.getBackgroundColor(context).withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
         ),
         child: Icon(icon,
-            size: 18,
+            size: GlassConstants.iconAction,
             color: onPressed != null
                 ? AppTheme.getPrimaryColor(context)
                 : AppTheme.getTextSecondary(context).withValues(alpha: 0.4)),
@@ -1171,21 +1195,21 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.videogame_asset_off_outlined,
-                size: 64,
+                size: GlassConstants.iconEmptyState,
                 color:
                     AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
-            const SizedBox(height: 16),
+            const SizedBox(height: GlassConstants.spacingMedium),
             Text('暂无游戏',
                 style: TextStyle(
                     color: AppTheme.getTextSecondary(context)
                         .withValues(alpha: 0.6),
-                    fontSize: 16)),
-            const SizedBox(height: 8),
+                    fontSize: GlassConstants.fontTitle)),
+            const SizedBox(height: GlassConstants.spacingSmall),
             Text('请先在设置中配置并扫描游戏库',
                 style: TextStyle(
                     color: AppTheme.getTextSecondary(context)
                         .withValues(alpha: 0.4),
-                    fontSize: 13)),
+                    fontSize: GlassConstants.fontBody)),
           ],
         ),
       );
@@ -1220,7 +1244,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   Widget _buildListItem(Game game,
       [double coverWidth = 120, double coverHeight = 68]) {
-    final isBackupOnly = _isBackupOnly(game);
+    if (!game.isCleared) return _buildListItemResolved(game, false, coverWidth, coverHeight);
+    return _buildBackupStatus(game, (value) => _buildListItemResolved(game, value, coverWidth, coverHeight));
+  }
+
+  Widget _buildListItemResolved(Game game, bool isBackupOnly,
+      double coverWidth, double coverHeight) {
     final isSelected = _multiSelectController.isSelected(game);
     return GestureDetector(
       onSecondaryTapUp: (details) =>
@@ -1233,7 +1262,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             ? BoxDecoration(
                 borderRadius:
                     BorderRadius.circular(GlassConstants.radiusMedium),
-                border: Border.all(color: AppTheme.primaryColor, width: 2),
+                border: Border.all(color: AppTheme.getPrimaryColor(context), width: 2),
               )
             : null,
         child: InkWell(
@@ -1252,7 +1281,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           },
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+            padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingInline, horizontal: GlassConstants.spacingControl),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1272,28 +1301,27 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                             left: 4,
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
+                                  horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingMicro),
                               decoration: BoxDecoration(
                                 color: AppTheme.getOverlayColor(context),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
                                     Icons.cloud_queue,
-                                    size: 16,
+                                    size: GlassConstants.iconSmall,
                                     color:
-                                        AppTheme.getTextColorOnPrimary(context)
+                                        AppTheme.lightForegroundColor
                                             .withValues(alpha: 0.7),
                                   ),
-                                  SizedBox(width: 2),
+                                  SizedBox(width: GlassConstants.spacingMicro),
                                   Text(
                                     '仅备份',
                                     style: TextStyle(
-                                      fontSize: 14,
-                                      color: AppTheme.getTextColorOnPrimary(
-                                              context)
+                                      fontSize: GlassConstants.fontControl,
+                                      color: AppTheme.lightForegroundColor
                                           .withValues(alpha: 0.7),
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -1308,25 +1336,23 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                             left: isBackupOnly ? 70 : 4,
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
+                                  horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingMicro),
                               decoration: BoxDecoration(
                                 color: AppTheme.getStarColor(context)
                                     .withValues(alpha: 0.9),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
-                                children: [
+                                children: const [
                                   Icon(Icons.emoji_events,
-                                      size: 16,
-                                      color: AppTheme.getTextColorOnPrimary(
-                                          context)),
-                                  SizedBox(width: 2),
+                                      size: GlassConstants.iconSmall,
+                                      color: AppTheme.lightForegroundColor),
+                                  SizedBox(width: GlassConstants.spacingMicro),
                                   Text('通关',
                                       style: TextStyle(
-                                          fontSize: 14,
-                                          color: AppTheme.getTextColorOnPrimary(
-                                              context),
+                                          fontSize: GlassConstants.fontControl,
+                                          color: AppTheme.lightForegroundColor,
                                           fontWeight: FontWeight.w600)),
                                 ],
                               ),
@@ -1340,27 +1366,25 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                             left: 4,
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
+                                  horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingMicro),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryColor
+                                color: AppTheme.getPrimaryColor(context)
                                     .withValues(alpha: 0.8),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.check_circle_outline,
-                                      size: 16,
-                                      color: AppTheme.getTextColorOnPrimary(
-                                              context)
+                                      size: GlassConstants.iconSmall,
+                                      color: AppTheme.getOnPrimaryColor(context)
                                           .withValues(alpha: 0.7)),
-                                  SizedBox(width: 2),
+                                  SizedBox(width: GlassConstants.spacingMicro),
                                   Text(
                                     '玩过',
                                     style: TextStyle(
-                                      fontSize: 14,
-                                      color: AppTheme.getTextColorOnPrimary(
-                                              context)
+                                      fontSize: GlassConstants.fontControl,
+                                      color: AppTheme.getOnPrimaryColor(context)
                                           .withValues(alpha: 0.7),
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -1373,7 +1397,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: GlassConstants.spacingControl),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1381,12 +1405,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                       Text(game.title ?? '未命名',
                           style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              fontSize: 18,
+                              fontSize: GlassConstants.fontSection,
                               color: AppTheme.getCardTitleColor(context)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                       if (game.tags.isNotEmpty) ...[
-                        const SizedBox(height: 6),
+                        const SizedBox(height: GlassConstants.spacingTight),
                         Wrap(
                           spacing: 4,
                           runSpacing: 4,
@@ -1399,26 +1423,26 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                               },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
+                                    horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingMicro),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor
+                                  color: AppTheme.getPrimaryColor(context)
                                       .withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
                                 ),
                                 child: Text(tag.name,
-                                    style: const TextStyle(
-                                        fontSize: 16,
-                                        color: AppTheme.primaryColor)),
+                                    style: TextStyle(
+                                        fontSize: GlassConstants.fontTitle,
+                                        color: AppTheme.getPrimaryColor(context))),
                               ),
                             );
                           }).toList(),
                         ),
                       ],
                       if (game.intro != null && game.intro!.isNotEmpty) ...[
-                        const SizedBox(height: 4),
+                        const SizedBox(height: GlassConstants.spacingTiny),
                         Text(game.intro!,
                             style: TextStyle(
-                                fontSize: 14,
+                                fontSize: GlassConstants.fontControl,
                                 color: AppTheme.getTextSecondary(context)
                                     .withValues(alpha: 0.6)),
                             maxLines: 4,
@@ -1427,9 +1451,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: GlassConstants.spacingCompact),
                 _buildFavoriteButton(game),
-                const SizedBox(width: 8),
+                const SizedBox(width: GlassConstants.spacingSmall),
                 _buildPlayInfo(game),
               ],
             ),
@@ -1480,8 +1504,26 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     });
   }
 
+  Widget _buildBackupStatus(Game game, Widget Function(bool) builder) {
+    return FutureBuilder<bool>(
+      future: _backupChecks.putIfAbsent(game.path, () async {
+        try {
+          return await _isBackupOnly(game);
+        } catch (error, stackTrace) {
+          AppLogger.instance.error('GameList', '检查通关目录失败: id=${game.id}', error, stackTrace);
+          return true;
+        }
+      }),
+      builder: (context, snapshot) => builder(snapshot.data ?? false),
+    );
+  }
+
   Widget _buildPosterItem(Game game) {
-    final isBackupOnly = _isBackupOnly(game);
+    if (!game.isCleared) return _buildPosterItemResolved(game, false);
+    return _buildBackupStatus(game, (value) => _buildPosterItemResolved(game, value));
+  }
+
+  Widget _buildPosterItemResolved(Game game, bool isBackupOnly) {
     final isSelected = _multiSelectController.isSelected(game);
     return GestureDetector(
       onSecondaryTapUp: (details) =>
@@ -1493,7 +1535,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         decoration: isSelected
             ? BoxDecoration(
                 borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
-                border: Border.all(color: AppTheme.primaryColor, width: 2),
+                border: Border.all(color: AppTheme.getPrimaryColor(context), width: 2),
               )
             : null,
         child: GlassCard(
@@ -1529,10 +1571,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                           left: 8,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
+                                horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingTiny),
                             decoration: BoxDecoration(
                               color: AppTheme.getOverlayColor(context),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
                               border: Border.all(
                                 color: AppTheme.getBorderLightColor(context)
                                     .withValues(alpha: 0.2),
@@ -1543,17 +1585,17 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                               children: [
                                 Icon(
                                   Icons.cloud_queue,
-                                  size: 16,
-                                  color: AppTheme.getTextColorOnPrimary(context)
+                                  size: GlassConstants.iconSmall,
+                                  color: AppTheme.lightForegroundColor
                                       .withValues(alpha: 0.7),
                                 ),
-                                SizedBox(width: 4),
+                                SizedBox(width: GlassConstants.spacingTiny),
                                 Text(
                                   '仅备份',
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: GlassConstants.fontControl,
                                     color:
-                                        AppTheme.getTextColorOnPrimary(context)
+                                        AppTheme.lightForegroundColor
                                             .withValues(alpha: 0.7),
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -1568,28 +1610,26 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                           left: isBackupOnly ? 110 : 8,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
+                                horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingTiny),
                             decoration: BoxDecoration(
                               color: AppTheme.getStarColor(context)
                                   .withValues(alpha: 0.9),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
                               border: Border.all(
                                   color: AppTheme.getBorderLightColor(context)
                                       .withValues(alpha: 0.2)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
-                              children: [
+                              children: const [
                                 Icon(Icons.emoji_events,
-                                    size: 16,
-                                    color: AppTheme.getTextColorOnPrimary(
-                                        context)),
-                                SizedBox(width: 4),
+                                    size: GlassConstants.iconSmall,
+                                    color: AppTheme.lightForegroundColor),
+                                SizedBox(width: GlassConstants.spacingTiny),
                                 Text('通关',
                                     style: TextStyle(
-                                        fontSize: 14,
-                                        color: AppTheme.getTextColorOnPrimary(
-                                            context),
+                                        fontSize: GlassConstants.fontControl,
+                                        color: AppTheme.lightForegroundColor,
                                         fontWeight: FontWeight.w600)),
                               ],
                             ),
@@ -1603,11 +1643,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                           left: 8,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
+                                horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingTiny),
                             decoration: BoxDecoration(
                               color:
-                                  AppTheme.primaryColor.withValues(alpha: 0.8),
-                              borderRadius: BorderRadius.circular(12),
+                                  AppTheme.getPrimaryColor(context).withValues(alpha: 0.8),
+                              borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
                               border: Border.all(
                                   color: AppTheme.getBorderLightColor(context)
                                       .withValues(alpha: 0.2)),
@@ -1616,17 +1656,17 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.check_circle_outline,
-                                    size: 16,
+                                    size: GlassConstants.iconSmall,
                                     color:
-                                        AppTheme.getTextColorOnPrimary(context)
+                                        AppTheme.getOnPrimaryColor(context)
                                             .withValues(alpha: 0.7)),
-                                SizedBox(width: 4),
+                                SizedBox(width: GlassConstants.spacingTiny),
                                 Text(
                                   '玩过',
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: GlassConstants.fontControl,
                                     color:
-                                        AppTheme.getTextColorOnPrimary(context)
+                                        AppTheme.getOnPrimaryColor(context)
                                             .withValues(alpha: 0.7),
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -1647,7 +1687,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                             _refreshFavorites();
                           },
                           child: Container(
-                            padding: const EdgeInsets.all(6),
+                            padding: const EdgeInsets.all(GlassConstants.spacingTight),
                             decoration: BoxDecoration(
                               color: AppTheme.getOverlayColor(context)
                                   .withValues(alpha: 0.7),
@@ -1661,10 +1701,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                               game.isFavorite
                                   ? Icons.favorite
                                   : Icons.favorite_border,
-                              size: 20,
+                              size: GlassConstants.iconControl,
                               color: game.isFavorite
                                   ? AppTheme.getFavoriteColor(context)
-                                  : AppTheme.getTextColorOnPrimary(context)
+                                  : AppTheme.lightForegroundColor
                                       .withValues(alpha: 0.7),
                             ),
                           ),
@@ -1676,11 +1716,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                           left: 8,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 4),
+                                horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingTiny),
                             decoration: BoxDecoration(
                               color: AppTheme.getOverlayColor(context)
                                   .withValues(alpha: 0.7),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1688,15 +1728,15 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                 final starValue = index + 1;
                                 if (game.rating >= starValue) {
                                   return Icon(Icons.star,
-                                      size: 20,
+                                      size: GlassConstants.iconControl,
                                       color: AppTheme.getStarColor(context));
                                 } else if (game.rating >= starValue - 0.5) {
                                   return Icon(Icons.star_half,
-                                      size: 20,
+                                      size: GlassConstants.iconControl,
                                       color: AppTheme.getStarColor(context));
                                 } else {
                                   return Icon(Icons.star_border,
-                                      size: 20,
+                                      size: GlassConstants.iconControl,
                                       color: AppTheme.getSurfaceColor(context)
                                           .withValues(alpha: 0.5));
                                 }
@@ -1710,7 +1750,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               ),
               Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: GlassConstants.spacingInline, vertical: GlassConstants.spacingInline),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -1720,7 +1760,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                          fontSize: 16,
+                          fontSize: GlassConstants.fontTitle,
                           fontWeight: FontWeight.w600,
                           height: 1.3,
                           color: AppTheme.getCardTitleColor(context)),
@@ -1744,7 +1784,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
           child: Center(
               child: Icon(Icons.videogame_asset,
-                  size: 48,
+                  size: GlassConstants.iconPlaceholder,
                   color: AppTheme.getTextSecondary(context)
                       .withValues(alpha: 0.25))),
         ),
@@ -1766,9 +1806,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     } else {
       source = FileImage(File(coverPath));
     }
+    final cacheWidth = ref.watch(coverMemorySavingProvider) ? 768 : null;
     return Image(
-      key: ValueKey((coverPath, game.images[coverIndex].id)),
-      image: source,
+      key: ValueKey((coverPath, game.images[coverIndex].id, _coverRevision, cacheWidth)),
+      image: ResizeImage.resizeIfNeeded(cacheWidth, null, source),
       width: width,
       height: height,
       fit: fit,
@@ -1799,7 +1840,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       },
       child: Icon(
         game.isFavorite ? Icons.favorite : Icons.favorite_border,
-        size: 24,
+        size: GlassConstants.iconMedium,
         color: game.isFavorite
             ? AppTheme.getFavoriteColor(context)
             : AppTheme.getTextSecondary(context).withValues(alpha: 0.4),
@@ -1821,16 +1862,16 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       children: [
         Text(infoText,
             style: TextStyle(
-                fontSize: 13,
+                fontSize: GlassConstants.fontBody,
                 color: game.isPlayed
                     ? AppTheme.successColor
                     : AppTheme.getTextSecondary(context)
                         .withValues(alpha: 0.5))),
         if (game.lastPlayedTime != null) ...[
-          const SizedBox(height: 2),
+          const SizedBox(height: GlassConstants.spacingMicro),
           Text(_formatDate(game.lastPlayedTime!),
               style: TextStyle(
-                  fontSize: 13,
+                  fontSize: GlassConstants.fontBody,
                   color: AppTheme.getTextSecondary(context)
                       .withValues(alpha: 0.4))),
         ],
@@ -1942,7 +1983,13 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         game: game,
         onTagTap: (tag) => Navigator.of(dialogContext).pop(tag),
       ),
-    ).then((tag) {
+    ).then((tag) async {
+      await Future.wait(game.images.expand((image) {
+        final original = FileImage(File(image.imagePath));
+        return [original.evict(), ResizeImage(original, width: 768).evict()];
+      }));
+      if (!mounted) return;
+      setState(() => _coverRevision++);
       // 关闭详情页后刷新列表
       _refreshGames();
       _refreshPlayed();
@@ -1970,8 +2017,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     return _getMenuConfig().enabledItems.map((i) => i.id).toList();
   }
 
-  void _showContextMenu(BuildContext context, Offset position, Game game) {
-    final isBackupOnly = _isBackupOnly(game);
+  void _showContextMenu(BuildContext context, Offset position, Game game) async {
+    final isBackupOnly = await _isBackupOnly(game);
+    if (!context.mounted) return;
     final isMultiSelect = _multiSelectController.isMultiSelectMode;
 
     // 获取菜单配置
@@ -1985,7 +2033,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         child: ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.folder_open, size: 18),
+            leading: Icon(Icons.folder_open, size: GlassConstants.iconAction),
             title: const Text('打开文件夹')));
 
     if (!isMultiSelect) {
@@ -1995,7 +2043,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               dense: true,
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.drive_file_move,
-                  size: 18, color: AppTheme.primaryColor),
+                  size: GlassConstants.iconAction, color: AppTheme.getPrimaryColor(context)),
               title: const Text('移动文件夹')));
     }
 
@@ -2009,7 +2057,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               dense: true,
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.folder_special,
-                  size: 18, color: AppTheme.primaryColor),
+                  size: GlassConstants.iconAction, color: AppTheme.getPrimaryColor(context)),
               title: const Text('存档管理')));
     }
 
@@ -2020,7 +2068,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             contentPadding: EdgeInsets.zero,
             leading: Icon(
                 game.isFavorite ? Icons.favorite : Icons.favorite_border,
-                size: 18,
+                size: GlassConstants.iconAction,
                 color: game.isFavorite
                     ? AppTheme.getFavoriteColor(context)
                     : null),
@@ -2035,7 +2083,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                 widget.contextMenuMode == ContextMenuMode.played
                     ? Icons.remove_circle_outline
                     : Icons.add_circle_outline,
-                size: 18),
+                size: GlassConstants.iconAction),
             title: Text(widget.contextMenuMode == ContextMenuMode.played
                 ? '减少游玩次数'
                 : '增加游玩次数')));
@@ -2047,7 +2095,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               dense: true,
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.playlist_add,
-                  size: 18, color: AppTheme.primaryColor),
+                  size: GlassConstants.iconAction, color: AppTheme.getPrimaryColor(context)),
               title: const Text('移入自定义系列')));
     }
 
@@ -2057,7 +2105,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           child: ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.image, size: 18),
+              leading: Icon(Icons.image, size: GlassConstants.iconAction),
               title:
                   Text('选择封面 (${game.coverIndex + 1}/${game.images.length})')));
     }
@@ -2068,8 +2116,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           child: ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.rate_review_outlined,
-                  size: 18, color: AppTheme.primaryColor),
+              leading: Icon(Icons.rate_review_outlined,
+                  size: GlassConstants.iconAction, color: AppTheme.getPrimaryColor(context)),
               title: Text('评论',
                   style: TextStyle(color: AppTheme.getTextPrimary(context)))));
     }
@@ -2081,7 +2129,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               dense: true,
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.emoji_events,
-                  size: 18, color: AppTheme.getStarColor(context)),
+                  size: GlassConstants.iconAction, color: AppTheme.getStarColor(context)),
               title: Text('标记已通关',
                   style: TextStyle(color: AppTheme.getStarColor(context)))));
     }
@@ -2093,7 +2141,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               dense: true,
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.emoji_events_outlined,
-                  size: 18, color: AppTheme.getTextSecondary(context)),
+                  size: GlassConstants.iconAction, color: AppTheme.getTextSecondary(context)),
               title: Text('取消标记已通关',
                   style:
                       TextStyle(color: AppTheme.getTextSecondary(context)))));
@@ -2104,7 +2152,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         child: ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.block, size: 18, color: AppTheme.warningOrange),
+            leading: Icon(Icons.block, size: GlassConstants.iconAction, color: AppTheme.warningOrange),
             title:
                 Text('删除记录', style: TextStyle(color: AppTheme.warningOrange))));
 
@@ -2114,7 +2162,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: Icon(Icons.folder_delete_outlined,
-                size: 18, color: AppTheme.errorColor),
+                size: GlassConstants.iconAction, color: AppTheme.errorColor),
             title: const Text('删除本地文件夹',
                 style: TextStyle(color: AppTheme.errorColor))));
 
@@ -2217,31 +2265,31 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             child: SizedBox(
               width: GlassConstants.dialogWidth,
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(GlassConstants.spacingLarge),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('删除记录',
                         style: TextStyle(
-                            fontSize: 18,
+                            fontSize: GlassConstants.fontSection,
                             fontWeight: FontWeight.bold,
                             color: AppTheme.getTextPrimary(context))),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: GlassConstants.spacingCompact),
                     Text(
                         targets.length > 1
                             ? '确定要删除选中的 ${targets.length} 个游戏的记录吗？\n路径将加入黑名单，后续扫描不再入库。\n不会删除实际文件。'
                             : '确定要删除"${game.title}"的记录吗？\n路径将加入黑名单，后续扫描不再入库。\n不会删除实际文件。',
                         style: TextStyle(
                             color: AppTheme.getTextSecondary(context))),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: GlassConstants.spacingComfortable),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton(
                             onPressed: () => Navigator.pop(context, false),
                             child: const Text('取消')),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: GlassConstants.spacingSmall),
                         ElevatedButton(
                           onPressed: () => Navigator.pop(context, true),
                           style: ElevatedButton.styleFrom(
@@ -2277,28 +2325,28 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             child: SizedBox(
               width: GlassConstants.dialogWidth,
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(GlassConstants.spacingLarge),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('删除本地文件夹',
                         style: TextStyle(
-                            fontSize: 18,
+                            fontSize: GlassConstants.fontSection,
                             fontWeight: FontWeight.bold,
                             color: AppTheme.getTextPrimary(context))),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: GlassConstants.spacingCompact),
                     Text(deleteDescription,
                         style: TextStyle(
                             color: AppTheme.getTextSecondary(context))),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: GlassConstants.spacingComfortable),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton(
                             onPressed: () => Navigator.pop(context, false),
                             child: const Text('取消')),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: GlassConstants.spacingSmall),
                         ElevatedButton(
                           onPressed: () => Navigator.pop(context, true),
                           style: ElevatedButton.styleFrom(
@@ -2430,27 +2478,27 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       child: SizedBox(
         width: GlassConstants.dialogWidth,
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(GlassConstants.spacingLarge),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('标记已通关',
                   style: TextStyle(
-                      fontSize: 18,
+                      fontSize: GlassConstants.fontSection,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.getTextPrimary(context))),
-              const SizedBox(height: 12),
+              const SizedBox(height: GlassConstants.spacingCompact),
               Text('确定要将"$gameName"标记为已通关吗？\n\n$actionDescription',
                   style: TextStyle(color: AppTheme.getTextSecondary(context))),
-              const SizedBox(height: 20),
+              const SizedBox(height: GlassConstants.spacingComfortable),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
                       onPressed: () => Navigator.pop(context, false),
                       child: const Text('取消')),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context, true),
                     style: ElevatedButton.styleFrom(
@@ -2610,7 +2658,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       if (mounted) {
         AppTheme.showGlassToast(context, message: '已标记"$gameName"为已通关');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('GameList', '操作失败', e, stackTrace);
       if (mounted) {
         AppTheme.showGlassToast(context,
             message: '操作失败: $e',
@@ -2678,7 +2727,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       dialogTitle: '选择移动目标文件夹',
       initialDirectory: path.dirname(game.path),
     );
-    if (targetDir == null) return;
+    if (targetDir == null || !mounted) return;
 
     final folderName = path.basename(game.path);
     final newPath = path.join(targetDir, folderName);
@@ -2688,27 +2737,27 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       child: SizedBox(
         width: GlassConstants.dialogWidth,
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(GlassConstants.spacingLarge),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('确认移动文件夹',
                   style: TextStyle(
-                      fontSize: 18,
+                      fontSize: GlassConstants.fontSection,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.getTextPrimary(context))),
-              const SizedBox(height: 16),
+              const SizedBox(height: GlassConstants.spacingMedium),
               Text('原路径: ${game.path}',
                   style: TextStyle(
-                      color: AppTheme.getTextSecondary(context), fontSize: 13)),
-              const SizedBox(height: 8),
+                      color: AppTheme.getTextSecondary(context), fontSize: GlassConstants.fontBody)),
+              const SizedBox(height: GlassConstants.spacingSmall),
               Text('新路径: $newPath',
                   style: TextStyle(
                       color: AppTheme.getTextPrimary(context),
-                      fontSize: 13,
+                      fontSize: GlassConstants.fontBody,
                       fontWeight: FontWeight.w500)),
-              const SizedBox(height: 20),
+              const SizedBox(height: GlassConstants.spacingComfortable),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -2716,11 +2765,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     onPressed: () => Navigator.pop(context, false),
                     child: const Text('取消'),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context, true),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
+                      backgroundColor: AppTheme.getPrimaryColor(context),
                       foregroundColor: AppTheme.getTextColorOnPrimary(context),
                     ),
                     child: const Text('确认移动'),
@@ -2775,7 +2824,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     final metadataBackupService =
         ref.read(clearedMetadataBackupServiceProvider);
     final gameDirExists = await Directory(game.path).exists();
-    final isBackupOnly = _isBackupOnly(game);
+    final isBackupOnly = await _isBackupOnly(game);
     final configuredClearedPath =
         await AppSettings.getClearedPathForGame(game.path);
     final legacyClearedPath = _legacyClearedRoot(game.path);
@@ -2827,7 +2876,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       child: SizedBox(
         width: GlassConstants.dialogWidth,
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(GlassConstants.spacingLarge),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2835,17 +2884,17 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               Text(
                 '取消标记已通关',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: GlassConstants.fontSection,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.getTextPrimary(context),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: GlassConstants.spacingCompact),
               Text(
                 '确定要将"$gameName"取消已通关吗？\n\n$actionDescription',
                 style: TextStyle(color: AppTheme.getTextSecondary(context)),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: GlassConstants.spacingComfortable),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -2853,7 +2902,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     onPressed: () => Navigator.pop(context, false),
                     child: const Text('取消'),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context, true),
                     style: ElevatedButton.styleFrom(
@@ -2974,7 +3023,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       if (mounted) {
         AppTheme.showGlassToast(context, message: '已取消"$gameName"的已通关标记');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('GameList', '操作失败', e, stackTrace);
       if (mounted) {
         AppTheme.showGlassToast(
           context,
@@ -3112,21 +3162,21 @@ class _CoverPickerDialog extends StatelessWidget {
       backgroundColor: Colors.transparent,
       child: GlassContainer(
         width: MediaQuery.of(context).size.width * 0.5,
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(GlassConstants.spacingLarge),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('选择封面图片',
                 style: TextStyle(
-                    fontSize: 18,
+                    fontSize: GlassConstants.fontSection,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.getTextPrimary(context))),
-            const SizedBox(height: 16),
+            const SizedBox(height: GlassConstants.spacingMedium),
             Text('当前封面: 第 ${game.coverIndex + 1} 张 / 共 ${game.images.length} 张',
                 style: TextStyle(
-                    fontSize: 13, color: AppTheme.getTextSecondary(context))),
-            const SizedBox(height: 16),
+                    fontSize: GlassConstants.fontBody, color: AppTheme.getTextSecondary(context))),
+            const SizedBox(height: GlassConstants.spacingMedium),
             ConstrainedBox(
               constraints: BoxConstraints(
                 maxHeight: MediaQuery.of(context).size.height * 0.5,
@@ -3134,7 +3184,7 @@ class _CoverPickerDialog extends StatelessWidget {
               child: SingleChildScrollView(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    const spacing = 8.0;
+                    const spacing = GlassConstants.spacingSmall;
                     final itemWidth = (constraints.maxWidth - spacing * 3) / 4;
                     return Wrap(
                       spacing: spacing,
@@ -3146,17 +3196,17 @@ class _CoverPickerDialog extends StatelessWidget {
                             child: Container(
                               width: itemWidth,
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
                                 border: Border.all(
                                   color: i == game.coverIndex
-                                      ? AppTheme.primaryColor
+                                      ? AppTheme.getPrimaryColor(context)
                                       : AppTheme.getBorderColor(context)
                                           .withValues(alpha: 0.3),
                                   width: i == game.coverIndex ? 3 : 1,
                                 ),
                               ),
                               child: ClipRRect(
-                                borderRadius: BorderRadius.circular(7),
+                                borderRadius: BorderRadius.circular(GlassConstants.radiusInset),
                                 child: Stack(
                                   alignment: Alignment.center,
                                   children: [
@@ -3168,7 +3218,7 @@ class _CoverPickerDialog extends StatelessWidget {
                                             AppTheme.getBackgroundColor(context)
                                                 .withValues(alpha: 0.3),
                                         child: Icon(Icons.broken_image,
-                                            size: 24,
+                                            size: GlassConstants.iconMedium,
                                             color: AppTheme.getTextSecondary(
                                                 context)),
                                       ),
@@ -3178,16 +3228,16 @@ class _CoverPickerDialog extends StatelessWidget {
                                       right: 4,
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 6, vertical: 2),
+                                            horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingMicro),
                                         decoration: BoxDecoration(
                                             color: AppTheme.getOverlayColor(
                                                 context),
                                             borderRadius:
-                                                BorderRadius.circular(8)),
+                                                BorderRadius.circular(GlassConstants.radiusCompact)),
                                         child: Text(
                                           '${i + 1}',
                                           style: TextStyle(
-                                            fontSize: 10,
+                                            fontSize: GlassConstants.fontBadge,
                                             color:
                                                 AppTheme.getTextColorOnPrimary(
                                               context,
@@ -3201,13 +3251,13 @@ class _CoverPickerDialog extends StatelessWidget {
                                         top: 4,
                                         right: 4,
                                         child: Container(
-                                          padding: const EdgeInsets.all(2),
-                                          decoration: const BoxDecoration(
-                                              color: AppTheme.primaryColor,
+                                          padding: const EdgeInsets.all(GlassConstants.spacingMicro),
+                                          decoration:  BoxDecoration(
+                                              color: AppTheme.getPrimaryColor(context),
                                               shape: BoxShape.circle),
                                           child: Icon(
                                             Icons.check,
-                                            size: 14,
+                                            size: GlassConstants.iconCompact,
                                             color:
                                                 AppTheme.getTextColorOnPrimary(
                                               context,
@@ -3226,7 +3276,7 @@ class _CoverPickerDialog extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: GlassConstants.spacingMedium),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -3285,7 +3335,7 @@ class _ReviewDialogState extends State<_ReviewDialog> {
       ),
       child: Container(
         width: 400,
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(GlassConstants.spacingLarge),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3293,26 +3343,26 @@ class _ReviewDialogState extends State<_ReviewDialog> {
             Text(
               widget.game.title ?? '未命名游戏',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: GlassConstants.fontSection,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.getTextPrimary(context),
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: GlassConstants.spacingComfortable),
             Text(
               '评分',
               style: TextStyle(
-                  fontSize: 14,
+                  fontSize: GlassConstants.fontControl,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.getTextPrimary(context)),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: GlassConstants.spacingSmall),
             Builder(
               builder: (context) {
                 const starSize = 32.0;
-                const starGap = 4.0;
+                const starGap = GlassConstants.spacingTiny;
                 const starAreaWidth = 5 * (starSize + starGap) - starGap;
                 return Listener(
                   onPointerDown: (event) {
@@ -3356,29 +3406,29 @@ class _ReviewDialogState extends State<_ReviewDialog> {
             ),
             if (_rating > 0)
               Padding(
-                padding: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.only(top: GlassConstants.spacingTiny),
                 child: Text(
                   _rating == _rating.roundToDouble()
                       ? '${_rating.toInt()} / 5'
                       : '$_rating / 5',
                   style: TextStyle(
-                      fontSize: 12, color: AppTheme.getTextSecondary(context)),
+                      fontSize: GlassConstants.fontSmall, color: AppTheme.getTextSecondary(context)),
                 ),
               ),
-            const SizedBox(height: 20),
+            const SizedBox(height: GlassConstants.spacingComfortable),
             Text(
               '评论',
               style: TextStyle(
-                  fontSize: 14,
+                  fontSize: GlassConstants.fontControl,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.getTextPrimary(context)),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: GlassConstants.spacingSmall),
             TextField(
               controller: _reviewController,
               maxLines: 5,
               style: TextStyle(
-                  fontSize: 14, color: AppTheme.getTextPrimary(context)),
+                  fontSize: GlassConstants.fontControl, color: AppTheme.getTextPrimary(context)),
               decoration: InputDecoration(
                 hintText: '写下你的评论...',
                 hintStyle: TextStyle(
@@ -3387,23 +3437,23 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                 filled: true,
                 fillColor: AppTheme.getInputFillColor(context),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
                   borderSide:
                       BorderSide(color: AppTheme.getBorderColor(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
                   borderSide:
                       BorderSide(color: AppTheme.getBorderColor(context)),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.primaryColor),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
+                  borderSide: BorderSide(color: AppTheme.getPrimaryColor(context)),
                 ),
-                contentPadding: const EdgeInsets.all(12),
+                contentPadding: const EdgeInsets.all(GlassConstants.spacingCompact),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: GlassConstants.spacingLarge),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -3413,17 +3463,17 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                       style:
                           TextStyle(color: AppTheme.getTextSecondary(context))),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: GlassConstants.spacingCompact),
                 ElevatedButton(
                   onPressed: () {
                     widget.onSave(_rating, _reviewController.text);
                     Navigator.of(context).pop();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
+                    backgroundColor: AppTheme.getPrimaryColor(context),
                     foregroundColor: AppTheme.getTextColorOnPrimary(context),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(GlassConstants.radiusSmall)),
                   ),
                   child: const Text('保存'),
                 ),
@@ -3469,7 +3519,7 @@ class _MoveToSeriesDialogState extends State<_MoveToSeriesDialog> {
       ),
       child: Container(
         width: 400,
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(GlassConstants.spacingLarge),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3477,19 +3527,19 @@ class _MoveToSeriesDialogState extends State<_MoveToSeriesDialog> {
             Text(
               '移入自定义系列',
               style: TextStyle(
-                  fontSize: 18,
+                  fontSize: GlassConstants.fontSection,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.getTextPrimary(context)),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: GlassConstants.spacingSmall),
             Text(
               widget.gameTitle,
               style: TextStyle(
-                  fontSize: 13, color: AppTheme.getTextSecondary(context)),
+                  fontSize: GlassConstants.fontBody, color: AppTheme.getTextSecondary(context)),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: GlassConstants.spacingMedium),
             Flexible(
               child: SingleChildScrollView(
                 child: Wrap(
@@ -3509,16 +3559,16 @@ class _MoveToSeriesDialogState extends State<_MoveToSeriesDialog> {
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
+                            horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                              ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15)
                               : AppTheme.getBackgroundColor(context)
                                   .withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
                           border: Border.all(
                             color: isSelected
-                                ? AppTheme.primaryColor
+                                ? AppTheme.getPrimaryColor(context)
                                 : AppTheme.getBorderColor(context)
                                     .withValues(alpha: 0.3),
                           ),
@@ -3528,15 +3578,15 @@ class _MoveToSeriesDialogState extends State<_MoveToSeriesDialog> {
                           children: [
                             if (isSelected) ...[
                               Icon(Icons.check,
-                                  size: 16, color: AppTheme.primaryColor),
-                              const SizedBox(width: 4),
+                                  size: GlassConstants.iconSmall, color: AppTheme.getPrimaryColor(context)),
+                              const SizedBox(width: GlassConstants.spacingTiny),
                             ],
                             Text(
                               tag.displayName ?? tag.name,
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: GlassConstants.fontBody,
                                 color: isSelected
-                                    ? AppTheme.primaryColor
+                                    ? AppTheme.getPrimaryColor(context)
                                     : AppTheme.getTextPrimary(context),
                                 fontWeight: isSelected
                                     ? FontWeight.w500
@@ -3551,7 +3601,7 @@ class _MoveToSeriesDialogState extends State<_MoveToSeriesDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: GlassConstants.spacingComfortable),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -3559,12 +3609,12 @@ class _MoveToSeriesDialogState extends State<_MoveToSeriesDialog> {
                   onPressed: () => Navigator.pop(context),
                   child: const Text('取消'),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: GlassConstants.spacingSmall),
                 ElevatedButton(
                   onPressed: () =>
                       Navigator.pop(context, _selectedIds.toList()),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
+                    backgroundColor: AppTheme.getPrimaryColor(context),
                     foregroundColor: AppTheme.getTextColorOnPrimary(context),
                   ),
                   child: const Text('确定'),

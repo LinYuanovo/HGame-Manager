@@ -3,14 +3,14 @@ import '../database/database_helper.dart';
 import '../models/models.dart';
 
 class TagRepository {
-  TagRepository({Database? database}) : _database = database;
-
   final Database? _database;
+
+  TagRepository({Database? database}) : _database = database;
 
   Future<Database> get _db async => _database ?? await DatabaseHelper.database;
 
-  Future<List<Tag>> getAllTags() async {
-    final db = await _db;
+  Future<List<Tag>> getAllTags({DatabaseExecutor? executor}) async {
+    final db = executor ?? await _db;
     final List<Map<String, dynamic>> maps = await db.rawQuery('''
       SELECT t.*, COUNT(gtr.game_id) as game_count
       FROM tags t
@@ -64,8 +64,9 @@ class TagRepository {
     return Tag.fromMap(maps.first);
   }
 
-  Future<Tag?> getTagByNameAndType(String name, String type) async {
-    final db = await _db;
+  Future<Tag?> getTagByNameAndType(String name, String type,
+      {DatabaseExecutor? executor}) async {
+    final db = executor ?? await _db;
     final List<Map<String, dynamic>> maps = await db.rawQuery('''
       SELECT t.*, COUNT(gtr.game_id) as game_count
       FROM tags t
@@ -87,10 +88,9 @@ class TagRepository {
   }
 
   Future<int> insertOrGetTag(String name, String type,
-      {String? displayName}) async {
-    final db = await _db;
-    return db.transaction((transaction) async {
-      await transaction.insert(
+      {String? displayName, DatabaseExecutor? executor}) async {
+    Future<int> insert(DatabaseExecutor database) async {
+      await database.insert(
         'tags',
         {
           'name': name,
@@ -100,14 +100,17 @@ class TagRepository {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
-      final rows = await transaction.query(
+      final rows = await database.query(
         'tags',
         columns: ['id'],
         where: 'name = ? AND type = ?',
         whereArgs: [name, type],
       );
       return rows.single['id'] as int;
-    });
+    }
+    if (executor != null) return insert(executor);
+    final db = await _db;
+    return db.transaction(insert);
   }
 
   Future<void> updateTag(Tag tag) async {

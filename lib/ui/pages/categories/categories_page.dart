@@ -113,7 +113,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
     if (box == null || !box.hasSize) return;
     final local = box.globalToLocal(globalPosition);
     const cross = 6;
-    const spacing = 8.0;
+    const spacing = GlassConstants.spacingSmall;
     const ratio = 2.5;
     const paddingH = 16.0;
     final cellWidth =
@@ -245,7 +245,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
         GlassAppBar(
           title: Text('分类',
               style: TextStyle(
-                  fontSize: 20,
+                  fontSize: GlassConstants.fontHeading,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.getTextPrimary(context))),
         ),
@@ -303,7 +303,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
         return Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(GlassConstants.spacingMedium),
               child: Row(
                 children: [
                   Expanded(
@@ -313,7 +313,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: GlassConstants.spacingSmall),
                   AppDropdown<String>(
                     key: ValueKey('tag-sort-$type'),
                     value: _manualTypes.contains(type) ? 'manual' : 'count',
@@ -339,7 +339,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                       _saveTagOrders();
                     },
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: GlassConstants.spacingSmall),
                   // 多选按钮
                   GestureDetector(
                     onTap: () {
@@ -353,23 +353,23 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                       });
                     },
                     child: Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(GlassConstants.spacingSmall),
                       decoration: BoxDecoration(
                         color: _isMultiSelectMode
-                            ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                            ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15)
                             : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
                       ),
                       child: Icon(
                         _isMultiSelectMode ? Icons.deselect : Icons.checklist,
-                        size: 18,
+                        size: GlassConstants.iconAction,
                         color: _isMultiSelectMode
-                            ? AppTheme.primaryColor
+                            ? AppTheme.getPrimaryColor(context)
                             : AppTheme.getTextSecondary(context),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: GlassConstants.spacingSmall),
                   IconButton(
                     icon: const Icon(Icons.add),
                     onPressed: () => _showAddTagDialog(type),
@@ -381,9 +381,9 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
             if (_isMultiSelectMode)
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingSmall),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.08),
                   border: Border(
                       bottom: BorderSide(
                           color: AppTheme.getBorderColor(context)
@@ -394,18 +394,18 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                     Text(
                       '已选择 ${_selectedTagIds.length} 项',
                       style: TextStyle(
-                          fontSize: 16,
+                          fontSize: GlassConstants.fontTitle,
                           fontWeight: FontWeight.w500,
-                          color: AppTheme.primaryColor),
+                          color: AppTheme.getPrimaryColor(context)),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: GlassConstants.spacingMedium),
                     GestureDetector(
                       onTap: () => _deleteSelectedTags(),
                       child: Text('删除选中',
                           style: TextStyle(
-                              fontSize: 16, color: AppTheme.errorColor)),
+                              fontSize: GlassConstants.fontTitle, color: AppTheme.errorColor)),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: GlassConstants.spacingMedium),
                     GestureDetector(
                       onTap: () {
                         setState(() {
@@ -415,7 +415,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                       },
                       child: Text('取消选择',
                           style: TextStyle(
-                              fontSize: 16,
+                              fontSize: GlassConstants.fontTitle,
                               color: AppTheme.getTextSecondary(context))),
                     ),
                   ],
@@ -427,7 +427,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                     _onGridPointerMove(type, event.position),
                 child: GridView.builder(
                   key: _gridKeys.putIfAbsent(type, () => GlobalKey()),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 6,
                     mainAxisSpacing: 8,
@@ -486,7 +486,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           ? null
           : (details) => _showTagContextMenu(tag, details.globalPosition),
       child: GlassCard(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
         onTap: () {
           if (_isMultiSelectMode) {
             setState(() {
@@ -513,7 +513,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
         child: Container(
           decoration: isSelected
               ? BoxDecoration(
-                  border: Border.all(color: AppTheme.primaryColor, width: 2),
+                  border: Border.all(color: AppTheme.getPrimaryColor(context), width: 2),
                   borderRadius:
                       BorderRadius.circular(GlassConstants.radiusMedium),
                 )
@@ -522,39 +522,39 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
             children: [
               Icon(
                 tag.type == Tag.typeSeries ? Icons.category : Icons.label,
-                size: 16,
+                size: GlassConstants.iconSmall,
                 color: tag.type == Tag.typeSeries
-                    ? AppTheme.secondaryColor
-                    : AppTheme.primaryColor,
+                    ? AppTheme.getSecondaryColor(context)
+                    : AppTheme.getPrimaryColor(context),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: GlassConstants.spacingSmall),
               Expanded(
                 child: Text(
                   tag.displayName ?? tag.name,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                  style: TextStyle(fontSize: GlassConstants.fontTitle, fontWeight: FontWeight.w500),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (tag.gameCount > 0)
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingMicro),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(GlassConstants.radiusControl),
                   ),
                   child: Text(
                     '${tag.gameCount}',
                     style:
-                        TextStyle(fontSize: 14, color: AppTheme.primaryColor),
+                        TextStyle(fontSize: GlassConstants.fontControl, color: AppTheme.getPrimaryColor(context)),
                   ),
                 ),
-              const SizedBox(width: 4),
+              const SizedBox(width: GlassConstants.spacingTiny),
               if (!_isMultiSelectMode)
                 IconButton(
                   icon: Icon(
                       tag.isFavorite ? Icons.favorite : Icons.favorite_border,
-                      size: 16,
+                      size: GlassConstants.iconSmall,
                       color: tag.isFavorite
                           ? AppTheme.getFavoriteColor(context)
                           : null),
@@ -580,20 +580,20 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
     final confirmed = await showGlassDialog<bool>(
       context: context,
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(GlassConstants.spacingLarge),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('删除选中',
                 style: TextStyle(
-                    fontSize: 18,
+                    fontSize: GlassConstants.fontSection,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.getTextPrimary(context))),
-            const SizedBox(height: 12),
+            const SizedBox(height: GlassConstants.spacingCompact),
             Text('确定要删除选中的 ${_selectedTagIds.length} 个标签/系列吗？',
                 style: TextStyle(color: AppTheme.getTextSecondary(context))),
-            const SizedBox(height: 20),
+            const SizedBox(height: GlassConstants.spacingComfortable),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -601,7 +601,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                   onPressed: () => Navigator.pop(context, false),
                   child: const Text('取消'),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: GlassConstants.spacingSmall),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
                   style: ElevatedButton.styleFrom(
@@ -652,7 +652,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
               child: ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.edit, size: 18),
+                  leading: Icon(Icons.edit, size: GlassConstants.iconAction),
                   title: Text('修改'))),
           PopupMenuItem(
               value: 'delete',
@@ -660,7 +660,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   leading:
-                      Icon(Icons.delete, size: 18, color: AppTheme.errorColor),
+                      Icon(Icons.delete, size: GlassConstants.iconAction, color: AppTheme.errorColor),
                   title: Text('删除',
                       style: TextStyle(color: AppTheme.errorColor)))),
         ],
@@ -671,7 +671,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
               dense: true,
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.lock_outline,
-                  size: 18,
+                  size: GlassConstants.iconAction,
                   color: AppTheme.getTextSecondary(context)
                       .withValues(alpha: 0.5)),
               title: Text('默认系列（不可修改）',
@@ -704,23 +704,23 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           return SizedBox(
             width: GlassConstants.dialogWidth,
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(GlassConstants.spacingLarge),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(tag.type == Tag.typeCustom ? '修改标签' : '修改系列',
                       style: TextStyle(
-                          fontSize: 18,
+                          fontSize: GlassConstants.fontSection,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.getTextPrimary(context))),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: GlassConstants.spacingMedium),
                   TextField(
                     controller: controller,
                     decoration: const InputDecoration(hintText: '输入名称'),
                     autofocus: true,
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: GlassConstants.spacingComfortable),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
@@ -731,7 +731,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                         },
                         child: const Text('取消'),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: GlassConstants.spacingSmall),
                       ElevatedButton(
                         onPressed: () async {
                           final name = controller.text.trim();
@@ -767,27 +767,27 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
       child: SizedBox(
         width: GlassConstants.dialogWidth,
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(GlassConstants.spacingLarge),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(tag.type == Tag.typeCustom ? '删除标签' : '删除系列',
                   style: TextStyle(
-                      fontSize: 18,
+                      fontSize: GlassConstants.fontSection,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.getTextPrimary(context))),
-              const SizedBox(height: 12),
+              const SizedBox(height: GlassConstants.spacingCompact),
               Text('确定要删除"${tag.displayName ?? tag.name}"吗？',
                   style: TextStyle(color: AppTheme.getTextSecondary(context))),
-              const SizedBox(height: 20),
+              const SizedBox(height: GlassConstants.spacingComfortable),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
                       onPressed: () => Navigator.pop(context),
                       child: const Text('取消')),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton(
                     onPressed: () async {
                       await ref.read(tagRepositoryProvider).deleteTag(tag.id!);

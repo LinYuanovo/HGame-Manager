@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
 import '../../../core/database/database_helper.dart';
 import '../../../core/services/app_update_service.dart';
+import '../../../core/services/app_logger.dart';
 import '../../../core/utils/changelog_parser.dart';
 import '../../../core/utils/app_version.dart';
 import '../../../core/providers/providers.dart';
@@ -41,8 +42,10 @@ import '../../../core/models/theme_mode.dart';
 import '../../widgets/cloudflare_browser_dialog.dart';
 import '../../widgets/app_update_dialog.dart';
 import '../../widgets/app_dropdown.dart';
+import 'metadata_translation_dialog.dart';
 
 Future<void> showSettingsDialog(BuildContext context, WidgetRef ref) async {
+  AppLogger.instance.info('Navigation', '打开设置');
   await showGlassDialog(
     context: context,
     child: const SettingsDialogContent(),
@@ -80,8 +83,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   bool _isTestingProxy = false;
   String? _proxyTestResult;
   String _selectedFont = '';
-  double _fontSize = 14.0;
-  double _detailFontSize = 14.0;
+  double _fontSize = GlassConstants.fontControl;
+  double _detailFontSize = GlassConstants.fontControl;
   bool _webdavPasswordVisible = false;
   bool _isBackingUp = false;
   bool _isLoadingBackups = false;
@@ -133,6 +136,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         '右键菜单管理',
         '侧边栏页面管理',
         '封面比例管理',
+        '封面画质',
         '刮削行为管理',
         '重命名规则管理',
         '攻略浮窗快捷键'
@@ -141,7 +145,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _SidebarCategory(
       label: '刮削',
       icon: Icons.description_outlined,
-      items: ['论坛自定义域名', 'Cookie设置', '自定义解析器'],
+      items: ['元信息自动翻译', '论坛自定义域名', 'Cookie设置', '自定义解析器'],
     ),
     _SidebarCategory(
       label: '网络',
@@ -156,7 +160,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _SidebarCategory(
       label: '关于',
       icon: Icons.info_outline,
-      items: ['关于', '自动更新', '更新日志'],
+      items: ['关于', '诊断日志', '自动更新', '更新日志'],
     ),
   ];
 
@@ -184,8 +188,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     final proxyMode = prefs.getString('proxy_mode') ?? 'none';
     final proxyUrl = prefs.getString('proxy_url') ?? '';
     final font = prefs.getString('font_family') ?? '';
-    final fontSize = prefs.getDouble('font_size') ?? 14.0;
-    final detailFontSize = prefs.getDouble('detail_font_size') ?? 14.0;
+    final fontSize = prefs.getDouble('font_size') ?? GlassConstants.fontControl;
+    final detailFontSize = prefs.getDouble('detail_font_size') ?? GlassConstants.fontControl;
     _guideHotkeysEnabled = ref.read(guideWindowServiceProvider).hotkeysEnabled;
 
     final cookieAcgying = prefs.getString('cookie_acgying') ?? '';
@@ -357,7 +361,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingControl),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
@@ -366,16 +370,16 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.settings, color: AppTheme.primaryColor, size: 22),
-          const SizedBox(width: 10),
+          Icon(Icons.settings, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconSection),
+          const SizedBox(width: GlassConstants.spacingInline),
           ShaderMask(
             shaderCallback: (bounds) =>
-                AppTheme.primaryGradient.createShader(bounds),
+                AppTheme.getPrimaryGradient(context).createShader(bounds),
             child: Text(
               '设置',
               style: TextStyle(
-                color: AppTheme.getTextColorOnPrimary(context),
-                fontSize: 18,
+                color: AppTheme.lightForegroundColor,
+                fontSize: GlassConstants.fontSection,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -395,13 +399,13 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         ),
       ),
       child: ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingSmall),
         itemCount: _categories.length,
         itemBuilder: (context, index) {
           final cat = _categories[index];
           final isSelected = _selectedSidebarIndex == index;
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingMicro),
             child: Material(
               color: Colors.transparent,
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -411,21 +415,21 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 onTap: () => setState(() => _selectedSidebarIndex = index),
                 child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingInline),
                   decoration: BoxDecoration(
                     borderRadius:
                         BorderRadius.circular(GlassConstants.radiusMedium),
                     gradient: isSelected
                         ? LinearGradient(
                             colors: [
-                              AppTheme.primaryColor.withValues(alpha: 0.15),
-                              AppTheme.secondaryColor.withValues(alpha: 0.15),
+                              AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
+                              AppTheme.getSecondaryColor(context).withValues(alpha: 0.15),
                             ],
                           )
                         : null,
                     border: Border.all(
                       color: isSelected
-                          ? AppTheme.primaryColor.withValues(alpha: 0.3)
+                          ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)
                           : Colors.transparent,
                     ),
                   ),
@@ -434,18 +438,18 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                       Icon(
                         cat.icon,
                         color: isSelected
-                            ? AppTheme.primaryColor
+                            ? AppTheme.getPrimaryColor(context)
                             : AppTheme.getTextSecondary(context),
-                        size: 18,
+                        size: GlassConstants.iconAction,
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: GlassConstants.spacingInline),
                       Text(
                         cat.label,
                         style: TextStyle(
                           color: isSelected
-                              ? AppTheme.primaryColor
+                              ? AppTheme.getPrimaryColor(context)
                               : AppTheme.getTextPrimary(context),
-                          fontSize: 13,
+                          fontSize: GlassConstants.fontBody,
                           fontWeight:
                               isSelected ? FontWeight.w600 : FontWeight.w400,
                         ),
@@ -466,10 +470,11 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     final widgets = <Widget>[];
     for (final item in cat.items) {
       widgets.add(_buildSectionForItem(item));
-      widgets.add(const SizedBox(height: 16));
+      widgets.add(const SizedBox(height: GlassConstants.spacingMedium));
     }
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      key: ValueKey(cat.label),
+      padding: const EdgeInsets.all(GlassConstants.spacingComfortable),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: widgets,
@@ -503,6 +508,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         return _buildSidebarManagerSection();
       case '封面比例管理':
         return _buildPosterCoverAspectRatioSection();
+      case '封面画质':
+        return _buildCoverQualitySection();
       case '黑名单管理':
         return _buildBlacklistSection();
       case '刮削行为管理':
@@ -513,6 +520,31 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         return _buildGuideHotkeySection();
       case '论坛自定义域名':
         return _buildForumDomainSection();
+      case '元信息自动翻译':
+        return _buildSection(
+          title: '元信息自动翻译',
+          icon: Icons.translate,
+          children: [
+            Text('选择翻译服务，刮削后自动翻译并保留原文',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.getTextSecondary(context),
+                    )),
+            const SizedBox(height: GlassConstants.spacingMedium),
+            TextButton.icon(
+              icon: const Icon(Icons.translate),
+              label: const Text('配置自动翻译'),
+              style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.getPrimaryColor(context)),
+              onPressed: () => showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => MetadataTranslationDialog(
+                  settings: ref.read(sharedPreferencesProvider),
+                ),
+              ),
+            ),
+          ],
+        );
       case 'Cookie设置':
         return _buildCookieSection();
       case '自定义解析器':
@@ -529,6 +561,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         return _buildAutoUpdateSection();
       case '更新日志':
         return _buildChangelogSettingsSection();
+      case '诊断日志':
+        return _buildDiagnosticsSection();
       default:
         return const SizedBox.shrink();
     }
@@ -536,7 +570,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
 
   Widget _buildFooter() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingCompact),
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(
@@ -554,23 +588,23 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                   color:
                       AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusCompact)),
+              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingInline),
             ),
             child: const Text('取消'),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: GlassConstants.spacingCompact),
           ElevatedButton(
             onPressed: () async {
               await _saveSettings();
               if (mounted) Navigator.of(context).pop();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
+              backgroundColor: AppTheme.getPrimaryColor(context),
               foregroundColor: AppTheme.getTextColorOnPrimary(context),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusCompact)),
+              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingInline),
             ),
             child: const Text('保存'),
           ),
@@ -586,19 +620,19 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     Widget? trailing,
   }) {
     return GlassContainer(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(GlassConstants.spacingComfortable),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: AppTheme.primaryColor, size: 20),
-              const SizedBox(width: 10),
+              Icon(icon, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconControl),
+              const SizedBox(width: GlassConstants.spacingInline),
               Text(
                 title,
                 style: TextStyle(
                   color: AppTheme.getTextPrimary(context),
-                  fontSize: 15,
+                  fontSize: GlassConstants.fontBodyLarge,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -608,7 +642,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               ],
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: GlassConstants.spacingMedium),
           ...children,
         ],
       ),
@@ -623,13 +657,13 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         Text(
           '游戏库目录',
           style: TextStyle(
-              color: AppTheme.getTextSecondary(context), fontSize: 13),
+              color: AppTheme.getTextSecondary(context), fontSize: GlassConstants.fontBody),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: GlassConstants.spacingSmall),
         if (_libraryPaths.isEmpty)
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingMedium),
             decoration: BoxDecoration(
               color: AppTheme.getTagBackgroundColor(context),
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -643,7 +677,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               style: TextStyle(
                   color:
                       AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
-                  fontSize: 13),
+                  fontSize: GlassConstants.fontBody),
             ),
           ),
         ..._libraryPaths.asMap().entries.map((entry) {
@@ -652,7 +686,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
           final sortedPath = _sortedPaths[libPath] ?? '';
           final clearedPath = _clearedPaths[libPath] ?? '';
           return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.only(bottom: GlassConstants.spacingCompact),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -661,7 +695,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                     Expanded(
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
+                            horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingCompact),
                         decoration: BoxDecoration(
                           color: AppTheme.getInputFillColor(context),
                           borderRadius: BorderRadius.circular(
@@ -674,44 +708,44 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                           libPath,
                           style: TextStyle(
                               color: AppTheme.getTextPrimary(context),
-                              fontSize: 14),
+                              fontSize: GlassConstants.fontControl),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: GlassConstants.spacingSmall),
                     IconButton(
                       icon: const Icon(Icons.delete_outline,
-                          size: 18, color: AppTheme.errorColor),
+                          size: GlassConstants.iconAction, color: AppTheme.errorColor),
                       onPressed: () => _removeLibraryPath(idx),
                       tooltip: '移除',
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: GlassConstants.spacingTight),
                 Padding(
-                  padding: const EdgeInsets.only(left: 16),
+                  padding: const EdgeInsets.only(left: GlassConstants.spacingMedium),
                   child: Row(
                     children: [
                       Icon(Icons.subdirectory_arrow_right,
-                          size: 16,
+                          size: GlassConstants.iconSmall,
                           color: AppTheme.getTextSecondary(context)
                               .withValues(alpha: 0.5)),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: GlassConstants.spacingSmall),
                       Expanded(
                         child: sortedPath.isNotEmpty
                             ? Row(
                                 children: [
                                   Icon(Icons.check_circle,
-                                      size: 14, color: AppTheme.successColor),
-                                  const SizedBox(width: 6),
+                                      size: GlassConstants.iconCompact, color: AppTheme.successColor),
+                                  const SizedBox(width: GlassConstants.spacingTight),
                                   Expanded(
                                     child: Text(
                                       sortedPath,
                                       style: TextStyle(
                                           color: AppTheme.successColor
                                               .withValues(alpha: 0.8),
-                                          fontSize: 12),
+                                          fontSize: GlassConstants.fontSmall),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -722,31 +756,31 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                                 style: TextStyle(
                                     color: AppTheme.getTextSecondary(context)
                                         .withValues(alpha: 0.4),
-                                    fontSize: 12),
+                                    fontSize: GlassConstants.fontSmall),
                               ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: GlassConstants.spacingSmall),
                       SizedBox(
                         height: 28,
                         child: OutlinedButton(
                           onPressed: () => _selectSortedPath(idx),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.primaryColor,
+                            foregroundColor: AppTheme.getPrimaryColor(context),
                             side: BorderSide(
-                                color: AppTheme.primaryColor
+                                color: AppTheme.getPrimaryColor(context)
                                     .withValues(alpha: 0.3)),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6)),
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                                borderRadius: BorderRadius.circular(GlassConstants.radiusTight)),
+                            padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingInline),
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                           child:
-                              const Text('选择', style: TextStyle(fontSize: 11)),
+                              const Text('选择', style: TextStyle(fontSize: GlassConstants.fontCaption)),
                         ),
                       ),
                       if (sortedPath.isNotEmpty) ...[
-                        const SizedBox(width: 4),
+                        const SizedBox(width: GlassConstants.spacingTiny),
                         SizedBox(
                           height: 28,
                           child: OutlinedButton(
@@ -759,14 +793,14 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                                   color: AppTheme.errorColor
                                       .withValues(alpha: 0.3)),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(6)),
+                                  borderRadius: BorderRadius.circular(GlassConstants.radiusTight)),
                               padding:
-                                  const EdgeInsets.symmetric(horizontal: 10),
+                                  const EdgeInsets.symmetric(horizontal: GlassConstants.spacingInline),
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                             child: const Text('清除',
-                                style: TextStyle(fontSize: 11)),
+                                style: TextStyle(fontSize: GlassConstants.fontCaption)),
                           ),
                         ),
                       ],
@@ -774,30 +808,30 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                   ),
                 ),
                 // 通关目录行
-                const SizedBox(height: 4),
+                const SizedBox(height: GlassConstants.spacingTiny),
                 Padding(
-                  padding: const EdgeInsets.only(left: 16),
+                  padding: const EdgeInsets.only(left: GlassConstants.spacingMedium),
                   child: Row(
                     children: [
                       Icon(Icons.subdirectory_arrow_right,
-                          size: 16,
+                          size: GlassConstants.iconSmall,
                           color: AppTheme.getTextSecondary(context)
                               .withValues(alpha: 0.5)),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: GlassConstants.spacingSmall),
                       Expanded(
                         child: clearedPath.isNotEmpty
                             ? Row(
                                 children: [
                                   Icon(Icons.check_circle,
-                                      size: 14, color: AppTheme.successColor),
-                                  const SizedBox(width: 6),
+                                      size: GlassConstants.iconCompact, color: AppTheme.successColor),
+                                  const SizedBox(width: GlassConstants.spacingTight),
                                   Expanded(
                                     child: Text(
                                       clearedPath,
                                       style: TextStyle(
                                           color: AppTheme.successColor
                                               .withValues(alpha: 0.8),
-                                          fontSize: 12),
+                                          fontSize: GlassConstants.fontSmall),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -808,31 +842,31 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                                 style: TextStyle(
                                     color: AppTheme.getTextSecondary(context)
                                         .withValues(alpha: 0.4),
-                                    fontSize: 12),
+                                    fontSize: GlassConstants.fontSmall),
                               ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: GlassConstants.spacingSmall),
                       SizedBox(
                         height: 28,
                         child: OutlinedButton(
                           onPressed: () => _selectClearedPath(idx),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.primaryColor,
+                            foregroundColor: AppTheme.getPrimaryColor(context),
                             side: BorderSide(
-                                color: AppTheme.primaryColor
+                                color: AppTheme.getPrimaryColor(context)
                                     .withValues(alpha: 0.3)),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6)),
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                                borderRadius: BorderRadius.circular(GlassConstants.radiusTight)),
+                            padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingInline),
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                           child:
-                              const Text('选择', style: TextStyle(fontSize: 11)),
+                              const Text('选择', style: TextStyle(fontSize: GlassConstants.fontCaption)),
                         ),
                       ),
                       if (clearedPath.isNotEmpty) ...[
-                        const SizedBox(width: 4),
+                        const SizedBox(width: GlassConstants.spacingTiny),
                         SizedBox(
                           height: 28,
                           child: OutlinedButton(
@@ -845,14 +879,14 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                                   color: AppTheme.errorColor
                                       .withValues(alpha: 0.3)),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(6)),
+                                  borderRadius: BorderRadius.circular(GlassConstants.radiusTight)),
                               padding:
-                                  const EdgeInsets.symmetric(horizontal: 10),
+                                  const EdgeInsets.symmetric(horizontal: GlassConstants.spacingInline),
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                             child: const Text('清除',
-                                style: TextStyle(fontSize: 11)),
+                                style: TextStyle(fontSize: GlassConstants.fontCaption)),
                           ),
                         ),
                       ],
@@ -863,28 +897,28 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             ),
           );
         }),
-        const SizedBox(height: 8),
+        const SizedBox(height: GlassConstants.spacingSmall),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: _addLibraryPath,
-            icon: const Icon(Icons.add, size: 16),
-            label: const Text('添加目录', style: TextStyle(fontSize: 12)),
+            icon: const Icon(Icons.add, size: GlassConstants.iconSmall),
+            label: const Text('添加目录', style: TextStyle(fontSize: GlassConstants.fontSmall)),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.primaryColor,
+              foregroundColor: AppTheme.getPrimaryColor(context),
               side: BorderSide(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(vertical: 8),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusCompact)),
+              padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingSmall),
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: GlassConstants.spacingCompact),
         // 文字提示
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(GlassConstants.spacingCompact),
           decoration: BoxDecoration(
             color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
@@ -898,38 +932,38 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               Row(
                 children: [
                   Icon(Icons.info_outline,
-                      size: 14, color: AppTheme.getPrimaryColor(context)),
-                  const SizedBox(width: 6),
+                      size: GlassConstants.iconCompact, color: AppTheme.getPrimaryColor(context)),
+                  const SizedBox(width: GlassConstants.spacingTight),
                   Text('目录说明',
                       style: TextStyle(
-                          fontSize: 14,
+                          fontSize: GlassConstants.fontControl,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.getTextPrimary(context),
                           fontFamily:
                               _selectedFont.isEmpty ? null : _selectedFont)),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: GlassConstants.spacingSmall),
               _buildHintRow(Icons.folder_outlined, '游戏库目录', '游戏下载和扫描的源目录'),
-              const SizedBox(height: 4),
+              const SizedBox(height: GlassConstants.spacingTiny),
               _buildHintRow(Icons.sort, '整理目录', '刮削完成后游戏移动到此目录（按分类归档）'),
-              const SizedBox(height: 4),
+              const SizedBox(height: GlassConstants.spacingTiny),
               _buildHintRow(Icons.emoji_events_outlined, '通关目录',
                   '标记通关后游戏移动到此目录，并自动备份简介图片等信息'),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: GlassConstants.spacingCompact),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: _scanNow,
-            icon: const Icon(Icons.refresh, size: 18),
+            icon: const Icon(Icons.refresh, size: GlassConstants.iconAction),
             label: const Text('扫描游戏库'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.successColor,
-              foregroundColor: AppTheme.getTextColorOnPrimary(context),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              foregroundColor: AppTheme.lightForegroundColor,
+              padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingCompact),
               shape: RoundedRectangleBorder(
                   borderRadius:
                       BorderRadius.circular(GlassConstants.radiusMedium)),
@@ -973,14 +1007,14 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon,
-            size: 13,
+            size: GlassConstants.iconBadge,
             color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6)),
-        const SizedBox(width: 6),
+        const SizedBox(width: GlassConstants.spacingTight),
         Expanded(
           child: RichText(
             text: TextSpan(
               style: TextStyle(
-                  fontSize: 11,
+                  fontSize: GlassConstants.fontCaption,
                   color:
                       AppTheme.getTextSecondary(context).withValues(alpha: 0.7),
                   fontFamily: _selectedFont.isEmpty ? null : _selectedFont),
@@ -1004,16 +1038,16 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       children: [
         Text('扫描忽略',
             style: TextStyle(
-                fontSize: 13,
+                fontSize: GlassConstants.fontBody,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.getTextPrimary(context))),
-        const SizedBox(height: 4),
+        const SizedBox(height: GlassConstants.spacingTiny),
         Text('扫描游戏库时将跳过这些文件夹',
             style: TextStyle(
-                fontSize: 11,
+                fontSize: GlassConstants.fontCaption,
                 color:
                     AppTheme.getTextSecondary(context).withValues(alpha: 0.6))),
-        const SizedBox(height: 8),
+        const SizedBox(height: GlassConstants.spacingSmall),
         Wrap(
           spacing: 6,
           runSpacing: 6,
@@ -1021,53 +1055,53 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               .map((folder) => Chip(
                     label: Text(folder,
                         style: TextStyle(
-                            fontSize: 11,
+                            fontSize: GlassConstants.fontCaption,
                             color: AppTheme.getTextPrimary(context))),
                     backgroundColor:
-                        AppTheme.backgroundColor.withValues(alpha: 0.3),
+                        AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
                     side: BorderSide(
                         color: AppTheme.getBorderColor(context)
                             .withValues(alpha: 0.3)),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTiny),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     onDeleted: () =>
                         _removeIgnoreFolder('scan_ignore_folders', folder),
-                    deleteIcon: Icon(Icons.close, size: 14),
+                    deleteIcon: Icon(Icons.close, size: GlassConstants.iconCompact),
                     deleteIconColor: AppTheme.getTextSecondary(context)
                         .withValues(alpha: 0.5),
                   ))
               .toList(),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: GlassConstants.spacingTight),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: () => _addIgnoreFolderFromPicker('scan_ignore_folders'),
-            icon: Icon(Icons.folder_open, size: 16),
-            label: Text('选择文件夹', style: TextStyle(fontSize: 12)),
+            icon: Icon(Icons.folder_open, size: GlassConstants.iconSmall),
+            label: Text('选择文件夹', style: TextStyle(fontSize: GlassConstants.fontSmall)),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.primaryColor,
+              foregroundColor: AppTheme.getPrimaryColor(context),
               side: BorderSide(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(vertical: 6),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusCompact)),
+              padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingTight),
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: GlassConstants.spacingMedium),
         Text('刮削忽略',
             style: TextStyle(
-                fontSize: 13,
+                fontSize: GlassConstants.fontBody,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.getTextPrimary(context))),
-        const SizedBox(height: 4),
+        const SizedBox(height: GlassConstants.spacingTiny),
         Text('刮削时将跳过这些文件夹',
             style: TextStyle(
-                fontSize: 11,
+                fontSize: GlassConstants.fontCaption,
                 color:
                     AppTheme.getTextSecondary(context).withValues(alpha: 0.6))),
-        const SizedBox(height: 8),
+        const SizedBox(height: GlassConstants.spacingSmall),
         Wrap(
           spacing: 6,
           runSpacing: 6,
@@ -1075,38 +1109,38 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               .map((folder) => Chip(
                     label: Text(folder,
                         style: TextStyle(
-                            fontSize: 11,
+                            fontSize: GlassConstants.fontCaption,
                             color: AppTheme.getTextPrimary(context))),
                     backgroundColor:
-                        AppTheme.backgroundColor.withValues(alpha: 0.3),
+                        AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
                     side: BorderSide(
                         color: AppTheme.getBorderColor(context)
                             .withValues(alpha: 0.3)),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTiny),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     onDeleted: () =>
                         _removeIgnoreFolder('scrape_ignore_folders', folder),
-                    deleteIcon: Icon(Icons.close, size: 14),
+                    deleteIcon: Icon(Icons.close, size: GlassConstants.iconCompact),
                     deleteIconColor: AppTheme.getTextSecondary(context)
                         .withValues(alpha: 0.5),
                   ))
               .toList(),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: GlassConstants.spacingTight),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: () =>
                 _addIgnoreFolderFromPicker('scrape_ignore_folders'),
-            icon: Icon(Icons.folder_open, size: 16),
-            label: Text('选择文件夹', style: TextStyle(fontSize: 12)),
+            icon: Icon(Icons.folder_open, size: GlassConstants.iconSmall),
+            label: Text('选择文件夹', style: TextStyle(fontSize: GlassConstants.fontSmall)),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.primaryColor,
+              foregroundColor: AppTheme.getPrimaryColor(context),
               side: BorderSide(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(vertical: 6),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusCompact)),
+              padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingTight),
             ),
           ),
         ),
@@ -1157,13 +1191,13 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 children: [
                   Text('双击游戏卡片直接启动游戏',
                       style: TextStyle(
-                          fontSize: 13,
+                          fontSize: GlassConstants.fontBody,
                           color: AppTheme.getTextPrimary(context))),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: GlassConstants.spacingTiny),
                   Text(
                     '开启后双击游戏列表中的游戏将直接启动',
                     style: TextStyle(
-                        fontSize: 11,
+                        fontSize: GlassConstants.fontCaption,
                         color: AppTheme.getTextSecondary(context)
                             .withValues(alpha: 0.6)),
                   ),
@@ -1177,7 +1211,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 final prefs = ref.read(sharedPreferencesProvider);
                 await prefs.setBool('double_click_launch', value);
               },
-              activeColor: AppTheme.primaryColor,
+              activeColor: AppTheme.getPrimaryColor(context),
             ),
           ],
         ),
@@ -1198,13 +1232,13 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 children: [
                   Text('全局启用攻略浮窗快捷键',
                       style: TextStyle(
-                          fontSize: 13,
+                          fontSize: GlassConstants.fontBody,
                           color: AppTheme.getTextPrimary(context))),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: GlassConstants.spacingTiny),
                   Text(
                     '开启后，浮窗快捷键（默认 CTRL+1 开关、CTRL+2 置顶、CTRL+↑/↓ 滚动）在游戏或其他软件中同样生效；若与其他软件快捷键冲突可关闭。修改按键组合在 管理 → 攻略浮窗快捷键',
                     style: TextStyle(
-                        fontSize: 11,
+                        fontSize: GlassConstants.fontCaption,
                         color: AppTheme.getTextSecondary(context)
                             .withValues(alpha: 0.6)),
                   ),
@@ -1220,7 +1254,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                     GuideWindowService.hotkeysEnabledKey, value);
                 await ref.read(guideWindowServiceProvider).registerHotkeys();
               },
-              activeColor: AppTheme.primaryColor,
+              activeColor: AppTheme.getPrimaryColor(context),
             ),
           ],
         ),
@@ -1241,14 +1275,14 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 children: [
                   Text('已玩游戏保留在游戏库中',
                       style: TextStyle(
-                          fontSize: 14,
+                          fontSize: GlassConstants.fontControl,
                           fontWeight: FontWeight.w500,
                           color: AppTheme.getTextPrimary(context))),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: GlassConstants.spacingTiny),
                   Text(
                     '开启后，玩过的游戏同时在"游戏"页面和"已玩"页面显示，并在游戏左上角标记"玩过"',
                     style: TextStyle(
-                        fontSize: 12,
+                        fontSize: GlassConstants.fontSmall,
                         color: AppTheme.getTextSecondary(context)
                             .withValues(alpha: 0.7)),
                   ),
@@ -1283,7 +1317,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                   }
                 }
               },
-              activeColor: AppTheme.primaryColor,
+              activeColor: AppTheme.getPrimaryColor(context),
             ),
           ],
         ),
@@ -1304,14 +1338,14 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 children: [
                   Text('收藏游戏优先显示',
                       style: TextStyle(
-                          fontSize: 14,
+                          fontSize: GlassConstants.fontControl,
                           fontWeight: FontWeight.w500,
                           color: AppTheme.getTextPrimary(context))),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: GlassConstants.spacingTiny),
                   Text(
                     '开启后，收藏的游戏会优先排在列表顶部',
                     style: TextStyle(
-                        fontSize: 12,
+                        fontSize: GlassConstants.fontSmall,
                         color: AppTheme.getTextSecondary(context)
                             .withValues(alpha: 0.7)),
                   ),
@@ -1325,7 +1359,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 final prefs = ref.read(sharedPreferencesProvider);
                 await prefs.setBool(AppSettings.favoriteFirstKey, value);
               },
-              activeColor: AppTheme.primaryColor,
+              activeColor: AppTheme.getPrimaryColor(context),
             ),
           ],
         ),
@@ -1340,8 +1374,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       children: [
         Text('为每种刮削模式独立设置重命名和移动行为',
             style: TextStyle(
-                fontSize: 13, color: AppTheme.getTextSecondary(context))),
-        const SizedBox(height: 12),
+                fontSize: GlassConstants.fontBody, color: AppTheme.getTextSecondary(context))),
+        const SizedBox(height: GlassConstants.spacingCompact),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
@@ -1349,14 +1383,14 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               context: context,
               builder: (_) => const ScrapeModeConfigDialog(),
             ),
-            icon: const Icon(Icons.settings, size: 18),
+            icon: const Icon(Icons.settings, size: GlassConstants.iconAction),
             label: const Text('打开刮削行为管理'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-              foregroundColor: AppTheme.primaryColor,
+              backgroundColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
+              foregroundColor: AppTheme.getPrimaryColor(context),
               side: BorderSide(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.3)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
+              padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingCompact),
               shape: RoundedRectangleBorder(
                   borderRadius:
                       BorderRadius.circular(GlassConstants.radiusMedium)),
@@ -1375,20 +1409,20 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         Text(
           '配置游戏文件夹重命名规则，控制标记通关时备份文件夹的命名格式。',
           style: TextStyle(
-              fontSize: 13, color: AppTheme.getTextSecondary(context)),
+              fontSize: GlassConstants.fontBody, color: AppTheme.getTextSecondary(context)),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: GlassConstants.spacingCompact),
         Text(
           '当前规则：启用的项将按顺序组合，包裹符号会添加到内容两侧。',
           style: TextStyle(
-              fontSize: 13, color: AppTheme.getTextSecondary(context)),
+              fontSize: GlassConstants.fontBody, color: AppTheme.getTextSecondary(context)),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: GlassConstants.spacingMedium),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: _showRenameManager,
-            icon: const Icon(Icons.settings, size: 18),
+            icon: const Icon(Icons.settings, size: GlassConstants.iconAction),
             label: const Text('打开重命名规则管理'),
             style: ElevatedButton.styleFrom(
               backgroundColor:
@@ -1397,7 +1431,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               side: BorderSide(
                   color:
                       AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingCompact),
               shape: RoundedRectangleBorder(
                   borderRadius:
                       BorderRadius.circular(GlassConstants.radiusMedium)),
@@ -1423,14 +1457,14 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         Text(
           '自定义攻略浮窗的全局快捷键，游戏中也可使用。默认：CTRL+1 开启/关闭，CTRL+2 置顶，CTRL+↑/↓ 滚动。',
           style: TextStyle(
-              fontSize: 13, color: AppTheme.getTextSecondary(context)),
+              fontSize: GlassConstants.fontBody, color: AppTheme.getTextSecondary(context)),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: GlassConstants.spacingMedium),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: _showGuideHotkeyManager,
-            icon: const Icon(Icons.settings, size: 18),
+            icon: const Icon(Icons.settings, size: GlassConstants.iconAction),
             label: const Text('打开快捷键设置'),
             style: ElevatedButton.styleFrom(
               backgroundColor:
@@ -1439,7 +1473,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               side: BorderSide(
                   color:
                       AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingCompact),
               shape: RoundedRectangleBorder(
                   borderRadius:
                       BorderRadius.circular(GlassConstants.radiusMedium)),
@@ -1469,48 +1503,48 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               isSelected: _proxyMode == 'none',
               onTap: () => setState(() => _proxyMode = 'none'),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: GlassConstants.spacingSmall),
             GlassChip(
               label: '使用系统代理',
               isSelected: _proxyMode == 'system',
               onTap: () => setState(() => _proxyMode = 'system'),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: GlassConstants.spacingSmall),
             GlassChip(
               label: '自定义代理',
               isSelected: _proxyMode == 'custom',
               onTap: () => setState(() => _proxyMode = 'custom'),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: GlassConstants.spacingCompact),
             Expanded(
               child: TextField(
                 controller: _proxyTestUrlController,
                 decoration: InputDecoration(
                   hintText: '默认: feixueacg.org',
                   hintStyle: TextStyle(
-                      fontSize: 12,
+                      fontSize: GlassConstants.fontSmall,
                       color: AppTheme.getTextSecondary(context)
                           .withValues(alpha: 0.5)),
                   contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
                     borderSide: BorderSide(
                         color: AppTheme.getBorderColor(context)
                             .withValues(alpha: 0.3)),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
                     borderSide: BorderSide(
                         color: AppTheme.getBorderColor(context)
                             .withValues(alpha: 0.3)),
                   ),
                   isDense: true,
                 ),
-                style: const TextStyle(fontSize: 13),
+                style: const TextStyle(fontSize: GlassConstants.fontBody),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: GlassConstants.spacingSmall),
             ElevatedButton.icon(
               onPressed: _isTestingProxy ? null : _testProxy,
               icon: _isTestingProxy
@@ -1520,45 +1554,45 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2,
                           color: AppTheme.getTextColorOnPrimary(context)))
-                  : Icon(Icons.network_check, size: 18),
+                  : Icon(Icons.network_check, size: GlassConstants.iconAction),
               label: const Text('测试连接'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
+                backgroundColor: AppTheme.getPrimaryColor(context),
                 foregroundColor: AppTheme.getTextColorOnPrimary(context),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingInline),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(GlassConstants.radiusSmall)),
               ),
             ),
           ],
         ),
         if (_proxyTestResult != null)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(top: GlassConstants.spacingSmall),
             child: Text(
               _proxyTestResult!,
               style: TextStyle(
                 color: _proxyTestResult!.contains('成功')
                     ? AppTheme.successColor
                     : AppTheme.errorColor,
-                fontSize: 13,
+                fontSize: GlassConstants.fontBody,
               ),
             ),
           ),
         if (_proxyMode == 'custom') ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: GlassConstants.spacingMedium),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('代理地址',
                   style: TextStyle(
-                      color: AppTheme.getTextSecondary(context), fontSize: 13)),
-              const SizedBox(height: 8),
+                      color: AppTheme.getTextSecondary(context), fontSize: GlassConstants.fontBody)),
+              const SizedBox(height: GlassConstants.spacingSmall),
               TextField(
                 controller: _proxyUrlController,
                 style: TextStyle(
-                    color: AppTheme.getTextPrimary(context), fontSize: 14),
+                    color: AppTheme.getTextPrimary(context), fontSize: GlassConstants.fontControl),
                 decoration: InputDecoration(
                   hintText: '例如: 127.0.0.1:7890',
                   hintStyle: TextStyle(
@@ -1579,7 +1613,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                           color: AppTheme.getTextSecondary(context)
                               .withValues(alpha: 0.2))),
                   contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingCompact),
                 ),
               ),
             ],
@@ -1597,27 +1631,27 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         Text(
           '自定义论坛域名，修改后搜索和刮削将使用新域名访问对应论坛',
           style: TextStyle(
-              color: AppTheme.getTextSecondary(context), fontSize: 13),
+              color: AppTheme.getTextSecondary(context), fontSize: GlassConstants.fontBody),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: GlassConstants.spacingMedium),
         _buildDomainInput(
           label: 'ACG嘤嘤怪',
           controller: _domainAcgyingController,
           hint: '默认: acgyyg.ru',
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: GlassConstants.spacingCompact),
         _buildDomainInput(
           label: '飞雪ACG',
           controller: _domainFeixueController,
           hint: '默认: feixueacg.org',
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: GlassConstants.spacingCompact),
         _buildDomainInput(
           label: '维咔ACG',
           controller: _domainVikacgController,
           hint: '默认: vikacg.com',
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: GlassConstants.spacingCompact),
         _build2dfanDomainInput(),
       ],
     );
@@ -1630,22 +1664,22 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         Text('2DFan',
             style: TextStyle(
                 color: AppTheme.getTextPrimary(context),
-                fontSize: 13,
+                fontSize: GlassConstants.fontBody,
                 fontWeight: FontWeight.w500)),
-        const SizedBox(height: 6),
+        const SizedBox(height: GlassConstants.spacingTight),
         Row(
           children: [
             Expanded(
               child: TextField(
                 controller: _domain2dfanController,
                 style: TextStyle(
-                    fontSize: 12, color: AppTheme.getTextPrimary(context)),
+                    fontSize: GlassConstants.fontSmall, color: AppTheme.getTextPrimary(context)),
                 decoration: InputDecoration(
                   hintText: '默认: 留空自动检测',
                   hintStyle: TextStyle(
                       color: AppTheme.getTextSecondary(context)
                           .withValues(alpha: 0.4),
-                      fontSize: 11),
+                      fontSize: GlassConstants.fontCaption),
                   filled: true,
                   fillColor: AppTheme.getInputFillColor(context),
                   border: OutlineInputBorder(
@@ -1661,11 +1695,11 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                           color: AppTheme.getTextSecondary(context)
                               .withValues(alpha: 0.2))),
                   contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingInline),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: GlassConstants.spacingSmall),
             SizedBox(
               height: 40,
               child: ElevatedButton.icon(
@@ -1676,15 +1710,15 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                         height: 14,
                         child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: AppTheme.getTextColorOnPrimary(context)))
-                    : const Icon(Icons.search, size: 16),
+                            color: AppTheme.getPrimaryColor(context)))
+                    : const Icon(Icons.search, size: GlassConstants.iconSmall),
                 label: Text(_isDetecting2dfanDomain ? '检测中...' : '检测可用域名',
-                    style: const TextStyle(fontSize: 12)),
+                    style: const TextStyle(fontSize: GlassConstants.fontSmall)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
-                      AppTheme.primaryColor.withValues(alpha: 0.15),
-                  foregroundColor: AppTheme.primaryColor,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                      AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
+                  foregroundColor: AppTheme.getPrimaryColor(context),
+                  padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact),
                   shape: RoundedRectangleBorder(
                       borderRadius:
                           BorderRadius.circular(GlassConstants.radiusMedium)),
@@ -1709,7 +1743,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             icon: Icons.check_circle,
             iconColor: AppTheme.successColor);
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('SettingsUI', '操作失败', e, stackTrace);
       if (mounted)
         AppTheme.showGlassToast(context,
             message: '检测失败: $e',
@@ -1731,19 +1766,19 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         Text(label,
             style: TextStyle(
                 color: AppTheme.getTextPrimary(context),
-                fontSize: 13,
+                fontSize: GlassConstants.fontBody,
                 fontWeight: FontWeight.w500)),
-        const SizedBox(height: 6),
+        const SizedBox(height: GlassConstants.spacingTight),
         TextField(
           controller: controller,
           style:
-              TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
+              TextStyle(fontSize: GlassConstants.fontSmall, color: AppTheme.getTextPrimary(context)),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(
                 color:
                     AppTheme.getTextSecondary(context).withValues(alpha: 0.4),
-                fontSize: 11),
+                fontSize: GlassConstants.fontCaption),
             filled: true,
             fillColor: AppTheme.getInputFillColor(context),
             border: OutlineInputBorder(
@@ -1759,7 +1794,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                     color: AppTheme.getTextSecondary(context)
                         .withValues(alpha: 0.2))),
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingInline),
           ),
         ),
       ],
@@ -1774,51 +1809,51 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         Text(
           '部分网站需要登录才能查看内容，请从浏览器中复制 Cookie 粘贴到对应网站的输入框中',
           style: TextStyle(
-              color: AppTheme.getTextSecondary(context), fontSize: 13),
+              color: AppTheme.getTextSecondary(context), fontSize: GlassConstants.fontBody),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: GlassConstants.spacingMedium),
         _buildCookieInput(
           label: 'ACG嘤嘤怪',
           controller: _cookieAcgyingController,
           hint: '登录 acgyyg.ru 后复制 Cookie',
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: GlassConstants.spacingCompact),
         _buildCookieInput(
           label: '飞雪ACG',
           controller: _cookieFeixueController,
           hint: '登录 feixueacg.org 后复制 Cookie',
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: GlassConstants.spacingCompact),
         _buildCookieInput(
           label: '维咔ACG - Authorization',
           controller: _cookieVikacgController,
           hint: '输入 Authorization Token（如 Bearer xxx）',
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: GlassConstants.spacingCompact),
         _buildCookieInput(
           label: 'pilipili',
           controller: _cookiePilipiliController,
           hint: '去隐私模式或者换一个浏览器在B站登录账号 复制 Cookie（确保包含了buvid3，后续不要去打开这个网页避免刷新失效）',
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: GlassConstants.spacingCompact),
         _buildCookieInput(
           label: '2DFan (fan2d.top / 2dfan.com)',
           controller: _cookie2dfanController,
           hint: '登录 2DFan 后复制 Cookie',
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: GlassConstants.spacingSmall),
         Text(
           '通用Cookie 获取方法：浏览器按F12 → Network → 刷新页面 → 点击域名下的请求 → 复制Request Headers中的Cookie值',
           style: TextStyle(
               color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
-              fontSize: 11),
+              fontSize: GlassConstants.fontCaption),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: GlassConstants.spacingTiny),
         Text(
           '维咔ACG Authorization 获取方法：浏览器按F12 → Network → 点击任意请求 → 复制Request Headers中的Authorization值',
           style: TextStyle(
               color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
-              fontSize: 11),
+              fontSize: GlassConstants.fontCaption),
         ),
       ],
     );
@@ -1835,20 +1870,20 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         Text(label,
             style: TextStyle(
                 color: AppTheme.getTextPrimary(context),
-                fontSize: 13,
+                fontSize: GlassConstants.fontBody,
                 fontWeight: FontWeight.w500)),
-        const SizedBox(height: 6),
+        const SizedBox(height: GlassConstants.spacingTight),
         TextField(
           controller: controller,
           maxLines: 2,
           style:
-              TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
+              TextStyle(fontSize: GlassConstants.fontSmall, color: AppTheme.getTextPrimary(context)),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(
                 color:
                     AppTheme.getTextSecondary(context).withValues(alpha: 0.4),
-                fontSize: 11),
+                fontSize: GlassConstants.fontCaption),
             filled: true,
             fillColor: AppTheme.getInputFillColor(context),
             border: OutlineInputBorder(
@@ -1864,7 +1899,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                     color: AppTheme.getTextSecondary(context)
                         .withValues(alpha: 0.2))),
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingInline),
           ),
         ),
       ],
@@ -1879,33 +1914,33 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         Text(
           '当内置解析器无法覆盖新站点时，可通过配置 XPath 来实现自定义解析',
           style: TextStyle(
-              color: AppTheme.getTextSecondary(context), fontSize: 13),
+              color: AppTheme.getTextSecondary(context), fontSize: GlassConstants.fontBody),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: GlassConstants.spacingTiny),
         Text(
           '在浏览器中按 F12 打开开发者工具，右键元素 → Copy → Copy XPath 即可获取',
           style: TextStyle(
               color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
-              fontSize: 11),
+              fontSize: GlassConstants.fontCaption),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: GlassConstants.spacingTiny),
         Text(
           '一般站点只需要填写域名、标题Xpath、内容Xpath即可，刮削不到图片时再补充cookie',
           style: TextStyle(
               color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
-              fontSize: 11),
+              fontSize: GlassConstants.fontCaption),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: GlassConstants.spacingMedium),
         if (_xpathConfigs.isEmpty)
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 24),
+            padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingLarge),
             alignment: Alignment.center,
             child: Text(
               '暂无自定义解析器配置',
               style: TextStyle(
                   color:
                       AppTheme.getTextSecondary(context).withValues(alpha: 0.4),
-                  fontSize: 13),
+                  fontSize: GlassConstants.fontBody),
             ),
           ),
         ..._xpathConfigs.asMap().entries.map((entry) {
@@ -1913,20 +1948,20 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
           final cfg = entry.value;
           return _buildXpathConfigCard(idx, cfg);
         }),
-        const SizedBox(height: 12),
+        const SizedBox(height: GlassConstants.spacingCompact),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: _addXpathConfig,
-            icon: const Icon(Icons.add, size: 16),
-            label: const Text('添加站点', style: TextStyle(fontSize: 12)),
+            icon: const Icon(Icons.add, size: GlassConstants.iconSmall),
+            label: const Text('添加站点', style: TextStyle(fontSize: GlassConstants.fontSmall)),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.primaryColor,
+              foregroundColor: AppTheme.getPrimaryColor(context),
               side: BorderSide(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(vertical: 8),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusCompact)),
+              padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingSmall),
             ),
           ),
         ),
@@ -1953,7 +1988,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     ];
 
     return GlassContainer(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: GlassConstants.spacingCompact),
       color: AppTheme.getTagBackgroundColor(context),
       border: Border.all(
           color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
@@ -1961,29 +1996,29 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+            padding: const EdgeInsets.fromLTRB(GlassConstants.spacingMedium, GlassConstants.spacingCompact, GlassConstants.spacingSmall, GlassConstants.spacingSmall),
             child: Row(
               children: [
-                Icon(Icons.language, size: 16, color: AppTheme.primaryColor),
-                const SizedBox(width: 8),
+                Icon(Icons.language, size: GlassConstants.iconSmall, color: AppTheme.getPrimaryColor(context)),
+                const SizedBox(width: GlassConstants.spacingSmall),
                 Expanded(
                   child: Text(
                     name.isNotEmpty ? '$name ($domain)' : domain,
                     style: TextStyle(
-                        fontSize: 14,
+                        fontSize: GlassConstants.fontControl,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.getTextPrimary(context)),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 16),
-                  color: AppTheme.primaryColor,
+                  icon: const Icon(Icons.edit_outlined, size: GlassConstants.iconSmall),
+                  color: AppTheme.getPrimaryColor(context),
                   tooltip: '编辑',
                   onPressed: () => _editXpathConfig(index),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 16),
+                  icon: const Icon(Icons.delete_outline, size: GlassConstants.iconSmall),
                   color: AppTheme.errorColor,
                   tooltip: '删除',
                   onPressed: () => _removeXpathConfig(index),
@@ -1995,7 +2030,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             final value = cfg[f.key];
             if (value == null || value.isEmpty) return const SizedBox.shrink();
             return Padding(
-              padding: const EdgeInsets.fromLTRB(16, 2, 16, 2),
+              padding: const EdgeInsets.fromLTRB(GlassConstants.spacingMedium, GlassConstants.spacingMicro, GlassConstants.spacingMedium, GlassConstants.spacingMicro),
               child: Row(
                 children: [
                   SizedBox(
@@ -2003,7 +2038,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                     child: Text(
                       f.value,
                       style: TextStyle(
-                          fontSize: 11,
+                          fontSize: GlassConstants.fontCaption,
                           color: AppTheme.getTextSecondary(context)
                               .withValues(alpha: 0.7)),
                     ),
@@ -2012,7 +2047,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                     child: Text(
                       value,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: GlassConstants.fontCaption,
                         color: AppTheme.getTextPrimary(context),
                         fontFamily:
                             userFont.isNotEmpty ? userFont : 'monospace',
@@ -2025,7 +2060,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               ),
             );
           }),
-          const SizedBox(height: 8),
+          const SizedBox(height: GlassConstants.spacingSmall),
         ],
       ),
     );
@@ -2080,14 +2115,14 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 children: [
                   Text('开启无图模式',
                       style: TextStyle(
-                          fontSize: 14,
+                          fontSize: GlassConstants.fontControl,
                           fontWeight: FontWeight.w500,
                           color: AppTheme.getTextPrimary(context))),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: GlassConstants.spacingTiny),
                   Text(
                     '开启后，游戏列表中的海报图片将不再显示，但详情页仍可正常查看图片',
                     style: TextStyle(
-                        fontSize: 12,
+                        fontSize: GlassConstants.fontSmall,
                         color: AppTheme.getTextSecondary(context)
                             .withValues(alpha: 0.7)),
                   ),
@@ -2102,9 +2137,39 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 await prefs.setBool(AppSettings.noImageModeKey, value);
                 ref.read(noImageModeProvider.notifier).state = value;
               },
-              activeColor: AppTheme.primaryColor,
+              activeColor: AppTheme.getPrimaryColor(context),
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCoverQualitySection() {
+    return _buildSection(
+      title: '封面画质',
+      icon: Icons.photo_size_select_large_outlined,
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text('节省封面内存',
+              style: TextStyle(
+                  fontSize: GlassConstants.fontControl,
+                  color: AppTheme.getTextPrimary(context))),
+          subtitle: Text(
+            '默认关闭，使用原图清晰度。开启后降低列表和海报封面的分辨率，减少内存占用。切换立即生效，原图片文件保持不变。',
+            style: TextStyle(
+                fontSize: GlassConstants.fontSmall,
+                color: AppTheme.getTextSecondary(context)),
+          ),
+          activeThumbColor: AppTheme.getPrimaryColor(context),
+          value: ref.watch(coverMemorySavingProvider),
+          onChanged: (value) async {
+            final prefs = ref.read(sharedPreferencesProvider);
+            ref.read(coverMemorySavingProvider.notifier).state = value;
+            await prefs.setBool(AppSettings.coverMemorySavingKey, value);
+            await prefs.flush();
+          },
         ),
       ],
     );
@@ -2120,9 +2185,9 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             Text(
               '字体',
               style: TextStyle(
-                  color: AppTheme.getTextSecondary(context), fontSize: 13),
+                  color: AppTheme.getTextSecondary(context), fontSize: GlassConstants.fontBody),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: GlassConstants.spacingMedium),
             Expanded(
               child: AppDropdown<String>(
                 value: _selectedFont.isEmpty ? null : _selectedFont,
@@ -2130,7 +2195,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 hint: const Text('默认 (Microsoft YaHei)'),
                 textStyle: TextStyle(
                   color: AppTheme.getTextPrimary(context),
-                  fontSize: 14,
+                  fontSize: GlassConstants.fontControl,
                 ),
                 items: [
                   const DropdownMenuItem(
@@ -2151,53 +2216,53 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: GlassConstants.spacingMedium),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: _importFont,
-            icon: const Icon(Icons.upload_file, size: 16),
-            label: const Text('导入 TTF 字体', style: TextStyle(fontSize: 12)),
+            icon: const Icon(Icons.upload_file, size: GlassConstants.iconSmall),
+            label: const Text('导入 TTF 字体', style: TextStyle(fontSize: GlassConstants.fontSmall)),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.primaryColor,
+              foregroundColor: AppTheme.getPrimaryColor(context),
               side: BorderSide(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(vertical: 8),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusCompact)),
+              padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingSmall),
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: GlassConstants.spacingMedium),
         Row(
           children: [
             Text(
               '字号',
               style: TextStyle(
-                  color: AppTheme.getTextSecondary(context), fontSize: 13),
+                  color: AppTheme.getTextSecondary(context), fontSize: GlassConstants.fontBody),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: GlassConstants.spacingMedium),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingTight),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
+                color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
               ),
               child: Text(
                 '${_fontSize.toStringAsFixed(1)} px',
                 style: TextStyle(
-                  color: AppTheme.primaryColor,
-                  fontSize: 14,
+                  color: AppTheme.getPrimaryColor(context),
+                  fontSize: GlassConstants.fontControl,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: GlassConstants.spacingMedium),
             Expanded(
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.remove, size: 18),
+                    icon: const Icon(Icons.remove, size: GlassConstants.iconAction),
                     onPressed: () {
                       if (_fontSize > 10.0) {
                         setState(() => _fontSize -= 0.5);
@@ -2216,13 +2281,13 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                       onChanged: (value) {
                         setState(() => _fontSize = value);
                       },
-                      activeColor: AppTheme.primaryColor,
+                      activeColor: AppTheme.getPrimaryColor(context),
                       inactiveColor: AppTheme.getTextSecondary(context)
                           .withValues(alpha: 0.2),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.add, size: 18),
+                    icon: const Icon(Icons.add, size: GlassConstants.iconAction),
                     onPressed: () {
                       if (_fontSize < 24.0) {
                         setState(() => _fontSize += 0.5);
@@ -2234,12 +2299,12 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 ],
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: GlassConstants.spacingMedium),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
               decoration: BoxDecoration(
-                color: AppTheme.backgroundColor.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(8),
+                color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
               ),
               child: Text(
                 '预览 AaBbCc 中文 123',
@@ -2252,36 +2317,36 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: GlassConstants.spacingMedium),
         Row(
           children: [
             Text(
               '详情页文章字号',
               style: TextStyle(
-                  color: AppTheme.getTextSecondary(context), fontSize: 13),
+                  color: AppTheme.getTextSecondary(context), fontSize: GlassConstants.fontBody),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: GlassConstants.spacingMedium),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingTight),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
+                color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
               ),
               child: Text(
                 '${_detailFontSize.toStringAsFixed(1)} px',
                 style: TextStyle(
-                  color: AppTheme.primaryColor,
-                  fontSize: 14,
+                  color: AppTheme.getPrimaryColor(context),
+                  fontSize: GlassConstants.fontControl,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: GlassConstants.spacingMedium),
             Expanded(
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.remove, size: 18),
+                    icon: const Icon(Icons.remove, size: GlassConstants.iconAction),
                     onPressed: () {
                       if (_detailFontSize > 10.0) {
                         setState(() => _detailFontSize -= 0.5);
@@ -2300,13 +2365,13 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                       onChanged: (value) {
                         setState(() => _detailFontSize = value);
                       },
-                      activeColor: AppTheme.primaryColor,
+                      activeColor: AppTheme.getPrimaryColor(context),
                       inactiveColor: AppTheme.getTextSecondary(context)
                           .withValues(alpha: 0.2),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.add, size: 18),
+                    icon: const Icon(Icons.add, size: GlassConstants.iconAction),
                     onPressed: () {
                       if (_detailFontSize < 24.0) {
                         setState(() => _detailFontSize += 0.5);
@@ -2318,12 +2383,12 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 ],
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: GlassConstants.spacingMedium),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
               decoration: BoxDecoration(
-                color: AppTheme.backgroundColor.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(8),
+                color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
               ),
               child: Text(
                 '预览 AaBbCc 中文 123',
@@ -2336,12 +2401,12 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: GlassConstants.spacingSmall),
         Text(
           '选择后需点击"保存"并重启应用生效',
           style: TextStyle(
               color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
-              fontSize: 11),
+              fontSize: GlassConstants.fontCaption),
         ),
       ],
     );
@@ -2350,16 +2415,16 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   List<DropdownMenuItem<String>> _getCustomFontItems() {
     final prefs = ref.read(sharedPreferencesProvider);
     final existingFonts = prefs.getString('custom_fonts') ?? '';
-    if (existingFonts.isEmpty) return [];
-
-    return existingFonts.split(',').where((f) => f.isNotEmpty).map((fontPath) {
-      final fontName = fontPath
+    final names = existingFonts.split(',').where((value) => value.isNotEmpty).map((fontPath) => fontPath
           .split(RegExp(r'[/\\]'))
           .last
-          .replaceAll(RegExp(r'\.ttf$', caseSensitive: false), '');
+          .replaceAll(RegExp(r'\.ttf$', caseSensitive: false), '')).toSet();
+    if (_selectedFont.isNotEmpty) names.add(_selectedFont);
+    names.remove('MapleMonoNL-NF-CN');
+    return names.map((fontName) {
       return DropdownMenuItem(
         value: fontName,
-        child: Text(fontName, style: const TextStyle(fontSize: 14)),
+        child: Text(fontName, style: const TextStyle(fontSize: GlassConstants.fontControl)),
       );
     }).toList();
   }
@@ -2414,20 +2479,20 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       children: [
         Text('管理游戏列表右键菜单中显示的选项',
             style: TextStyle(
-                fontSize: 13, color: AppTheme.getTextSecondary(context))),
-        const SizedBox(height: 12),
+                fontSize: GlassConstants.fontBody, color: AppTheme.getTextSecondary(context))),
+        const SizedBox(height: GlassConstants.spacingCompact),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: _showContextMenuManager,
-            icon: const Icon(Icons.settings, size: 18),
+            icon: const Icon(Icons.settings, size: GlassConstants.iconAction),
             label: const Text('打开菜单管理'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-              foregroundColor: AppTheme.primaryColor,
+              backgroundColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
+              foregroundColor: AppTheme.getPrimaryColor(context),
               side: BorderSide(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.3)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
+              padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingCompact),
               shape: RoundedRectangleBorder(
                   borderRadius:
                       BorderRadius.circular(GlassConstants.radiusMedium)),
@@ -2539,11 +2604,11 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         Text(
           '仅调整海报网格的封面宽高比；卡片宽度仍由列数控制，标题区域高度保持不变。',
           style: TextStyle(
-            fontSize: 13,
+            fontSize: GlassConstants.fontBody,
             color: AppTheme.getTextSecondary(context),
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: GlassConstants.spacingControl),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -2569,14 +2634,14 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             );
           }).toList(),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: GlassConstants.spacingComfortable),
         Row(
           children: [
             Text(
               '自定义拖动',
               style: TextStyle(
                 color: AppTheme.getTextPrimary(context),
-                fontSize: 14,
+                fontSize: GlassConstants.fontControl,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -2585,25 +2650,25 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               '${ratio.toStringAsFixed(3)} : 1',
               style: TextStyle(
                 color: primaryColor,
-                fontSize: 13,
+                fontSize: GlassConstants.fontBody,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: GlassConstants.spacingSmall),
         Text(
           '拖动右边缘调整宽度，拖动下边缘调整高度，拖动右下角可同时调整。',
           style: TextStyle(
             color: AppTheme.getTextSecondary(context),
-            fontSize: 12,
+            fontSize: GlassConstants.fontSmall,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: GlassConstants.spacingControl),
         Container(
           width: double.infinity,
           constraints: const BoxConstraints(minHeight: 240),
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(GlassConstants.spacingSection),
           decoration: BoxDecoration(
             color: surfaceColor.withValues(alpha: 0.25),
             borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -2630,7 +2695,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                       child: Center(
                         child: Icon(
                           Icons.image_outlined,
-                          size: 34,
+                          size: GlassConstants.iconAbout,
                           color: primaryColor.withValues(alpha: 0.75),
                         ),
                       ),
@@ -2684,7 +2749,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                           height: 16,
                           decoration: BoxDecoration(
                             color: primaryColor,
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(GlassConstants.radiusTiny),
                             border: Border.all(color: surfaceColor, width: 2),
                           ),
                         ),
@@ -2696,12 +2761,12 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: GlassConstants.spacingInline),
         Text(
           '可调范围：0.5–2.0。默认 16:9 与当前海报布局一致。',
           style: TextStyle(
             color: AppTheme.getTextSecondary(context),
-            fontSize: 12,
+            fontSize: GlassConstants.fontSmall,
           ),
         ),
       ],
@@ -2715,20 +2780,20 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       children: [
         Text('管理扫描时忽略的游戏路径',
             style: TextStyle(
-                fontSize: 13, color: AppTheme.getTextSecondary(context))),
-        const SizedBox(height: 12),
+                fontSize: GlassConstants.fontBody, color: AppTheme.getTextSecondary(context))),
+        const SizedBox(height: GlassConstants.spacingCompact),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: _showBlacklistDialog,
-            icon: const Icon(Icons.edit, size: 18),
+            icon: const Icon(Icons.edit, size: GlassConstants.iconAction),
             label: const Text('编辑黑名单'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.warningOrange.withValues(alpha: 0.15),
               foregroundColor: AppTheme.warningOrange,
               side: BorderSide(
                   color: AppTheme.warningOrange.withValues(alpha: 0.3)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingCompact),
               shape: RoundedRectangleBorder(
                   borderRadius:
                       BorderRadius.circular(GlassConstants.radiusMedium)),
@@ -2754,26 +2819,26 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 children: [
                   Text('主题模式',
                       style: TextStyle(
-                          fontSize: 14,
+                          fontSize: GlassConstants.fontControl,
                           fontWeight: FontWeight.w500,
                           color: AppTheme.getTextPrimary(context))),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: GlassConstants.spacingTiny),
                   Text(
                     '选择应用的外观主题',
                     style: TextStyle(
-                        fontSize: 12,
+                        fontSize: GlassConstants.fontSmall,
                         color: AppTheme.getTextSecondary(context)
                             .withValues(alpha: 0.7)),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: GlassConstants.spacingMedium),
             AppDropdown<AppThemeMode>(
               value: currentMode,
               textStyle: TextStyle(
                 color: AppTheme.getTextPrimary(context),
-                fontSize: 14,
+                fontSize: GlassConstants.fontControl,
                 fontFamily: _selectedFont.isEmpty ? null : _selectedFont,
               ),
               menuMaxHeight: 200,
@@ -2782,7 +2847,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                   value: mode,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
+                        horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingInline),
                     decoration: BoxDecoration(
                       borderRadius:
                           BorderRadius.circular(GlassConstants.radiusSmall),
@@ -2794,7 +2859,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                     child: Text(
                       mode.label,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: GlassConstants.fontControl,
                         color: AppTheme.getTextPrimary(context),
                         fontFamily:
                             _selectedFont.isEmpty ? null : _selectedFont,
@@ -2831,8 +2896,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                   Text('应用名称',
                       style: TextStyle(
                           color: AppTheme.getTextSecondary(context),
-                          fontSize: 13)),
-                  const SizedBox(height: 4),
+                          fontSize: GlassConstants.fontBody)),
+                  const SizedBox(height: GlassConstants.spacingTiny),
                   GestureDetector(
                     onTap: () async {
                       final uri = Uri.parse(
@@ -2847,12 +2912,12 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                       child: Text(
                         'HGame Manager',
                         style: TextStyle(
-                          color: AppTheme.primaryColor,
-                          fontSize: 16,
+                          color: AppTheme.getPrimaryColor(context),
+                          fontSize: GlassConstants.fontTitle,
                           fontWeight: FontWeight.w600,
                           decoration: TextDecoration.underline,
                           decorationColor:
-                              AppTheme.primaryColor.withValues(alpha: 0.5),
+                              AppTheme.getPrimaryColor(context).withValues(alpha: 0.5),
                         ),
                       ),
                     ),
@@ -2860,7 +2925,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 ],
               ),
             ),
-            const SizedBox(width: 32),
+            const SizedBox(width: GlassConstants.spacingXLarge),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -2868,21 +2933,21 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 Text('当前版本',
                     style: TextStyle(
                         color: AppTheme.getTextSecondary(context),
-                        fontSize: 13)),
-                const SizedBox(height: 4),
+                        fontSize: GlassConstants.fontBody)),
+                const SizedBox(height: GlassConstants.spacingTiny),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text('v$appVersion',
                         style: TextStyle(
                             color: AppTheme.getTextPrimary(context),
-                            fontSize: 16,
+                            fontSize: GlassConstants.fontTitle,
                             fontWeight: FontWeight.w600)),
                   ],
                 ),
               ],
             ),
-            const SizedBox(width: 32),
+            const SizedBox(width: GlassConstants.spacingXLarge),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -2890,14 +2955,14 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 Text('描述',
                     style: TextStyle(
                         color: AppTheme.getTextSecondary(context),
-                        fontSize: 13)),
-                const SizedBox(height: 4),
+                        fontSize: GlassConstants.fontBody)),
+                const SizedBox(height: GlassConstants.spacingTiny),
                 Text('本地游戏管理工具',
                     style: TextStyle(
-                        color: AppTheme.getTextPrimary(context), fontSize: 14)),
+                        color: AppTheme.getTextPrimary(context), fontSize: GlassConstants.fontControl)),
               ],
             ),
-            const SizedBox(width: 32),
+            const SizedBox(width: GlassConstants.spacingXLarge),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -2905,8 +2970,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 Text('作者',
                     style: TextStyle(
                         color: AppTheme.getTextSecondary(context),
-                        fontSize: 13)),
-                const SizedBox(height: 4),
+                        fontSize: GlassConstants.fontBody)),
+                const SizedBox(height: GlassConstants.spacingTiny),
                 GestureDetector(
                   onTap: () async {
                     final uri =
@@ -2921,11 +2986,11 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                     child: Text(
                       '临渊',
                       style: TextStyle(
-                        color: AppTheme.primaryColor,
-                        fontSize: 14,
+                        color: AppTheme.getPrimaryColor(context),
+                        fontSize: GlassConstants.fontControl,
                         decoration: TextDecoration.underline,
                         decorationColor:
-                            AppTheme.primaryColor.withValues(alpha: 0.5),
+                            AppTheme.getPrimaryColor(context).withValues(alpha: 0.5),
                       ),
                     ),
                   ),
@@ -2962,7 +3027,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                     '自动检查更新',
                     style: labelStyle,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: GlassConstants.spacingTiny),
                   Text(
                     '启动软件时按设定频率检查新版本',
                     style: secondaryStyle,
@@ -2980,7 +3045,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: GlassConstants.spacingMedium),
         Row(
           children: [
             Expanded(
@@ -3017,7 +3082,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: GlassConstants.spacingMedium),
         Row(
           children: [
             Expanded(
@@ -3032,7 +3097,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                   : _formatUpdateCheckTime(_lastSuccessfulUpdateCheck!),
               style: secondaryStyle,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: GlassConstants.spacingCompact),
             OutlinedButton.icon(
               onPressed: _isCheckingAppUpdate || _isInstallingAppUpdate
                   ? null
@@ -3043,7 +3108,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.refresh, size: 16),
+                  : const Icon(Icons.refresh, size: GlassConstants.iconSmall),
               label: Text(
                 _isCheckingAppUpdate ? '正在检查' : '立即检查',
                 style: textTheme.labelLarge,
@@ -3053,6 +3118,44 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         ),
       ],
     );
+  }
+
+  Widget _buildDiagnosticsSection() {
+    return _buildSection(
+      title: '诊断日志',
+      icon: Icons.bug_report_outlined,
+      children: [
+        Text(
+          '遇到问题后导出诊断包，发送给开发者排查。包含最近日志与版本信息，已过滤凭据和网址查询参数；本地游戏路径可能仍包含个人信息，请在分享前检查。',
+          style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: GlassConstants.fontBody),
+        ),
+        const SizedBox(height: GlassConstants.spacingCompact),
+        ElevatedButton.icon(
+          onPressed: _exportDiagnostics,
+          icon: const Icon(Icons.file_download_outlined),
+          label: const Text('导出诊断包'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _exportDiagnostics() async {
+    final destination = await FilePicker.saveFile(
+      dialogTitle: '导出诊断包',
+      fileName: 'HGame-Manager-诊断-${DateTime.now().millisecondsSinceEpoch}.zip',
+      type: FileType.custom,
+      allowedExtensions: ['zip'],
+    );
+    if (destination == null) return;
+    try {
+      await AppLogger.instance.exportDiagnostics(destination);
+      if (!mounted) return;
+      AppTheme.showGlassToast(context, message: '诊断包已导出', icon: Icons.check_circle_outline, iconColor: AppTheme.successColor);
+    } catch (error, stackTrace) {
+      AppLogger.instance.error('Diagnostics', '诊断包导出失败', error, stackTrace);
+      if (!mounted) return;
+      AppTheme.showGlassToast(context, message: '导出失败：$error', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+    }
   }
 
   String _formatUpdateCheckTime(DateTime value) {
@@ -3073,7 +3176,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               ),
               icon: Icon(
                 _isChangelogExpanded ? Icons.expand_less : Icons.expand_more,
-                size: 18,
+                size: GlassConstants.iconAction,
               ),
               label: Text(_isChangelogExpanded ? '收起历史更新' : '查看历史更新'),
               style: TextButton.styleFrom(
@@ -3128,7 +3231,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               break;
           }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('SettingsUI', '操作失败', e, stackTrace);
       if (mounted) {
         final openPan = await showAppUpdateFallbackDialog(
           context: context,
@@ -3233,7 +3337,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(GlassConstants.spacingControl),
       decoration: BoxDecoration(
         color: AppTheme.getInputFillColor(context),
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -3253,18 +3357,18 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                         () => _isChangelogExpanded = !_isChangelogExpanded,
                       ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
+                padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingMicro),
                 child: Row(
                   children: [
                     Icon(Icons.history_outlined,
-                        size: 18, color: AppTheme.getPrimaryColor(context)),
-                    const SizedBox(width: 8),
+                        size: GlassConstants.iconAction, color: AppTheme.getPrimaryColor(context)),
+                    const SizedBox(width: GlassConstants.spacingSmall),
                     Expanded(
                       child: Text(
                         '更新日志',
                         style: TextStyle(
                           color: AppTheme.getTextPrimary(context),
-                          fontSize: 14,
+                          fontSize: GlassConstants.fontControl,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -3275,19 +3379,19 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                             ? Icons.expand_less
                             : Icons.expand_more,
                         color: AppTheme.getTextSecondary(context),
-                        size: 20,
+                        size: GlassConstants.iconControl,
                       ),
                   ],
                 ),
               ),
             ),
-          if (showHeader) const SizedBox(height: 10),
+          if (showHeader) const SizedBox(height: GlassConstants.spacingInline),
           if (_changelogEntries.isEmpty)
             Text(
               '更新日志加载失败',
               style: TextStyle(
                 color: AppTheme.getTextSecondary(context),
-                fontSize: 13,
+                fontSize: GlassConstants.fontBody,
               ),
             )
           else
@@ -3299,7 +3403,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
 
   Widget _buildChangelogEntry(ChangelogEntry entry) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: GlassConstants.spacingControl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -3309,11 +3413,11 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 : 'v${entry.version} (${entry.date})',
             style: TextStyle(
               color: AppTheme.getTextPrimary(context),
-              fontSize: 13,
+              fontSize: GlassConstants.fontBody,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: GlassConstants.spacingSmall),
           _buildChangelogBody(entry.body),
         ],
       ),
@@ -3461,20 +3565,20 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       children: [
         Text('管理侧边栏中显示的页面及顺序，"游戏"页面不可隐藏',
             style: TextStyle(
-                fontSize: 13, color: AppTheme.getTextSecondary(context))),
-        const SizedBox(height: 12),
+                fontSize: GlassConstants.fontBody, color: AppTheme.getTextSecondary(context))),
+        const SizedBox(height: GlassConstants.spacingCompact),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: _showSidebarManager,
-            icon: const Icon(Icons.settings, size: 18),
+            icon: const Icon(Icons.settings, size: GlassConstants.iconAction),
             label: const Text('打开侧边栏管理'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-              foregroundColor: AppTheme.primaryColor,
+              backgroundColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
+              foregroundColor: AppTheme.getPrimaryColor(context),
               side: BorderSide(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.3)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
+              padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingCompact),
               shape: RoundedRectangleBorder(
                   borderRadius:
                       BorderRadius.circular(GlassConstants.radiusMedium)),
@@ -3522,7 +3626,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       if (mounted) {
         AppTheme.showGlassToast(context, message: '扫描完成');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('SettingsUI', '操作失败', e, stackTrace);
       if (mounted) {
         AppTheme.showGlassToast(context,
             message: '扫描失败: $e',
@@ -3536,7 +3641,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     return Column(
       children: [
         _buildBackupImageSection(),
-        const SizedBox(height: 16),
+        const SizedBox(height: GlassConstants.spacingMedium),
         _buildLocalBackupSection(),
       ],
     );
@@ -3554,7 +3659,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 '开启后会将游戏图片加入本地和 WebDAV 备份，可能导致备份包很大。云端仅上传新增或变化的图片。',
                 style: TextStyle(
                   color: AppTheme.getTextSecondary(context),
-                  fontSize: 12,
+                  fontSize: GlassConstants.fontSmall,
                 ),
               ),
             ),
@@ -3584,13 +3689,13 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: _isImportingBackup ? null : _exportLocalBackup,
-                icon: const Icon(Icons.file_upload_outlined, size: 18),
+                icon: const Icon(Icons.file_upload_outlined, size: GlassConstants.iconAction),
                 label: const Text('导出备份'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
-                      AppTheme.primaryColor.withValues(alpha: 0.15),
-                  foregroundColor: AppTheme.primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                      AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
+                  foregroundColor: AppTheme.getPrimaryColor(context),
+                  padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingCompact),
                   shape: RoundedRectangleBorder(
                     borderRadius:
                         BorderRadius.circular(GlassConstants.radiusMedium),
@@ -3598,17 +3703,17 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: GlassConstants.spacingCompact),
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: _isImportingBackup ? null : _importLocalBackup,
-                icon: const Icon(Icons.file_download_outlined, size: 18),
+                icon: const Icon(Icons.file_download_outlined, size: GlassConstants.iconAction),
                 label: const Text('导入备份'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
                       AppTheme.warningColor.withValues(alpha: 0.15),
                   foregroundColor: AppTheme.warningColor,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingCompact),
                   shape: RoundedRectangleBorder(
                     borderRadius:
                         BorderRadius.circular(GlassConstants.radiusMedium),
@@ -3637,13 +3742,13 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.cloud_queue, size: 18),
+                    : const Icon(Icons.cloud_queue, size: GlassConstants.iconAction),
                 label: const Text('查看备份'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
-                      AppTheme.primaryColor.withValues(alpha: 0.15),
-                  foregroundColor: AppTheme.primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                      AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
+                  foregroundColor: AppTheme.getPrimaryColor(context),
+                  padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingCompact),
                   shape: RoundedRectangleBorder(
                     borderRadius:
                         BorderRadius.circular(GlassConstants.radiusMedium),
@@ -3651,7 +3756,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: GlassConstants.spacingCompact),
             Expanded(
               child: ElevatedButton.icon(
                 onPressed:
@@ -3661,13 +3766,13 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.backup, size: 18),
+                    : const Icon(Icons.backup, size: GlassConstants.iconAction),
                 label: const Text('备份数据'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
                       AppTheme.warningColor.withValues(alpha: 0.15),
                   foregroundColor: AppTheme.warningColor,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingCompact),
                   shape: RoundedRectangleBorder(
                     borderRadius:
                         BorderRadius.circular(GlassConstants.radiusMedium),
@@ -3677,21 +3782,21 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: GlassConstants.spacingMedium),
         _buildWebdavTextField(
           controller: _webdavUrlController,
           label: '服务地址',
           hint: 'https://your-webdav-server.com/remote.php/dav/files/username/',
           icon: Icons.link,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: GlassConstants.spacingCompact),
         _buildWebdavTextField(
           controller: _webdavUsernameController,
           label: '用户名',
           hint: 'WebDAV 账号',
           icon: Icons.person_outline,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: GlassConstants.spacingCompact),
         _buildWebdavPasswordField(),
       ],
     );
@@ -3708,19 +3813,19 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       children: [
         Text(label,
             style: TextStyle(
-                color: AppTheme.getTextSecondary(context), fontSize: 13)),
-        const SizedBox(height: 8),
+                color: AppTheme.getTextSecondary(context), fontSize: GlassConstants.fontBody)),
+        const SizedBox(height: GlassConstants.spacingSmall),
         TextField(
           controller: controller,
           style:
-              TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 14),
+              TextStyle(color: AppTheme.getTextPrimary(context), fontSize: GlassConstants.fontControl),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(
                 color:
                     AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
             prefixIcon: Icon(icon,
-                size: 18,
+                size: GlassConstants.iconAction,
                 color:
                     AppTheme.getTextSecondary(context).withValues(alpha: 0.6)),
             filled: true,
@@ -3738,7 +3843,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                       .withValues(alpha: 0.2)),
             ),
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingCompact),
           ),
         ),
       ],
@@ -3751,20 +3856,20 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       children: [
         Text('密码',
             style: TextStyle(
-                color: AppTheme.getTextSecondary(context), fontSize: 13)),
-        const SizedBox(height: 8),
+                color: AppTheme.getTextSecondary(context), fontSize: GlassConstants.fontBody)),
+        const SizedBox(height: GlassConstants.spacingSmall),
         TextField(
           controller: _webdavPasswordController,
           obscureText: !_webdavPasswordVisible,
           style:
-              TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 14),
+              TextStyle(color: AppTheme.getTextPrimary(context), fontSize: GlassConstants.fontControl),
           decoration: InputDecoration(
             hintText: 'WebDAV 密码',
             hintStyle: TextStyle(
                 color:
                     AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
             prefixIcon: Icon(Icons.lock_outline,
-                size: 18,
+                size: GlassConstants.iconAction,
                 color:
                     AppTheme.getTextSecondary(context).withValues(alpha: 0.6)),
             suffixIcon: IconButton(
@@ -3772,7 +3877,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 _webdavPasswordVisible
                     ? Icons.visibility_off
                     : Icons.visibility,
-                size: 20,
+                size: GlassConstants.iconControl,
                 color:
                     AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
               ),
@@ -3794,7 +3899,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                       .withValues(alpha: 0.2)),
             ),
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingCompact),
           ),
         ),
       ],
@@ -3970,14 +4075,14 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         title: Row(
           children: [
             Icon(Icons.cloud_queue,
-                color: AppTheme.getPrimaryColor(context), size: 22),
-            const SizedBox(width: 8),
+                color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconSection),
+            const SizedBox(width: GlassConstants.spacingSmall),
             Text('云端备份列表',
                 style: TextStyle(
-                    color: AppTheme.getTextPrimary(context), fontSize: 18)),
+                    color: AppTheme.getTextPrimary(context), fontSize: GlassConstants.fontSection)),
             const Spacer(),
             IconButton(
-              icon: const Icon(Icons.refresh, size: 20),
+              icon: const Icon(Icons.refresh, size: GlassConstants.iconControl),
               color: AppTheme.getTextSecondary(context),
               onPressed: () {
                 Navigator.of(ctx).pop();
@@ -3986,7 +4091,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               tooltip: '刷新',
             ),
             IconButton(
-              icon: const Icon(Icons.close, size: 20),
+              icon: const Icon(Icons.close, size: GlassConstants.iconControl),
               color: AppTheme.getTextSecondary(context),
               onPressed: () => Navigator.of(ctx).pop(),
             ),
@@ -3996,7 +4101,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
           width: 780,
           child: files.isEmpty
               ? Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingXLarge),
                   child: Center(
                     child: Text('暂无备份文件',
                         style: TextStyle(
@@ -4009,10 +4114,10 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                     headingTextStyle: TextStyle(
                       color: AppTheme.getTextPrimary(context),
                       fontWeight: FontWeight.w600,
-                      fontSize: 13,
+                      fontSize: GlassConstants.fontBody,
                     ),
                     dataTextStyle: TextStyle(
-                        color: AppTheme.getTextPrimary(context), fontSize: 13),
+                        color: AppTheme.getTextPrimary(context), fontSize: GlassConstants.fontBody),
                     columns: const [
                       DataColumn(label: Text('文件名')),
                       DataColumn(label: Text('大小')),
@@ -4043,17 +4148,17 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                               _MiniIconButton(
                                 icon: Icons.download,
                                 tooltip: '下载',
-                                color: AppTheme.primaryColor,
+                                color: AppTheme.getPrimaryColor(context),
                                 onTap: () => _downloadBackupFile(f.name),
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: GlassConstants.spacingTiny),
                               _MiniIconButton(
                                 icon: Icons.file_download_outlined,
                                 tooltip: '导入',
                                 color: AppTheme.successColor,
                                 onTap: () => _importBackupFile(f.name),
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: GlassConstants.spacingTiny),
                               _MiniIconButton(
                                 icon: Icons.delete_outline,
                                 tooltip: '删除',
@@ -4582,7 +4687,7 @@ class _BlacklistDialogState extends ConsumerState<_BlacklistDialog> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(GlassConstants.spacingDialog),
       child: SizedBox(
         width: 600,
         height: 400,
@@ -4591,28 +4696,28 @@ class _BlacklistDialogState extends ConsumerState<_BlacklistDialog> {
           children: [
             Row(
               children: [
-                Icon(Icons.block, color: AppTheme.warningOrange, size: 22),
-                const SizedBox(width: 12),
+                Icon(Icons.block, color: AppTheme.warningOrange, size: GlassConstants.iconSection),
+                const SizedBox(width: GlassConstants.spacingCompact),
                 Text(
                   '黑名单管理',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: GlassConstants.fontHeading,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.getTextPrimary(context),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: GlassConstants.spacingSmall),
             Text(
               '黑名单中的路径在扫描游戏库时将被跳过，不会自动入库',
               style: TextStyle(
                 color:
                     AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
-                fontSize: 12,
+                fontSize: GlassConstants.fontSmall,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: GlassConstants.spacingMedium),
             Expanded(
               child: _paths.isEmpty
                   ? Center(
@@ -4621,7 +4726,7 @@ class _BlacklistDialogState extends ConsumerState<_BlacklistDialog> {
                         style: TextStyle(
                           color: AppTheme.getTextSecondary(context)
                               .withValues(alpha: 0.5),
-                          fontSize: 14,
+                          fontSize: GlassConstants.fontControl,
                         ),
                       ),
                     )
@@ -4637,20 +4742,20 @@ class _BlacklistDialogState extends ConsumerState<_BlacklistDialog> {
                         return ListTile(
                           dense: true,
                           contentPadding:
-                              const EdgeInsets.symmetric(horizontal: 4),
+                              const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTiny),
                           leading: Icon(Icons.folder_outlined,
-                              size: 18,
+                              size: GlassConstants.iconAction,
                               color: AppTheme.getTextSecondary(context)),
                           title: Text(
                             path,
                             style: TextStyle(
-                                fontSize: 13,
+                                fontSize: GlassConstants.fontBody,
                                 color: AppTheme.getTextPrimary(context)),
                             overflow: TextOverflow.ellipsis,
                           ),
                           trailing: IconButton(
                             icon: const Icon(Icons.close,
-                                size: 16, color: AppTheme.errorColor),
+                                size: GlassConstants.iconSmall, color: AppTheme.errorColor),
                             tooltip: '移除',
                             onPressed: () => _removePath(index),
                           ),
@@ -4658,7 +4763,7 @@ class _BlacklistDialogState extends ConsumerState<_BlacklistDialog> {
                       },
                     ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: GlassConstants.spacingMedium),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -4693,11 +4798,11 @@ class _MiniIconButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: InkWell(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(GlassConstants.radiusTiny),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: Icon(icon, size: 18, color: color),
+          padding: const EdgeInsets.all(GlassConstants.spacingTiny),
+          child: Icon(icon, size: GlassConstants.iconAction, color: color),
         ),
       ),
     );
@@ -5037,7 +5142,7 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
   Widget build(BuildContext context) {
     final isEdit = widget.initialConfig != null;
     return Padding(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(GlassConstants.spacingDialog),
       child: SizedBox(
         width: 720,
         height: 680,
@@ -5047,30 +5152,30 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
             Row(
               children: [
                 Icon(Icons.code_outlined,
-                    color: AppTheme.primaryColor, size: 22),
-                const SizedBox(width: 12),
+                    color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconSection),
+                const SizedBox(width: GlassConstants.spacingCompact),
                 Text(
                   isEdit ? '编辑解析器配置' : '添加解析器配置',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: GlassConstants.fontHeading,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.getTextPrimary(context),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: GlassConstants.spacingSmall),
             Text(
               '填写站点域名和各字段的 XPath 表达式。带 * 的为必填项。',
               style: TextStyle(
                 color:
                     AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
-                fontSize: 12,
+                fontSize: GlassConstants.fontSmall,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: GlassConstants.spacingMedium),
             _buildPreviewSection(),
-            const SizedBox(height: 16),
+            const SizedBox(height: GlassConstants.spacingMedium),
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -5078,17 +5183,17 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
                   children: [
                     _buildTextField(
                         '域名 *', _domainController, '例如: newgameforum.com'),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: GlassConstants.spacingCompact),
                     _buildTextField('站点名称', _nameController, '例如: 新游戏论坛 (可选)'),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: GlassConstants.spacingCompact),
                     _buildTextField(
                         'Cookie (可选)', _cookieController, '粘贴浏览器 Cookie，刮削时携带'),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: GlassConstants.spacingCompact),
                     _buildTextField('User-Agent (可选)', _userAgentController,
                         '为空时使用默认浏览器 User-Agent'),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: GlassConstants.spacingMedium),
                     ..._fieldDefs.map((def) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.only(bottom: GlassConstants.spacingCompact),
                           child: _buildTextField(def.value,
                               _fieldControllers[def.key]!, 'XPath 表达式'),
                         )),
@@ -5096,7 +5201,7 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: GlassConstants.spacingMedium),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -5104,13 +5209,13 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text('取消'),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: GlassConstants.spacingCompact),
                 ElevatedButton(
                   onPressed: _save,
                   style: ElevatedButton.styleFrom(
                     backgroundColor:
-                        AppTheme.primaryColor.withValues(alpha: 0.15),
-                    foregroundColor: AppTheme.primaryColor,
+                        AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
+                    foregroundColor: AppTheme.getPrimaryColor(context),
                   ),
                   child: Text(isEdit ? '保存' : '添加'),
                 ),
@@ -5130,19 +5235,19 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
         Text(label,
             style: TextStyle(
                 color: AppTheme.getTextPrimary(context),
-                fontSize: 13,
+                fontSize: GlassConstants.fontBody,
                 fontWeight: FontWeight.w500)),
-        const SizedBox(height: 6),
+        const SizedBox(height: GlassConstants.spacingTight),
         TextField(
           controller: controller,
           style:
-              TextStyle(fontSize: 12, color: AppTheme.getTextPrimary(context)),
+              TextStyle(fontSize: GlassConstants.fontSmall, color: AppTheme.getTextPrimary(context)),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(
                 color:
                     AppTheme.getTextSecondary(context).withValues(alpha: 0.4),
-                fontSize: 11),
+                fontSize: GlassConstants.fontCaption),
             filled: true,
             fillColor: AppTheme.getInputFillColor(context),
             border: OutlineInputBorder(
@@ -5158,7 +5263,7 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
                       .withValues(alpha: 0.2)),
             ),
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingInline),
           ),
         ),
       ],
@@ -5167,7 +5272,7 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
 
   Widget _buildPreviewSection() {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(GlassConstants.spacingControl),
       decoration: BoxDecoration(
         color: AppTheme.getInputFillColor(context),
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -5181,19 +5286,19 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
           Row(
             children: [
               Icon(Icons.preview_outlined,
-                  size: 16, color: AppTheme.primaryColor),
-              const SizedBox(width: 8),
+                  size: GlassConstants.iconSmall, color: AppTheme.getPrimaryColor(context)),
+              const SizedBox(width: GlassConstants.spacingSmall),
               Text(
                 '实时预览',
                 style: TextStyle(
                   color: AppTheme.getTextPrimary(context),
-                  fontSize: 13,
+                  fontSize: GlassConstants.fontBody,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: GlassConstants.spacingInline),
           Row(
             children: [
               Expanded(
@@ -5201,13 +5306,13 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
                   controller: _previewUrlController,
                   enabled: !_isTestingParser,
                   style: TextStyle(
-                      fontSize: 12, color: AppTheme.getTextPrimary(context)),
+                      fontSize: GlassConstants.fontSmall, color: AppTheme.getTextPrimary(context)),
                   decoration: InputDecoration(
                     hintText: '输入测试页面 URL',
                     hintStyle: TextStyle(
                       color: AppTheme.getTextSecondary(context)
                           .withValues(alpha: 0.4),
-                      fontSize: 11,
+                      fontSize: GlassConstants.fontCaption,
                     ),
                     filled: true,
                     fillColor: AppTheme.getSurfaceColor(context)
@@ -5229,11 +5334,11 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
                       ),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                        horizontal: GlassConstants.spacingControl, vertical: GlassConstants.spacingInline),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: GlassConstants.spacingInline),
               ElevatedButton.icon(
                 onPressed: _isTestingParser ? null : _testParser,
                 icon: _isTestingParser
@@ -5242,21 +5347,21 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
                         height: 14,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppTheme.primaryColor,
+                          color: AppTheme.getPrimaryColor(context),
                         ),
                       )
-                    : const Icon(Icons.play_arrow_outlined, size: 16),
+                    : const Icon(Icons.play_arrow_outlined, size: GlassConstants.iconSmall),
                 label: Text(_isTestingParser ? '测试中' : '测试解析'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
-                      AppTheme.primaryColor.withValues(alpha: 0.15),
-                  foregroundColor: AppTheme.primaryColor,
+                      AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
+                  foregroundColor: AppTheme.getPrimaryColor(context),
                 ),
               ),
             ],
           ),
           if (_previewResult != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: GlassConstants.spacingCompact),
             _buildPreviewResult(_previewResult!),
           ],
         ],
@@ -5268,7 +5373,7 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
     final hasError = result.error != null;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(GlassConstants.spacingCompact),
       decoration: BoxDecoration(
         color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.28),
         borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
@@ -5311,7 +5416,7 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
 
   Widget _buildPreviewLine(String label, String value, {Color? valueColor}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 5),
+      padding: const EdgeInsets.only(bottom: GlassConstants.spacingTrim),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -5322,7 +5427,7 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
               style: TextStyle(
                 color:
                     AppTheme.getTextSecondary(context).withValues(alpha: 0.8),
-                fontSize: 12,
+                fontSize: GlassConstants.fontSmall,
               ),
             ),
           ),
@@ -5331,7 +5436,7 @@ class _XpathConfigDialogState extends State<_XpathConfigDialog> {
               value,
               style: TextStyle(
                 color: valueColor ?? AppTheme.getTextPrimary(context),
-                fontSize: 12,
+                fontSize: GlassConstants.fontSmall,
               ),
             ),
           ),

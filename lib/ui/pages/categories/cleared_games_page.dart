@@ -41,15 +41,15 @@ class _ClearedGamesPageState extends ConsumerState<ClearedGamesPage> {
                     children: [
                       IconButton(
                         icon: Icon(Icons.arrow_back,
-                            size: 20, color: AppTheme.getTextSecondary(context)),
+                            size: GlassConstants.iconControl, color: AppTheme.getTextSecondary(context)),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.emoji_events, size: 20, color: Color.fromARGB(255, 255, 217, 0)),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: GlassConstants.spacingSmall),
+                      Icon(Icons.emoji_events, size: GlassConstants.iconControl, color: AppTheme.getStarColor(context)),
+                      const SizedBox(width: GlassConstants.spacingSmall),
                       Text('已通关',
                           style: TextStyle(
-                              fontSize: 18,
+                              fontSize: GlassConstants.fontSection,
                               fontWeight: FontWeight.w600,
                               color: AppTheme.getTextPrimary(context))),
                     ],
@@ -66,20 +66,20 @@ class _ClearedGamesPageState extends ConsumerState<ClearedGamesPage> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.emoji_events_outlined,
-                                  size: 64,
+                                  size: GlassConstants.iconEmptyState,
                                   color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: GlassConstants.spacingMedium),
                               Text('暂无已通关游戏',
                                   style: TextStyle(
                                       color:
                                           AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
-                                      fontSize: 16)),
-                              const SizedBox(height: 8),
+                                      fontSize: GlassConstants.fontTitle)),
+                              const SizedBox(height: GlassConstants.spacingSmall),
                               Text('右键点击游戏选择"标记已通关"',
                                   style: TextStyle(
                                       color:
                                           AppTheme.getTextSecondary(context).withValues(alpha: 0.4),
-                                      fontSize: 13)),
+                                      fontSize: GlassConstants.fontBody)),
                             ],
                           ),
                         );

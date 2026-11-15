@@ -10,11 +10,21 @@ import '../utils/backup_image_reference_resolver.dart';
 import '../utils/cleared_game_path_utils.dart';
 import '../utils/game_data_paths.dart';
 import '../utils/path_reference_rewriter.dart';
+import '../utils/game_path_utils.dart';
+
+class GameAlreadyExistsException implements Exception {
+  final String gamePath;
+
+  const GameAlreadyExistsException(this.gamePath);
+
+  @override
+  String toString() => '该游戏已在库中，已跳过';
+}
 
 class GameRepository implements PlayTimeRepository {
-  GameRepository({Database? database}) : _database = database;
-
   final Database? _database;
+
+  GameRepository({Database? database}) : _database = database;
 
   Future<Database> get _db async => _database ?? await DatabaseHelper.database;
 
@@ -70,44 +80,12 @@ class GameRepository implements PlayTimeRepository {
       imagesByGameId[gameId]!.add(GameImage.fromMap(map));
     }
 
-    return Future.wait(games.map((game) async {
-      var images = imagesByGameId[game.id!] ?? [];
-      var resolvedGame = game;
-      final gamePathExists = await _pathExists(game.path);
-
-      // 通关游戏目录缺失时，尝试从对应 Backup 目录加载。
-      if (!gamePathExists && game.isCleared) {
-        // 尝试在 Backup 目录中模糊匹配
-        final backupPath = await findBackupPathForGame(game);
-        if (backupPath != null) {
-          images = await _loadImagesFromBackupDir(backupPath);
-          resolvedGame = game.copyWith(path: backupPath);
-        }
-      }
-      // 对于路径中直接包含 Backup 的游戏
-      else if (ClearedGamePathUtils.hasBackupSegment(game.path)) {
-        // 检查数据库中的图片是否存在
-        bool hasValidImages = false;
-        if (images.isNotEmpty) {
-          for (final img in images) {
-            if (await File(img.imagePath).exists()) {
-              hasValidImages = true;
-              break;
-            }
-          }
-        }
-        // 如果没有有效图片，从备份目录加载
-        if (!hasValidImages) {
-          images = await _loadImagesFromBackupDir(game.path);
-        }
-      }
-
-      resolvedGame = resolvedGame.copyWith(
-        tags: tagsByGameId[game.id!] ?? [],
-        images: images,
-      );
-      return BackupImageReferenceResolver.rewriteGameReferences(resolvedGame);
-    }));
+    return Future.wait(games.map((game) => _applyBackupImageFallback(
+      game.copyWith(
+        tags: tagsByGameId[game.id] ?? [],
+        images: imagesByGameId[game.id] ?? [],
+      ),
+    )));
   }
 
   Future<String?> _findBackupPath(String gamePath, String? gameTitle) async {
@@ -244,9 +222,7 @@ class GameRepository implements PlayTimeRepository {
   Future<Game> _applyBackupImageFallback(Game game) async {
     var images = game.images;
     var resolvedGame = game;
-    final gamePathExists = await _pathExists(game.path);
-
-    if (!gamePathExists && game.isCleared) {
+    if (game.isCleared && !await _pathExists(game.path)) {
       final backupPath = await findBackupPathForGame(game);
       if (backupPath != null) {
         images = await _loadImagesFromBackupDir(backupPath);
@@ -384,14 +360,9 @@ class GameRepository implements PlayTimeRepository {
   }
 
   Future<Game?> getGameByPath(String path) async {
-    final db = await _db;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'games',
-      where: 'path = ?',
-      whereArgs: [path],
-    );
-    if (maps.isEmpty) return null;
-    final game = Game.fromMap(maps.first);
+    final map = await _getGameMapByPath(path);
+    if (map == null) return null;
+    final game = Game.fromMap(map);
     final tags = await getGameTags(game.id!);
     final images = await getGameImages(game.id!);
     return _applyBackupImageFallback(game.copyWith(tags: tags, images: images));
@@ -411,18 +382,38 @@ class GameRepository implements PlayTimeRepository {
   }
 
   Future<Game?> getStoredGameByPath(String path) async {
+    final map = await _getGameMapByPath(path);
+    if (map == null) return null;
+    final game = Game.fromMap(map);
+    final tags = await getGameTags(game.id!);
+    final images = await getGameImages(game.id!);
+    return game.copyWith(tags: tags, images: images);
+  }
+
+  Future<Map<String, int>> getGameIdsByPathKey(
+      {DatabaseExecutor? executor}) async {
+    final db = executor ?? await _db;
+    final maps = await db.query('games', columns: ['id', 'path']);
+    return {
+      for (final map in maps)
+        GamePathUtils.comparisonKey(map['path'] as String): map['id'] as int,
+    };
+  }
+
+  Future<Map<String, dynamic>?> _getGameMapByPath(String gamePath) async {
     final db = await _db;
     final maps = await db.query(
       'games',
       where: 'path = ?',
-      whereArgs: [path],
+      whereArgs: [gamePath],
       limit: 1,
     );
-    if (maps.isEmpty) return null;
-    final game = Game.fromMap(maps.first);
-    final tags = await getGameTags(game.id!);
-    final images = await getGameImages(game.id!);
-    return game.copyWith(tags: tags, images: images);
+    if (maps.isNotEmpty) return maps.first;
+    final id =
+        (await getGameIdsByPathKey())[GamePathUtils.comparisonKey(gamePath)];
+    if (id == null) return null;
+    final matches = await db.query('games', where: 'id = ?', whereArgs: [id]);
+    return matches.isEmpty ? null : matches.first;
   }
 
   Future<int> insertGame(Game game) async {
@@ -430,15 +421,26 @@ class GameRepository implements PlayTimeRepository {
     final gameToInsert = game.addedTime == null
         ? game.copyWith(addedTime: DateTime.now())
         : game;
-    return await db.insert(
-      'games',
-      gameToInsert.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.abort,
-    );
+    return db.transaction((txn) async {
+      final existingPaths = await getGameIdsByPathKey(executor: txn);
+      if (existingPaths.containsKey(GamePathUtils.comparisonKey(game.path))) {
+        throw GameAlreadyExistsException(game.path);
+      }
+      return txn.insert(
+        'games',
+        gameToInsert.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.abort,
+      );
+    });
   }
 
-  Future<void> updateGame(Game game) async {
+  Future<T> transaction<T>(Future<T> Function(Transaction) action) async {
     final db = await _db;
+    return db.transaction(action);
+  }
+
+  Future<void> updateGame(Game game, {DatabaseExecutor? executor}) async {
+    final db = executor ?? await _db;
     await db.update(
       'games',
       game.toMap(),
@@ -787,8 +789,9 @@ class GameRepository implements PlayTimeRepository {
     return maps.map((map) => GameImage.fromMap(map)).toList();
   }
 
-  Future<void> addTagToGame(int gameId, int tagId) async {
-    final db = await _db;
+  Future<void> addTagToGame(int gameId, int tagId,
+      {DatabaseExecutor? executor}) async {
+    final db = executor ?? await _db;
     await db.insert(
       'game_tag_relation',
       {'game_id': gameId, 'tag_id': tagId},
@@ -805,8 +808,8 @@ class GameRepository implements PlayTimeRepository {
     );
   }
 
-  Future<void> clearGameTags(int gameId) async {
-    final db = await _db;
+  Future<void> clearGameTags(int gameId, {DatabaseExecutor? executor}) async {
+    final db = executor ?? await _db;
     await db.delete(
       'game_tag_relation',
       where: 'game_id = ?',

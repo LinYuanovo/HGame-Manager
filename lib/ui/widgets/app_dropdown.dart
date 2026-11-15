@@ -25,7 +25,7 @@ class AppDropdown<T> extends StatelessWidget {
     this.isDense = false,
     this.width,
     this.height,
-    this.padding = const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+    this.padding = const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingTiny),
     this.hint,
     this.icon,
     this.textStyle,
@@ -36,7 +36,7 @@ class AppDropdown<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final defaultTextStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
           color: AppTheme.getTextPrimary(context),
-          fontSize: 14,
+          fontSize: GlassConstants.fontControl,
         );
 
     return Container(
@@ -59,7 +59,7 @@ class AppDropdown<T> extends StatelessWidget {
           icon: icon ??
               Icon(
                 Icons.arrow_drop_down,
-                size: 20,
+                size: GlassConstants.iconControl,
                 color: AppTheme.getTextSecondary(context),
               ),
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),

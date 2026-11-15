@@ -1,6 +1,6 @@
+import 'app_logger.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'package:xml/xml.dart';
@@ -80,12 +80,12 @@ class WebdavService {
         await _createFolder(serverUrl, username, password);
         return [];
       } else {
-        debugPrint('[WebDAV] PROPFIND failed: $statusCode');
+        AppLogger.instance.info('WebDAV', '[WebDAV] PROPFIND failed: $statusCode');
         await response.stream.drain<void>();
         return [];
       }
-    } catch (e) {
-      debugPrint('[WebDAV] listBackups error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('WebDAV', '[WebDAV] listBackups error: $e', e, stackTrace);
       return [];
     }
   }
@@ -99,37 +99,33 @@ class WebdavService {
     try {
       final file = File(localFilePath);
       if (!await file.exists()) {
-        debugPrint('[WebDAV] Local file not found: $localFilePath');
+        AppLogger.instance.info('WebDAV', '[WebDAV] Local file not found: $localFilePath');
         return false;
       }
 
       final fileName = localFilePath.split(Platform.pathSeparator).last;
-      final uri = _buildUri(serverUrl, '$_backupFolder/$fileName');
-      final bytes = await file.readAsBytes();
+      final remotePath = '$_backupFolder/$fileName';
 
       await _createFolder(serverUrl, username, password);
 
-      final response = await http.put(
-        uri,
-        headers: {
-          ..._authHeaders(username, password),
-          'Content-Type': 'application/octet-stream',
-        },
-        body: bytes,
+      final uploaded = await _uploadFile(
+        serverUrl: serverUrl,
+        username: username,
+        password: password,
+        remotePath: remotePath,
+        localPath: localFilePath,
       );
 
-      if (response.statusCode == 201 ||
-          response.statusCode == 200 ||
-          response.statusCode == 204) {
-        debugPrint('[WebDAV] Backup uploaded: $fileName');
+      if (uploaded) {
+        AppLogger.instance.info('WebDAV', '[WebDAV] Backup uploaded: $fileName');
         return true;
       } else {
-        debugPrint(
-            '[WebDAV] Upload failed: ${response.statusCode} ${response.body}');
+        AppLogger.instance.info('WebDAV',
+            '[WebDAV] 备份上传失败: $fileName');
         return false;
       }
-    } catch (e) {
-      debugPrint('[WebDAV] uploadBackup error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('WebDAV', '[WebDAV] uploadBackup error: $e', e, stackTrace);
       return false;
     }
   }
@@ -182,8 +178,8 @@ class WebdavService {
         List.generate(workerCount, (_) => uploadWorker()),
       );
       return results.every((result) => result);
-    } catch (e) {
-      debugPrint('[WebDAV] uploadMissingBackupImages error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('WebDAV', '[WebDAV] uploadMissingBackupImages error: $e', e, stackTrace);
       return false;
     }
   }
@@ -249,8 +245,8 @@ class WebdavService {
           if (localPaths[entry.value] != null)
             entry.key: localPaths[entry.value]!,
       };
-    } catch (e) {
-      debugPrint('[WebDAV] downloadBackupImages error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('WebDAV', '[WebDAV] downloadBackupImages error: $e', e, stackTrace);
       return null;
     }
   }
@@ -295,6 +291,7 @@ class WebdavService {
     await request.sink.close();
     final response = await responseFuture;
     await response.stream.drain<void>();
+    AppLogger.instance.info('WebDAV', 'PUT ${_buildUri(serverUrl, remotePath)} status=${response.statusCode}, bytes=${request.contentLength}');
     return response.statusCode == 200 ||
         response.statusCode == 201 ||
         response.statusCode == 204;
@@ -360,8 +357,8 @@ class WebdavService {
         remotePath: '$_backupFolder/$remoteFileName',
         localPath: localPath,
       );
-    } catch (e) {
-      debugPrint('[WebDAV] downloadBackup error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('WebDAV', '[WebDAV] downloadBackup error: $e', e, stackTrace);
       return false;
     }
   }
@@ -380,14 +377,14 @@ class WebdavService {
       );
 
       if (response.statusCode == 200 || response.statusCode == 204) {
-        debugPrint('[WebDAV] Deleted: $remoteFileName');
+        AppLogger.instance.info('WebDAV', '[WebDAV] Deleted: $remoteFileName');
         return true;
       } else {
-        debugPrint('[WebDAV] Delete failed: ${response.statusCode}');
+        AppLogger.instance.info('WebDAV', '[WebDAV] Delete failed: ${response.statusCode}');
         return false;
       }
-    } catch (e) {
-      debugPrint('[WebDAV] deleteBackup error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('WebDAV', '[WebDAV] deleteBackup error: $e', e, stackTrace);
       return false;
     }
   }
@@ -425,8 +422,8 @@ class WebdavService {
         await response.stream.drain<void>();
         return [];
       }
-    } catch (e) {
-      debugPrint('[WebDAV] listGameFolders 错误: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('WebDAV', '[WebDAV] listGameFolders 错误: $e', e, stackTrace);
       return [];
     }
   }
@@ -460,8 +457,8 @@ class WebdavService {
         await response.stream.drain<void>();
         return [];
       }
-    } catch (e) {
-      debugPrint('[WebDAV] listGameBackups 错误: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('WebDAV', '[WebDAV] listGameBackups 错误: $e', e, stackTrace);
       return [];
     }
   }
@@ -477,7 +474,7 @@ class WebdavService {
     try {
       final file = File(localFilePath);
       if (!await file.exists()) {
-        debugPrint('[WebDAV] 本地文件不存在: $localFilePath');
+        AppLogger.instance.info('WebDAV', '[WebDAV] 本地文件不存在: $localFilePath');
         return false;
       }
 
@@ -488,29 +485,24 @@ class WebdavService {
       // 先创建游戏文件夹
       await _createSubFolder(serverUrl, username, password, sanitizedFolder);
 
-      final uri = _buildUri(serverUrl, remotePath);
-      final bytes = await file.readAsBytes();
 
-      final response = await http.put(
-        uri,
-        headers: {
-          ..._authHeaders(username, password),
-          'Content-Type': 'application/octet-stream',
-        },
-        body: bytes,
+      final uploaded = await _uploadFile(
+        serverUrl: serverUrl,
+        username: username,
+        password: password,
+        remotePath: remotePath,
+        localPath: localFilePath,
       );
 
-      if (response.statusCode == 201 ||
-          response.statusCode == 200 ||
-          response.statusCode == 204) {
-        debugPrint('[WebDAV] 游戏备份已上传: $fileName -> $sanitizedFolder');
+      if (uploaded) {
+        AppLogger.instance.info('WebDAV', '[WebDAV] 游戏备份已上传: $fileName -> $sanitizedFolder');
         return true;
       } else {
-        debugPrint('[WebDAV] 上传失败: ${response.statusCode} ${response.body}');
+        AppLogger.instance.info('WebDAV', '[WebDAV] 备份上传失败: $fileName');
         return false;
       }
-    } catch (e) {
-      debugPrint('[WebDAV] uploadGameBackup 错误: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('WebDAV', '[WebDAV] uploadGameBackup 错误: $e', e, stackTrace);
       return false;
     }
   }
@@ -534,8 +526,8 @@ class WebdavService {
         remotePath: '$_backupFolder/$sanitizedFolder/$remoteFileName',
         localPath: localPath,
       );
-    } catch (e) {
-      debugPrint('[WebDAV] downloadGameBackup 错误: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('WebDAV', '[WebDAV] downloadGameBackup 错误: $e', e, stackTrace);
       return false;
     }
   }
@@ -558,14 +550,14 @@ class WebdavService {
       );
 
       if (response.statusCode == 200 || response.statusCode == 204) {
-        debugPrint('[WebDAV] 游戏备份已删除: $remoteFileName');
+        AppLogger.instance.info('WebDAV', '[WebDAV] 游戏备份已删除: $remoteFileName');
         return true;
       } else {
-        debugPrint('[WebDAV] 删除失败: ${response.statusCode}');
+        AppLogger.instance.info('WebDAV', '[WebDAV] 删除失败: ${response.statusCode}');
         return false;
       }
-    } catch (e) {
-      debugPrint('[WebDAV] deleteGameBackup 错误: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('WebDAV', '[WebDAV] deleteGameBackup 错误: $e', e, stackTrace);
       return false;
     }
   }
@@ -582,8 +574,8 @@ class WebdavService {
       request.headers.addAll(_authHeaders(username, password));
       final response = await request.send();
       await response.stream.drain<void>();
-    } catch (e) {
-      debugPrint('[WebDAV] _createSubFolder 错误: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('WebDAV', '[WebDAV] _createSubFolder 错误: $e', e, stackTrace);
     }
   }
 
@@ -613,8 +605,8 @@ class WebdavService {
 
         if (_isSafeName(segments.last)) folders.add(segments.last);
       }
-    } catch (e) {
-      debugPrint('[WebDAV] _parseFolderNames 错误: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('WebDAV', '[WebDAV] _parseFolderNames 错误: $e', e, stackTrace);
     }
     return folders;
   }
@@ -692,13 +684,13 @@ class WebdavService {
       if (success) {
         final tempFile = File(tempPath);
         if (await tempFile.exists()) {
-          debugPrint('[WebDAV] Downloaded backup to: $tempPath');
+          AppLogger.instance.info('WebDAV', '[WebDAV] Downloaded backup to: $tempPath');
           return tempPath;
         }
       }
       return null;
-    } catch (e) {
-      debugPrint('[WebDAV] importBackup error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('WebDAV', '[WebDAV] importBackup error: $e', e, stackTrace);
       return null;
     }
   }
@@ -725,9 +717,9 @@ class WebdavService {
       request.headers.addAll(_authHeaders(username, password));
       final response = await request.send();
       await response.stream.drain<void>();
-      debugPrint('[WebDAV] MKCOL status: ${response.statusCode}');
-    } catch (e) {
-      debugPrint('[WebDAV] _createFolder error: $e');
+      AppLogger.instance.info('WebDAV', '[WebDAV] MKCOL status: ${response.statusCode}');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('WebDAV', '[WebDAV] _createFolder error: $e', e, stackTrace);
     }
   }
 
@@ -785,8 +777,8 @@ class WebdavService {
           modifiedDate: date,
         ));
       }
-    } catch (e) {
-      debugPrint('[WebDAV] XML parse error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('WebDAV', '[WebDAV] XML parse error: $e', e, stackTrace);
     }
 
     files.sort((a, b) {

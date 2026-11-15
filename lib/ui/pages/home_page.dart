@@ -110,7 +110,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     child: Center(
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 40, vertical: 32),
+                            horizontal: GlassConstants.spacingPage, vertical: GlassConstants.spacingXLarge),
                         decoration: BoxDecoration(
                           color: AppTheme.getSurfaceColor(context)
                               .withValues(alpha: 0.92),
@@ -126,14 +126,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                           children: [
                             Icon(
                               Icons.create_new_folder_outlined,
-                              size: 48,
+                              size: GlassConstants.iconPlaceholder,
                               color: AppTheme.getPrimaryColor(context),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: GlassConstants.spacingCompact),
                             Text(
                               '松开以添加游戏文件夹 / exe',
                               style: TextStyle(
-                                fontSize: 15,
+                                fontSize: GlassConstants.fontBodyLarge,
                                 fontWeight: FontWeight.w600,
                                 color: AppTheme.getTextPrimary(context),
                                 decoration: TextDecoration.none,

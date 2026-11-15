@@ -1,6 +1,6 @@
+import 'app_logger.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:path/path.dart' as path;
 import '../models/models.dart';
 import '../models/rename_rule.dart';
@@ -149,7 +149,7 @@ class FolderRenameService {
   Future<String?> renameGameFolder(Game game) async {
     final newName = await buildNewFolderName(game);
     if (newName == null) {
-      debugPrint('[FolderRename] Cannot build name for game: ${game.title}');
+      AppLogger.instance.info('FolderRename', '[FolderRename] Cannot build name for game: ${game.title}');
       return null;
     }
 
@@ -158,26 +158,26 @@ class FolderRenameService {
     final newPath = path.join(parentDir, newName);
 
     if (oldPath == newPath) {
-      debugPrint('[FolderRename] Already correctly named: $oldPath');
+      AppLogger.instance.info('FolderRename', '[FolderRename] Already correctly named: $oldPath');
       return null;
     }
 
     if (await Directory(newPath).exists()) {
-      debugPrint('[FolderRename] Target already exists: $newPath');
+      AppLogger.instance.info('FolderRename', '[FolderRename] Target already exists: $newPath');
       return null;
     }
 
-    debugPrint('[FolderRename] Renaming: $oldPath -> $newPath');
+    AppLogger.instance.info('FolderRename', '[FolderRename] Renaming: $oldPath -> $newPath');
 
     try {
       await GameMoveService(gameRepository: _gameRepository)
           .moveGameFolderCrossDrive(
               gameId: game.id!, oldPath: oldPath, newPath: newPath);
 
-      debugPrint('[FolderRename] Success: $newPath');
+      AppLogger.instance.info('FolderRename', '[FolderRename] Success: $newPath');
       return newPath;
-    } catch (e) {
-      debugPrint('[FolderRename] Failed: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('FolderRename', '[FolderRename] Failed: $e', e, stackTrace);
       return null;
     }
   }
@@ -222,7 +222,7 @@ class FolderRenameService {
       renamed += results.where((r) => r).length;
     }
 
-    debugPrint('[FolderRename] Renamed $renamed/${games.length} games');
+    AppLogger.instance.info('FolderRename', '[FolderRename] Renamed $renamed/${games.length} games');
     return renamed;
   }
 }

@@ -99,23 +99,23 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusLarge)),
             title: Row(
               children: [
-                Icon(Icons.cloud_queue, color: AppTheme.getPrimaryColor(context), size: 22),
-                const SizedBox(width: 8),
+                Icon(Icons.cloud_queue, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconSection),
+                const SizedBox(width: GlassConstants.spacingSmall),
                 Expanded(
                   child: Text(
                     '云端备份 - ${widget.game.title ?? "未知游戏"}',
-                    style: TextStyle(color: AppTheme.getDetailTextPrimary(context), fontSize: 16),
+                    style: TextStyle(color: AppTheme.getDetailTextPrimary(context), fontSize: GlassConstants.fontTitle),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.refresh, size: 20),
+                  icon: const Icon(Icons.refresh, size: GlassConstants.iconControl),
                   color: AppTheme.getTextSecondary(context),
                   onPressed: _loadCloudBackups,
                   tooltip: '刷新',
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, size: 20),
+                  icon: const Icon(Icons.close, size: GlassConstants.iconControl),
                   color: AppTheme.getTextSecondary(context),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
@@ -125,12 +125,12 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
               width: 700,
               child: _isLoading
                   ? const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 32),
+                      padding: EdgeInsets.symmetric(vertical: GlassConstants.spacingXLarge),
                       child: Center(child: CircularProgressIndicator()),
                     )
                   : _files.isEmpty
                       ? Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 32),
+                          padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingXLarge),
                           child: Center(
                             child: Text(
                               _matchedFolder == null ? '未找到匹配的云端备份文件夹' : '暂无云端备份',
@@ -145,9 +145,9 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                             headingTextStyle: TextStyle(
                               color: AppTheme.getDetailTextPrimary(context),
                               fontWeight: FontWeight.w600,
-                              fontSize: 13,
+                              fontSize: GlassConstants.fontBody,
                             ),
-                            dataTextStyle: TextStyle(color: AppTheme.getDetailTextPrimary(context), fontSize: 13),
+                            dataTextStyle: TextStyle(color: AppTheme.getDetailTextPrimary(context), fontSize: GlassConstants.fontBody),
                             columns: const [
                               DataColumn(label: Text('名称')),
                               DataColumn(label: Text('大小'), numeric: true),
@@ -177,14 +177,14 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                                         color: AppTheme.getPrimaryColor(context),
                                         onTap: () => _downloadBackup(f),
                                       ),
-                                      const SizedBox(width: 4),
+                                      const SizedBox(width: GlassConstants.spacingTiny),
                                       _MiniIconButton(
                                         icon: Icons.restore,
                                         tooltip: '恢复到此备份',
                                         color: AppTheme.successColor,
                                         onTap: () => _restoreFromCloud(f),
                                       ),
-                                      const SizedBox(width: 4),
+                                      const SizedBox(width: GlassConstants.spacingTiny),
                                       _MiniIconButton(
                                         icon: Icons.delete_outline,
                                         tooltip: '删除',
@@ -216,7 +216,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
     final localPath = p.join(backupDir.path, file.name);
 
     if (mounted) {
-      AppTheme.showGlassToast(context, message: '正在下载...', icon: Icons.cloud_download, iconColor: AppTheme.primaryColor);
+      AppTheme.showGlassToast(context, message: '正在下载...', icon: Icons.cloud_download, iconColor: AppTheme.getPrimaryColor(context));
     }
 
     final service = ref.read(webdavServiceProvider);
@@ -259,7 +259,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
     final localPath = p.join(backupDir.path, file.name);
 
     if (mounted) {
-      AppTheme.showGlassToast(context, message: '正在下载并恢复...', icon: Icons.hourglass_empty, iconColor: AppTheme.primaryColor);
+      AppTheme.showGlassToast(context, message: '正在下载并恢复...', icon: Icons.hourglass_empty, iconColor: AppTheme.getPrimaryColor(context));
     }
 
     final service = ref.read(webdavServiceProvider);
@@ -302,23 +302,23 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
       child: SizedBox(
         width: GlassConstants.dialogWidth,
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(GlassConstants.spacingLarge),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('删除云端备份', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
-              const SizedBox(height: 12),
+              Text('删除云端备份', style: TextStyle(fontSize: GlassConstants.fontSection, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+              const SizedBox(height: GlassConstants.spacingCompact),
               Text('确定要删除云端备份 "${file.name}" 吗？', style: TextStyle(color: AppTheme.getTextSecondary(context))),
-              const SizedBox(height: 20),
+              const SizedBox(height: GlassConstants.spacingComfortable),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context, true),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor, foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor, foregroundColor: AppTheme.lightForegroundColor),
                     child: const Text('删除'),
                   ),
                 ],
@@ -370,11 +370,11 @@ class _MiniIconButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: InkWell(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 16, color: color),
+          padding: const EdgeInsets.all(GlassConstants.spacingTight),
+          child: Icon(icon, size: GlassConstants.iconSmall, color: color),
         ),
       ),
     );

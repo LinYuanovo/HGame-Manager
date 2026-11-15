@@ -1,3 +1,4 @@
+import '../../../core/services/app_logger.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,12 +20,12 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
     final toolsAsync = ref.watch(allToolsProvider);
 
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeader(),
-          const SizedBox(height: 24),
+          const SizedBox(height: GlassConstants.spacingLarge),
           Expanded(
             child: toolsAsync.when(
               data: (tools) {
@@ -45,12 +46,12 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.build, color: AppTheme.getPrimaryColor(context), size: 28),
-        const SizedBox(width: 12),
+        Icon(Icons.build, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconHeading),
+        const SizedBox(width: GlassConstants.spacingCompact),
         Text(
           '工具',
           style: TextStyle(
-            fontSize: 24,
+            fontSize: GlassConstants.fontDisplay,
             fontWeight: FontWeight.bold,
             color: AppTheme.getTextPrimary(context),
           ),
@@ -58,12 +59,12 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
         const Spacer(),
         ElevatedButton.icon(
           onPressed: _importTool,
-          icon: const Icon(Icons.add, size: 18),
+          icon: const Icon(Icons.add, size: GlassConstants.iconAction),
           label: const Text('导入工具'),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.getPrimaryColor(context),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            foregroundColor: AppTheme.getOnPrimaryColor(context),
+            padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingInline),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
             ),
@@ -78,16 +79,16 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.build_circle_outlined, size: 64, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.2)),
-          const SizedBox(height: 16),
+          Icon(Icons.build_circle_outlined, size: GlassConstants.iconEmptyState, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.2)),
+          const SizedBox(height: GlassConstants.spacingMedium),
           Text(
             '还没有工具',
-            style: TextStyle(fontSize: 16, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.5)),
+            style: TextStyle(fontSize: GlassConstants.fontTitle, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.5)),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: GlassConstants.spacingSmall),
           Text(
             '点击右上角"导入工具"添加文件',
-            style: TextStyle(fontSize: 13, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
+            style: TextStyle(fontSize: GlassConstants.fontBody, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
           ),
         ],
       ),
@@ -140,20 +141,20 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
             onDoubleTap: () => _launchTool(tool),
             onSecondaryTapUp: (details) => _showContextMenu(details.globalPosition, tool),
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(GlassConstants.spacingCompact),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Expanded(
                     child: Center(
-                      child: Icon(iconData, size: 80, color: iconColor),
+                      child: Icon(iconData, size: GlassConstants.iconBrand, color: iconColor),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: GlassConstants.spacingSmall),
                   Text(
                     tool.name,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: GlassConstants.fontSmall,
                       color: AppTheme.getTextPrimary(context),
                       fontWeight: FontWeight.w500,
                     ),
@@ -196,7 +197,8 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
   Future<void> _launchTool(Tool tool) async {
     try {
       await Process.run(tool.path, [], workingDirectory: Directory(tool.path).parent.path);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('Tools', '操作失败', e, stackTrace);
       if (mounted) {
         AppTheme.showGlassToast(context, message: '启动失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
@@ -211,8 +213,8 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
         PopupMenuItem(
           child: const Row(
             children: [
-              Icon(Icons.play_arrow, size: 18),
-              SizedBox(width: 8),
+              Icon(Icons.play_arrow, size: GlassConstants.iconAction),
+              SizedBox(width: GlassConstants.spacingSmall),
               Text('启动该工具'),
             ],
           ),
@@ -221,8 +223,8 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
         PopupMenuItem(
           child: const Row(
             children: [
-              Icon(Icons.edit, size: 18),
-              SizedBox(width: 8),
+              Icon(Icons.edit, size: GlassConstants.iconAction),
+              SizedBox(width: GlassConstants.spacingSmall),
               Text('编辑工具名'),
             ],
           ),
@@ -231,8 +233,8 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
         PopupMenuItem(
           child: const Row(
             children: [
-              Icon(Icons.folder_open, size: 18),
-              SizedBox(width: 8),
+              Icon(Icons.folder_open, size: GlassConstants.iconAction),
+              SizedBox(width: GlassConstants.spacingSmall),
               Text('修改工具路径'),
             ],
           ),
@@ -241,9 +243,9 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
         PopupMenuItem(
           child: const Row(
             children: [
-              Icon(Icons.delete_outline, size: 18, color: Colors.red),
-              SizedBox(width: 8),
-              Text('删除', style: TextStyle(color: Colors.red)),
+              Icon(Icons.delete_outline, size: GlassConstants.iconAction, color: AppTheme.errorColor),
+              SizedBox(width: GlassConstants.spacingSmall),
+              Text('删除', style: TextStyle(color: AppTheme.errorColor)),
             ],
           ),
           onTap: () => _deleteTool(tool),
@@ -261,19 +263,19 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
           return SizedBox(
             width: GlassConstants.dialogWidth,
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(GlassConstants.spacingLarge),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('编辑工具名', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
-                  const SizedBox(height: 16),
+                  Text('编辑工具名', style: TextStyle(fontSize: GlassConstants.fontSection, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+                  const SizedBox(height: GlassConstants.spacingMedium),
                   TextField(
                     controller: controller,
                     decoration: const InputDecoration(hintText: '输入工具名称'),
                     autofocus: true,
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: GlassConstants.spacingComfortable),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
@@ -284,7 +286,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
                         },
                         child: const Text('取消'),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: GlassConstants.spacingSmall),
                       ElevatedButton(
                         onPressed: () {
                           final result = controller.text.trim();
@@ -435,7 +437,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
       case '.mov':
         return AppTheme.toolPurple;
       default:
-        return AppTheme.textSecondary.withValues(alpha: 0.6);
+        return AppTheme.getTextSecondary(context).withValues(alpha: 0.6);
     }
   }
 }

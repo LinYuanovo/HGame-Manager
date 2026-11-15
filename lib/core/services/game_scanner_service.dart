@@ -3,13 +3,13 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import '../database/database_helper.dart';
 import '../models/models.dart';
 import '../repositories/game_repository.dart';
 import '../repositories/tag_repository.dart';
 import '../utils/app_settings.dart';
 import '../utils/cleared_game_path_utils.dart';
 import '../utils/game_data_paths.dart';
+import '../utils/game_path_utils.dart';
 import 'app_logger.dart';
 import 'game_data_migration_service.dart';
 import 'cleared_metadata_backup_service.dart';
@@ -110,12 +110,13 @@ class GameScannerService {
       _log.info('Scan', 'Phase 1: Scanning folders...');
       final allFolders = await _scanGameFolders(libraryPath, ignoreFolders);
       // 规范化黑名单路径进行比较（统一反斜杠、转小写）
-      final normalizedBlacklist = blacklistPaths
-          .map((p) => p.replaceAll('/', '\\').toLowerCase())
-          .toSet();
+      final normalizedBlacklist =
+          blacklistPaths.map(_normalizedPathKey).toSet();
+      final seenPaths = <String>{};
       final filteredFolders = allFolders.where((f) {
-        final normalized = f.replaceAll('/', '\\').toLowerCase();
-        return !normalizedBlacklist.contains(normalized);
+        final normalized = _normalizedPathKey(f);
+        return !normalizedBlacklist.contains(normalized) &&
+            seenPaths.add(normalized);
       }).toList();
 
       final prefs = await AppSettings.load();
@@ -129,13 +130,13 @@ class GameScannerService {
       final existingGames = await _gameRepository.getAllGames();
       final gamePathMap = <String, Game>{};
       for (final g in existingGames) {
-        gamePathMap[g.path] = g;
+        gamePathMap[_normalizedPathKey(g.path)] = g;
       }
 
       final foldersToProcess = <String>[];
       for (final folder in filteredFolders) {
         if (shouldCancel?.call() == true) break;
-        final existing = gamePathMap[folder];
+        final existing = gamePathMap[_normalizedPathKey(folder)];
         final metadataFile = await GameDataPaths.existingMetadataFile(folder);
         final fingerprint = await _metadataFingerprint(metadataFile);
         final folderKey = _normalizedPathKey(folder);
@@ -220,7 +221,6 @@ class GameScannerService {
             scanFingerprintsDirty || results.any((r) => r != null);
 
         onProgress?.call(i + batch.length, foldersToProcess.length);
-        onGameProcessed?.call();
         await Future<void>.delayed(const Duration(milliseconds: 16));
       }
 
@@ -240,7 +240,8 @@ class GameScannerService {
 
       // ── Phase 3: Batch DB write in a single transaction ──
       _log.info('Scan', 'Phase 3: Writing to database...');
-      await _batchWriteToDatabase(parsedGames, gamePathMap);
+      final duplicateCount =
+          await _batchWriteToDatabase(parsedGames, gamePathMap);
       if (scanFingerprintsDirty) {
         await _saveScanMetadataFingerprints(prefs, scanFingerprints);
       }
@@ -252,12 +253,13 @@ class GameScannerService {
       await _removeStaleEntries(existingGames, libraryPath);
 
       _log.info('Scan',
-          'Scan Complete: processed ${parsedGames.length}/${foldersToProcess.length}, skipped $skippedCount (unchanged)');
+          'Scan Complete: processed ${parsedGames.length - duplicateCount}/${foldersToProcess.length}, skipped $skippedCount (unchanged)，重复路径跳过 $duplicateCount 个');
     } catch (e, stackTrace) {
       _log.error('Scan', 'FATAL ERROR in Game Scan', e, stackTrace);
       rethrow;
     } finally {
       _isScanning = false;
+      onGameProcessed?.call();
     }
   }
 
@@ -319,8 +321,7 @@ class GameScannerService {
     return '${stat.modified.millisecondsSinceEpoch}:${stat.size}';
   }
 
-  String _normalizedPathKey(String value) =>
-      path.normalize(value).replaceAll('/', '\\').toLowerCase();
+  String _normalizedPathKey(String value) => GamePathUtils.comparisonKey(value);
 
   Future<List<String>> _scanGameFolders(
       String rootPath, List<String> ignoreFolders) async {
@@ -357,7 +358,7 @@ class GameScannerService {
     Set<String> migratedIds,
   ) async {
     try {
-      final existingGame = existingGameMap[folderPath];
+      final existingGame = existingGameMap[_normalizedPathKey(folderPath)];
       final existingId = existingGame?.id;
       final migrationAlreadyDone =
           existingId != null && migratedIds.contains(existingId.toString());
@@ -452,20 +453,32 @@ class GameScannerService {
         metadataFingerprint: fingerprint,
         migrationChecked: migrationChecked,
       );
-    } catch (e) {
-      if (kDebugMode) debugPrint('[Scan] Error parsing $folderPath: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('Scan', '[Scan] Error parsing $folderPath: $e', e, stackTrace);
       return null;
     }
   }
 
-  Future<void> _batchWriteToDatabase(List<_ParsedGameData> parsedGames,
+  Future<int> _batchWriteToDatabase(List<_ParsedGameData> parsedGames,
       Map<String, Game> existingGameMap) async {
-    final db = await DatabaseHelper.database;
-
-    await db.transaction((txn) async {
+    String? writingPath;
+    return _gameRepository.transaction((txn) async {
+      final currentPaths =
+          await _gameRepository.getGameIdsByPathKey(executor: txn);
+      final seenPaths = <String>{};
+      final gamesToWrite = parsedGames.where((data) {
+        final key = _normalizedPathKey(data.folderPath);
+        final existing = existingGameMap[key];
+        if (!seenPaths.add(key) ||
+            (existing == null && currentPaths.containsKey(key))) {
+          _log.info('Scan', '路径已入库，跳过写入: ${data.folderPath}');
+          return false;
+        }
+        return true;
+      }).toList();
       // Collect all unique tags
       final allTags = <String, String>{}; // key: "type:name", value: name
-      for (final data in parsedGames) {
+      for (final data in gamesToWrite) {
         for (final tag in data.tagNames) {
           allTags['${Tag.typeCustom}:$tag'] = tag;
         }
@@ -496,11 +509,12 @@ class GameScannerService {
       }
 
       // Process each game
-      for (final data in parsedGames) {
-        final existing = existingGameMap[data.folderPath];
+      for (final data in gamesToWrite) {
+        writingPath = data.folderPath;
+        final existing = existingGameMap[_normalizedPathKey(data.folderPath)];
 
         final gameMap = <String, dynamic>{
-          'path': data.folderPath,
+          'path': existing?.path ?? data.folderPath,
           'title': data.title,
           'version': data.version,
           'intro': data.intro,
@@ -599,6 +613,14 @@ class GameScannerService {
           await batch.commit(noResult: true);
         }
       }
+      return parsedGames.length - gamesToWrite.length;
+    }).catchError((Object error, StackTrace stackTrace) {
+      _log.error(
+          'Scan',
+          '批量写库失败: path=${writingPath ?? "准备阶段"}，共 ${parsedGames.length} 条',
+          error,
+          stackTrace);
+      Error.throwWithStackTrace(error, stackTrace);
     });
   }
 
@@ -654,8 +676,8 @@ class GameScannerService {
                 '[Scan] Removed DB entry for missing folder: $storedPath');
           }
         }
-      } catch (e) {
-        if (kDebugMode) debugPrint('[Scan] Error checking game folder: $e');
+      } catch (e, stackTrace) {
+        AppLogger.instance.error('Scan', '[Scan] Error checking game folder: $e', e, stackTrace);
       }
     }
   }

@@ -13,7 +13,7 @@ class MarkdownEditor extends StatefulWidget {
     super.key,
     required this.controller,
     required this.imagePaths,
-    this.fontSize = 14,
+    this.fontSize = GlassConstants.fontControl,
   });
 
   @override
@@ -67,7 +67,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
       ),
       child: Column(
         children: [
@@ -82,10 +82,10 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
 
   Widget _buildToolbar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingTiny),
       decoration: BoxDecoration(
         color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.06),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(GlassConstants.radiusSmall)),
       ),
       child: Row(
         children: [
@@ -101,12 +101,12 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
             active: _isPreview,
             onTap: () => setState(() => _isPreview = true),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: GlassConstants.spacingSmall),
           Container(
               width: 1,
               height: 20,
               color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
-          const SizedBox(width: 8),
+          const SizedBox(width: GlassConstants.spacingSmall),
           _formatButton(
               Icons.format_bold, '粗体', () => _insert('**', suffix: '**')),
           _formatButton(
@@ -128,28 +128,28 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingInline, vertical: GlassConstants.spacingTight),
         decoration: BoxDecoration(
           color: active
               ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon,
-                size: 16,
+                size: GlassConstants.iconSmall,
                 color: active
                     ? AppTheme.getPrimaryColor(context)
                     : AppTheme.getTextSecondary(context)),
-            const SizedBox(width: 4),
+            const SizedBox(width: GlassConstants.spacingTiny),
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: GlassConstants.fontSmall,
                 color: active
                     ? AppTheme.getPrimaryColor(context)
                     : AppTheme.getTextSecondary(context),
@@ -167,11 +167,11 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       message: tooltip,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
         child: Padding(
-          padding: const EdgeInsets.all(6),
+          padding: const EdgeInsets.all(GlassConstants.spacingTight),
           child:
-              Icon(icon, size: 18, color: AppTheme.getTextSecondary(context)),
+              Icon(icon, size: GlassConstants.iconAction, color: AppTheme.getTextSecondary(context)),
         ),
       ),
     );
@@ -184,23 +184,23 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       itemBuilder: (_) => widget.imagePaths.map((p) {
         final name = p.split(RegExp(r'[/\\]')).last;
         return PopupMenuItem(
-            value: p, child: Text(name, style: const TextStyle(fontSize: 13)));
+            value: p, child: Text(name, style: const TextStyle(fontSize: GlassConstants.fontBody)));
       }).toList(),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingTiny),
         decoration: BoxDecoration(
           color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.add_photo_alternate,
-                size: 16, color: AppTheme.getPrimaryColor(context)),
-            const SizedBox(width: 4),
+                size: GlassConstants.iconSmall, color: AppTheme.getPrimaryColor(context)),
+            const SizedBox(width: GlassConstants.spacingTiny),
             Text('图片',
                 style: TextStyle(
-                    fontSize: 12, color: AppTheme.getPrimaryColor(context))),
+                    fontSize: GlassConstants.fontSmall, color: AppTheme.getPrimaryColor(context))),
           ],
         ),
       ),
@@ -218,7 +218,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
           color: AppTheme.getTextPrimary(context)),
       decoration: InputDecoration(
         border: InputBorder.none,
-        contentPadding: const EdgeInsets.all(16),
+        contentPadding: const EdgeInsets.all(GlassConstants.spacingMedium),
         hintText: '支持 Markdown 语法...',
         hintStyle: TextStyle(color: AppTheme.getTextSecondary(context)),
       ),
@@ -234,7 +234,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       );
     }
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(GlassConstants.spacingMedium),
       child: MarkdownBody(
         data: preview,
         styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
@@ -243,15 +243,15 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
               height: 1.7,
               color: AppTheme.getTextPrimary(context)),
           h1: TextStyle(
-              fontSize: 22,
+              fontSize: GlassConstants.fontHeadline,
               fontWeight: FontWeight.bold,
               color: AppTheme.getTextPrimary(context)),
           h2: TextStyle(
-              fontSize: 19,
+              fontSize: GlassConstants.fontMarkdownTitle,
               fontWeight: FontWeight.bold,
               color: AppTheme.getTextPrimary(context)),
           h3: TextStyle(
-              fontSize: 17,
+              fontSize: GlassConstants.fontSubtitle,
               fontWeight: FontWeight.w600,
               color: AppTheme.getTextPrimary(context)),
           listBullet: TextStyle(
@@ -285,10 +285,10 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
           }
 
           return Container(
-            padding: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingTiny),
             child: Text('[图片加载失败]',
                 style: TextStyle(
-                    fontSize: 12,
+                    fontSize: GlassConstants.fontSmall,
                     color: AppTheme.errorColor.withValues(alpha: 0.7))),
           );
         },

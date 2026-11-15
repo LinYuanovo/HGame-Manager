@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'app_logger.dart';
 
 import 'package:archive/archive.dart';
 import 'package:http/http.dart' as http;
@@ -108,6 +109,7 @@ class AppUpdateService {
           .get(Uri.parse(appChangelogUrl))
           .timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) {
+        AppLogger.instance.warning('Update', '检查更新失败: HTTP ${response.statusCode}');
         return AppUpdateCheckResult(
           status: AppUpdateStatus.unavailable,
           currentVersion: currentVersion,
@@ -117,6 +119,7 @@ class AppUpdateService {
 
       final entries = parseChangelogEntries(response.body);
       if (entries.isEmpty) {
+        AppLogger.instance.warning('Update', '检查更新失败: 更新日志缺少版本信息');
         return AppUpdateCheckResult(
           status: AppUpdateStatus.unavailable,
           currentVersion: currentVersion,
@@ -145,7 +148,8 @@ class AppUpdateService {
         latestEntry: latestEntry,
         updateEntries: updateEntries,
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.instance.error('Update', '检查更新失败', e, stackTrace);
       return AppUpdateCheckResult(
         status: AppUpdateStatus.unavailable,
         currentVersion: currentVersion,

@@ -177,17 +177,17 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
           children: [
             _buildHeader(),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge),
               child: Text(
                 '快捷键为全局热键，游戏中也可使用。点击「修改」后，按住修饰键（Ctrl 等）再按目标键完成组合，Esc 取消。',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: GlassConstants.fontSmall,
                   color: AppTheme.getTextSecondary(context)
                       .withValues(alpha: 0.7),
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: GlassConstants.spacingCompact),
             ..._actions.map(_buildHotkeyRow),
             _buildActions(),
           ],
@@ -198,16 +198,16 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: Row(
         children: [
           Icon(Icons.keyboard_outlined,
-              color: AppTheme.getPrimaryColor(context), size: 24),
-          const SizedBox(width: 12),
+              color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconMedium),
+          const SizedBox(width: GlassConstants.spacingCompact),
           Text(
             '攻略浮窗快捷键',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: GlassConstants.fontHeading,
               fontWeight: FontWeight.bold,
               color: AppTheme.getTextPrimary(context),
             ),
@@ -228,7 +228,7 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
     final hotkey = _hotkeys[action.key]!;
     final isRecording = _recordingKey == action.key;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingSmall),
       child: Row(
         children: [
           SizedBox(
@@ -236,7 +236,7 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
             child: Text(
               action.label,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: GlassConstants.fontControl,
                 color: AppTheme.getTextPrimary(context),
               ),
             ),
@@ -246,7 +246,7 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
                 ? _buildRecordingIndicator()
                 : HotKeyVirtualView(hotKey: hotkey),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: GlassConstants.spacingSmall),
           TextButton(
             onPressed: () =>
                 isRecording ? _stopRecording() : _startRecording(action.key),
@@ -271,7 +271,7 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
     children.add(Text(
       _heldModifiers.isEmpty ? '请按下按键组合…' : '…',
       style: TextStyle(
-        fontSize: 12,
+        fontSize: GlassConstants.fontSmall,
         color: AppTheme.getTextSecondary(context),
         fontStyle: FontStyle.italic,
       ),
@@ -284,17 +284,17 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
 
   Widget _buildKeyChip(String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTrim, vertical: GlassConstants.spacingFine),
       decoration: BoxDecoration(
         color: Theme.of(context).canvasColor,
         border: Border.all(color: Theme.of(context).dividerColor),
-        borderRadius: BorderRadius.circular(3),
+        borderRadius: BorderRadius.circular(GlassConstants.radiusIndicator),
       ),
       child: Text(
         label,
         style: TextStyle(
           color: Theme.of(context).textTheme.bodyMedium?.color,
-          fontSize: 12,
+          fontSize: GlassConstants.fontSmall,
         ),
       ),
     );
@@ -302,7 +302,7 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
 
   Widget _buildActions() {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -315,12 +315,12 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
+              backgroundColor: AppTheme.getPrimaryColor(context),
               foregroundColor: AppTheme.getTextColorOnPrimary(context),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(GlassConstants.radiusCompact)),
               padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingInline),
             ),
             child: const Text('完成'),
           ),

@@ -76,15 +76,15 @@ class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: Row(
         children: [
-          Icon(Icons.tune, color: AppTheme.getPrimaryColor(context), size: 24),
-          const SizedBox(width: 12),
+          Icon(Icons.tune, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconMedium),
+          const SizedBox(width: GlassConstants.spacingCompact),
           Text(
             '刮削行为配置',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: GlassConstants.fontHeading,
               fontWeight: FontWeight.bold,
               color: AppTheme.getTextPrimary(context),
             ),
@@ -101,8 +101,8 @@ class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
 
   Widget _buildTabBar() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24),
-      padding: const EdgeInsets.all(4),
+      margin: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge),
+      padding: const EdgeInsets.all(GlassConstants.spacingTiny),
       decoration: BoxDecoration(
         color: AppTheme.getBackgroundColor(context),
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -134,7 +134,7 @@ class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
 
   Widget _buildActions() {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -142,12 +142,12 @@ class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
             onPressed: _resetToDefaults,
             child: Text('恢复默认', style: TextStyle(color: AppTheme.getTextSecondary(context))),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: GlassConstants.spacingCompact),
           ElevatedButton(
             onPressed: _saveAndClose,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.getPrimaryColor(context),
-              foregroundColor: Colors.white,
+              foregroundColor: AppTheme.getOnPrimaryColor(context),
             ),
             child: const Text('保存'),
           ),
@@ -185,7 +185,7 @@ class _TabItemWidgetState extends State<_TabItemWidget> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: GlassConstants.animFast,
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingInline),
           decoration: BoxDecoration(
             color: widget.isSelected
                 ? AppTheme.getPrimaryColor(context)
@@ -198,7 +198,7 @@ class _TabItemWidgetState extends State<_TabItemWidget> {
           child: Text(
             widget.label,
             style: TextStyle(
-              color: widget.isSelected ? AppTheme.getTextColorOnPrimary(context) : AppTheme.getTextSecondary(context),
+              color: widget.isSelected ? AppTheme.getOnPrimaryColor(context) : AppTheme.getTextSecondary(context),
               fontWeight: widget.isSelected ? FontWeight.w500 : FontWeight.normal,
             ),
           ),
@@ -226,31 +226,31 @@ class _ConfigTab extends ConsumerWidget {
     final config = ref.watch(scrapeModeConfigsProvider).getConfig(mode);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingMedium),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
             decoration: BoxDecoration(
               color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, size: 14, color: AppTheme.getPrimaryColor(context)),
-                const SizedBox(width: 6),
+                Icon(Icons.info_outline, size: GlassConstants.iconCompact, color: AppTheme.getPrimaryColor(context)),
+                const SizedBox(width: GlassConstants.spacingTight),
                 Expanded(
                   child: Text(
                     _modeHints[mode] ?? '',
-                    style: TextStyle(fontSize: 12, color: AppTheme.getTextSecondary(context)),
+                    style: TextStyle(fontSize: GlassConstants.fontSmall, color: AppTheme.getTextSecondary(context)),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: GlassConstants.spacingCompact),
           _buildSwitchTile(
             context: context,
             ref: ref,
@@ -262,7 +262,7 @@ class _ConfigTab extends ConsumerWidget {
             title: '刮削后重命名游戏文件夹',
             subtitle: '根据刮削到的标题自动重命名游戏文件夹',
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: GlassConstants.spacingSmall),
           _buildSwitchTile(
             context: context,
             ref: ref,
@@ -288,7 +288,7 @@ class _ConfigTab extends ConsumerWidget {
     required String subtitle,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingCompact),
       decoration: BoxDecoration(
         color: AppTheme.getSurfaceColor(context),
         borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
@@ -303,22 +303,22 @@ class _ConfigTab extends ConsumerWidget {
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: GlassConstants.fontBodyLarge,
                     color: AppTheme.getTextPrimary(context),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: GlassConstants.spacingTiny),
                 Text(
                   subtitle,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: GlassConstants.fontSmall,
                     color: AppTheme.getTextSecondary(context),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: GlassConstants.spacingCompact),
           Switch(
             value: value,
             onChanged: onChanged,

@@ -117,7 +117,7 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
                 onPressed: _scrollToTop,
                 tooltip: '滚动到顶部',
               ),
-            const SizedBox(height: 8),
+            const SizedBox(height: GlassConstants.spacingSmall),
             if (widget.onToggleGuide != null)
               _buildButton(
                 icon: widget.showGuide ? Icons.menu_book : Icons.description,
@@ -125,14 +125,14 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
                 tooltip: widget.showGuide ? '切换到简介' : '切换到攻略',
               ),
             if (showFloatButton) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: GlassConstants.spacingSmall),
               _buildButton(
                 icon: Icons.picture_in_picture_alt_outlined,
                 onPressed: widget.onOpenGuideWindow!,
                 tooltip: '浮窗显示攻略',
               ),
             ],
-            const SizedBox(height: 8),
+            const SizedBox(height: GlassConstants.spacingSmall),
             if (_showBottom)
               _buildButton(
                 icon: Icons.keyboard_arrow_down,
@@ -158,18 +158,18 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
           height: 36,
           decoration: BoxDecoration(
             color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(GlassConstants.radiusFloating),
             border: Border.all(color: AppTheme.getBorderColor(context)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
+                color: AppTheme.getShadowColor(context),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
             ],
           ),
           child: IconButton(
-            icon: Icon(icon, size: 20),
+            icon: Icon(icon, size: GlassConstants.iconControl),
             onPressed: onPressed,
             padding: EdgeInsets.zero,
             color: AppTheme.getPrimaryColor(context),

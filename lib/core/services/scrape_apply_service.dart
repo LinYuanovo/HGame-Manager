@@ -1,11 +1,13 @@
+import 'app_logger.dart';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:path/path.dart' as path;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart' show DatabaseExecutor;
 
 import '../../scraper/parse_utils.dart';
 import '../models/models.dart';
+import '../models/metadata_translation_config.dart';
 import '../repositories/game_repository.dart';
 import '../repositories/tag_repository.dart';
 import '../utils/app_settings.dart';
@@ -18,6 +20,7 @@ import 'folder_rename_service.dart';
 import 'game_data_migration_service.dart';
 import 'game_move_service.dart';
 import 'image_service.dart';
+import 'metadata_translation_service.dart';
 
 class ScrapeApplyService {
   static final _versionPattern = RegExp(
@@ -270,7 +273,26 @@ class ScrapeApplyService {
     final sourceDir = Directory(game.path);
     if (!await sourceDir.exists()) return game;
 
-    final tags = await repo.getGameTags(game.id!);
+    var tags = await repo.getGameTags(game.id!);
+    try {
+      final metadataFile = await GameDataPaths.existingMetadataFile(game.path);
+      if (await metadataFile.exists()) {
+        final metadata = jsonDecode(await metadataFile.readAsString())
+            as Map<String, dynamic>;
+        final original = MetadataTranslationService.originalFrom(metadata);
+        if (original != null) {
+          tags = [
+            if (game.maker != null) Tag(name: game.maker!, type: Tag.typeCustom),
+            for (final name in (original['tags'] as List? ?? []).whereType<String>())
+              Tag(name: name, type: Tag.typeCustom),
+            if (original['series'] is String)
+              Tag(name: original['series'] as String, type: Tag.typeSeries),
+          ];
+        }
+      }
+    } catch (error, stackTrace) {
+      AppLogger.instance.error('ScrapeApply', '读取原文分类失败', error, stackTrace);
+    }
     final categoryName = resolveCategoryName(tags);
     final folderName = path.basename(game.path);
     final categoryDir = Directory(path.join(sortedPath, categoryName));
@@ -312,8 +334,9 @@ class ScrapeApplyService {
           final refreshed = await repo.getGameById(current.id!);
           if (refreshed != null) current = refreshed;
         }
-      } catch (e) {
-        debugPrint('[ScrapeApply] 自动重命名失败: $e');
+      } catch (e, stackTrace) {
+        AppLogger.instance
+            .error('ScrapeApply', '[ScrapeApply] 自动重命名失败: $e', e, stackTrace);
         onLog?.call('重命名失败: $e');
       }
     }
@@ -321,8 +344,9 @@ class ScrapeApplyService {
       // 移动失败仅记日志，不得影响刮削/导入的结果状态（保持各入口现状语义）
       try {
         current = await moveGameToSorted(current, repo, onLog: onLog);
-      } catch (e) {
-        debugPrint('[ScrapeApply] 自动移动失败: $e');
+      } catch (e, stackTrace) {
+        AppLogger.instance
+            .error('ScrapeApply', '[ScrapeApply] 自动移动失败: $e', e, stackTrace);
         onLog?.call('移动失败: $e');
       }
     }
@@ -340,85 +364,199 @@ class ScrapeApplyService {
     int maxConcurrency = 3,
     void Function(int current, int total)? onProgress,
     void Function(String message)? onLog,
+    void Function(String message)? onTranslationNotice,
   }) async {
     // 旧布局迁移（根目录 metadata.json/images -> HGMDatas/）必须保留：
     // 现状由详情页 _downloadImagesWithMapping 内部与刮削中心入口承担，
     // 删除详情页私有实现后此处是唯一保障，且该方法幂等。
-    await GameDataMigrationService(gameRepository: repo)
-        .migrateGameDirectory(game.path, gameId: game.id);
-
-    final merged = mergeGameInfo(game, gameInfo, sourceUrl: sourceUrl);
-    int gameId;
-    if (game.id != null) {
-      await repo.updateGame(merged);
-      gameId = game.id!;
-    } else {
-      gameId = await repo.insertGame(merged);
-    }
-    var current = merged.copyWith(id: gameId);
-
-    // 文件写入失败不应使整个刮削失败（保持快速刮削现状的容错语义）
-    final effectiveSourceUrl = sourceUrl ?? gameInfo.sourceUrl;
+    final elapsed = Stopwatch()..start();
+    AppLogger.instance.info('ScrapeApply',
+        '开始应用结果: mode=${mode.name}, id=${game.id}, images=${gameInfo.screenshots.length}');
     try {
-      await GameDataPaths.ensureDataDir(current.path);
-      await GameDataPaths.metadataFile(current.path).writeAsString(
-          jsonEncode(markScraped(buildMetadataJson(gameInfo))),
-          flush: true);
-    } catch (e) {
-      debugPrint('[ScrapeApply] 写入 metadata.json 失败: $e');
-    }
-    if (effectiveSourceUrl.isNotEmpty) {
-      try {
-        await GameDataPaths.sourceUrlFile(current.path)
-            .writeAsString(effectiveSourceUrl, flush: true);
-      } catch (e) {
-        debugPrint('[ScrapeApply] 写入 source_url.txt 失败: $e');
+      await GameDataMigrationService(gameRepository: repo)
+          .migrateGameDirectory(game.path, gameId: game.id);
+
+      final merged = mergeGameInfo(game, gameInfo, sourceUrl: sourceUrl);
+      int gameId;
+      if (game.id != null) {
+        await repo.updateGame(merged);
+        gameId = game.id!;
+      } else {
+        gameId = await repo.insertGame(merged);
       }
+      var current = merged.copyWith(id: gameId);
+
+      // 文件写入失败不应使整个刮削失败（保持快速刮削现状的容错语义）
+      final effectiveSourceUrl = sourceUrl ?? gameInfo.sourceUrl;
+      var metadataSaved = false;
+      try {
+        await GameDataPaths.ensureDataDir(current.path);
+        await GameDataPaths.metadataFile(current.path).writeAsString(
+            jsonEncode(markScraped(buildMetadataJson(gameInfo))),
+            flush: true);
+        metadataSaved = true;
+      } catch (e, stackTrace) {
+        AppLogger.instance.error('ScrapeApply',
+            '[ScrapeApply] 写入 metadata.json 失败: $e', e, stackTrace);
+      }
+      if (effectiveSourceUrl.isNotEmpty) {
+        try {
+          await GameDataPaths.sourceUrlFile(current.path)
+              .writeAsString(effectiveSourceUrl, flush: true);
+        } catch (e, stackTrace) {
+          AppLogger.instance.error('ScrapeApply',
+              '[ScrapeApply] 写入 source_url.txt 失败: $e', e, stackTrace);
+        }
+      }
+
+      await syncTags(repo, tagRepo, gameId, gameInfo);
+
+      await downloadAndApplyImages(
+        game: current,
+        repo: repo,
+        imageUrls: gameInfo.screenshots,
+        sourceUrl: effectiveSourceUrl,
+        maxConcurrency: maxConcurrency,
+        onProgress: onProgress,
+        onLog: onLog,
+      );
+
+      current = await repo.getGameById(gameId) ?? current;
+      if (metadataSaved) {
+        current = await translateGameMetadata(
+          game: current,
+          repo: repo,
+          tagRepo: tagRepo,
+          onNotice: onTranslationNotice,
+        );
+      } else if (MetadataTranslationConfig.fromSettings(await AppSettings.load())
+          .enabled) {
+        onTranslationNotice?.call('无法保存本次刮削元数据，已跳过翻译');
+      }
+      current =
+          await organizeFolder(current, mode, repo, configs, onLog: onLog);
+      AppLogger.instance.info('ScrapeApply',
+          '应用结果完成: mode=${mode.name}, id=$gameId, elapsedMs=${elapsed.elapsedMilliseconds}');
+      return current;
+    } catch (error, stackTrace) {
+      AppLogger.instance.error(
+          'ScrapeApply',
+          '应用结果失败: mode=${mode.name}, id=${game.id}, elapsedMs=${elapsed.elapsedMilliseconds}',
+          error,
+          stackTrace);
+      rethrow;
     }
+  }
 
-    await syncTags(repo, tagRepo, gameId, gameInfo);
-
-    await downloadAndApplyImages(
-      game: current,
-      repo: repo,
-      imageUrls: gameInfo.screenshots,
-      sourceUrl: effectiveSourceUrl,
-      maxConcurrency: maxConcurrency,
-      onProgress: onProgress,
-      onLog: onLog,
+  static Game gameWithMetadata(Game game, Map<String, dynamic> metadata) {
+    return game.copyWith(
+      title: metadata['title'] is String
+          ? stripVersionFromTitle(metadata['title'] as String, game.version)
+          : game.title,
+      intro: metadata['intro'] as String? ?? game.intro,
+      features: metadata['features'] as String? ?? game.features,
+      changelog: metadata['changelog'] as String? ?? game.changelog,
     );
+  }
 
-    current = await repo.getGameById(gameId) ?? current;
-    current = await organizeFolder(current, mode, repo, configs, onLog: onLog);
-    return current;
+  static Future<Game> translateGameMetadata({
+    required Game game,
+    required GameRepository repo,
+    required TagRepository tagRepo,
+    void Function(String message)? onNotice,
+  }) async {
+    final settings = await AppSettings.load();
+    final config = MetadataTranslationConfig.fromSettings(settings);
+    if (!config.enabled || game.id == null) return game;
+    final metadataFile = await GameDataPaths.existingMetadataFile(game.path);
+    Map<String, dynamic> metadata;
+    String originalContent;
+    try {
+      originalContent = await metadataFile.readAsString();
+      metadata = jsonDecode(originalContent) as Map<String, dynamic>;
+    } catch (_) {
+      onNotice?.call('无法读取游戏元数据，已跳过翻译');
+      return game;
+    }
+    final translated = await MetadataTranslationService()
+        .translate(metadata, config, onNotice: onNotice);
+    if (MetadataTranslationService.originalFrom(translated) == null) return game;
+
+    final tempFile = File('${metadataFile.path}.translation.tmp');
+    final metadataChanged = !identical(translated, metadata);
+    var fileReplaced = false;
+    var keepRecoveryFile = false;
+    late Game updated;
+    try {
+      if (metadataChanged) {
+        await tempFile.writeAsString(jsonEncode(translated), flush: true);
+      }
+      final current = await repo.getGameById(game.id!) ?? game;
+      updated = gameWithMetadata(current, translated);
+      await repo.transaction((transaction) async {
+        await repo.updateGame(updated, executor: transaction);
+        await syncTags(
+          repo,
+          tagRepo,
+          game.id!,
+          GameInfo(
+            sourceUrl: current.sourceUrl ?? '',
+            tags: (translated['tags'] as List?)?.cast<String>() ?? [],
+            category: translated['series'] as String?,
+            maker: current.maker,
+          ),
+          executor: transaction,
+        );
+        if (metadataChanged) {
+          await tempFile.rename(metadataFile.path);
+          fileReplaced = true;
+        }
+      });
+    } catch (error, stackTrace) {
+      AppLogger.instance.error('MetadataTranslation',
+          '同步翻译结果失败: ${error.runtimeType}', null, stackTrace);
+      if (fileReplaced) {
+        keepRecoveryFile = true;
+        await tempFile.writeAsString(originalContent, flush: true);
+        await tempFile.rename(metadataFile.path);
+        keepRecoveryFile = false;
+      }
+      onNotice?.call('翻译结果同步失败，已保留此前数据，可稍后重试');
+      return game;
+    } finally {
+      if (!keepRecoveryFile && await tempFile.exists()) await tempFile.delete();
+    }
+    return await repo.getGameById(game.id!) ?? updated;
   }
 
   static Future<void> syncTags(
     GameRepository repo,
     TagRepository tagRepo,
     int gameId,
-    GameInfo gameInfo,
-  ) async {
-    await repo.clearGameTags(gameId);
+    GameInfo gameInfo, {
+    DatabaseExecutor? executor,
+  }) async {
+    await repo.clearGameTags(gameId, executor: executor);
     if (gameInfo.maker != null && gameInfo.maker!.isNotEmpty) {
-      final makerTagId =
-          await tagRepo.insertOrGetTag(gameInfo.maker!, Tag.typeCustom);
-      await repo.addTagToGame(gameId, makerTagId);
+      final makerTagId = await tagRepo.insertOrGetTag(
+          gameInfo.maker!, Tag.typeCustom, executor: executor);
+      await repo.addTagToGame(gameId, makerTagId, executor: executor);
     }
     for (final tagName in gameInfo.tags) {
-      final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
-      await repo.addTagToGame(gameId, tagId);
+      final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom,
+          executor: executor);
+      await repo.addTagToGame(gameId, tagId, executor: executor);
     }
     if (gameInfo.category != null) {
-      final tagId =
-          await tagRepo.insertOrGetTag(gameInfo.category!, Tag.typeSeries);
-      await repo.addTagToGame(gameId, tagId);
+      final tagId = await tagRepo.insertOrGetTag(
+          gameInfo.category!, Tag.typeSeries, executor: executor);
+      await repo.addTagToGame(gameId, tagId, executor: executor);
     }
     final gameTagNames = [
       ...gameInfo.tags,
       if (gameInfo.category != null) gameInfo.category!,
     ];
-    final allTags = await tagRepo.getAllTags();
+    final allTags = await tagRepo.getAllTags(executor: executor);
     for (final existingTag in allTags) {
       final alreadyHas = gameTagNames
           .any((t) => t.toLowerCase() == existingTag.name.toLowerCase());
@@ -427,7 +565,7 @@ class ScrapeApplyService {
           t.toLowerCase().contains(existingTag.name.toLowerCase()) &&
           t.toLowerCase() != existingTag.name.toLowerCase());
       if (isOverlapping) {
-        await repo.addTagToGame(gameId, existingTag.id!);
+        await repo.addTagToGame(gameId, existingTag.id!, executor: executor);
       }
     }
   }
@@ -475,8 +613,9 @@ class ScrapeApplyService {
       await metadataFile.writeAsString(jsonEncode(metaJson), flush: true);
 
       await repo.updateGame(game.copyWith(intro: intro));
-    } catch (e) {
-      debugPrint('[FixImageUrls] Error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.instance
+          .error('ScrapeApply', '[FixImageUrls] Error: $e', e, stackTrace);
     }
   }
 }

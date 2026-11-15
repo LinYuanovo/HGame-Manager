@@ -400,6 +400,15 @@ enum NavRoute {
 - 纯函数：stripVersionFromTitle、resolveCategoryName、mergeGameInfo、buildMetadataJson、buildNumberedUrlMapping
 - 流程：syncTags 标签同步、downloadAndApplyImages 图片下载与引用重写、fixImageUrlsInMetadata 元数据修复、moveGameToSorted/organizeFolder 目录整理、applyScrapeResult 总编排
 - 图片默认并发 3；刮削中心线程数可选 1–8；取消后停止出队，已进入应用结果阶段的任务先完成写入
+- `translateGameMetadata` 在图片本地化后、目录整理前统一翻译并持久化，URL 三入口与 Steam/DLsite 导入共用。
+
+### MetadataTranslationService
+- 将标题、简介、特点、更新日志、标签和系列翻译为简体中文；富文本按文字节点处理，保留图片、链接和布局。
+- 支持免密钥 Google 翻译及 OpenAI 兼容 Chat Completions；LLM 失败时尝试 Google 并发出提示，全部失败时保留原文。
+- 完整翻译成功后在 `metadata.json` 的 `translation.original` 保存原文，附带服务名称、目标语言和完成时间；API Key 仅保存在应用设置。
+- LLM 支持自定义 Prompt；空值采用设置框内显示的默认提示词，返回 JSON 的条目和顺序约束由共享请求层补充。
+- 译文的数据库字段与标签在同一事务更新，文件替换失败会撤销事务，事务失败会恢复原文件；已有快照可直接补齐数据库。通关元数据备份保留完整元数据，详情页在源文件缺失时回退读取。
+- 详情页按保存的原文切换显示，数据库维持译文；目录整理沿用已有路径引用重写。
 
 ### ForumDomainUtils
 - 论坛自定义域名对旧 source_url 的自动重写（`resolveWithCustomDomain`）
@@ -441,7 +450,7 @@ enum NavRoute {
 ### GuideWindowService
 - 攻略浮窗主窗口侧管理（详情页右侧悬浮按钮栏「浮窗显示攻略」触发）
 - 基于 desktop_multi_window 创建独立系统子窗口（同进程新引擎，入口参数 `multi_window <id> <json>`）
-- **子窗口引擎只注册 window_manager 插件**（`flutter_window.cpp` 的 `DesktopMultiWindowSetWindowCreatedCallback`）：media_kit / flutter_inappwebview 等重型插件在子窗口注册会导致主窗口输入被冻结；跨窗口通信通道由插件内部自行注册，不受影响
+- **子窗口引擎注册 window_manager 与 screen_retriever 插件**（`flutter_window.cpp` 的 `DesktopMultiWindowSetWindowCreatedCallback`）：前者负责窗口控制，后者供首次居中读取屏幕信息；media_kit / flutter_inappwebview 等重型插件在子窗口注册会导致主窗口输入被冻结。跨窗口通信通道由插件内部自行注册。
 - 浮窗状态记忆（位置/大小/置顶/透明度/字号/各游戏滚动位置）存于独立文件 `guide_window_state.json`，避免与 settings.json 并发写
 - 关闭浮窗必须走 `setPreventClose(false)` + `close()` 系统 WM_CLOSE 流程；**禁止** `windowManager.destroy()`（其 Windows 实现是 PostQuitMessage，会退出整个进程）
 - 全局快捷键（hotkey_manager，可在 设置→管理→攻略浮窗快捷键 自定义）：
@@ -471,6 +480,8 @@ enum NavRoute {
 - `GradientBackground` - 渐变背景
 
 ## 主题配置
+
+UI 使用 `AppTheme` 的动态取色接口和 `GlassConstants` 的字号、图标、间距及圆角档位。固定语义色与媒体遮罩前景也由主题层提供。`test/ui/theme/design_token_usage_test.dart` 检查各页面、共享组件和主错误页面的使用规则；新增视觉值先扩展主题定义，再引用到使用处。
 
 ### 颜色系统
 - 支持浅色和暗色模式，UI 通过 `AppTheme.get…(context)` 读取动态颜色；以下为浅色主题示例，常量定义以 `app_theme.dart` 为准
@@ -508,6 +519,7 @@ class GlassConstants {
 - 替代 SharedPreferences，保持数据本地化
 
 ### 配置项
+- `cover_memory_saving` - 封面节省内存模式，默认 false 使用原图分辨率；true 按 768px 宽解码，列表与海报共用。
 - `font_family` - 字体
 - `font_size` - 字体大小
 - `view_mode` / `sort_mode` - 通用 Provider 的视图/排序配置；主游戏列表使用下述 `game_list_*` 配置
@@ -517,6 +529,7 @@ class GlassConstants {
 - `sorted_paths` - 各游戏库对应的整理目录（JSON 对象格式，键为库路径，值为整理路径）
 - `cleared_paths` - 各游戏库对应的通关目录（JSON 对象格式）
 - `domain_2dfan` - 2DFan 自定义域名
+- `metadata_translation` - 自动翻译 JSON 配置：开关、服务、LLM 接口地址、模型和密钥
 - `fixed_column_count` - 海报视图是否固定列数 (bool)
 - `column_count` - 海报视图每行列数 (int, 2-8, 默认3)
 - `game_list_view_mode` - 游戏列表视图模式 ('poster' | 'list')

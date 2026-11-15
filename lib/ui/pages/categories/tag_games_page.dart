@@ -46,13 +46,13 @@ class _TagGamesPageState extends ConsumerState<TagGamesPage> {
                     children: [
                       IconButton(
                         icon: Icon(Icons.arrow_back,
-                            size: 20, color: AppTheme.getTextSecondary(context)),
+                            size: GlassConstants.iconControl, color: AppTheme.getTextSecondary(context)),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: GlassConstants.spacingSmall),
                       Text(widget.tagName,
                           style: TextStyle(
-                              fontSize: 18,
+                              fontSize: GlassConstants.fontSection,
                               fontWeight: FontWeight.w600,
                               color: AppTheme.getTextPrimary(context))),
                     ],
@@ -71,14 +71,14 @@ class _TagGamesPageState extends ConsumerState<TagGamesPage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.label_off_outlined,
-                                    size: 64,
+                                    size: GlassConstants.iconEmptyState,
                                     color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: GlassConstants.spacingMedium),
                                 Text('该标签下暂无游戏',
                                     style: TextStyle(
                                         color:
                                             AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
-                                        fontSize: 16)),
+                                        fontSize: GlassConstants.fontTitle)),
                               ],
                             ),
                           );

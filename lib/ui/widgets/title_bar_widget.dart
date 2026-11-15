@@ -29,33 +29,33 @@ class TitleBarWidget extends StatelessWidget {
       height: LayoutConstants.titleBarHeight,
       decoration: BoxDecoration(
         color: isDark
-            ? AppTheme.darkSurfaceColor.withValues(alpha: 0.8)
+            ? AppTheme.getSurfaceColor(context).withValues(alpha: 0.8)
             : AppTheme.getSurfaceColor(context).withValues(alpha: 0.7),
         border: Border(
           bottom: BorderSide(
             color: isDark
-                ? AppTheme.darkBorderColor.withValues(alpha: 0.3)
+                ? AppTheme.getBorderColor(context).withValues(alpha: 0.3)
                 : AppTheme.getSurfaceColor(context).withValues(alpha: 0.3),
           ),
         ),
       ),
       child: Row(
         children: [
-          const SizedBox(width: 16),
+          const SizedBox(width: GlassConstants.spacingMedium),
           Image.asset(
             isDark ? 'app_icon_dark.png' : 'app_icon.png',
             width: 28,
             height: 28,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: GlassConstants.spacingCompact),
           ShaderMask(
             shaderCallback: (bounds) =>
                 AppTheme.getPrimaryGradient(context).createShader(bounds),
             child: const Text(
               'HGame Manager',
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
+                color: AppTheme.lightForegroundColor,
+                fontSize: GlassConstants.fontControl,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -89,7 +89,7 @@ class TitleBarWidget extends StatelessWidget {
               icon: windowController.isMaximized
                   ? Icons.filter_none
                   : Icons.crop_square,
-              iconSize: 13,
+              iconSize: GlassConstants.iconBadge,
               onPressed: () => windowController.toggleMaximize(),
             ),
             _WindowButton(
@@ -144,9 +144,9 @@ class _WindowButtonState extends State<_WindowButton> {
               : Colors.transparent,
           child: Icon(
             widget.icon,
-            size: widget.iconSize ?? 16,
+            size: widget.iconSize ?? GlassConstants.iconSmall,
             color: _isHovered && widget.isClose
-                ? AppTheme.getTextColorOnPrimary(context)
+                ? AppTheme.lightForegroundColor
                 : AppTheme.getTextSecondary(context),
           ),
         ),
