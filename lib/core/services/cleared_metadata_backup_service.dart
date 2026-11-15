@@ -31,15 +31,22 @@ class ClearedMetadataBackupService {
   Future<File> save(Game game) async {
     final file = await _fileFor(game);
     await file.parent.create(recursive: true);
-    await file.writeAsString(
-      jsonEncode({
-        'version': 1,
-        'game': game.toMap(),
-        'tags': game.tags.map((tag) => tag.toMap()).toList(),
-        'images': game.images.map((image) => image.toMap()).toList(),
-      }),
-      flush: true,
-    );
+    final snapshot = await file.exists()
+        ? jsonDecode(await file.readAsString()) as Map<String, dynamic>
+        : <String, dynamic>{};
+    snapshot.addAll({
+      'version': 1,
+      'game': game.toMap(),
+      'tags': game.tags.map((tag) => tag.toMap()).toList(),
+      'images': game.images.map((image) => image.toMap()).toList(),
+    });
+    final temporary = File('${file.path}.tmp');
+    try {
+      await temporary.writeAsString(jsonEncode(snapshot), flush: true);
+      await temporary.rename(file.path);
+    } finally {
+      if (await temporary.exists()) await temporary.delete();
+    }
     return file;
   }
 

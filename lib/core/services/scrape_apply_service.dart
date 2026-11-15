@@ -17,7 +17,10 @@ import '../utils/scraped_image_reference_rewriter.dart';
 import 'concurrent_image_downloader.dart';
 import 'folder_rename_service.dart';
 import 'game_data_migration_service.dart';
+import 'game_move_service.dart';
 import 'metadata_translation_service.dart';
+import 'scrape_file_snapshot.dart';
+import 'steam_service.dart';
 
 class ScrapeApplyService {
   static final _versionPattern = RegExp(
@@ -149,8 +152,10 @@ class ScrapeApplyService {
     int maxConcurrency = 3,
     void Function(int current, int total)? onProgress,
     void Function(String message)? onLog,
+    bool requireAllImages = false,
   }) async {
     if (imageUrls.isEmpty || game.id == null) return {};
+    imageUrls = imageUrls.toSet().toList();
 
     onLog?.call('下载 ${imageUrls.length} 张配图...');
     final imagesDir = await GameDataPaths.ensureImagesDir(game.path);
@@ -175,6 +180,10 @@ class ScrapeApplyService {
       onProgress: onProgress,
     );
 
+    if (requireAllImages && imageUrls.any((url) => !urlToTmp.containsKey(url))) {
+      throw StateError('图片下载不完整（${urlToTmp.length}/${imageUrls.toSet().length}），已取消保存，请重试');
+    }
+
     final urlToLocal = <String, String>{};
     final finalImages = <GameImage>[];
     for (int i = 0; i < imageUrls.length; i++) {
@@ -192,6 +201,8 @@ class ScrapeApplyService {
         urlToLocal[url] = finalPath;
         finalImages.add(
             GameImage(gameId: game.id!, imagePath: finalPath, sortOrder: i));
+      } else if (requireAllImages) {
+        throw StateError('下载的图片文件已丢失，请重试');
       } else {
         final oldPath = oldImagePaths[i + 1];
         if (oldPath != null) {
@@ -237,7 +248,7 @@ class ScrapeApplyService {
           intro = ScrapedImageReferenceRewriter.replacePlainTextImages(
               intro, urlToLocal);
         }
-        await repo.updateGame(current.copyWith(intro: intro));
+        await repo.updateScrapedFields(current.copyWith(intro: intro));
 
         final metadataFile = GameDataPaths.metadataFile(current.path);
         if (await metadataFile.exists()) {
@@ -256,7 +267,7 @@ class ScrapeApplyService {
 
     final reloaded = await repo.getGameById(game.id!);
     if (reloaded != null) {
-      await fixImageUrlsInMetadata(reloaded, repo);
+      await fixImageUrlsInMetadata(reloaded, repo, requirePersistence: requireAllImages);
     }
     return urlToLocal;
   }
@@ -302,52 +313,12 @@ class ScrapeApplyService {
       return game;
     }
 
-    final existingGame = await repo.getGameByPath(targetDir.path);
-    if (existingGame != null) {
-      await repo.deleteGame(existingGame.id!);
-      onLog?.call('已删除目标路径的旧记录');
-    }
-
-    await sourceDir.rename(targetDir.path);
-    await repo.updateGamePath(game.id!, targetDir.path);
-    final images = await repo.getGameImages(game.id!);
-    if (images.isNotEmpty) {
-      await repo.setGameImages(
-          game.id!,
-          images
-              .map((img) => GameImage(
-                    id: img.id,
-                    gameId: img.gameId,
-                    imagePath:
-                        img.imagePath.replaceFirst(game.path, targetDir.path),
-                    sortOrder: img.sortOrder,
-                  ))
-              .toList());
-    }
-
-    await GameDataMigrationService(gameRepository: repo)
-        .rewriteGamePathReferences(
-      gameId: game.id!,
-      oldPath: game.path,
-      newPath: targetDir.path,
-    );
-
-    var current = await repo.getGameById(game.id!);
-    if (current == null) return game;
-    if (current.gameLauncher != null &&
-        current.gameLauncher!.startsWith(game.path)) {
-      final relative = current.gameLauncher!.substring(game.path.length);
-      final newLauncher = '${targetDir.path}$relative';
-      await repo.updateGameLauncher(
-          game.id!, newLauncher, current.launcherLocked);
-      current = current.copyWith(gameLauncher: newLauncher);
-    }
-    if (current.savePath != null && current.savePath!.startsWith(game.path)) {
-      final relative = current.savePath!.substring(game.path.length);
-      final newSavePath = '${targetDir.path}$relative';
-      await repo.updateGame(current.copyWith(savePath: newSavePath));
-      current = current.copyWith(savePath: newSavePath);
-    }
+    final result = await GameMoveService(gameRepository: repo)
+        .moveGameFolderCrossDrive(gameId: game.id!, oldPath: game.path,
+            newPath: targetDir.path);
+    if (result.warning != null) onLog?.call(result.warning!);
+    final current = await repo.getStoredGameByPath(targetDir.path) ??
+        game.copyWith(path: targetDir.path);
     onLog?.call('已移动到: ${current.path}');
     return current;
   }
@@ -400,25 +371,39 @@ class ScrapeApplyService {
     void Function(int current, int total)? onProgress,
     void Function(String message)? onLog,
     void Function(String message)? onTranslationNotice,
+    bool requirePersistence = false,
   }) async {
     // 旧布局迁移（根目录 metadata.json/images -> HGMDatas/）必须保留：
     // 现状由详情页 _downloadImagesWithMapping 内部与刮削中心入口承担，
     // 删除详情页私有实现后此处是唯一保障，且该方法幂等。
+    gameInfo.screenshots = gameInfo.screenshots.toSet().toList();
     final elapsed = Stopwatch()..start();
+    ScrapeFileSnapshot? snapshot;
+    Game? original;
+    var dataApplied = false;
+    var recordsChanged = false;
     AppLogger.instance.info('ScrapeApply',
         '开始应用结果: mode=${mode.name}, id=${game.id}, images=${gameInfo.screenshots.length}');
     try {
       await GameDataMigrationService(gameRepository: repo)
           .migrateGameDirectory(game.path, gameId: game.id);
+      if (requirePersistence) {
+        original = await repo.getStoredGameByPath(game.path);
+        if (game.id != original?.id) {
+          throw StateError('游戏记录已变化，请重新抓取后确认');
+        }
+        snapshot = await ScrapeFileSnapshot.capture(game.path);
+      }
 
-      final merged = mergeGameInfo(game, gameInfo, sourceUrl: sourceUrl);
+      final merged = mergeGameInfo(original ?? game, gameInfo, sourceUrl: sourceUrl);
       int gameId;
       if (game.id != null) {
-        await repo.updateGame(merged);
+        await repo.updateScrapedFields(merged);
         gameId = game.id!;
       } else {
-        gameId = await repo.insertGame(merged);
+        gameId = await repo.insertGame(merged, replaceExisting: !requirePersistence);
       }
+      recordsChanged = true;
       var current = merged.copyWith(id: gameId);
 
       // 文件写入失败不应使整个刮削失败（保持快速刮削现状的容错语义）
@@ -433,6 +418,7 @@ class ScrapeApplyService {
       } catch (e, stackTrace) {
         AppLogger.instance.error('ScrapeApply',
             '[ScrapeApply] 写入 metadata.json 失败: $e', e, stackTrace);
+        if (requirePersistence) rethrow;
       }
       if (effectiveSourceUrl.isNotEmpty) {
         try {
@@ -441,6 +427,7 @@ class ScrapeApplyService {
         } catch (e, stackTrace) {
           AppLogger.instance.error('ScrapeApply',
               '[ScrapeApply] 写入 source_url.txt 失败: $e', e, stackTrace);
+          if (requirePersistence) rethrow;
         }
       }
 
@@ -454,9 +441,29 @@ class ScrapeApplyService {
         maxConcurrency: maxConcurrency,
         onProgress: onProgress,
         onLog: onLog,
+        requireAllImages: requirePersistence,
       );
 
       current = await repo.getGameById(gameId) ?? current;
+      // 批量添加确认后仍保留 Steam 简介中视频的本地化行为。
+      if (mode == ScrapeMode.batchAdd &&
+          Uri.tryParse(effectiveSourceUrl)?.host == 'store.steampowered.com' &&
+          current.intro?.contains('[视频:') == true) {
+        var intro = current.intro!;
+        final videoMapping = await SteamService()
+            .downloadVideosFromDescription(intro, current.path);
+        for (final entry in videoMapping.entries) {
+          intro = intro.replaceAll('[视频:${entry.key}]', '[视频:${entry.value}]');
+        }
+        if (intro != current.intro) {
+          current = current.copyWith(intro: intro);
+          await repo.updateScrapedFields(current);
+          final metadataFile = GameDataPaths.metadataFile(current.path);
+          final metadata = jsonDecode(await metadataFile.readAsString()) as Map<String, dynamic>;
+          metadata['intro'] = intro;
+          await metadataFile.writeAsString(jsonEncode(metadata), flush: true);
+        }
+      }
       if (metadataSaved) {
         current = await translateGameMetadata(
           game: current,
@@ -468,18 +475,48 @@ class ScrapeApplyService {
           .enabled) {
         onTranslationNotice?.call('无法保存本次刮削元数据，已跳过翻译');
       }
+      dataApplied = true;
       current =
           await organizeFolder(current, mode, repo, configs, onLog: onLog);
       AppLogger.instance.info('ScrapeApply',
           '应用结果完成: mode=${mode.name}, id=$gameId, elapsedMs=${elapsed.elapsedMilliseconds}');
       return current;
     } catch (error, stackTrace) {
+      if (snapshot != null && !dataApplied) {
+        final restoreFailures = <Object>[];
+        try {
+          await snapshot.restore();
+        } catch (restoreError) {
+          restoreFailures.add(restoreError);
+        }
+        try {
+          if (recordsChanged) {
+            await repo.restoreScrapeSnapshot(gamePath: game.path,
+                original: original, metadataOnly: true);
+          }
+        } catch (restoreError) {
+          restoreFailures.add(restoreError);
+        }
+        if (restoreFailures.isNotEmpty) {
+          final recoveryPath = snapshot.backup.path;
+          snapshot = null;
+          throw ScrapeRecoveryException(recoveryPath, restoreFailures);
+        }
+      }
       AppLogger.instance.error(
           'ScrapeApply',
           '应用结果失败: mode=${mode.name}, id=${game.id}, elapsedMs=${elapsed.elapsedMilliseconds}',
           error,
           stackTrace);
       rethrow;
+    } finally {
+      if (snapshot != null) {
+        try {
+          await snapshot.dispose();
+        } catch (error) {
+          onLog?.call('临时恢复文件清理失败：${snapshot.backup.path}');
+        }
+      }
     }
   }
 
@@ -529,7 +566,7 @@ class ScrapeApplyService {
 
     final current = await repo.getGameById(game.id!) ?? game;
     final updated = gameWithMetadata(current, translated);
-    await repo.updateGame(updated);
+    await repo.updateScrapedFields(updated);
     await syncTags(
       repo,
       tagRepo,
@@ -584,7 +621,7 @@ class ScrapeApplyService {
   }
 
   static Future<void> fixImageUrlsInMetadata(
-      Game game, GameRepository repo) async {
+      Game game, GameRepository repo, {bool requirePersistence = false}) async {
     try {
       final metadataFile = await GameDataPaths.existingMetadataFile(game.path);
       if (!await metadataFile.exists()) return;
@@ -625,10 +662,11 @@ class ScrapeApplyService {
 
       await metadataFile.writeAsString(jsonEncode(metaJson), flush: true);
 
-      await repo.updateGame(game.copyWith(intro: intro));
+      await repo.updateScrapedFields(game.copyWith(intro: intro));
     } catch (e, stackTrace) {
       AppLogger.instance
           .error('ScrapeApply', '[FixImageUrls] Error: $e', e, stackTrace);
+      if (requirePersistence) rethrow;
     }
   }
 }

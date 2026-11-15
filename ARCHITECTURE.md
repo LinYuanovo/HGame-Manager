@@ -341,6 +341,17 @@ enum NavRoute {
 - 纯函数：stripVersionFromTitle、resolveCategoryName、mergeGameInfo、buildMetadataJson、buildNumberedUrlMapping
 - 流程：syncTags 标签同步、downloadAndApplyImages 图片下载与引用重写、fixImageUrlsInMetadata 元数据修复、moveGameToSorted/organizeFolder 目录整理、applyScrapeResult 总编排
 - `translateGameMetadata` 在图片本地化后、目录整理前统一翻译并持久化，URL 三入口与 Steam/DLsite 导入共用。
+- `requirePersistence` 用于批量确认：元数据或图片失败时恢复本次刮削字段、标签、图片及原文件；游玩时长等运行数据独立保留。
+
+### ScrapeReviewService
+- 刮削中心与 Steam/DLsite 批量添加先产生 `ScrapeReviewItem`，由独立确认表单逐项或批量选择，再调用共享 `ScrapeApplyService` 保存。
+- `scrapeReviewItemsProvider` 在当前应用运行期间保留候选，支持关闭表单、切换页面后继续确认。
+- 目录移动统一经 `GameMoveService` 和底层 `FolderTransferService`；尚未入库的文件夹保持未入库，同名目标与陈旧记录均拒绝覆盖。
+
+### GameTagEditService
+- 详情页直接编辑标签和全局资料编辑共用，数据库资料与标签在一个事务内保存，并同步游戏元数据。
+- 文件替换或事务提交失败恢复旧数据；扫描服务同步普通标签的新增与移除。
+- 本体已删除时，标签未变的通关资料仍可编辑，并同步现有通关备份。
 
 ### MetadataTranslationService
 - 将标题、简介、特点、更新日志、标签和系列翻译为简体中文；富文本按文字节点处理，保留图片、链接和布局。

@@ -24,6 +24,7 @@ class _ParsedGameData {
   final String? sourceUrl;
   final List<String> imagePaths;
   final List<String> tagNames;
+  final bool syncCustomTags;
   final String? seriesName;
   final int? existingGameId;
   final int? playCount;
@@ -47,6 +48,7 @@ class _ParsedGameData {
     this.sourceUrl,
     required this.imagePaths,
     required this.tagNames,
+    required this.syncCustomTags,
     this.seriesName,
     this.existingGameId,
     this.playCount,
@@ -427,6 +429,15 @@ class GameScannerService {
           if (t is String && t.isNotEmpty) tagNames.add(t);
         }
       }
+      // 兼容旧刮削元数据：厂商标签可能只存在于数据库关系中。
+      final makerName = metadata?['maker'] as String?;
+      if (makerName != null &&
+          !tagNames.contains(makerName) &&
+          existingGame?.tags.any((tag) =>
+                  tag.type == Tag.typeCustom && tag.name == makerName) ==
+              true) {
+        tagNames.add(makerName);
+      }
 
       return _ParsedGameData(
         folderPath: folderPath,
@@ -439,6 +450,7 @@ class GameScannerService {
         sourceUrl: sourceUrl ?? metadata?['source_url'] as String?,
         imagePaths: imagePaths,
         tagNames: tagNames,
+        syncCustomTags: metadata?['tags'] is List,
         seriesName: metadata?['series'] as String?,
         existingGameId: existingGame?.id,
         playCount: existingGame?.playCount ?? 0,
@@ -525,6 +537,14 @@ class GameScannerService {
           // 新游戏插入时设置 added_time
           gameMap['added_time'] = DateTime.now().toIso8601String();
           gameId = await txn.insert('games', gameMap);
+        }
+
+        // 元数据中的普通标签作为当前值，重新扫描时同步移除已删除的标签。
+        if (data.syncCustomTags) {
+          await txn.delete('game_tag_relation',
+              where: 'game_id = ? AND tag_id IN '
+                  '(SELECT id FROM tags WHERE type = ?)',
+              whereArgs: [gameId, Tag.typeCustom]);
         }
 
         // Insert game-tag relations (INSERT OR IGNORE)

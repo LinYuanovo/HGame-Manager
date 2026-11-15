@@ -22,6 +22,7 @@ import '../../../core/utils/forum_domain_utils.dart';
 import '../../../core/utils/html_line_remover.dart';
 import '../../../core/utils/intro_html_sync.dart';
 import '../../../core/services/scrape_apply_service.dart';
+import '../../../core/services/game_tag_edit_service.dart';
 import '../../../core/services/metadata_translation_service.dart';
 import '../../../core/services/app_logger.dart';
 import '../../../core/utils/proxy_client.dart';
@@ -77,6 +78,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   late TextEditingController _makerController;
   bool _pathChanged = false;
   List<Tag> _editedTags = [];
+  bool _isSavingTags = false;
   late Game _currentGame;
 
   bool _isImageViewerOpen = false;
@@ -164,6 +166,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   void _refreshTags() {
     ref.invalidate(allTagsProvider);
     ref.invalidate(allSeriesProvider);
+    ref.invalidate(gamesByTagProvider);
   }
 
   /// 刷新所有游戏相关 provider（关闭详情页等场景使用）
@@ -813,7 +816,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       : null,
                 ),
                 onChanged: (_) => setState(() {}),
-                onSubmitted: (_) => _quickScrape(),
+                onSubmitted: _isSavingTags ? null : (_) => _quickScrape(),
               ),
             ),
             const SizedBox(width: GlassConstants.spacingSmall),
@@ -838,7 +841,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                                   .withValues(alpha: 0.3)),
                   onPressed: _currentGame.sourceUrl != null &&
                           _currentGame.sourceUrl!.isNotEmpty &&
-                          !_isRescraping
+                          !_isRescraping &&
+                          !_isSavingTags
                       ? _rescrapeGame
                       : null,
                 ),
@@ -848,10 +852,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               icon: Icon(Icons.edit_outlined,
                   size: GlassConstants.iconControl, color: AppTheme.getDetailTextPrimary(context)),
               tooltip: '编辑',
-              onPressed: () => setState(() {
-                _viewingOriginal = false;
-                _isEditing = true;
-              }),
+              onPressed: _isSavingTags
+                  ? null
+                  : () => setState(() {
+                      _viewingOriginal = false;
+                      _editedTags = List.from(_currentGame.tags);
+                      _isEditing = true;
+                    }),
             ),
             IconButton(
               icon: Icon(Icons.close,
@@ -1217,6 +1224,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Widget _buildInfoCard() {
+    final controlHeight = LayoutConstants.controlHeight +
+        MediaQuery.textScalerOf(context).scale(GlassConstants.fontControl) -
+        GlassConstants.fontControl;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(GlassConstants.spacingMedium),
@@ -1229,7 +1239,46 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Tags above path (Change 2)
+          if (!_isEditing) ...[
+            Row(
+              children: [
+                Text('标签',
+                    key: const ValueKey('game-tag-section-title'),
+                    style: TextStyle(
+                        color: AppTheme.getDetailTextPrimary(context),
+                        fontSize: GlassConstants.fontBody,
+                        fontWeight: FontWeight.w600)),
+                const Spacer(),
+                TextButton.icon(
+                  key: const ValueKey('edit-game-tags'),
+                  onPressed: _isSavingTags ||
+                          _isRescraping ||
+                          _viewingOriginal ||
+                          _currentGame.id == null
+                      ? null
+                      : _editGameTags,
+                  icon: const Icon(Icons.edit_outlined,
+                      size: GlassConstants.iconSmall),
+                  label: Text(_isSavingTags ? '正在保存' : '编辑标签'),
+                  style: TextButton.styleFrom(
+                      minimumSize: Size(controlHeight, controlHeight),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: GlassConstants.spacingSmall),
+                      textStyle: const TextStyle(
+                          fontSize: GlassConstants.fontBody),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.standard,
+                      foregroundColor: AppTheme.getPrimaryColor(context)),
+                ),
+              ],
+            ),
+            if (_displayGame.tags.isEmpty)
+              Text('暂无标签，点击“编辑标签”自行添加',
+                  style: TextStyle(
+                      color: AppTheme.getTextSecondary(context),
+                      fontSize: GlassConstants.fontSmall)),
+            const SizedBox(height: GlassConstants.spacingSmall),
+          ],
           if (_isEditing) ...[
             _buildEditableTags(),
           ] else if (_displayGame.tags.isNotEmpty) ...[
@@ -1255,8 +1304,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   }
                 }
                 return Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+                  spacing: GlassConstants.spacingTight,
+                  runSpacing: GlassConstants.spacingTight,
                   children: orderedTags
                       .map((tag) => GestureDetector(
                             onTap: () {
@@ -1694,50 +1743,40 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Widget _buildEditableTags() {
+    final controlHeight = LayoutConstants.controlHeight +
+        MediaQuery.textScalerOf(context).scale(GlassConstants.fontControl) -
+        GlassConstants.fontControl;
     return Wrap(
-      spacing: 6,
-      runSpacing: 6,
+      spacing: GlassConstants.spacingTight,
+      runSpacing: GlassConstants.spacingTight,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        ..._editedTags.map((tag) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingFine),
-              decoration: BoxDecoration(
-                color: AppTheme.getPrimaryLightColor(context).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
-                border: Border.all(color: AppTheme.getPrimaryLightColor(context).withValues(alpha: 0.2)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(tag.name,
-                        style:
-                            TextStyle(fontSize: GlassConstants.fontCaption, color: AppTheme.getPrimaryColor(context)),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1),
-                  ),
-                  const SizedBox(width: GlassConstants.spacingTiny),
-                  GestureDetector(
-                    onTap: () => setState(() => _editedTags.remove(tag)),
-                    child:
-                        Icon(Icons.close, size: GlassConstants.iconTiny, color: AppTheme.getPrimaryColor(context)),
-                  ),
-                ],
-              ),
+        ..._editedTags.map((tag) => InputChip(
+              label: Text(tag.displayName ?? tag.name,
+                  style: TextStyle(
+                      fontSize: GlassConstants.fontBody,
+                      color: AppTheme.getPrimaryColor(context))),
+              backgroundColor: AppTheme.getPrimaryLightColor(context)
+                  .withValues(alpha: 0.1),
+              deleteIconColor: AppTheme.getPrimaryColor(context),
+              deleteIcon: const Icon(Icons.close,
+                  size: GlassConstants.iconAction),
+              deleteButtonTooltipMessage: '移除${tag.name}',
+              onDeleted: () => setState(() => _editedTags.remove(tag)),
             )),
-        GestureDetector(
-          onTap: () => _showAddTagDialog(),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingFine),
-            decoration: BoxDecoration(
-              color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
-              border: Border.all(
-                  color:
-                      AppTheme.getPrimaryColor(context).withValues(alpha: 0.2)),
-            ),
-            child: Icon(Icons.add,
-                size: GlassConstants.iconTiny, color: AppTheme.getPrimaryColor(context)),
-          ),
+        TextButton.icon(
+          key: const ValueKey('add-game-tags'),
+          onPressed: _showAddTagDialog,
+          icon: const Icon(Icons.add, size: GlassConstants.iconSmall),
+          label: const Text('添加标签'),
+          style: TextButton.styleFrom(
+              minimumSize: Size(controlHeight, controlHeight),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: GlassConstants.spacingSmall),
+              textStyle: const TextStyle(fontSize: GlassConstants.fontBody),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.standard,
+              foregroundColor: AppTheme.getPrimaryColor(context)),
         ),
       ],
     );
@@ -1749,10 +1788,65 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     final result = await showGlassDialog<List<Tag>>(
       context: context,
       child: TagInputDialog(
-          selectedTags: _editedTags, availableTags: availableTags),
+          selectedTags:
+              _editedTags.where((tag) => tag.type == Tag.typeCustom).toList(),
+          availableTags: availableTags),
     );
     if (result != null && mounted) {
-      setState(() => _editedTags = result);
+      setState(() => _editedTags = [
+            ..._editedTags.where((tag) => tag.type != Tag.typeCustom),
+            ...result,
+          ]);
+    }
+  }
+
+  Future<void> _editGameTags() async {
+    final repo = ref.read(gameRepositoryProvider);
+    try {
+      final availableTags = await ref.read(tagRepositoryProvider).getCustomTags();
+      if (!mounted) return;
+      final selected = await showGlassDialog<List<Tag>>(
+        context: context,
+        child: TagInputDialog(
+          title: '编辑标签',
+          selectedTags: _currentGame.tags
+              .where((tag) => tag.type == Tag.typeCustom)
+              .toList(),
+          availableTags: availableTags,
+        ),
+      );
+      if (selected == null || !mounted) return;
+      setState(() => _isSavingTags = true);
+      final current = await repo.getGameById(_currentGame.id!);
+      if (current == null) throw StateError('游戏记录已不存在');
+      final updated = await GameTagEditService(
+        repository: repo,
+        clearedMetadataBackupService:
+            ref.read(clearedMetadataBackupServiceProvider),
+      ).saveTags(
+        current,
+        [
+          ...current.tags.where((tag) => tag.type != Tag.typeCustom),
+          ...selected,
+        ],
+      );
+      if (!mounted) return;
+      setState(() {
+        _currentGame = updated;
+        _editedTags = List.from(updated.tags);
+      });
+      _refreshAllProviders();
+      AppTheme.showGlassToast(context, message: '标签已保存');
+    } catch (error, stackTrace) {
+      AppLogger.instance.error('GameTags', '编辑标签失败', error, stackTrace);
+      if (mounted) {
+        AppTheme.showGlassToast(context,
+            message: '标签保存失败: $error',
+            icon: Icons.error_outline,
+            iconColor: AppTheme.errorColor);
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingTags = false);
     }
   }
 
@@ -3989,7 +4083,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   Future<void> _saveChanges() async {
     try {
       final repo = ref.read(gameRepositoryProvider);
-      final tagRepo = ref.read(tagRepositoryProvider);
       final gameId = _currentGame.id;
 
       final newTitle = _titleController.text.trim().isEmpty
@@ -4446,7 +4539,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       }
       _pathChanged = false;
 
-      await repo.updateGame(_currentGame.copyWith(
+      final updatedGame = _currentGame.copyWith(
         title: newTitle,
         version: newVersion,
         intro: newIntro,
@@ -4459,61 +4552,39 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         launcherLocked:
             launcherText.isNotEmpty ? true : _currentGame.launcherLocked,
         tags: _editedTags,
-      ));
+      );
 
-      // Update tag relations if game has an id
-      if (gameId != null) {
-        final existingTags = _currentGame.tags;
-        for (final tag in existingTags) {
-          if (tag.id != null) {
-            await repo.removeTagFromGame(gameId, tag.id!);
+      final metadataChanges = <String, dynamic>{
+        if (newTitle != null) 'title': newTitle,
+        if (newVersion != null) 'version': newVersion,
+        if (newIntro != null) 'intro': newIntro,
+        if (newFeatures != null) 'features': newFeatures,
+        if (newChangelog != null) 'changelog': newChangelog,
+        if (newGuide != null) 'guide': newGuide,
+        if (newDownloadUrl != null) 'download_url': newDownloadUrl,
+        if (newSourceUrl != null) 'source_url': newSourceUrl,
+      };
+      String? updatedIntroHtml;
+      if (newIntro != null) {
+        if (_introHtml != null && _introHtml!.isNotEmpty) {
+          final oldIntro = _currentGame.intro ?? '';
+          if (oldIntro != newIntro) {
+            updatedIntroHtml = syncIntroToHtml(oldIntro, newIntro, _introHtml!);
+            metadataChanges['intro_html'] = updatedIntroHtml;
           }
         }
-        for (final tag in _editedTags) {
-          final tagId = await tagRepo.insertOrGetTag(tag.name, tag.type);
-          await repo.addTagToGame(gameId, tagId);
-        }
       }
-
-      // Sync metadata.json
-      try {
-        final metadataFile = GameDataPaths.metadataFile(_currentGame.path);
-        await GameDataPaths.ensureDataDir(_currentGame.path);
-        Map<String, dynamic> metadata;
-
-        if (await metadataFile.exists()) {
-          final content = await metadataFile.readAsString();
-          metadata = jsonDecode(content) as Map<String, dynamic>;
-        } else {
-          metadata = <String, dynamic>{};
-        }
-
-        if (newTitle != null) metadata['title'] = newTitle;
-        if (newVersion != null) metadata['version'] = newVersion;
-        if (newIntro != null) {
-          metadata['intro'] = newIntro;
-          if (_introHtml != null && _introHtml!.isNotEmpty) {
-            final oldIntro = _currentGame.intro ?? '';
-            if (oldIntro != newIntro) {
-              _introHtml = syncIntroToHtml(oldIntro, newIntro, _introHtml!);
-              metadata['intro_html'] = _introHtml;
-            }
-          }
-        }
-        if (newFeatures != null) metadata['features'] = newFeatures;
-        if (newChangelog != null) metadata['changelog'] = newChangelog;
-        if (newGuide != null) metadata['guide'] = newGuide;
-        if (newDownloadUrl != null) metadata['download_url'] = newDownloadUrl;
-        if (newSourceUrl != null) metadata['source_url'] = newSourceUrl;
-
-        await metadataFile.writeAsString(jsonEncode(metadata), flush: true);
-        debugPrint('[Edit] metadata.json updated for: ${_currentGame.path}');
-      } catch (e) {
-        debugPrint('[Edit] Failed to update metadata.json: $e');
-      }
+      await GameTagEditService(
+        repository: repo,
+        clearedMetadataBackupService:
+            ref.read(clearedMetadataBackupServiceProvider),
+      ).saveTags(
+          updatedGame, _editedTags,
+          metadataChanges: metadataChanges);
+      if (updatedIntroHtml != null) _introHtml = updatedIntroHtml;
 
       // Sync source_url.txt
-      if (newSourceUrl != null) {
+      if (newSourceUrl != null && await Directory(_currentGame.path).exists()) {
         try {
           final sourceUrlFile = GameDataPaths.sourceUrlFile(_currentGame.path);
           await GameDataPaths.ensureDataDir(_currentGame.path);

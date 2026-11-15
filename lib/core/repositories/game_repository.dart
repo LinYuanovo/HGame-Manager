@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+// 锁定的 sqflite_common 2.5.8 在 COMMIT 失败时关闭 Dart 事务但保留 SQLite 事务。
+// ignore: implementation_imports, depend_on_referenced_packages
+import 'package:sqflite_common/src/transaction.dart' show SqfliteTransactionMixin;
 import '../database/database_helper.dart';
 import '../models/models.dart';
 import 'play_time_repository.dart';
@@ -9,9 +12,42 @@ import '../utils/app_settings.dart';
 import '../utils/backup_image_reference_resolver.dart';
 import '../utils/cleared_game_path_utils.dart';
 import '../utils/game_data_paths.dart';
+import '../utils/path_reference_rewriter.dart';
 
 class GameRepository implements PlayTimeRepository {
-  Future<Database> get _db => DatabaseHelper.database;
+  final Database? _database;
+
+  GameRepository({Database? database}) : _database = database;
+
+  Future<Database> get _db async => _database ?? await DatabaseHelper.database;
+
+  Future<T> _transactionWithCommitRollback<T>(
+      Database db, Future<T> Function(Transaction txn) action) async {
+    Transaction? transaction;
+    var actionComplete = false;
+    try {
+      return await db.transaction((txn) async {
+        transaction = txn;
+        final result = await action(txn);
+        actionComplete = true;
+        return result;
+      });
+    } catch (error, stackTrace) {
+      final txn = transaction;
+      if (actionComplete && txn is SqfliteTransactionMixin) {
+        // 必须沿用事务 ID；无事务的 ROLLBACK 会在 FFI 队列中等待自己结束。
+        txn.closed = false;
+        try {
+          await transaction!.execute('ROLLBACK');
+        } catch (rollbackError) {
+          throw StateError('事务提交失败且无法回滚：$error；$rollbackError');
+        } finally {
+          txn.closed = true;
+        }
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
 
   final Map<String, bool> _pathExistsCache = {};
   DateTime? _pathCacheTime;
@@ -386,7 +422,7 @@ class GameRepository implements PlayTimeRepository {
     return game.copyWith(tags: tags, images: images);
   }
 
-  Future<int> insertGame(Game game) async {
+  Future<int> insertGame(Game game, {bool replaceExisting = true}) async {
     final db = await _db;
     final gameToInsert = game.addedTime == null
         ? game.copyWith(addedTime: DateTime.now())
@@ -394,7 +430,9 @@ class GameRepository implements PlayTimeRepository {
     return await db.insert(
       'games',
       gameToInsert.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
+      conflictAlgorithm: replaceExisting
+          ? ConflictAlgorithm.replace
+          : ConflictAlgorithm.abort,
     );
   }
 
@@ -406,6 +444,59 @@ class GameRepository implements PlayTimeRepository {
       where: 'id = ?',
       whereArgs: [game.id],
     );
+  }
+
+  static Map<String, Object?> _scrapedFields(Game game) => {
+    'title': game.title,
+    'version': game.version,
+    'intro': game.intro,
+    'features': game.features,
+    'changelog': game.changelog,
+    'download_url': game.downloadUrl,
+    'source_url': game.sourceUrl,
+    'maker': game.maker,
+    'maker_url': game.makerUrl,
+  };
+
+  /// 网络处理期间游玩状态仍会更新，刮削仅写入自身负责的元数据字段。
+  Future<void> updateScrapedFields(Game game) async {
+    final db = await _db;
+    final changed = await db.update('games', _scrapedFields(game),
+        where: 'id = ? AND path = ?', whereArgs: [game.id, game.path]);
+    if (changed != 1) throw StateError('游戏记录或路径已变化，请重新确认');
+  }
+
+  /// 编辑资料时原子替换标签；文件保存失败会撤销本次数据库修改。
+  Future<void> updateGameWithTags(Game game,
+      {Future<void> Function()? beforeCommit}) async {
+    if (game.id == null) throw StateError('编辑标签需要已入库的游戏');
+    final db = await _db;
+    await _transactionWithCommitRollback(db, (txn) async {
+      final changed = await txn.update('games', game.toMap(),
+          where: 'id = ?', whereArgs: [game.id]);
+      if (changed != 1) throw StateError('游戏记录已不存在');
+      await txn.delete('game_tag_relation',
+          where: 'game_id = ?', whereArgs: [game.id]);
+      for (final tag in game.tags) {
+        final matches = await txn.query('tags',
+            columns: ['id'],
+            where: 'type = ? AND name = ? COLLATE NOCASE',
+            whereArgs: [tag.type, tag.name],
+            limit: 1);
+        final tagId = matches.isNotEmpty
+            ? matches.first['id'] as int
+            : await txn.insert('tags', {
+                'name': tag.name,
+                'type': tag.type,
+                'display_name': tag.displayName ?? tag.name,
+                'is_favorite': 0,
+              });
+        await txn.insert(
+            'game_tag_relation', {'game_id': game.id, 'tag_id': tagId},
+            conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+      await beforeCommit?.call();
+    });
   }
 
   Future<void> updateGameLauncher(int id, String? launcher, bool locked) async {
@@ -439,6 +530,112 @@ class GameRepository implements PlayTimeRepository {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  /// 在同一事务中更新搬运涉及的记录，文件替换失败则撤销全部写入。
+  Future<void> moveGameRecords({
+    required int gameId,
+    required String oldPath,
+    required String newPath,
+    Future<void> Function()? beforeCommit,
+  }) async {
+    final db = await _db;
+    await _transactionWithCommitRollback(db, (txn) async {
+      final rows = await txn.query('games',
+          where: 'id = ?', whereArgs: [gameId], limit: 1);
+      if (rows.isEmpty) throw StateError('游戏记录已不存在');
+      final game = Game.fromMap(rows.single);
+      if (!path.equals(path.normalize(game.path), path.normalize(oldPath))) {
+        throw StateError('游戏路径已变更，请刷新后重试');
+      }
+
+      String? movedPath(String? value) {
+        if (value == null ||
+            (!path.equals(value, oldPath) && !path.isWithin(oldPath, value))) {
+          return value;
+        }
+        return path.join(newPath, path.relative(value, from: oldPath));
+      }
+
+      final replacements = {oldPath: newPath};
+      await txn.update('games', {
+        'path': newPath,
+        'intro': PathReferenceRewriter.replace(game.intro, replacements),
+        'features': PathReferenceRewriter.replace(game.features, replacements),
+        'changelog': PathReferenceRewriter.replace(game.changelog, replacements),
+        'guide': PathReferenceRewriter.replace(game.guide, replacements),
+        'game_launcher': movedPath(game.gameLauncher),
+        'save_path': movedPath(game.savePath),
+      }, where: 'id = ?', whereArgs: [gameId]);
+      final images = await txn.query('game_images',
+          where: 'game_id = ?', whereArgs: [gameId]);
+      for (final image in images) {
+        final previous = image['image_path'] as String;
+        final updated = movedPath(previous);
+        if (updated != previous) {
+          await txn.update('game_images', {'image_path': updated},
+              where: 'id = ? AND game_id = ?',
+              whereArgs: [image['id'], gameId]);
+        }
+      }
+      await beforeCommit?.call();
+    });
+    _pathExistsCache.clear();
+  }
+
+  /// 撤销本次刮削对该游戏的写入，保留全局标签及其他游戏的修改。
+  Future<void> restoreScrapeSnapshot({
+    required String gamePath,
+    required Game? original,
+    bool metadataOnly = false,
+  }) async {
+    final db = await _db;
+    await _transactionWithCommitRollback(db, (txn) async {
+      if (original == null) {
+        final rows = await txn.query('games',
+            columns: ['id'], where: 'path = ?', whereArgs: [gamePath]);
+        for (final row in rows) {
+          final gameId = row['id'];
+          await txn.delete('game_tag_relation',
+              where: 'game_id = ?', whereArgs: [gameId]);
+          await txn.delete('game_images',
+              where: 'game_id = ?', whereArgs: [gameId]);
+          await txn.delete('games', where: 'id = ?', whereArgs: [gameId]);
+        }
+        return;
+      }
+      if (original.id == null) throw StateError('恢复快照需要原游戏 ID');
+      final changed = await txn.update('games', metadataOnly ? _scrapedFields(original) : {
+        ...original.toMap(),
+        'cleared_backup_path': original.clearedBackupPath,
+        'review': original.review,
+        'save_path': original.savePath,
+        'maker': original.maker,
+        'maker_url': original.makerUrl,
+        'guide': original.guide,
+      }, where: 'id = ?', whereArgs: [original.id]);
+      if (changed != 1) throw StateError('原游戏记录已不存在，无法恢复刮削快照');
+      await txn.delete('game_tag_relation',
+          where: 'game_id = ?', whereArgs: [original.id]);
+      for (final tag in original.tags) {
+        if (tag.id == null) throw StateError('原标签缺少 ID，无法恢复刮削快照');
+        await txn.insert('game_tag_relation', {
+          'game_id': original.id,
+          'tag_id': tag.id,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+      await txn.delete('game_images',
+          where: 'game_id = ?', whereArgs: [original.id]);
+      for (final image in original.images) {
+        await txn.insert('game_images', {
+          if (image.id != null) 'id': image.id,
+          'game_id': original.id,
+          'image_path': image.imagePath,
+          'sort_order': image.sortOrder,
+        });
+      }
+    });
+    _pathExistsCache.clear();
   }
 
   Future<void> updateClearedStatus(

@@ -412,39 +412,9 @@ class DlsiteService {
 
   /// 获取搜索结果的封面图URL
   Future<String?> fetchCoverUrl(String id) async {
-    final normalizedId = normalizeId(id);
-    if (normalizedId == null) return null;
-
-    final url = buildUrl(normalizedId);
-    final client = await createProxyClientFromPrefs(domain: 'www.dlsite.com');
-    try {
-      final headers = await _buildHeaders();
-      final response = await client.get(Uri.parse(url), headers: headers)
-          .timeout(const Duration(seconds: 15));
-
-      if (response.statusCode != 200) return null;
-
-      final document = html_parser.parse(response.body);
-      
-      // 从product-slider-data获取
-      final productSlider = document.querySelector('.product-slider-data');
-      if (productSlider != null) {
-        final firstSlide = productSlider.querySelector('div[data-src]');
-        if (firstSlide != null) {
-          final dataSrc = firstSlide.attributes['data-src'];
-          if (dataSrc != null && dataSrc.isNotEmpty) {
-            return dataSrc.startsWith('//') ? 'https:$dataSrc' : dataSrc;
-          }
-        }
-      }
-
-      // 回退到og:image
-      return document.querySelector('meta[property="og:image"]')?.attributes['content'];
-    } catch (e) {
-      return null;
-    } finally {
-      client.close();
-    }
+    final gameInfo = await fetchById(id);
+    if (gameInfo == null || gameInfo.screenshots.isEmpty) return null;
+    return gameInfo.screenshots.first;
   }
 
   /// 下载所有图片（封面+截图）到images文件夹

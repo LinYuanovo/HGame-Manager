@@ -60,12 +60,20 @@ void main() {
     expect(
         (saved['images'] as List).single['image_path'], r'D:\Images\cover.png');
 
+    saved['metadata'] = {
+      'intro_html': '<p>需要保留的简介布局</p>',
+      'translation': {'original': {'intro': '原文'}},
+    };
+    await file.writeAsString(jsonEncode(saved));
+
     await service.refresh(game.copyWith(rating: 5.0, review: '删除前最新评论'));
     final refreshed =
         jsonDecode(await file.readAsString()) as Map<String, dynamic>;
     final refreshedGame = refreshed['game'] as Map<String, dynamic>;
     expect(refreshedGame['rating'], 5.0);
     expect(refreshedGame['review'], '删除前最新评论');
+    expect(refreshed['metadata'], saved['metadata']);
+    expect(await File('${file.path}.tmp').exists(), isFalse);
 
     expect(await service.find(game), isNotNull);
     await service.delete(game);
