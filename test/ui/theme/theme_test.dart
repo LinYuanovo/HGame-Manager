@@ -4,6 +4,28 @@ import 'package:hgame_manager/core/models/theme_mode.dart';
 import 'package:hgame_manager/ui/theme/app_theme.dart';
 
 void main() {
+  testWidgets('所有标准按钮标签与菜单字体继承应用设置并使用字号令牌', (tester) async {
+    for (final dark in [false, true]) {
+      final theme = dark
+          ? AppTheme.darkTheme(fontFamily: '自定义字体')
+          : AppTheme.lightTheme(fontFamily: '自定义字体');
+      await tester.pumpWidget(MaterialApp(theme: theme, home: Scaffold(body: Column(children: [
+        TextButton(onPressed: () {}, child: const Text('文本按钮')),
+        OutlinedButton(onPressed: () {}, child: const Text('描边按钮')),
+        ElevatedButton(onPressed: () {}, child: const Text('提升按钮')),
+        FilledButton(onPressed: () {}, child: const Text('填充按钮')),
+      ]))));
+      for (final label in ['文本按钮', '描边按钮', '提升按钮', '填充按钮']) {
+        final style = DefaultTextStyle.of(tester.element(find.text(label))).style;
+        expect(style.fontFamily, '自定义字体');
+        expect(style.fontSize, GlassConstants.fontControl);
+      }
+      expect(theme.popupMenuTheme.textStyle!.fontFamily, '自定义字体');
+      expect(theme.textTheme.labelMedium!.fontSize, GlassConstants.fontSmall);
+      expect(theme.textTheme.labelSmall!.fontSize, GlassConstants.fontCaption);
+    }
+  });
+
   testWidgets('共享标签和呼吸边框随主题切换使用动态主色', (tester) async {
     for (final theme in [AppTheme.lightTheme(), AppTheme.darkTheme()]) {
       late BuildContext themedContext;

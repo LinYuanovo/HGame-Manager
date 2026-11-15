@@ -212,7 +212,7 @@ class _TagInputDialogState extends State<TagInputDialog> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: GlassConstants.spacingLarge),
                       textStyle:
-                          const TextStyle(fontSize: GlassConstants.fontControl),
+                          Theme.of(context).textTheme.labelLarge,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       visualDensity: VisualDensity.standard),
                   onPressed: () => Navigator.pop(context),
@@ -225,7 +225,7 @@ class _TagInputDialogState extends State<TagInputDialog> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: GlassConstants.spacingLarge),
                       textStyle:
-                          const TextStyle(fontSize: GlassConstants.fontControl),
+                          Theme.of(context).textTheme.labelLarge,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       visualDensity: VisualDensity.standard),
                   onPressed: () {

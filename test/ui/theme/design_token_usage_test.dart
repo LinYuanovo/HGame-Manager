@@ -18,12 +18,15 @@ void main() {
           r'EdgeInsets\.(?:all|symmetric|only|fromLTRB)\([^()]*?(?<![\w.])[1-9]\d*(?:\.\d+)?\b[^()]*?\)'),
       '短间隔': RegExp(
           r'SizedBox\((?:width|height):\s*(?:[1-9]|[1-3]\d|40)(?:\.0)?\s*\)'),
+      '按钮与控件字体覆盖': RegExp(
+          r'textStyle:\s*(?:const\s+)?(?:WidgetStatePropertyAll\s*\(\s*)?(?:const\s+)?TextStyle\s*\('),
     };
     for (final file in [
       ...Directory('lib/ui').listSync(recursive: true).whereType<File>(),
       File('lib/main.dart'),
     ]) {
-      if (!file.path.endsWith('.dart') || file.path.endsWith('app_theme.dart')) {
+      if (!file.path.endsWith('.dart') ||
+          file.path.endsWith('app_theme.dart')) {
         continue;
       }
       final source = file.readAsStringSync();
@@ -33,6 +36,16 @@ void main() {
               '\n'.allMatches(source.substring(0, match.start)).length + 1;
           violations.add('${file.path}:$line ${rule.key}');
         }
+      }
+      for (final match in RegExp(r'''fontFamily\s*:\s*['"][^'"]+['"]''')
+          .allMatches(source)) {
+        if (file.path.endsWith('settings_page.dart') &&
+            match.group(0) == "fontFamily: 'MapleMonoNL-NF-CN'") {
+          continue;
+        }
+        final line =
+            '\n'.allMatches(source.substring(0, match.start)).length + 1;
+        violations.add('${file.path}:$line 固定字体');
       }
     }
     expect(violations, isEmpty, reason: violations.join('\n'));

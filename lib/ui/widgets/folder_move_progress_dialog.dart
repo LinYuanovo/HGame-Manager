@@ -410,7 +410,7 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
             padding: const EdgeInsets.only(bottom: GlassConstants.spacingTight),
             child: Text(
               detail,
-              style: TextStyle(fontSize: GlassConstants.fontBody, color: secondary, height: 1.4),
+              style: TextStyle(fontSize: GlassConstants.fontBody, color: secondary, height: GlassConstants.lineHeightCompact),
             ),
           ),
         if (warning != null)
@@ -435,7 +435,7 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
                       color: warningIsError
                           ? AppTheme.errorColor
                           : AppTheme.warningColor,
-                      height: 1.4,
+                      height: GlassConstants.lineHeightCompact,
                     ),
                   ),
                 ),

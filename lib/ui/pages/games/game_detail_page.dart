@@ -1264,7 +1264,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       minimumSize: Size(controlHeight, controlHeight),
                       padding: const EdgeInsets.symmetric(
                           horizontal: GlassConstants.spacingSmall),
-                      textStyle: const TextStyle(
+                      textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
                           fontSize: GlassConstants.fontBody),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       visualDensity: VisualDensity.standard,
@@ -1773,7 +1773,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               minimumSize: Size(controlHeight, controlHeight),
               padding: const EdgeInsets.symmetric(
                   horizontal: GlassConstants.spacingSmall),
-              textStyle: const TextStyle(fontSize: GlassConstants.fontBody),
+              textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: GlassConstants.fontBody),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               visualDensity: VisualDensity.standard,
               foregroundColor: AppTheme.getPrimaryColor(context)),
