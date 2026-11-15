@@ -416,7 +416,11 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
           child: const Text('全选'),
         ),
         OutlinedButton(
-          style: _selectionButtonStyle,
+          style: _buttonStyle.merge(OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.warningColor,
+            side: BorderSide(
+                color: AppTheme.warningColor.withValues(alpha: 0.3)),
+          )),
           onPressed: _locked ? null : () => setState(() => _selected.clear()),
           child: const Text('清空选择'),
         ),

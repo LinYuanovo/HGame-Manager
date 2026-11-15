@@ -111,6 +111,13 @@ class _MetadataTranslationSettingsState
 
   Widget _field(TextEditingController controller, String label,
       {String? hint, bool secret = false, bool multiline = false}) {
+    final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+          fontSize: GlassConstants.fontControl,
+          color: AppTheme.getTextPrimary(context),
+        );
+    final secondaryStyle = textStyle?.copyWith(
+      color: AppTheme.getTextSecondary(context),
+    );
     return Padding(
       padding: const EdgeInsets.only(top: GlassConstants.spacingMedium),
       child: TextField(
@@ -121,13 +128,12 @@ class _MetadataTranslationSettingsState
         maxLines: multiline ? 8 : 1,
         keyboardType: multiline ? TextInputType.multiline : null,
         autocorrect: false,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontSize: GlassConstants.fontControl,
-              color: AppTheme.getTextPrimary(context),
-            ),
+        style: textStyle,
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: secondaryStyle,
           hintText: hint,
+          hintStyle: secondaryStyle,
           hintMaxLines: multiline ? 8 : null,
           floatingLabelBehavior: multiline
               ? FloatingLabelBehavior.always
