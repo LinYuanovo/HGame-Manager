@@ -85,6 +85,73 @@ const _currentPage = '''
 
 void main() {
   group('DLsite 解析', () {
+    test('限定页不把宣传摘要和占位图当成完整刮削结果', () {
+      final product = _product()
+        ..['image'] = [
+          'https://www.dlsite.com/images/web/home/no_img_main.gif',
+          'https://www.dlsite.com/images/web/home/no_img.gif',
+        ];
+      final info = DlsiteParser().parseGameInfo(
+          html_parser.parse('''
+        <h1 id="work_name">测试作品</h1>
+        <section class="p-restricted"><div class="error_message">访问受限</div></section>
+        <meta property="og:image" content="https://www.dlsite.com/modpub/images/web/home/summary_large_image_ja_jp.png">
+        <div class="c-productContent">非作品正文</div>
+        ${_structuredData(product)}
+      '''), _url)!;
+
+      expect(info.isDlsiteUserOnly, isTrue);
+      expect(info.description, isNull);
+      expect(info.descriptionHtml, isNull);
+      expect(info.screenshots, isEmpty);
+    });
+
+    test('精确限定提示可补识别，普通页面中的脚本标记不误判', () {
+      const notice = '\u3053\u306e\u4f5c\u54c1\u306fDLsite'
+          '\u30e6\u30fc\u30b6\u30fc\u9650\u5b9a'
+          '\u30b3\u30f3\u30c6\u30f3\u30c4\u3067\u3059\u3002';
+      final restricted = DlsiteParser().parseGameInfo(
+          html_parser.parse('<h1 id="work_name">测试作品</h1>'
+              '<div class="error_message">$notice</div>'), _url)!;
+      expect(restricted.isDlsiteUserOnly, isTrue);
+
+      final normal = DlsiteParser().parseGameInfo(
+          html_parser.parse('$_currentPage<script>var user_only = true;</script>'
+              '<script>const notice = "$notice";</script>'
+              '<p>说明用户限定功能</p>'), _url)!;
+      expect(normal.isDlsiteUserOnly, isFalse);
+      expect(normal.description, contains('方向键移动'));
+    });
+
+    test('所有图片来源排除站点占位图并从简介 HTML 删除占位节点', () {
+      final product = _product()
+        ..['image'] = [
+          'https://www.dlsite.com/images/web/home/no_img_main.gif',
+          '//img.dlsite.jp/additional.jpg',
+        ];
+      final info = DlsiteParser().parseGameInfo(html_parser.parse('''
+        <h1 id="work_name">测试作品</h1>
+        <div class="work_slider">
+          <img src="https://www.dlsite.com/images/web/home/no_img.gif">
+          <img src="//img.dlsite.jp/cover.jpg">
+        </div>
+        <div itemprop="description"><p>完整正文</p>
+          <img src="https://www.dlsite.com/images/web/home/no_img_main.gif?size=1">
+          <img data-src="//img.dlsite.jp/detail.jpg">
+        </div>
+        ${_structuredData(product)}
+      '''), _url)!;
+      expect(info.isDlsiteUserOnly, isFalse);
+      expect(info.screenshots, [
+        'https://img.dlsite.jp/cover.jpg',
+        'https://img.dlsite.jp/additional.jpg',
+        'https://img.dlsite.jp/detail.jpg',
+      ]);
+      expect(info.description, isNot(contains('no_img')));
+      expect(info.descriptionHtml, isNot(contains('no_img')));
+      expect(info.description, contains('完整正文'));
+    });
+
     test('旧版保留简介、原图、厂商和标题标签', () {
       final info =
           DlsiteParser().parseGameInfo(html_parser.parse(_legacyPage), _url)!;

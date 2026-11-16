@@ -57,5 +57,60 @@ void main() {
       expect(find.text('已选 1 项'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('${dark ? '深色' : '浅色'}受限候选明确提示来源限制且仍可确认', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(900, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final restricted = ScrapeReviewItem(
+          game: Game(path: '受限游戏', title: '原游戏'),
+          candidate: GameInfo(
+              title: '受限候选标题',
+              isDlsiteUserOnly: true,
+              sourceUrl: 'https://example.test/restricted'));
+      final normal = ScrapeReviewItem(
+          game: Game(path: '普通游戏', title: '普通游戏'),
+          candidate: GameInfo(
+              title: '普通候选标题',
+              description: '完整简介',
+              sourceUrl: 'https://example.test/normal'));
+      await tester.pumpWidget(MaterialApp(
+        theme: dark ? AppTheme.darkTheme() : AppTheme.lightTheme(),
+        home: Scaffold(
+            body: ScrapeReviewDialog(
+                items: [restricted, normal],
+                configs: const ScrapeModeConfigs(configs: {}),
+                service: ScrapeReviewService(
+                    repository: GameRepository(),
+                    tagRepository: TagRepository()))),
+      ));
+      await tester.pumpAndSettle();
+
+      final notice = find.text(GameInfo.dlsiteUserOnlyNotice);
+      expect(notice, findsOneWidget);
+      await tester.ensureVisible(notice);
+      await tester.pumpAndSettle();
+      final noticeText = tester.widget<Text>(notice);
+      expect(noticeText.style?.color,
+          AppTheme.getTextPrimary(tester.element(notice)));
+      expect(noticeText.style?.fontSize, GlassConstants.fontBody);
+      expect(find.text('本次未取得来源完整简介。'), findsOneWidget);
+      expect(find.text('本次未取得简介，请核对来源。'), findsNothing);
+      expect(restricted.canKeep, isTrue);
+
+      await tester.tap(find.byKey(const ValueKey('keep-review-item')));
+      await tester.pumpAndSettle();
+      expect(restricted.decision, ScrapeReviewDecision.keep);
+      expect(restricted.applied, isFalse);
+      expect(notice, findsNothing);
+      await tester.tap(find.byIcon(Icons.chevron_left));
+      await tester.pumpAndSettle();
+      expect(notice, findsOneWidget);
+
+      await tester.tap(find.byTooltip('下一项'));
+      await tester.pumpAndSettle();
+      expect(notice, findsNothing);
+      expect(find.text('完整简介'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   }
 }

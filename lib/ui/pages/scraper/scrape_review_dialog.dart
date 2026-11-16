@@ -10,6 +10,7 @@ import '../../../core/repositories/game_repository.dart';
 import '../../../core/repositories/tag_repository.dart';
 import '../../../core/services/scrape_review_service.dart';
 import '../../../core/utils/proxy_client.dart';
+import '../../../scraper/parse_utils.dart';
 import '../../theme/app_theme.dart';
 
 Future<void> showScrapeReviewDialog({
@@ -559,12 +560,37 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
                       [...info.tags, if (info.category != null) info.category!]
                           .join('、')),
                 if (item.fetchError != null) _notice(item.fetchError!),
+                if (info?.isDlsiteUserOnly == true)
+                  Padding(
+                    padding: const EdgeInsets.only(
+                        bottom: GlassConstants.spacingSmall),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.info_outline,
+                            color: AppTheme.warningColor,
+                            size: GlassConstants.iconControl),
+                        const SizedBox(width: GlassConstants.spacingSmall),
+                        Expanded(
+                          child: Text(GameInfo.dlsiteUserOnlyNotice,
+                              style: TextStyle(
+                                color: AppTheme.getTextPrimary(context),
+                                fontSize: GlassConstants.fontBody,
+                              )),
+                        ),
+                      ],
+                    ),
+                  ),
                 if (item.applyError != null) _notice('保存失败：${item.applyError}'),
                 if (item.moveError != null) _notice('移动失败：${item.moveError}'),
                 for (final notice in item.notices) _notice(notice),
                 if (info != null) ...[
                   _detail('简介',
-                      description.isEmpty ? '本次未取得简介，请核对来源。' : description),
+                      description.isEmpty
+                          ? info.isDlsiteUserOnly
+                              ? '本次未取得来源完整简介。'
+                              : '本次未取得简介，请核对来源。'
+                          : description),
                   if (info.screenshots.isNotEmpty) ...[
                     const SizedBox(height: GlassConstants.spacingSmall),
                     Text('图片（${info.screenshots.length}）',
