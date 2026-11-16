@@ -17,6 +17,7 @@ import '../../../core/utils/proxy_client.dart';
 import '../../../scraper/html_parser.dart';
 import '../../../scraper/parse_utils.dart';
 import '../../../core/services/scrape_apply_service.dart';
+import '../../../core/services/dlsite_service.dart';
 import '../../../core/services/vikacg_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/cloudflare_browser_dialog.dart';
@@ -1070,15 +1071,21 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         '  解析器: ${parser?.runtimeType.toString().replaceAll("Parser", "") ?? "无匹配"}');
 
       GameInfo? gameInfo;
-      final isDlsite = sourceUrl.contains('dlsite');
+      final isDlsite = DlsiteService.isDlsiteUrl(sourceUrl);
       final isSteam = sourceUrl.contains('steam');
-      if (await VikAcgService.supportsUrl(sourceUrl)) {
+      if (isDlsite) {
+        final dlsiteService = ref.read(dlsiteServiceProvider);
+        final id = dlsiteService.normalizeId(sourceUrl);
+        if (id != null) {
+          gameInfo = await dlsiteService.fetchById(id);
+        }
+      } else if (await VikAcgService.supportsUrl(sourceUrl)) {
         gameInfo = await _vikAcgService.fetchByUrl(sourceUrl);
         if (gameInfo != null) _addLog('  -> 维咔 API 获取成功');
       }
       http.Response? response;
       Map<String, String> headers = {};
-      if (gameInfo == null) {
+      if (gameInfo == null && !isDlsite) {
         final client =
             await createProxyClientFromPrefs(domain: Uri.parse(sourceUrl).host);
         try {
@@ -1120,13 +1127,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       }
 
       if (html != null || gameInfo != null) {
-        if (gameInfo == null && isDlsite) {
-          final dlsiteService = ref.read(dlsiteServiceProvider);
-          final id = dlsiteService.normalizeId(sourceUrl);
-          if (id != null) {
-            gameInfo = await dlsiteService.fetchById(id);
-          }
-        } else if (gameInfo == null && isSteam) {
+        if (gameInfo == null && isSteam) {
           final steamService = ref.read(steamServiceProvider);
           final appidMatch = RegExp(r'/app/(\d+)').firstMatch(sourceUrl);
           if (appidMatch != null) {
@@ -1178,6 +1179,9 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           gameInfo!.sourceUrl = sourceUrl;
           _storeReview(item, candidate: gameInfo);
           _addLog('  -> 待确认: ${gameInfo.title}');
+          if (gameInfo.isDlsiteUserOnly) {
+            _addLog('  -> ${GameInfo.dlsiteUserOnlyNotice}');
+          }
           if (mounted) {
             setState(() {
               item.progress = 1.0;
@@ -1199,12 +1203,18 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           }
         }
       } else {
-        _addLog('  -> HTTP ${response?.statusCode ?? 'API无结果'}');
-        _storeReview(item, error: '来源访问失败：HTTP ${response?.statusCode ?? '无结果'}');
+        _addLog(isDlsite
+            ? '  -> DLsite 未取得可保存资料'
+            : '  -> HTTP ${response?.statusCode ?? 'API无结果'}');
+        _storeReview(item,
+            error: isDlsite
+                ? 'DLsite 获取资料失败，请检查网络或稍后重试'
+                : '来源访问失败：HTTP ${response?.statusCode ?? '无结果'}');
         if (mounted) {
           setState(() {
             item.progress = 1.0;
-            item.status = 'HTTP${response?.statusCode ?? '失败'}';
+            item.status =
+                isDlsite ? '获取失败' : 'HTTP${response?.statusCode ?? '失败'}';
             _stats.failed++;
             _stats.pending--;
           });

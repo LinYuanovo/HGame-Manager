@@ -101,6 +101,65 @@ void main() {
   });
 
   group('buildMetadataJson', () {
+    test('受限结果写入状态并保留已有正文', () {
+      final info = GameInfo(
+        title: 'Public title',
+        description: 'Restricted summary',
+        descriptionHtml: '<p>Restricted summary</p>',
+        isDlsiteUserOnly: true,
+        sourceUrl: 'https://www.dlsite.com/maniax/work/=/product_id/RJ100001.html',
+      );
+      final previous = <String, dynamic>{
+        'title': 'Previous title',
+        'intro': 'Saved description',
+        'intro_html': '<p>Saved description</p>',
+      };
+      final json = ScrapeApplyService.buildMetadataJson(info,
+          previousMetadata: previous);
+
+      expect(info.toJson().containsKey('intro'), isFalse);
+      expect(info.toJson().containsKey('intro_html'), isFalse);
+      expect(json[GameInfo.dlsiteRestrictionKey], 'user_only');
+      expect(json['title'], 'Public title');
+      expect(json['intro'], 'Saved description');
+      expect(json['intro_html'], '<p>Saved description</p>');
+      expect(previous['title'], 'Previous title');
+      expect(ScrapeApplyService.mergeGameInfo(
+          Game(path: 'fixture', intro: 'Saved description'), info).intro,
+          'Saved description');
+    });
+
+    test('受限结果优先保留数据库正文且不伪造新正文', () {
+      final info = GameInfo(
+          isDlsiteUserOnly: true, sourceUrl: 'https://www.dlsite.com/');
+      final json = ScrapeApplyService.buildMetadataJson(info,
+          intro: 'Database description',
+          previousMetadata: {'intro': 'Metadata description'});
+      expect(json['intro'], 'Database description');
+      expect(ScrapeApplyService.buildMetadataJson(info).containsKey('intro'),
+          isFalse);
+      expect(
+          ScrapeApplyService.buildMetadataJson(info).containsKey('intro_html'),
+          isFalse);
+    });
+
+    test('正常结果清除受限状态并使用本次正文', () {
+      final info = GameInfo(
+        description: 'Current description',
+        descriptionHtml: '<p>Current description</p>',
+        sourceUrl: 'https://www.dlsite.com/',
+      );
+      final json = ScrapeApplyService.buildMetadataJson(info,
+          previousMetadata: {
+            GameInfo.dlsiteRestrictionKey: 'user_only',
+            'intro': 'Saved description',
+            'intro_html': '<p>Saved description</p>',
+          });
+      expect(json.containsKey(GameInfo.dlsiteRestrictionKey), isFalse);
+      expect(json['intro'], 'Current description');
+      expect(json['intro_html'], '<p>Current description</p>');
+    });
+
     test('基础字段与覆盖字段', () {
       final info = GameInfo(
         title: '标题',

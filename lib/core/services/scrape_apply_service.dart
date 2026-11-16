@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart' show DatabaseExecutor;
+import 'package:uuid/uuid.dart';
 
 import '../../scraper/parse_utils.dart';
 import '../models/models.dart';
@@ -12,6 +13,7 @@ import '../repositories/game_repository.dart';
 import '../repositories/tag_repository.dart';
 import '../utils/app_settings.dart';
 import '../utils/game_data_paths.dart';
+import '../utils/path_reference_rewriter.dart';
 import '../utils/proxy_client.dart';
 import '../utils/scraped_image_file_cleaner.dart';
 import '../utils/scraped_image_reference_rewriter.dart';
@@ -100,7 +102,9 @@ class ScrapeApplyService {
     return game.copyWith(
       title: displayTitle ?? game.title,
       version: gameInfo.version ?? game.version,
-      intro: gameInfo.description ?? game.intro,
+      intro: gameInfo.isDlsiteUserOnly
+          ? game.intro
+          : gameInfo.description ?? game.intro,
       features: gameInfo.features.isNotEmpty
           ? gameInfo.features.join('\n')
           : game.features,
@@ -115,8 +119,16 @@ class ScrapeApplyService {
   }
 
   static Map<String, dynamic> buildMetadataJson(GameInfo gameInfo,
-      {String? intro, String? introHtml}) {
+      {String? intro,
+      String? introHtml,
+      Map<String, dynamic>? previousMetadata}) {
     final json = gameInfo.toJson();
+    if (gameInfo.isDlsiteUserOnly) {
+      final previousIntro = previousMetadata?['intro'];
+      final previousHtml = previousMetadata?['intro_html'];
+      if (previousIntro is String) intro ??= previousIntro;
+      if (previousHtml is String) introHtml ??= previousHtml;
+    }
     if (intro != null) json['intro'] = intro;
     if (introHtml != null) json['intro_html'] = introHtml;
     return json;
@@ -144,6 +156,51 @@ class ScrapeApplyService {
       }
     }
     return urlToLocal;
+  }
+
+  static Future<Map<String, String>> _preserveDescriptionImages(
+      Game game, Map<String, dynamic>? metadata) async {
+    final directory = GameDataPaths.imagesDir(game.path);
+    if (!await directory.exists()) return {};
+    final references = [
+      game.intro,
+      game.features,
+      game.changelog,
+      game.guide,
+      if (metadata?['intro'] is String) metadata!['intro'] as String,
+      if (metadata?['intro_html'] is String) metadata!['intro_html'] as String,
+    ];
+    final replacements = <String, String>{};
+    await for (final entity in directory.list(followLinks: false)) {
+      if (entity is! File ||
+          GameDataPaths.parseScrapeImageIndex(entity.path) == null) {
+        continue;
+      }
+      if (!references.any((text) =>
+          _replacePreservedImageReferences(text, {entity.path: ''}) != text)) {
+        continue;
+      }
+      final target = path.join(
+          directory.path, '${const Uuid().v4()}${path.extension(entity.path)}');
+      await entity.copy(target);
+      replacements[entity.path] = target;
+    }
+    return replacements;
+  }
+
+  static String? _replacePreservedImageReferences(
+      String? text, Map<String, String> replacements) {
+    return PathReferenceRewriter.replace(text, {
+      ...replacements,
+      for (final entry in replacements.entries)
+        for (final variant in [entry.key, entry.key.replaceAll('\\', '/')])
+          for (final escape in [
+            const HtmlEscape(),
+            const HtmlEscape(HtmlEscapeMode.element),
+          ])
+            escape.convert(variant):
+                escape.convert(entry.value.replaceAll('\\', '/')),
+    });
   }
 
   static Future<Map<String, String>> downloadAndApplyImages({
@@ -379,6 +436,7 @@ class ScrapeApplyService {
     // 旧布局迁移（根目录 metadata.json/images -> HGMDatas/）必须保留：
     // 现状由详情页 _downloadImagesWithMapping 内部与刮削中心入口承担，
     // 删除详情页私有实现后此处是唯一保障，且该方法幂等。
+    requirePersistence = requirePersistence || gameInfo.isDlsiteUserOnly;
     gameInfo.screenshots = gameInfo.screenshots.toSet().toList();
     final elapsed = Stopwatch()..start();
     ScrapeFileSnapshot? snapshot;
@@ -398,7 +456,30 @@ class ScrapeApplyService {
         snapshot = await ScrapeFileSnapshot.capture(game.path);
       }
 
-      final merged = mergeGameInfo(original ?? game, gameInfo, sourceUrl: sourceUrl);
+      Map<String, dynamic>? previousMetadata;
+      if (gameInfo.isDlsiteUserOnly) {
+        final metadataFile = GameDataPaths.metadataFile(game.path);
+        if (await metadataFile.exists()) {
+          previousMetadata =
+              jsonDecode(await metadataFile.readAsString()) as Map<String, dynamic>;
+        }
+      }
+      final imageReplacements = gameInfo.isDlsiteUserOnly &&
+              gameInfo.screenshots.isNotEmpty
+          ? await _preserveDescriptionImages(original ?? game, previousMetadata)
+          : <String, String>{};
+      if (previousMetadata != null && imageReplacements.isNotEmpty) {
+        previousMetadata = jsonDecode(_replacePreservedImageReferences(
+            jsonEncode(previousMetadata), imageReplacements)!) as Map<String, dynamic>;
+      }
+      var merged = mergeGameInfo(original ?? game, gameInfo, sourceUrl: sourceUrl);
+      if (imageReplacements.isNotEmpty) {
+        merged = merged.copyWith(
+          intro: _replacePreservedImageReferences(merged.intro, imageReplacements),
+          features: _replacePreservedImageReferences(merged.features, imageReplacements),
+          changelog: _replacePreservedImageReferences(merged.changelog, imageReplacements),
+        );
+      }
       int gameId;
       if (game.id != null) {
         await repo.updateScrapedFields(merged);
@@ -415,7 +496,9 @@ class ScrapeApplyService {
       try {
         await GameDataPaths.ensureDataDir(current.path);
         await GameDataPaths.metadataFile(current.path).writeAsString(
-            jsonEncode(markScraped(buildMetadataJson(gameInfo))),
+            jsonEncode(markScraped(buildMetadataJson(gameInfo,
+                intro: gameInfo.isDlsiteUserOnly ? merged.intro : null,
+                previousMetadata: previousMetadata))),
             flush: true);
         metadataSaved = true;
       } catch (e, stackTrace) {
@@ -477,6 +560,11 @@ class ScrapeApplyService {
       } else if (MetadataTranslationConfig.fromSettings(await AppSettings.load())
           .enabled) {
         onTranslationNotice?.call('无法保存本次刮削元数据，已跳过翻译');
+      }
+      final guide = _replacePreservedImageReferences(current.guide, imageReplacements);
+      if (guide != current.guide) {
+        await repo.updateGuide(gameId, guide);
+        current = current.copyWith(guide: guide);
       }
       dataApplied = true;
       current =

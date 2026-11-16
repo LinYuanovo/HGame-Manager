@@ -17,6 +17,7 @@ import '../../../core/repositories/tag_repository.dart';
 import '../../../core/services/dlsite_service.dart';
 import '../../../core/services/game_data_migration_service.dart';
 import '../../../core/services/steam_service.dart';
+import '../../../scraper/parse_utils.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/game_list_widget.dart';
 import '../categories/tag_games_page.dart';
@@ -669,12 +670,14 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         context,
         message: [
           '游戏导入成功',
+          if (gameInfo.isDlsiteUserOnly)
+            GameInfo.dlsiteUserOnlyNotice,
           ..._translationNotices,
         ].join('\n'),
         maxLines: null,
         duration: const Duration(seconds: 8),
         icon: Icons.check_circle_outline,
-        iconColor: _translationNotices.isEmpty
+        iconColor: !gameInfo.isDlsiteUserOnly && _translationNotices.isEmpty
             ? AppTheme.successColor
             : AppTheme.warningColor,
       );

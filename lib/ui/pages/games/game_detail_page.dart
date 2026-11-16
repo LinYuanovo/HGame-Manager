@@ -22,6 +22,7 @@ import '../../../core/utils/forum_domain_utils.dart';
 import '../../../core/utils/html_line_remover.dart';
 import '../../../core/utils/intro_html_sync.dart';
 import '../../../core/services/scrape_apply_service.dart';
+import '../../../core/services/dlsite_service.dart';
 import '../../../core/services/game_tag_edit_service.dart';
 import '../../../core/services/metadata_translation_service.dart';
 import '../../../core/services/app_logger.dart';
@@ -91,6 +92,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   Map<String, String> _mediaPathAliases = {};
 
   String? _introHtml;
+  bool _isDlsiteUserOnly = false;
   Map<String, dynamic>? _translationOriginal;
   bool _viewingOriginal = false;
 
@@ -469,6 +471,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     if (!mounted) return;
     try {
       _introHtml = null;
+      _isDlsiteUserOnly = false;
       _translationOriginal = null;
       _viewingOriginal = false;
       _metadataImageUrls = [];
@@ -477,6 +480,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           .loadMetadata(_currentGame);
       if (json != null) {
         _introHtml = json['intro_html'] as String?;
+        _isDlsiteUserOnly =
+            json[GameInfo.dlsiteRestrictionKey] == 'user_only';
         _translationOriginal = MetadataTranslationService.originalFrom(json);
         _metadataImageUrls =
             (json['image_urls'] as List<dynamic>?)?.cast<String>() ?? [];
@@ -2697,6 +2702,30 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           ],
         ),
         const SizedBox(height: GlassConstants.spacingControl),
+        if (title == '简介' && _isDlsiteUserOnly)
+          Padding(
+            padding: const EdgeInsets.only(
+                bottom: GlassConstants.spacingControl),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.info_outline,
+                    color: AppTheme.warningColor,
+                    size: GlassConstants.iconControl),
+                const SizedBox(width: GlassConstants.spacingSmall),
+                Expanded(
+                  child: Text(
+                    GameInfo.dlsiteUserOnlyNotice,
+                    key: const ValueKey('dlsite-user-only-notice'),
+                    style: TextStyle(
+                      color: AppTheme.getDetailTextPrimary(context),
+                      fontSize: GlassConstants.fontBody,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         if (_isEditing && title == '简介') ...[
           ConstrainedBox(
             constraints: const BoxConstraints(
@@ -4973,7 +5002,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       // 自定义域名替换：旧域名来源链接自动重写为已配置的论坛自定义域名
       final sourceUrl = await ForumDomainUtils.resolveWithCustomDomain(
           _currentGame.sourceUrl!);
-      final isDlsite = sourceUrl.contains('dlsite');
+      final isDlsite = DlsiteService.isDlsiteUrl(sourceUrl);
       final isSteam = sourceUrl.contains('steam');
       GameInfo? gameInfo;
 
@@ -5097,9 +5126,14 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           Navigator.of(context).pop();
           _refreshAllProviders();
           AppTheme.showGlassToast(context,
-              message: ['重新刮削完成', ...translationNotices].join('\n'),
+              message: [
+                '重新刮削完成',
+                if (gameInfo.isDlsiteUserOnly)
+                  GameInfo.dlsiteUserOnlyNotice,
+                ...translationNotices,
+              ].join('\n'),
               maxLines: null,
-              iconColor: translationNotices.isEmpty
+              iconColor: !gameInfo.isDlsiteUserOnly && translationNotices.isEmpty
                   ? AppTheme.successColor
                   : AppTheme.warningColor,
               duration: const Duration(seconds: 8));
@@ -5139,7 +5173,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       if (channel == 'auto') {
         if (input.contains('steampowered.com') || input.contains('steam')) {
           channel = 'steam';
-        } else if (input.contains('dlsite.com') ||
+        } else if (DlsiteService.isDlsiteUrl(input) ||
             RegExp(r'^(RJ|RE|VJ)\d+$', caseSensitive: false).hasMatch(input)) {
           channel = 'dlsite';
         }
@@ -5300,10 +5334,12 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         AppTheme.showGlassToast(context,
             message: [
               '刮削成功: ${updated.title ?? "未知标题"}',
+              if (gameInfo.isDlsiteUserOnly)
+                GameInfo.dlsiteUserOnlyNotice,
               ...translationNotices,
             ].join('\n'),
             maxLines: null,
-            iconColor: translationNotices.isEmpty
+            iconColor: !gameInfo.isDlsiteUserOnly && translationNotices.isEmpty
                 ? AppTheme.successColor
                 : AppTheme.warningColor,
             duration: const Duration(seconds: 8));

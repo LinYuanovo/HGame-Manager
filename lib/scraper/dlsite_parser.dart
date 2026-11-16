@@ -16,6 +16,13 @@ class DlsiteParser extends SiteParser {
     // 每次解析前清空描述图片列表
     _descriptionImageUrls.clear();
 
+    const userOnlyText = '\u3053\u306e\u4f5c\u54c1\u306fDLsite'
+        '\u30e6\u30fc\u30b6\u30fc\u9650\u5b9a'
+        '\u30b3\u30f3\u30c6\u30f3\u30c4\u3067\u3059\u3002';
+    final isUserOnly = document.querySelector('section.p-restricted') != null ||
+        document.querySelectorAll('.error_message').any(
+            (element) => element.text.trim() == userOnlyText);
+
     final titleEl = document.querySelector('#work_name');
     final product = _findProduct(document, url, titleEl?.text.trim());
     final rawTitle = _text(titleEl?.text) ?? _text(product?['name']);
@@ -34,7 +41,7 @@ class DlsiteParser extends SiteParser {
         '.work_slider img');
     for (final image in galleryNodes) {
       final imageUrl =
-          _imageUrl(RichTextExtractor.resolveImageUrl(image, url), url);
+          normalizeImageUrl(RichTextExtractor.resolveImageUrl(image, url), url);
       if (imageUrl != null && !galleryImages.contains(imageUrl)) {
         galleryImages.add(imageUrl);
       }
@@ -47,14 +54,16 @@ class DlsiteParser extends SiteParser {
         ?.attributes['content'];
     final coverImage = galleryImages.isNotEmpty
         ? galleryImages.first
-        : _imageUrl(ogImage, url, allowThumbnail: true);
+        : normalizeImageUrl(ogImage, url, allowThumbnail: true);
 
     String? description;
     String? descriptionHtml;
     var hasBodyText = false;
     final legacyDescription =
         document.querySelector('[itemprop="description"]');
-    final descriptionParts = legacyDescription != null &&
+    final descriptionParts = isUserOnly
+        ? <Element>[]
+        : legacyDescription != null &&
             (legacyDescription.text.trim().isNotEmpty ||
                 legacyDescription.querySelector('img') != null)
         ? [legacyDescription]
@@ -66,8 +75,13 @@ class DlsiteParser extends SiteParser {
       }
       // 富文本与图片下载列表使用同一绝对 URL，下载后可统一替换本地引用。
       for (final image in descEl.querySelectorAll('img')) {
-        final imageUrl = RichTextExtractor.resolveImageUrl(image, url);
-        if (imageUrl == null) continue;
+        final imageUrl = normalizeImageUrl(
+            RichTextExtractor.resolveImageUrl(image, url), url,
+            allowThumbnail: true);
+        if (imageUrl == null) {
+          image.remove();
+          continue;
+        }
         image.attributes['src'] = imageUrl;
         image.attributes.remove('data-original');
         image.attributes.remove('data-src');
@@ -83,7 +97,7 @@ class DlsiteParser extends SiteParser {
     }
     // 结构化摘要较短，只补缺失正文；纯图片介绍仍保留内嵌图和原有 HTML。
     final summary = _text(product?['description']);
-    if (!hasBodyText && summary != null) {
+    if (!isUserOnly && !hasBodyText && summary != null) {
       description =
           [summary, if (_text(description) != null) description!].join('\n\n');
       final paragraph = Element.tag('p')..text = summary;
@@ -170,6 +184,7 @@ class DlsiteParser extends SiteParser {
       maker: maker,
       makerUrl: makerUrl,
       sourceUrl: url,
+      isDlsiteUserOnly: isUserOnly,
     );
   }
 
@@ -190,12 +205,14 @@ class DlsiteParser extends SiteParser {
     return resolved.toString();
   }
 
-  static String? _imageUrl(Object? value, String baseUrl,
+  static String? normalizeImageUrl(Object? value, String baseUrl,
       {bool allowThumbnail = false}) {
     final resolved = _httpUrl(value, baseUrl);
     if (resolved == null) return null;
     final imagePath = Uri.parse(resolved).path.toLowerCase();
-    if (RegExp(r'\.(?:mp4|webm|m3u8|svg|ico)$').hasMatch(imagePath) ||
+    if (RegExp(r'/(?:no_img(?:_main)?\.gif|summary_large_image_[^/]+\.png)$')
+            .hasMatch(imagePath) ||
+        RegExp(r'\.(?:mp4|webm|m3u8|svg|ico)$').hasMatch(imagePath) ||
         (!allowThumbnail &&
             (imagePath.contains('/resize/') ||
                 RegExp(r'[_-]\d+x\d+\.[^/]+$').hasMatch(imagePath)))) {
@@ -213,7 +230,7 @@ class DlsiteParser extends SiteParser {
       final raw = value is Map
           ? _text(value['contentUrl']) ?? _text(value['url'])
           : value;
-      final imageUrl = _imageUrl(raw, url);
+      final imageUrl = normalizeImageUrl(raw, url);
       if (imageUrl != null) yield imageUrl;
     }
   }
