@@ -283,18 +283,18 @@ class _GamesPageState extends ConsumerState<GamesPage>
 
 enum ImportSource { none, dlsite, steam }
 
-class _CloudImportDialog extends StatefulWidget {
+class _CloudImportDialog extends ConsumerStatefulWidget {
   final VoidCallback onImportComplete;
 
   const _CloudImportDialog({required this.onImportComplete});
 
   @override
-  State<_CloudImportDialog> createState() => _CloudImportDialogState();
+  ConsumerState<_CloudImportDialog> createState() => _CloudImportDialogState();
 }
 
-class _CloudImportDialogState extends State<_CloudImportDialog> {
+class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
   ImportSource _source = ImportSource.dlsite;
-  final _dlsiteService = DlsiteService();
+  DlsiteService get _dlsiteService => ref.read(dlsiteServiceProvider);
   final _steamService = SteamService();
   final _idController = TextEditingController();
   String? _folderPath;
@@ -369,7 +369,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     });
 
     try {
-      if (await _skipExistingFolder(GameRepository())) return;
+      if (await _skipExistingFolder(ref.read(gameRepositoryProvider))) return;
       if (_source == ImportSource.dlsite) {
         await _searchDlsite();
       } else {
@@ -579,7 +579,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     });
 
     try {
-      if (await _skipExistingFolder(GameRepository())) return;
+      if (await _skipExistingFolder(ref.read(gameRepositoryProvider))) return;
       if (_source == ImportSource.dlsite) {
         await _importDlsite();
       } else {
@@ -598,12 +598,10 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
   }
 
   Future<void> _importDlsite() async {
-    final repo = GameRepository();
-    final tagRepo = TagRepository();
+    final repo = ref.read(gameRepositoryProvider);
+    final tagRepo = ref.read(tagRepositoryProvider);
     final existingGame = await repo.getGameByPath(_folderPath!);
     if (existingGame != null) throw GameAlreadyExistsException(_folderPath!);
-    await GameDataMigrationService(gameRepository: repo)
-        .migrateGameDirectory(_folderPath!);
 
     if (!mounted) return;
     setState(() => _statusText = '正在通过ID获取: ${_selectedResult.id}');
@@ -616,52 +614,18 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     }
 
     setState(() => _statusText = '正在下载图片...');
-    final urlToLocal = await _dlsiteService.downloadAllImages(
-      gameInfo.screenshots,
-      _folderPath!,
-    );
-
-    String? description = gameInfo.description;
-    if (description != null && urlToLocal.isNotEmpty) {
-      description =
-          _dlsiteService.replaceImageUrlsInDescription(description, urlToLocal);
-    }
-
-    if (!mounted) return;
-    setState(() => _statusText = '正在保存数据...');
-
-    final game = Game(
-      path: _folderPath!,
-      title: gameInfo.title,
-      intro: description,
+    _translationNotices.clear();
+    await ScrapeApplyService.applyScrapeResult(
+      game: Game(path: _folderPath!),
+      gameInfo: gameInfo,
+      mode: ScrapeMode.singleAdd,
+      repo: repo,
+      tagRepo: tagRepo,
+      configs: await _loadScrapeModeConfigs(),
       sourceUrl: gameInfo.sourceUrl,
-      maker: gameInfo.maker,
-      makerUrl: gameInfo.makerUrl,
+      requirePersistence: true,
+      onTranslationNotice: _translationNotices.add,
     );
-
-    final gameId = await repo.insertGame(game);
-
-    await repo.clearGameTags(gameId);
-    for (final tagName in gameInfo.tags) {
-      final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
-      await repo.addTagToGame(gameId, tagId);
-    }
-
-    final metadata = gameInfo.toJson();
-    if (description != null) metadata['intro'] = description;
-    if (metadata['intro_html'] is String && urlToLocal.isNotEmpty) {
-      var introHtml = metadata['intro_html'] as String;
-      for (final entry in urlToLocal.entries) {
-        introHtml = introHtml.replaceAll(entry.key, entry.value);
-      }
-      metadata['intro_html'] = introHtml;
-    }
-    await _saveImagesAndMetadata(gameId, gameInfo.sourceUrl, metadata);
-
-    final savedGame = await repo.getGameByPath(_folderPath!);
-    if (savedGame != null) {
-      await _postImportProcess(repo, savedGame);
-    }
 
     if (mounted) {
       Navigator.of(context).pop();

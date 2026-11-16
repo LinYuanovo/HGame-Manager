@@ -101,6 +101,48 @@ void main() {
   });
 
   group('buildMetadataJson', () {
+    test('受限重刮保留简介原文并更新公开字段', () {
+      const sourceUrl =
+          'https://www.dlsite.com/maniax/work/=/product_id/RJ100001.html';
+      final previous = <String, dynamic>{
+        'source_url': sourceUrl,
+        'intro': 'Translated description',
+        'intro_html': '<p>Translated description</p>',
+        'translation': {
+          'original': {
+            'source_url': sourceUrl,
+            'title': 'Previous title',
+            'intro': 'Original description',
+            'intro_html': '<p>Original description</p>',
+            'tags': ['Previous tag'],
+          },
+          'provider': 'llm',
+          'target_language': 'zh-CN',
+          'translated_at': '2026-11-16T00:00:00.000',
+        },
+      };
+      final metadata = ScrapeApplyService.buildMetadataJson(
+          GameInfo(
+              sourceUrl: sourceUrl,
+              title: 'Current title',
+              tags: ['Current tag'],
+              isDlsiteUserOnly: true),
+          intro: 'Translated description',
+          previousMetadata: previous);
+      expect(metadata['intro'], 'Translated description');
+      expect(metadata['intro_html'], '<p>Translated description</p>');
+      final translation = metadata['translation'] as Map;
+      final original = translation['original'] as Map;
+      expect(original['intro'], 'Original description');
+      expect(original['intro_html'], '<p>Original description</p>');
+      expect(original['title'], 'Current title');
+      expect(original['tags'], ['Current tag']);
+      expect(translation['provider'], 'llm');
+      expect(translation['translated_at'], '2026-11-16T00:00:00.000');
+      expect(((previous['translation'] as Map)['original'] as Map)['title'],
+          'Previous title');
+    });
+
     test('受限结果写入状态并保留已有正文', () {
       final info = GameInfo(
         title: 'Public title',

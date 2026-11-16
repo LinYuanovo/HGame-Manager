@@ -45,6 +45,33 @@ Map<String, dynamic> _product({String id = _id}) => {
     };
 
 void main() {
+  test('DLsite 尾点域名仍使用专用刮削管线', () {
+    expect(
+        DlsiteService.isDlsiteUrl(
+            'https://www.dlsite.com./maniax/work/=/product_id/RJ100001.html'),
+        isTrue);
+  });
+
+  for (final target in ['page', 'api']) {
+    test('DLsite $target 请求限流后重试', () async {
+      var attempts = 0;
+      final service = DlsiteService(
+          clientFactory: () async => MockClient((request) async {
+                final isApi = request.url.path.endsWith('product.json');
+                if (isApi == (target == 'api') && ++attempts == 1) {
+                  return _response('rate limited', status: 429);
+                }
+                return isApi
+                    ? _response(jsonEncode([_product()]))
+                    : _response(_restrictedPage);
+              }));
+      final info = await service.fetchById(_id);
+      expect(info, isNotNull);
+      expect(info!.isDlsiteUserOnly, isTrue);
+      expect(attempts, 2);
+    });
+  }
+
   test('站点判断仅使用真实主机而不是路径或查询参数', () {
     for (final url in [
       'https://www.dlsite.com/maniax/work/=/product_id/RJ100001.html',

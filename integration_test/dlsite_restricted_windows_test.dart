@@ -35,6 +35,8 @@ void main() {
   late AppSettings settings;
   late HttpServer server;
   late String imageUrl;
+  late List<String> requestedTranslationTexts;
+  late List<String> returnedTranslationTexts;
   const sourceUrl =
       'https://www.dlsite.com/maniax/work/=/product_id/RJ100001.html';
   final imageBytes = base64Decode(
@@ -53,10 +55,35 @@ void main() {
     await settings.setString('proxy_mode', 'none');
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     imageUrl = 'http://127.0.0.1:${server.port}/cover.png';
+    requestedTranslationTexts = [];
+    returnedTranslationTexts = [];
     server.listen((request) async {
       if (request.uri.path == '/cover.png') {
         request.response.headers.contentType = ContentType('image', 'png');
         request.response.add(imageBytes);
+      } else if (request.method == 'POST' &&
+          request.uri.path == '/v1/chat/completions') {
+        final body = jsonDecode(await utf8.decoder.bind(request).join());
+        final texts =
+            (jsonDecode(body['messages'][1]['content'])['texts'] as List)
+                .cast<String>();
+        requestedTranslationTexts.addAll(texts);
+        const translations = {
+          'Public title': 'Translated public title',
+          'Public genre': 'Localized category',
+        };
+        final translatedTexts =
+            texts.map((text) => translations[text] ?? text).toList();
+        returnedTranslationTexts.addAll(translatedTexts);
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode({
+          'choices': [
+            {
+              'finish_reason': 'stop',
+              'message': {'content': jsonEncode({'texts': translatedTexts})},
+            },
+          ],
+        }));
       } else {
         request.response.statusCode = 503;
       }
@@ -236,6 +263,224 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('受限重刮保留翻译原文及独占图片', (tester) async {
+    await settings.setString(
+        'metadata_translation', jsonEncode({'enabled': false}));
+    var game = await createGame();
+    final images = GameDataPaths.imagesDir(game.path);
+    final originalImage = File(path.join(images.path, 'scrape_7.png'));
+    final originalImageBytes = [7, 8, 9];
+    await originalImage.writeAsBytes(originalImageBytes);
+    game = game.copyWith(intro: 'Translated description');
+    await repository.updateGame(game);
+    final metadataFile = GameDataPaths.metadataFile(game.path);
+    await metadataFile.writeAsString(jsonEncode({
+      'source_url': sourceUrl,
+      'intro': 'Translated description',
+      'intro_html': '<p>Translated description</p>',
+      'translation': {
+        'original': {
+          'source_url': sourceUrl,
+          'intro': 'Original description',
+          'intro_html': '<p>Original description</p>'
+              '<img src="${originalImage.path.replaceAll('\\', '/')}">',
+        },
+        'provider': 'llm',
+        'target_language': 'zh-CN',
+        'translated_at': '2026-11-16T00:00:00.000',
+      },
+    }), flush: true);
+
+    final result = await apply(game, restricted(), ScrapeMode.rescrape);
+    final metadata = jsonDecode(await metadataFile.readAsString())
+        as Map<String, dynamic>;
+    expect(metadata['intro'], 'Translated description');
+    expect(metadata['intro_html'], '<p>Translated description</p>');
+    expect(metadata[GameInfo.dlsiteRestrictionKey], 'user_only');
+    expect(metadata['translation'], isA<Map>());
+    final translation = metadata['translation'] as Map<String, dynamic>;
+    expect(translation['provider'], 'llm');
+    expect(translation['target_language'], 'zh-CN');
+    expect(translation['translated_at'], '2026-11-16T00:00:00.000');
+    expect(translation['original'], isA<Map>());
+    final original = translation['original'] as Map<String, dynamic>;
+    expect(original['intro'], 'Original description');
+    final preserved = await images
+        .list()
+        .where((entity) =>
+            entity is File &&
+            GameDataPaths.parseScrapeImageIndex(entity.path) == null)
+        .toList();
+    expect(preserved, hasLength(1));
+    final preservedImage = preserved.single as File;
+    expect(
+        path.basenameWithoutExtension(preservedImage.path),
+        matches(RegExp(
+            r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')));
+    expect(original['intro_html'],
+        '<p>Original description</p><img src="${preservedImage.path.replaceAll('\\', '/')}">');
+    expect(await preservedImage.readAsBytes(), originalImageBytes);
+    expect(await originalImage.exists(), isFalse);
+    expect(result.intro, 'Translated description');
+    expect(result.images, hasLength(1));
+    expect(await File(result.images.single.imagePath).readAsBytes(), imageBytes);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('受限重刮仅翻译新增公开字段并保留正文原文', (tester) async {
+    await settings.setString(
+        'metadata_translation',
+        jsonEncode({
+          'enabled': true,
+          'provider': 'llm',
+          'base_url': 'http://127.0.0.1:${server.port}/v1',
+          'model': 'test',
+        }));
+    final game = (await createGame()).copyWith(
+      title: 'Saved translated title',
+      intro: 'Translated description',
+      features: 'Translated features',
+      changelog: 'Translated changelog',
+    );
+    await repository.updateGame(game);
+    final metadataFile = GameDataPaths.metadataFile(game.path);
+    await metadataFile.writeAsString(jsonEncode({
+      'source_url': sourceUrl,
+      'title': 'Saved translated title',
+      'tags': ['Saved translated genre'],
+      'intro': 'Translated description',
+      'intro_html': '<p>Translated description</p>',
+      'features': 'Translated features',
+      'changelog': 'Translated changelog',
+      'translation': {
+        'original': {
+          'source_url': sourceUrl,
+          'title': 'Saved original title',
+          'tags': ['Saved original genre'],
+          'intro': 'Original description',
+          'intro_html': '<p>Original description</p>',
+          'features': 'Original features',
+          'changelog': 'Original changelog',
+        },
+        'provider': 'llm',
+        'target_language': 'zh-CN',
+        'translated_at': '2026-11-16T00:00:00.000',
+      },
+    }), flush: true);
+    final info = restricted()..tags = ['Public genre'];
+
+    final result = await apply(game, info, ScrapeMode.rescrape);
+    expect(requestedTranslationTexts,
+        unorderedEquals(['Public title', 'Public genre']));
+    expect(returnedTranslationTexts,
+        unorderedEquals(['Translated public title', 'Localized category']));
+    expect(result.title, 'Translated public title');
+    expect(result.tags.map((tag) => tag.name), ['Localized category']);
+    expect(result.intro, 'Translated description');
+    expect(result.features, 'Translated features');
+    expect(result.changelog, 'Translated changelog');
+    final metadata = jsonDecode(await metadataFile.readAsString());
+    expect(metadata['title'], 'Translated public title');
+    expect(metadata['tags'], ['Localized category']);
+    expect(metadata['intro'], 'Translated description');
+    expect(metadata['intro_html'], '<p>Translated description</p>');
+    expect(metadata[GameInfo.dlsiteRestrictionKey], 'user_only');
+    final translation = metadata['translation'] as Map<String, dynamic>;
+    expect(translation['provider'], 'llm');
+    final original = translation['original'] as Map<String, dynamic>;
+    expect(original['title'], 'Public title');
+    expect(original['tags'], ['Public genre']);
+    expect(original['intro'], 'Original description');
+    expect(original['intro_html'], '<p>Original description</p>');
+    expect(original['features'], 'Original features');
+    expect(original['changelog'], 'Original changelog');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('受限刮削拒绝更换作品并保留已有数据', (tester) async {
+    final game = await createGame();
+    final tagId = await tagRepository.insertOrGetTag('Saved tag', Tag.typeCustom);
+    await repository.addTagToGame(game.id!, tagId);
+    final images = GameDataPaths.imagesDir(game.path);
+    final originalImage = File(game.images.single.imagePath);
+    final originalImageBytes = await originalImage.readAsBytes();
+    final metadataFile = GameDataPaths.metadataFile(game.path);
+    await metadataFile.writeAsString(jsonEncode({
+      'title': game.title,
+      'source_url': sourceUrl,
+      'intro': game.intro,
+      'intro_html': '<p>Saved description</p>'
+          '<img src="${originalImage.path.replaceAll('\\', '/')}">',
+    }), flush: true);
+    final originalMetadata = await metadataFile.readAsBytes();
+    final sourceFile = GameDataPaths.sourceUrlFile(game.path);
+    final originalSource = await sourceFile.readAsBytes();
+    final originalRecords = <String, Object>{};
+    for (final table in ['games', 'tags', 'game_tag_relation', 'game_images']) {
+      originalRecords[table] = await database.query(table);
+    }
+    final info = restricted()
+      ..sourceUrl =
+          'https://www.dlsite.com/maniax/work/=/product_id/RJ100002.html';
+
+    await expectLater(apply(game, info, ScrapeMode.quickScrape),
+        throwsA(isA<StateError>()));
+    for (final entry in originalRecords.entries) {
+      expect(await database.query(entry.key), entry.value, reason: entry.key);
+    }
+    expect(await metadataFile.readAsBytes(), originalMetadata);
+    expect(await sourceFile.readAsBytes(), originalSource);
+    final remainingImages = await images.list().toList();
+    expect(remainingImages, hasLength(1));
+    expect(remainingImages.single.path, originalImage.path);
+    expect(await originalImage.readAsBytes(), originalImageBytes);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('受限重刮校验已有翻译原文的作品来源', (tester) async {
+    const changedSource =
+        'https://www.dlsite.com/maniax/work/=/product_id/RJ100002.html';
+    final game = (await createGame()).copyWith(sourceUrl: changedSource);
+    await repository.updateGame(game);
+    final metadataFile = GameDataPaths.metadataFile(game.path);
+    await metadataFile.writeAsString(jsonEncode({
+      'source_url': changedSource,
+      'intro': 'Translated description',
+      'translation': {
+        'original': {
+          'source_url': sourceUrl,
+          'intro': 'Original description',
+        },
+      },
+    }));
+    final before = await metadataFile.readAsBytes();
+    final info = restricted()..sourceUrl = changedSource;
+    await expectLater(apply(game, info, ScrapeMode.rescrape),
+        throwsA(isA<StateError>()));
+    expect(await metadataFile.readAsBytes(), before);
+    expect((await repository.getGameById(game.id!))!.sourceUrl, changedSource);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('同作品协议及语言参数变化仍可受限重刮', (tester) async {
+    var game = await createGame();
+    for (final alternateSourceUrl in [
+      'http://www.dlsite.com/maniax/work/=/product_id/RJ100001.html?locale=en_US',
+      'https://www.dlsite.com/maniax/work/=/product_id/RJ100001.html/?locale=ja_JP',
+    ]) {
+      final info = restricted()..sourceUrl = alternateSourceUrl;
+      game = await apply(game, info, ScrapeMode.quickScrape);
+      final metadata = jsonDecode(
+          await GameDataPaths.metadataFile(game.path).readAsString());
+      expect(game.sourceUrl, alternateSourceUrl);
+      expect(game.intro, 'Saved description');
+      expect(metadata['source_url'], alternateSourceUrl);
+      expect(metadata['intro_html'], '<p>Saved description</p>');
+      expect(metadata[GameInfo.dlsiteRestrictionKey], 'user_only');
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('默认直接入口失败也恢复旧图与引用', (tester) async {
     final game = await createGame();
     final metadataFile = GameDataPaths.metadataFile(game.path);
@@ -349,6 +594,11 @@ void main() {
   if (const bool.fromEnvironment('DLSITE_LIVE_VERIFY') ||
       responseFile.isNotEmpty) {
     testWidgets('真实公开服务只检查结构与计数', (tester) async {
+      const proxyUrl = String.fromEnvironment('DLSITE_LIVE_PROXY');
+      if (proxyUrl.isNotEmpty) {
+        await settings.setString('proxy_mode', 'custom');
+        await settings.setString('proxy_url', proxyUrl);
+      }
       final responses = responseFile.isEmpty
           ? <Map<String, dynamic>>[]
           : (jsonDecode(await File(responseFile).readAsString()) as List)

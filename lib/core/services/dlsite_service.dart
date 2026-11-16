@@ -63,7 +63,8 @@ class DlsiteService {
   static bool isDlsiteUrl(String value) {
     final uri = Uri.tryParse(value.trim());
     if (uri == null || !['http', 'https'].contains(uri.scheme)) return false;
-    return uri.host == 'dlsite.com' || uri.host.endsWith('.dlsite.com');
+    final host = uri.host.replaceFirst(RegExp(r'\.$'), '');
+    return host == 'dlsite.com' || host.endsWith('.dlsite.com');
   }
 
   String? normalizeId(String input) {
@@ -382,8 +383,8 @@ class DlsiteService {
     final client = await _clientFactory();
     try {
       final headers = await _buildHeaders();
-      final response = await client.get(Uri.parse(url), headers: headers)
-          .timeout(const Duration(seconds: 15));
+      final response = await httpGetWithRetry(Uri.parse(url),
+          headers: headers, client: client);
 
       _log.info('DlsiteService', '[fetchById] HTTP状态码: ${response.statusCode}');
 
@@ -427,8 +428,8 @@ class DlsiteService {
     final apiUrl = Uri.https('www.dlsite.com', '/$channel/api/=/product.json',
         {'workno': id, 'locale': 'zh_CN'});
     try {
-      final response = await client.get(apiUrl, headers: headers)
-          .timeout(const Duration(seconds: 15));
+      final response = await httpGetWithRetry(apiUrl,
+          headers: headers, client: client);
       if (response.statusCode != 200) {
         _log.warning('DlsiteService', '[fetchById] 公开信息获取失败: HTTP ${response.statusCode}');
         return false;

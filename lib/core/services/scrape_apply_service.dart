@@ -18,6 +18,7 @@ import '../utils/proxy_client.dart';
 import '../utils/scraped_image_file_cleaner.dart';
 import '../utils/scraped_image_reference_rewriter.dart';
 import 'concurrent_image_downloader.dart';
+import 'dlsite_service.dart';
 import 'folder_rename_service.dart';
 import 'game_data_migration_service.dart';
 import 'game_move_service.dart';
@@ -128,11 +129,40 @@ class ScrapeApplyService {
       final previousHtml = previousMetadata?['intro_html'];
       if (previousIntro is String) intro ??= previousIntro;
       if (previousHtml is String) introHtml ??= previousHtml;
+      for (final key in ['features', 'changelog']) {
+        if (!json.containsKey(key) && previousMetadata?[key] is String) {
+          json[key] = previousMetadata![key];
+        }
+      }
     }
     if (intro != null) json['intro'] = intro;
     if (introHtml != null) json['intro_html'] = introHtml;
+    final previousOriginal = previousMetadata == null
+        ? null
+        : MetadataTranslationService.originalFrom(previousMetadata);
+    if (gameInfo.isDlsiteUserOnly && previousOriginal != null) {
+      final original = Map<String, dynamic>.from(json);
+      for (final key in _descriptionKeys) {
+        final replaced = key == 'features' && gameInfo.features.isNotEmpty ||
+            key == 'changelog' && gameInfo.changelog != null;
+        if (!replaced) {
+          if (previousOriginal[key] is String) {
+            original[key] = previousOriginal[key];
+          } else {
+            original.remove(key);
+          }
+        }
+      }
+      json[MetadataTranslationService.metadataKey] = {
+        ...Map<String, dynamic>.from(
+            previousMetadata![MetadataTranslationService.metadataKey] as Map),
+        'original': original,
+      };
+    }
     return json;
   }
+
+  static const _descriptionKeys = ['intro', 'intro_html', 'features', 'changelog'];
 
   static Map<String, String> buildNumberedUrlMapping(
       List<String> imageUrls, List<String> localImages) {
@@ -162,6 +192,9 @@ class ScrapeApplyService {
       Game game, Map<String, dynamic>? metadata) async {
     final directory = GameDataPaths.imagesDir(game.path);
     if (!await directory.exists()) return {};
+    final original = metadata == null
+        ? null
+        : MetadataTranslationService.originalFrom(metadata);
     final references = [
       game.intro,
       game.features,
@@ -169,6 +202,8 @@ class ScrapeApplyService {
       game.guide,
       if (metadata?['intro'] is String) metadata!['intro'] as String,
       if (metadata?['intro_html'] is String) metadata!['intro_html'] as String,
+      for (final key in _descriptionKeys)
+        if (original?[key] is String) original![key] as String,
     ];
     final replacements = <String, String>{};
     await for (final entity in directory.list(followLinks: false)) {
@@ -463,16 +498,42 @@ class ScrapeApplyService {
           previousMetadata =
               jsonDecode(await metadataFile.readAsString()) as Map<String, dynamic>;
         }
+        final dlsite = DlsiteService();
+        final nextSource = sourceUrl ?? gameInfo.sourceUrl;
+        final nextId = DlsiteService.isDlsiteUrl(nextSource)
+            ? dlsite.normalizeId(nextSource)
+            : null;
+        final previousOriginal = previousMetadata == null
+            ? null
+            : MetadataTranslationService.originalFrom(previousMetadata);
+        for (final previousSource in [
+          (original ?? game).sourceUrl,
+          previousMetadata?['source_url'],
+          previousOriginal?['source_url'],
+        ]) {
+          if (previousSource is! String ||
+              !DlsiteService.isDlsiteUrl(previousSource)) {
+            continue;
+          }
+          final previousId = dlsite.normalizeId(previousSource);
+          if (nextId != null && previousId != null && previousId != nextId) {
+            throw StateError('新来源对应不同 DLsite 作品，无法沿用已有简介，请先核对作品编号。');
+          }
+        }
       }
+      final baseGame = original ??
+          (previousMetadata == null
+              ? game
+              : gameWithMetadata(game, previousMetadata));
       final imageReplacements = gameInfo.isDlsiteUserOnly &&
               gameInfo.screenshots.isNotEmpty
-          ? await _preserveDescriptionImages(original ?? game, previousMetadata)
+          ? await _preserveDescriptionImages(baseGame, previousMetadata)
           : <String, String>{};
       if (previousMetadata != null && imageReplacements.isNotEmpty) {
         previousMetadata = jsonDecode(_replacePreservedImageReferences(
             jsonEncode(previousMetadata), imageReplacements)!) as Map<String, dynamic>;
       }
-      var merged = mergeGameInfo(original ?? game, gameInfo, sourceUrl: sourceUrl);
+      var merged = mergeGameInfo(baseGame, gameInfo, sourceUrl: sourceUrl);
       if (imageReplacements.isNotEmpty) {
         merged = merged.copyWith(
           intro: _replacePreservedImageReferences(merged.intro, imageReplacements),
@@ -556,6 +617,7 @@ class ScrapeApplyService {
           repo: repo,
           tagRepo: tagRepo,
           onNotice: onTranslationNotice,
+          refreshRestrictedPublicFields: gameInfo.isDlsiteUserOnly,
         );
       } else if (MetadataTranslationConfig.fromSettings(await AppSettings.load())
           .enabled) {
@@ -627,6 +689,7 @@ class ScrapeApplyService {
     required GameRepository repo,
     required TagRepository tagRepo,
     void Function(String message)? onNotice,
+    bool refreshRestrictedPublicFields = false,
   }) async {
     final settings = await AppSettings.load();
     final config = MetadataTranslationConfig.fromSettings(settings);
@@ -641,8 +704,12 @@ class ScrapeApplyService {
       onNotice?.call('无法读取游戏元数据，已跳过翻译');
       return game;
     }
-    final translated = await MetadataTranslationService()
-        .translate(metadata, config, onNotice: onNotice);
+    final original = MetadataTranslationService.originalFrom(metadata);
+    final translated = refreshRestrictedPublicFields && original != null
+        ? await _translateRestrictedPublicFields(
+            metadata, original, config, onNotice)
+        : await MetadataTranslationService()
+            .translate(metadata, config, onNotice: onNotice);
     if (MetadataTranslationService.originalFrom(translated) == null) return game;
 
     final tempFile = File('${metadataFile.path}.translation.tmp');
@@ -690,6 +757,32 @@ class ScrapeApplyService {
       if (!keepRecoveryFile && await tempFile.exists()) await tempFile.delete();
     }
     return await repo.getGameById(game.id!) ?? updated;
+  }
+
+  static Future<Map<String, dynamic>> _translateRestrictedPublicFields(
+      Map<String, dynamic> metadata,
+      Map<String, dynamic> original,
+      MetadataTranslationConfig config,
+      void Function(String message)? onNotice) async {
+    final publicMetadata = Map<String, dynamic>.from(original)
+      ..remove(MetadataTranslationService.metadataKey);
+    for (final key in _descriptionKeys) {
+      publicMetadata.remove(key);
+    }
+    final translated = await MetadataTranslationService()
+        .translate(publicMetadata, config, onNotice: onNotice);
+    if (MetadataTranslationService.originalFrom(translated) == null) {
+      return metadata;
+    }
+    return {
+      ...metadata,
+      ...translated,
+      MetadataTranslationService.metadataKey: {
+        ...Map<String, dynamic>.from(
+            translated[MetadataTranslationService.metadataKey] as Map),
+        'original': original,
+      },
+    };
   }
 
   static Future<void> syncTags(
