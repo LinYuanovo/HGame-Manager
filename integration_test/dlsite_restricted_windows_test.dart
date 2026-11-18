@@ -151,6 +151,44 @@ void main() {
         tags: ['ADV', 'Public genre'],
       );
 
+  testWidgets('受限导入遇到独立来源文件中的另一作品时保留原目录', (tester) async {
+    final folder = path.join(temporary.path, 'unregistered');
+    await GameDataPaths.ensureDataDir(folder);
+    final source = GameDataPaths.sourceUrlFile(folder);
+    final otherWork = sourceUrl.replaceFirst('RJ100001', 'RJ100002');
+    await source.writeAsString(otherWork);
+    final metadata = GameDataPaths.metadataFile(folder);
+    await metadata.writeAsString(jsonEncode({'intro': 'Description for the other work'}));
+    final before = await metadata.readAsBytes();
+
+    await expectLater(apply(Game(path: folder), restricted(), ScrapeMode.singleAdd),
+        throwsStateError);
+    expect(await source.readAsString(), otherWork);
+    expect(await metadata.readAsBytes(), before);
+    expect(await repository.getGameByPath(folder), isNull);
+  });
+
+  testWidgets('受限重刮保留仅由磁盘特色或更新日志引用的图片', (tester) async {
+    final game = await createGame();
+    final images = GameDataPaths.imagesDir(game.path);
+    final metadata = GameDataPaths.metadataFile(game.path);
+    final previous = jsonDecode(await metadata.readAsString()) as Map<String, dynamic>;
+    final oldBytes = {'features': [1, 2, 3], 'changelog': [4, 5, 6]};
+    for (final entry in oldBytes.entries.indexed) {
+      final image = File(path.join(images.path, 'scrape_${entry.$1 + 1}.png'));
+      await image.writeAsBytes(entry.$2.value);
+      previous[entry.$2.key] = image.path;
+    }
+    await metadata.writeAsString(jsonEncode(previous));
+
+    await apply(game, restricted(), ScrapeMode.rescrape);
+    final saved = jsonDecode(await metadata.readAsString()) as Map<String, dynamic>;
+    for (final entry in oldBytes.entries) {
+      expect(await File(saved[entry.key] as String).readAsBytes(), entry.value,
+          reason: entry.key);
+    }
+  });
+
   for (final mode in ScrapeMode.values) {
     testWidgets('受限元数据保留与占位图片替换 ${mode.name}', (tester) async {
       final game = await createGame();
