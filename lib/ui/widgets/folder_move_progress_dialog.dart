@@ -181,7 +181,7 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
                                 .titleMedium
                                 ?.copyWith(
                                   color: AppTheme.getTextPrimary(context),
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: AppTypography.semibold,
                                 ),
                           ),
                         ),
@@ -233,7 +233,7 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
                       : '扫描中…',
                   style: textTheme.bodySmall?.copyWith(
                     color: primary,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: AppTypography.semibold,
                   ),
                 ),
               ],
@@ -242,7 +242,7 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
             ClipRRect(
               borderRadius: BorderRadius.circular(GlassConstants.radiusIndicator),
               child: AppLinearProgress(
-                value: progress.fraction,
+                value: hasTotal ? progress.fraction : null,
                 minHeight: 6,
                 backgroundColor: primary.withValues(alpha: 0.15),
                 valueColor: AlwaysStoppedAnimation<Color>(primary),
@@ -398,7 +398,7 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
                 headline,
                 style: textTheme.titleMedium?.copyWith(
                   color: AppTheme.getTextPrimary(context),
-                  fontWeight: FontWeight.w600,
+                  fontWeight: AppTypography.semibold,
                 ),
               ),
             ),
@@ -410,7 +410,7 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
             padding: const EdgeInsets.only(bottom: GlassConstants.spacingTight),
             child: Text(
               detail,
-              style: TextStyle(fontSize: GlassConstants.fontBody, color: secondary, height: 1.4),
+              style: TextStyle(fontSize: GlassConstants.fontBody, color: secondary, height: AppTypography.compactHeight),
             ),
           ),
         if (warning != null)
@@ -435,7 +435,7 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
                       color: warningIsError
                           ? AppTheme.errorColor
                           : AppTheme.warningColor,
-                      height: 1.4,
+                      height: AppTypography.compactHeight,
                     ),
                   ),
                 ),

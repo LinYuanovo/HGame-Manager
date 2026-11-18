@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../controllers/window_controller.dart';
 import '../theme/app_theme.dart';
+import 'window_caption_button.dart';
 
 /// 标题栏独立组件，负责标题栏的UI渲染和窗口操作交互
 class TitleBarWidget extends StatelessWidget {
@@ -56,7 +57,7 @@ class TitleBarWidget extends StatelessWidget {
               style: TextStyle(
                 color: AppTheme.lightForegroundColor,
                 fontSize: GlassConstants.fontControl,
-                fontWeight: FontWeight.w600,
+                fontWeight: AppTypography.semibold,
               ),
             ),
           ),
@@ -81,76 +82,28 @@ class TitleBarWidget extends StatelessWidget {
       builder: (context, _) {
         return Row(
           children: [
-            _WindowButton(
+            WindowCaptionButton(
               icon: Icons.remove,
+              tooltip: '最小化',
               onPressed: () => windowController.minimize(),
             ),
-            _WindowButton(
+            WindowCaptionButton(
               icon: windowController.isMaximized
                   ? Icons.filter_none
                   : Icons.crop_square,
               iconSize: GlassConstants.iconBadge,
+              tooltip: windowController.isMaximized ? '还原' : '最大化',
               onPressed: () => windowController.toggleMaximize(),
             ),
-            _WindowButton(
+            WindowCaptionButton(
               icon: Icons.close,
+              tooltip: '关闭',
               onPressed: () => windowController.close(),
               isClose: true,
             ),
           ],
         );
       },
-    );
-  }
-}
-
-class _WindowButton extends StatefulWidget {
-  final IconData icon;
-  final VoidCallback onPressed;
-  final bool isClose;
-  final double? iconSize;
-
-  const _WindowButton({
-    required this.icon,
-    required this.onPressed,
-    this.isClose = false,
-    this.iconSize,
-  });
-
-  @override
-  State<_WindowButton> createState() => _WindowButtonState();
-}
-
-class _WindowButtonState extends State<_WindowButton> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onPressed,
-        child: AnimatedContainer(
-          duration: AppMotion.duration(context, GlassConstants.animFast),
-          width: 46,
-          height: 40,
-          color: _isHovered
-              ? (widget.isClose
-                  ? AppTheme.accentColor.withValues(alpha: 0.8)
-                  : AppTheme.getSurfaceColor(context).withValues(alpha: isDark ? 0.1 : 0.15))
-              : Colors.transparent,
-          child: Icon(
-            widget.icon,
-            size: widget.iconSize ?? GlassConstants.iconSmall,
-            color: _isHovered && widget.isClose
-                ? AppTheme.lightForegroundColor
-                : AppTheme.getTextSecondary(context),
-          ),
-        ),
-      ),
     );
   }
 }

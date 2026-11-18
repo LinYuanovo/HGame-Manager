@@ -18,6 +18,9 @@ void main() {
           r'EdgeInsets\.(?:all|symmetric|only|fromLTRB)\([^()]*?(?<![\w.])[1-9]\d*(?:\.\d+)?\b[^()]*?\)'),
       '短间隔': RegExp(
           r'SizedBox\((?:width|height):\s*(?:[1-9]|[1-3]\d|40)(?:\.0)?\s*\)'),
+      '页面按钮样式': RegExp(r'\b\w+Button\s*\.\s*styleFrom\s*\(|\bButtonStyle\s*\('),
+      '页面字重或行高': RegExp(r'\bFontWeight\.|\bheight:\s*1\.\d+\b'),
+      '页面控件字体': RegExp(r'\btextStyle:\s*(?:const\s+)?TextStyle\s*\('),
     };
     for (final file in [
       ...Directory('lib/ui').listSync(recursive: true).whereType<File>(),
@@ -27,6 +30,10 @@ void main() {
         continue;
       }
       final source = file.readAsStringSync();
+      final fontCalls = source.replaceAll(RegExp(r'AppTheme\.(?:lightTheme|darkTheme)\(\s*fontFamily:'), '');
+      if (RegExp(r'\bfontFamily\s*:').hasMatch(fontCalls)) {
+        violations.add('${file.path} 字体应来自主题或字体预览');
+      }
       for (final rule in rules.entries) {
         for (final match in rule.value.allMatches(source)) {
           final line =

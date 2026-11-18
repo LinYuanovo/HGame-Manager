@@ -6,7 +6,7 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:window_manager/window_manager.dart' hide WindowCaptionButton;
 
 import '../../core/utils/app_settings.dart';
 import '../../core/services/app_logger.dart';
@@ -14,6 +14,7 @@ import '../../core/utils/app_version.dart';
 import '../../core/utils/guide_window_state.dart';
 import '../../core/utils/media_reference_parser.dart';
 import '../theme/app_theme.dart';
+import '../widgets/window_caption_button.dart';
 
 /// 攻略浮窗子窗口入口。
 ///
@@ -114,6 +115,7 @@ class GuideWindowApp extends StatelessWidget {
     final isDark = prefs.getString(AppSettings.themeModeKey) == 'dark';
     return MaterialApp(
       title: '攻略',
+      builder: (context, child) => AppMotionVisibility(child: child!),
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme(fontFamily: fontFamily.isEmpty ? null : fontFamily),
       darkTheme: AppTheme.darkTheme(fontFamily: fontFamily.isEmpty ? null : fontFamily),
@@ -574,37 +576,37 @@ class _GuideWindowPageState extends State<GuideWindowPage>
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: GlassConstants.fontBody,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: AppTypography.semibold,
                   color: AppTheme.getTextPrimary(context),
                 ),
               ),
             ),
-            _TitleBarButton(
+            WindowCaptionButton(
               icon: Icons.tune,
               iconSize: GlassConstants.iconInline,
               tooltip: '透明度 / 文字大小',
               isActive: _settingsOpen,
               onPressed: _toggleSettingsPanel,
             ),
-            _TitleBarButton(
+            WindowCaptionButton(
               icon: _alwaysOnTop ? Icons.push_pin : Icons.push_pin_outlined,
               iconSize: GlassConstants.iconInline,
               tooltip: _alwaysOnTop ? '取消置顶' : '置顶',
               isActive: _alwaysOnTop,
               onPressed: _togglePin,
             ),
-            _TitleBarButton(
+            WindowCaptionButton(
               icon: Icons.remove,
               tooltip: '最小化',
               onPressed: () => windowManager.minimize(),
             ),
-            _TitleBarButton(
+            WindowCaptionButton(
               icon: _isMaximized ? Icons.filter_none : Icons.crop_square,
               iconSize: GlassConstants.iconBadge,
               tooltip: _isMaximized ? '还原' : '最大化',
               onPressed: _toggleMaximize,
             ),
-            _TitleBarButton(
+            WindowCaptionButton(
               icon: Icons.close,
               tooltip: '关闭',
               isClose: true,
@@ -643,7 +645,7 @@ class _GuideWindowPageState extends State<GuideWindowPage>
           textBuffer.join('\n'),
           style: TextStyle(
             fontSize: _fontSize,
-            height: 1.7,
+            height: AppTypography.readingHeight,
             color: AppTheme.getTextPrimary(context),
           ),
         ),
@@ -696,64 +698,6 @@ class _GuideWindowPageState extends State<GuideWindowPage>
         child: ClipRRect(
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
           child: image,
-        ),
-      ),
-    );
-  }
-}
-
-class _TitleBarButton extends StatefulWidget {
-  final IconData icon;
-  final VoidCallback onPressed;
-  final String tooltip;
-  final bool isClose;
-  final bool isActive;
-  final double iconSize;
-
-  const _TitleBarButton({
-    required this.icon,
-    required this.onPressed,
-    required this.tooltip,
-    this.isClose = false,
-    this.isActive = false,
-    this.iconSize = GlassConstants.iconSmall,
-  });
-
-  @override
-  State<_TitleBarButton> createState() => _TitleBarButtonState();
-}
-
-class _TitleBarButtonState extends State<_TitleBarButton> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: widget.tooltip,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTap: widget.onPressed,
-          child: AnimatedContainer(
-            duration: AppMotion.duration(context, GlassConstants.animFast),
-            width: 40,
-            height: 40,
-            color: _isHovered
-                ? (widget.isClose
-                    ? AppTheme.accentColor.withValues(alpha: 0.8)
-                    : AppTheme.getSurfaceColor(context).withValues(alpha: 0.15))
-                : Colors.transparent,
-            child: Icon(
-              widget.icon,
-              size: widget.iconSize,
-              color: _isHovered && widget.isClose
-                  ? AppTheme.lightForegroundColor
-                  : widget.isActive
-                      ? AppTheme.getPrimaryColor(context)
-                      : AppTheme.getTextSecondary(context),
-            ),
-          ),
         ),
       ),
     );

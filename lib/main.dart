@@ -487,11 +487,11 @@ class _HGameManagerAppState extends ConsumerState<HGameManagerApp> {
       darkTheme: _getDarkTheme(fontFamily),
       themeMode: themeMode,
       builder: (context, child) {
-        return GradientBackground(
+        return AppMotionVisibility(child: GradientBackground(
           child: ErrorBoundary(
             child: child ?? const SizedBox.shrink(),
           ),
-        );
+        ));
       },
       home: HomePage(windowController: widget.windowController),
     );
@@ -558,7 +558,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary>
                     '应用发生错误',
                     style: TextStyle(
                       fontSize: GlassConstants.fontDisplay,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: AppTypography.bold,
                       color: AppTheme.errorColor,
                     ),
                   ),
@@ -580,7 +580,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary>
                         const Text(
                           '错误信息:',
                           style: TextStyle(
-                            fontWeight: FontWeight.bold,
+                            fontWeight: AppTypography.bold,
                             color: AppTheme.errorColor,
                           ),
                         ),
@@ -597,7 +597,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary>
                           const Text(
                             '堆栈跟踪:',
                             style: TextStyle(
-                              fontWeight: FontWeight.bold,
+                              fontWeight: AppTypography.bold,
                               color: AppTheme.errorColor,
                             ),
                           ),
@@ -638,7 +638,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary>
                         Text('重试',
                             style: TextStyle(
                                 color: AppTheme.getTextColorOnPrimary(context),
-                                fontWeight: FontWeight.w600)),
+                                fontWeight: AppTypography.semibold)),
                       ],
                     ),
                   ),

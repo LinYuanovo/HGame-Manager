@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:ui' show FlutterView;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 class AppMotion {
   static const fast = Duration(milliseconds: 140);
@@ -8,6 +10,24 @@ class AppMotion {
   static const slow = Duration(milliseconds: 300);
   static const shimmer = Duration(milliseconds: 1400);
   static const curve = Curves.easeOutCubic;
+  static const settle = Cubic(0.20, 0.88, 0.27, 1.20);
+  static const press = Duration(milliseconds: 75);
+
+  static AnimationStyle overlayStyle(BuildContext context) => AnimationStyle(
+        duration: duration(context, medium),
+        reverseDuration: duration(context, fast),
+        curve: curve,
+        reverseCurve: Curves.easeInCubic,
+      );
+
+  static Widget buttonFace(
+          BuildContext context, Set<WidgetState> states, Widget? child) =>
+      AppControlScale(
+        pressed: states.contains(WidgetState.pressed),
+        hovered: states.contains(WidgetState.hovered),
+        enabled: !states.contains(WidgetState.disabled),
+        child: child ?? const SizedBox.shrink(),
+      );
 
   static bool reduced(BuildContext context) =>
       MediaQuery.disableAnimationsOf(context) ||
@@ -27,6 +47,231 @@ class AppMotion {
   }
 }
 
+class AppFrameGate {
+  double _next = 0;
+  double? _rate;
+  int _last = -1;
+
+  bool accepts(Duration elapsed, double rate) {
+    if (!rate.isFinite || rate <= 1) {
+      _rate = null;
+      return true;
+    }
+    final now = elapsed.inMicroseconds;
+    if (rate != _rate || now < _last) _next = now.toDouble();
+    _rate = rate;
+    _last = now;
+    final interval = Duration.microsecondsPerSecond / rate;
+    final sampleTime = now + (interval * .12).clamp(1.0, 1000.0);
+    if (sampleTime < _next) return false;
+    _next += (((sampleTime - _next) / interval).floor() + 1) * interval;
+    return true;
+  }
+}
+
+class AppMotionVisibility extends StatefulWidget {
+  const AppMotionVisibility({super.key, required this.child});
+  final Widget child;
+  @override
+  State<AppMotionVisibility> createState() => _AppMotionVisibilityState();
+}
+
+class _AppMotionVisibilityState extends State<AppMotionVisibility>
+    with WidgetsBindingObserver {
+  late AppLifecycleState? _state = WidgetsBinding.instance.lifecycleState;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) =>
+      setState(() => _state = state);
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => TickerMode(
+      enabled: _state == null ||
+          _state == AppLifecycleState.resumed ||
+          _state == AppLifecycleState.inactive,
+      child: widget.child);
+}
+
+class AppSelectedMark extends StatelessWidget {
+  const AppSelectedMark(
+      {super.key, required this.selected, required this.child});
+  final bool selected;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => AppMotionValue(
+      target: selected ? 1 : 0,
+      curve: AppMotion.settle,
+      builder: (context, value, child) =>
+          Transform.scale(scale: 1 + .36 * value * (1 - value), child: child),
+      child: child);
+}
+
+mixin AppDisplayTicks<T extends StatefulWidget> on State<T>, TickerProvider {
+  FlutterView? _view;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _view = View.of(context);
+  }
+
+  @override
+  Ticker createTicker(TickerCallback onTick) {
+    final gate = AppFrameGate();
+    return super.createTicker((elapsed) {
+      if (gate.accepts(elapsed, _view?.display.refreshRate ?? 0)) {
+        onTick(elapsed);
+      }
+    });
+  }
+}
+
+class AppMotionValue extends StatefulWidget {
+  const AppMotionValue(
+      {super.key,
+      required this.target,
+      this.begin,
+      this.duration = AppMotion.medium,
+      this.curve = AppMotion.curve,
+      required this.builder,
+      this.child});
+  final double target;
+  final double? begin;
+  final Duration duration;
+  final Curve curve;
+  final ValueWidgetBuilder<double> builder;
+  final Widget? child;
+
+  @override
+  State<AppMotionValue> createState() => _AppMotionValueState();
+}
+
+class _AppMotionValueState extends State<AppMotionValue>
+    with SingleTickerProviderStateMixin, AppDisplayTicks {
+  late final _value = AnimationController.unbounded(
+      vsync: this, value: widget.begin ?? widget.target);
+  bool _instant = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _instant =
+        AppMotion.reduced(context) || !TickerMode.valuesOf(context).enabled;
+    if (_instant || !_value.isAnimating) _update();
+  }
+
+  @override
+  void didUpdateWidget(AppMotionValue oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.target != oldWidget.target ||
+        widget.duration != oldWidget.duration) {
+      _update();
+    }
+  }
+
+  void _update() {
+    if (_instant || widget.duration == Duration.zero) {
+      _value.value = widget.target;
+    } else if (_value.value != widget.target || _value.isAnimating) {
+      _value.animateTo(widget.target,
+          duration: widget.duration, curve: widget.curve);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+      animation: _value,
+      child: widget.child,
+      builder: (context, child) =>
+          widget.builder(context, _value.value, child));
+
+  @override
+  void dispose() {
+    _value.dispose();
+    super.dispose();
+  }
+}
+
+class AppControlScale extends StatelessWidget {
+  const AppControlScale(
+      {super.key,
+      required this.child,
+      this.pressed = false,
+      this.hovered = false,
+      this.enabled = true});
+  final Widget child;
+  final bool pressed, hovered, enabled;
+
+  @override
+  Widget build(BuildContext context) => AppMotionValue(
+      target: !enabled
+          ? 1
+          : pressed
+              ? .96
+              : hovered
+                  ? 1.018
+                  : 1,
+      duration: !enabled
+          ? Duration.zero
+          : pressed
+              ? AppMotion.press
+              : AppMotion.medium,
+      curve: pressed ? AppMotion.curve : AppMotion.settle,
+      builder: (context, scale, child) => Transform.scale(
+          scale: AppMotion.reduced(context) ? 1 : scale,
+          transformHitTests: false,
+          child: child),
+      child: child);
+}
+
+class AppActionSurface extends StatefulWidget {
+  const AppActionSurface(
+      {super.key,
+      this.onTap,
+      this.onDoubleTap,
+      this.onSecondaryTapUp,
+      this.borderRadius,
+      required this.child});
+  final VoidCallback? onTap, onDoubleTap;
+  final GestureTapUpCallback? onSecondaryTapUp;
+  final BorderRadius? borderRadius;
+  final Widget child;
+
+  @override
+  State<AppActionSurface> createState() => _AppActionSurfaceState();
+}
+
+class _AppActionSurfaceState extends State<AppActionSurface> {
+  bool _pressed = false, _hovered = false;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+      onTap: widget.onTap,
+      onDoubleTap: widget.onDoubleTap,
+      onSecondaryTapUp: widget.onSecondaryTapUp,
+      borderRadius: widget.borderRadius,
+      onHighlightChanged: (value) => setState(() => _pressed = value),
+      onHover: (value) => setState(() => _hovered = value),
+      child: AppControlScale(
+          pressed: _pressed,
+          hovered: _hovered,
+          enabled: widget.onTap != null ||
+              widget.onDoubleTap != null ||
+              widget.onSecondaryTapUp != null,
+          child: widget.child));
+}
+
 class AppPageTransitionsBuilder extends PageTransitionsBuilder {
   const AppPageTransitionsBuilder();
 
@@ -37,11 +282,21 @@ class AppPageTransitionsBuilder extends PageTransitionsBuilder {
       Animation<double> animation,
       Animation<double> secondaryAnimation,
       Widget child) {
+    final reduced = AppMotion.reduced(context);
     return FadeTransition(
-      opacity: AppMotion.reduced(context)
+      opacity: reduced
           ? const AlwaysStoppedAnimation(1)
           : animation.drive(CurveTween(curve: AppMotion.curve)),
-      child: child,
+      child: AnimatedBuilder(
+          animation: animation,
+          child: child,
+          builder: (context, child) => Transform.translate(
+              offset: Offset(
+                  0,
+                  reduced
+                      ? 0
+                      : (1 - AppMotion.settle.transform(animation.value)) * 8),
+              child: child)),
     );
   }
 }
@@ -76,7 +331,7 @@ class AppContentSwitcher extends StatelessWidget {
     return AnimatedSwitcher(
       duration: AppMotion.duration(context, AppMotion.medium),
       reverseDuration: AppMotion.duration(context, AppMotion.fast),
-      switchInCurve: AppMotion.curve,
+      switchInCurve: Curves.linear,
       switchOutCurve: Curves.easeInCubic,
       layoutBuilder: (currentChild, previousChildren) => Stack(
         alignment: Alignment.topLeft,
@@ -102,13 +357,17 @@ class AppContentSwitcher extends StatelessWidget {
       transitionBuilder: (child, animation) => FadeTransition(
         opacity: AppMotion.reduced(context)
             ? const AlwaysStoppedAnimation(1)
-            : animation,
+            : animation.drive(CurveTween(curve: AppMotion.curve)),
         child: AnimatedBuilder(
           animation: animation,
           builder: (context, child) => Transform.translate(
             offset: AppMotion.reduced(context)
                 ? Offset.zero
-                : Offset((1 - animation.value) * 8 * direction, 0),
+                : Offset(
+                    (1 - AppMotion.settle.transform(animation.value)) *
+                        8 *
+                        direction,
+                    0),
             child: child,
           ),
           child: child,
@@ -136,7 +395,7 @@ class AppEntrance extends StatefulWidget {
 }
 
 class _AppEntranceState extends State<AppEntrance>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AppDisplayTicks {
   late final AnimationController _controller =
       AnimationController(vsync: this, duration: AppMotion.medium);
   Timer? _delay;
@@ -194,7 +453,10 @@ class _AppEntranceState extends State<AppEntrance>
                   opacity:
                       _controller.drive(CurveTween(curve: AppMotion.curve)),
                   child: Transform.translate(
-                    offset: Offset(0, (1 - progress) * 6),
+                    offset: Offset(
+                        0,
+                        (1 - AppMotion.settle.transform(_controller.value)) *
+                            6),
                     child: child,
                   ),
                 ),

@@ -50,7 +50,7 @@ class _ClearedGamesPageState extends ConsumerState<ClearedGamesPage> {
                       Text('已通关',
                           style: TextStyle(
                               fontSize: GlassConstants.fontSection,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: AppTypography.semibold,
                               color: AppTheme.getTextPrimary(context))),
                     ],
                   ),
@@ -94,9 +94,7 @@ class _ClearedGamesPageState extends ConsumerState<ClearedGamesPage> {
                       );
                     },
                     loading: () => const GameListSkeleton(),
-                    error: (error, _) => Center(
-                        child: Text('加载失败: $error',
-                            style: const TextStyle(color: AppTheme.errorColor))),
+                    error: (error, _) => AppLoadError(message: '加载失败：$error', onRetry: () => ref.invalidate(clearedGamesProvider)),
                   ),
                   ),
                 ),

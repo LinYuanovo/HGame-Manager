@@ -170,7 +170,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                             horizontalMargin: 12,
                             headingTextStyle: TextStyle(
                               color: AppTheme.getDetailTextPrimary(context),
-                              fontWeight: FontWeight.w600,
+                              fontWeight: AppTypography.semibold,
                               fontSize: GlassConstants.fontBody,
                             ),
                             dataTextStyle: TextStyle(color: AppTheme.getDetailTextPrimary(context), fontSize: GlassConstants.fontBody),
@@ -197,7 +197,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      _MiniIconButton(
+                                      AppMiniIconButton(
                                         icon: Icons.download,
                                         tooltip: '下载此备份',
                                         color: AppTheme.getPrimaryColor(context),
@@ -205,7 +205,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                                             : () => _runOperation(() => _downloadBackup(f)),
                                       ),
                                       const SizedBox(width: GlassConstants.spacingTiny),
-                                      _MiniIconButton(
+                                      AppMiniIconButton(
                                         icon: Icons.restore,
                                         tooltip: '恢复到此备份',
                                         color: AppTheme.successColor,
@@ -213,7 +213,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                                             : () => _runOperation(() => _restoreFromCloud(f)),
                                       ),
                                       const SizedBox(width: GlassConstants.spacingTiny),
-                                      _MiniIconButton(
+                                      AppMiniIconButton(
                                         icon: Icons.delete_outline,
                                         tooltip: '删除',
                                         color: AppTheme.errorColor,
@@ -336,7 +336,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('删除云端备份', style: TextStyle(fontSize: GlassConstants.fontSection, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+              Text('删除云端备份', style: AppTypography.dialogTitle(context)),
               const SizedBox(height: GlassConstants.spacingCompact),
               Text('确定要删除云端备份 "${file.name}" 吗？', style: TextStyle(color: AppTheme.getTextSecondary(context))),
               const SizedBox(height: GlassConstants.spacingComfortable),
@@ -347,7 +347,7 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
                   const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context, true),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor, foregroundColor: AppTheme.lightForegroundColor),
+                    style: AppButtonStyles.solid(color: AppTheme.errorColor),
                     child: const Text('删除'),
                   ),
                 ],
@@ -377,37 +377,6 @@ class _CloudBackupDialogState extends ConsumerState<CloudBackupDialog> {
         AppTheme.showGlassToast(context, message: '删除失败', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
     }
-  }
-}
-
-/// 迷你图标按钮组件
-class _MiniIconButton extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final Color color;
-  final VoidCallback? onTap;
-
-  const _MiniIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(GlassConstants.spacingTight),
-          child: Icon(icon, size: GlassConstants.iconSmall,
-              color: onTap == null ? AppTheme.getDisabledColor(context) : color),
-        ),
-      ),
-    );
   }
 }
 

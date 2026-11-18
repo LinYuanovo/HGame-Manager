@@ -129,10 +129,12 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
     required bool active,
     required VoidCallback onTap,
   }) {
-    return InkWell(
+    return AppActionSurface(
       onTap: onTap,
       borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
-      child: Container(
+      child: AnimatedContainer(
+        duration: AppMotion.duration(context, AppMotion.fast),
+        curve: AppMotion.curve,
         padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingInline, vertical: GlassConstants.spacingTight),
         decoration: BoxDecoration(
           color: active
@@ -156,7 +158,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
                 color: active
                     ? AppTheme.getPrimaryColor(context)
                     : AppTheme.getTextSecondary(context),
-                fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: active ? AppTypography.semibold : AppTypography.regular,
               ),
             ),
           ],
@@ -168,7 +170,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
   Widget _formatButton(IconData icon, String tooltip, VoidCallback onPressed) {
     return Tooltip(
       message: tooltip,
-      child: InkWell(
+      child: AppActionSurface(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
         child: Padding(
@@ -182,6 +184,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
 
   Widget _imagePickerButton() {
     return PopupMenuButton<String>(
+      popUpAnimationStyle: AppMotion.overlayStyle(context),
       tooltip: '插入图片',
       onSelected: _insertImage,
       itemBuilder: (_) => widget.imagePaths.map((p) {
@@ -218,7 +221,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       textAlignVertical: TextAlignVertical.top,
       style: TextStyle(
           fontSize: widget.fontSize,
-          height: 1.7,
+          height: AppTypography.readingHeight,
           color: AppTheme.getTextPrimary(context)),
       decoration: InputDecoration(
         border: InputBorder.none,
@@ -244,19 +247,19 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
         styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
           p: TextStyle(
               fontSize: widget.fontSize,
-              height: 1.7,
+              height: AppTypography.readingHeight,
               color: AppTheme.getTextPrimary(context)),
           h1: TextStyle(
               fontSize: GlassConstants.fontHeadline,
-              fontWeight: FontWeight.bold,
+              fontWeight: AppTypography.bold,
               color: AppTheme.getTextPrimary(context)),
           h2: TextStyle(
               fontSize: GlassConstants.fontMarkdownTitle,
-              fontWeight: FontWeight.bold,
+              fontWeight: AppTypography.bold,
               color: AppTheme.getTextPrimary(context)),
           h3: TextStyle(
               fontSize: GlassConstants.fontSubtitle,
-              fontWeight: FontWeight.w600,
+              fontWeight: AppTypography.semibold,
               color: AppTheme.getTextPrimary(context)),
           listBullet: TextStyle(
               fontSize: widget.fontSize,

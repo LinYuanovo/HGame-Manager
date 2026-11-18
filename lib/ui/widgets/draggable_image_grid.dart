@@ -62,7 +62,9 @@ class DraggableImageGrid extends StatelessWidget {
           children: [
             GestureDetector(
               onTap: () => _onImageTap(index),
-              child: Container(
+              child: AnimatedContainer(
+                duration: AppMotion.duration(context, AppMotion.fast),
+                curve: AppMotion.curve,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
                   border: Border.all(

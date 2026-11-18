@@ -4,6 +4,38 @@ import 'package:hgame_manager/core/models/theme_mode.dart';
 import 'package:hgame_manager/ui/theme/app_theme.dart';
 
 void main() {
+  testWidgets('主窗口和浮窗的按钮、菜单、标题继承所选字体', (tester) async {
+    const family = '指定界面字体';
+    for (final theme in [AppTheme.lightTheme(fontFamily: family), AppTheme.darkTheme(fontFamily: family)]) {
+      await tester.pumpWidget(MaterialApp(theme: theme, home: Scaffold(body: Column(children: [
+        ElevatedButton(onPressed: () {}, child: const Text('主操作')),
+        FilledButton(onPressed: () {}, child: const Text('保存翻译')),
+        OutlinedButton(onPressed: () {}, child: const Text('选择')),
+        TextButton(onPressed: () {}, child: const Text('取消')),
+      ]))));
+      await tester.pumpAndSettle();
+      for (final label in ['主操作', '保存翻译', '选择', '取消']) {
+        final context = tester.element(find.text(label));
+        final style = DefaultTextStyle.of(context).style;
+        expect(style.fontFamily, family);
+        expect(style.fontSize, GlassConstants.fontControl);
+        expect(find.ancestor(of: find.text(label), matching: find.byType(AppControlScale)), findsOneWidget);
+      }
+      expect(theme.popupMenuTheme.textStyle?.fontFamily, family);
+      expect(theme.appBarTheme.titleTextStyle?.fontFamily, family);
+    }
+  });
+
+  test('语义实色按钮前景与背景对比度至少为 4.5', () {
+    for (final color in [AppTheme.errorColor, AppTheme.successColor, AppTheme.warningColor, AppTheme.starColor, AppTheme.secondaryColor]) {
+      final style = AppButtonStyles.solid(color: color);
+      final background = color.computeLuminance();
+      final foreground = style.foregroundColor!.resolve({})!.computeLuminance();
+      final ratio = background > foreground ? (background + .05) / (foreground + .05) : (foreground + .05) / (background + .05);
+      expect(ratio, greaterThanOrEqualTo(4.5));
+    }
+  });
+
   testWidgets('共享标签和呼吸边框随主题切换使用动态主色', (tester) async {
     for (final theme in [AppTheme.lightTheme(), AppTheme.darkTheme()]) {
       late BuildContext themedContext;

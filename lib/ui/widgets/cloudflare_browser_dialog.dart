@@ -444,7 +444,7 @@ class _ExternalBrowserDialogState extends State<_ExternalBrowserDialog> {
                 style: TextStyle(
                   color: AppTheme.getTextPrimary(context),
                   fontSize: GlassConstants.fontSection,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: AppTypography.bold,
                 )),
             const SizedBox(height: GlassConstants.spacingCompact),
             Text(
@@ -785,7 +785,7 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
                     style: TextStyle(
                       color: AppTheme.getTextPrimary(context),
                       fontSize: GlassConstants.fontHeading,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: AppTypography.bold,
                     ),
                   ),
                 ),
@@ -887,11 +887,7 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
                         )
                       : const Icon(Icons.check_circle_outline, size: GlassConstants.iconSmall),
                   label: Text(_isReadingHtml ? '读取中' : '使用当前页面'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.getPrimaryColor(context)
-                        .withValues(alpha: 0.15),
-                    foregroundColor: AppTheme.getPrimaryColor(context),
-                  ),
+                  style: AppButtonStyles.tinted(context),
                 ),
               ],
             ),

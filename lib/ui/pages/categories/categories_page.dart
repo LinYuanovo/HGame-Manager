@@ -218,7 +218,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
       key: ValueKey('shift-${tag.id}-$_shiftTick'),
       tween: Tween(begin: shift, end: Offset.zero),
       duration: AppMotion.duration(context, AppMotion.fast),
-      curve: Curves.easeOutCubic,
+      curve: AppMotion.curve,
       onEnd: () {
         _shiftStarts.remove(tag.id);
         _currentShift[tag.id!] = Offset.zero;
@@ -246,7 +246,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           title: Text('分类',
               style: TextStyle(
                   fontSize: GlassConstants.fontHeading,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: AppTypography.semibold,
                   color: AppTheme.getTextPrimary(context))),
         ),
         GlassTabBar(
@@ -415,7 +415,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                       '已选择 ${_selectedTagIds.length} 项',
                       style: TextStyle(
                           fontSize: GlassConstants.fontTitle,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: AppTypography.medium,
                           color: AppTheme.getPrimaryColor(context)),
                     ),
                     const SizedBox(width: GlassConstants.spacingMedium),
@@ -496,7 +496,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
       },
       loading: () => const AppSkeleton(
           layout: SkeletonLayout.tags, showToolbar: true, label: '正在加载分类'),
-      error: (e, _) => Center(child: Text('加载失败: $e')),
+      error: (error, _) => AppLoadError(message: '加载失败：$error', onRetry: () => ref.invalidate(provider)),
     );
   }
 
@@ -552,7 +552,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
               Expanded(
                 child: Text(
                   tag.displayName ?? tag.name,
-                  style: TextStyle(fontSize: GlassConstants.fontTitle, fontWeight: FontWeight.w500),
+                  style: TextStyle(fontSize: GlassConstants.fontTitle, fontWeight: AppTypography.medium),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -573,12 +573,12 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
               const SizedBox(width: GlassConstants.spacingTiny),
               if (!_isMultiSelectMode)
                 IconButton(
-                  icon: Icon(
+                  icon: AppSelectedMark(selected: tag.isFavorite, child: Icon(
                       tag.isFavorite ? Icons.favorite : Icons.favorite_border,
                       size: GlassConstants.iconSmall,
                       color: tag.isFavorite
                           ? AppTheme.getFavoriteColor(context)
-                          : null),
+                          : null)),
                   onPressed: () async {
                     await ref
                         .read(tagRepositoryProvider)
@@ -607,10 +607,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('删除选中',
-                style: TextStyle(
-                    fontSize: GlassConstants.fontSection,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.getTextPrimary(context))),
+                style: AppTypography.dialogTitle(context)),
             const SizedBox(height: GlassConstants.spacingCompact),
             Text('确定要删除选中的 ${_selectedTagIds.length} 个标签/系列吗？',
                 style: TextStyle(color: AppTheme.getTextSecondary(context))),
@@ -625,8 +622,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                 const SizedBox(width: GlassConstants.spacingSmall),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.errorColor),
+                  style: AppButtonStyles.solid(color: AppTheme.errorColor),
                   child: const Text('删除'),
                 ),
               ],
@@ -731,10 +727,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(tag.type == Tag.typeCustom ? '修改标签' : '修改系列',
-                      style: TextStyle(
-                          fontSize: GlassConstants.fontSection,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.getTextPrimary(context))),
+                      style: AppTypography.dialogTitle(context)),
                   const SizedBox(height: GlassConstants.spacingMedium),
                   TextField(
                     controller: controller,
@@ -794,10 +787,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(tag.type == Tag.typeCustom ? '删除标签' : '删除系列',
-                  style: TextStyle(
-                      fontSize: GlassConstants.fontSection,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.getTextPrimary(context))),
+                  style: AppTypography.dialogTitle(context)),
               const SizedBox(height: GlassConstants.spacingCompact),
               Text('确定要删除"${tag.displayName ?? tag.name}"吗？',
                   style: TextStyle(color: AppTheme.getTextSecondary(context))),
@@ -817,8 +807,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                       ref.invalidate(favoriteTagsProvider);
                       Navigator.pop(context);
                     },
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.errorColor),
+                    style: AppButtonStyles.solid(color: AppTheme.errorColor),
                     child: const Text('删除'),
                   ),
                 ],

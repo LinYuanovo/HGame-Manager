@@ -123,7 +123,7 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
             '重命名规则管理',
             style: TextStyle(
               fontSize: GlassConstants.fontHeading,
-              fontWeight: FontWeight.bold,
+              fontWeight: AppTypography.bold,
               color: AppTheme.getTextPrimary(context),
             ),
           ),
@@ -153,7 +153,7 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
           const SizedBox(height: GlassConstants.spacingTiny),
           Text(
             _previewName(),
-            style: TextStyle(fontSize: GlassConstants.fontControl, fontWeight: FontWeight.w500, color: AppTheme.getTextPrimary(context)),
+            style: TextStyle(fontSize: GlassConstants.fontControl, fontWeight: AppTypography.medium, color: AppTheme.getTextPrimary(context)),
           ),
         ],
       ),
@@ -321,10 +321,6 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
                 AppTheme.showGlassToast(context, message: '重命名规则已保存', icon: Icons.check_circle, iconColor: AppTheme.successColor);
               }
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.getPrimaryColor(context),
-              foregroundColor: AppTheme.getOnPrimaryColor(context),
-            ),
             child: const Text('保存'),
           ),
         ],

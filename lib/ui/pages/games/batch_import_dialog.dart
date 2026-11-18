@@ -26,7 +26,6 @@ import '../../widgets/app_dropdown.dart';
 ///   [presetKeywords] 提供各目录的预设刮削关键词），跳过父目录选择流程。
 class BatchImportDialog extends StatefulWidget {
   final VoidCallback onImportComplete;
-  final String userFont;
 
   /// 拖拽模式：直接传入游戏目录列表
   final List<String>? initialFolderPaths;
@@ -37,7 +36,6 @@ class BatchImportDialog extends StatefulWidget {
   const BatchImportDialog({
     super.key,
     required this.onImportComplete,
-    required this.userFont,
     this.initialFolderPaths,
     this.presetKeywords,
   });
@@ -50,6 +48,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
   String? _parentPath;
   List<_BatchGameItem> _items = [];
   bool _scanning = false;
+  String? _scanError;
   bool _importing = false;
   bool _importDone = false;
   int _successCount = 0;
@@ -100,7 +99,8 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
       await Future.wait(needDetect.map((item) => _detectKeyword(item)));
 
       if (mounted) setState(() => _items = items);
-    } catch (_) {
+    } catch (error) {
+      if (mounted) setState(() => _scanError = '读取游戏目录失败：$error');
     } finally {
       if (mounted) setState(() => _scanning = false);
     }
@@ -108,12 +108,16 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
 
   Future<void> _pickFolder() async {
     final result = await FilePicker.getDirectoryPath(dialogTitle: '选择游戏父目录');
-    if (result == null) return;
-    if (!mounted) return;
+    if (result == null || !mounted) return;
+    await _scanFolder(result);
+  }
+
+  Future<void> _scanFolder(String result) async {
     setState(() {
       _parentPath = result;
       _items = [];
       _scanning = true;
+      _scanError = null;
     });
     try {
       final parent = Directory(result);
@@ -135,7 +139,8 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
       await Future.wait(items.map((item) => _detectKeyword(item)));
 
       if (mounted) setState(() => _items = items);
-    } catch (_) {
+    } catch (error) {
+      if (mounted) setState(() => _scanError = '读取游戏目录失败：$error');
     } finally {
       if (mounted) setState(() => _scanning = false);
     }
@@ -763,10 +768,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                 _isDragMode && widget.initialFolderPaths!.length == 1
                     ? '添加游戏'
                     : '批量添加游戏',
-                style: TextStyle(
-                    fontSize: GlassConstants.fontSection,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.getTextPrimary(context))),
+                style: AppTypography.dialogTitle(context)),
             const SizedBox(height: GlassConstants.spacingMedium),
             if (_isDragMode)
               // 拖拽模式：文件夹列表由调用方传入，仅展示数量，不提供浏览按钮
@@ -830,10 +832,6 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                     onPressed: _scanning || _importing ? null : _pickFolder,
                     icon: const Icon(Icons.folder_open, size: GlassConstants.iconSmall),
                     label: const Text('浏览'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.getPrimaryColor(context),
-                      foregroundColor: AppTheme.getOnPrimaryColor(context),
-                    ),
                   ),
                 ],
               ),
@@ -847,6 +845,18 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
               const Expanded(
                 child: AppSkeleton(label: '正在扫描文件夹'),
               )
+            else if (_scanError != null)
+              Expanded(child: AppLoadError(message: _scanError!, onRetry: () {
+                if (_isDragMode) {
+                  setState(() {
+                    _scanning = true;
+                    _scanError = null;
+                  });
+                  _initFromDraggedFolders();
+                } else {
+                  _scanFolder(_parentPath!);
+                }
+              }))
             else if (_items.isEmpty)
               Expanded(
                 child: Center(
@@ -943,9 +953,6 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                                               _BatchScrapeSource.none
                                           ? AppTheme.getTextSecondary(context)
                                           : AppTheme.getPrimaryColor(context),
-                                      fontFamily: widget.userFont.isNotEmpty
-                                          ? widget.userFont
-                                          : null,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -958,10 +965,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                                   name,
                                   style: TextStyle(
                                       fontSize: GlassConstants.fontBody,
-                                      color: AppTheme.getTextPrimary(context),
-                                      fontFamily: widget.userFont.isNotEmpty
-                                          ? widget.userFont
-                                          : null),
+                                      color: AppTheme.getTextPrimary(context),),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -975,11 +979,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                                         style: TextStyle(
                                             fontSize: GlassConstants.fontSmall,
                                             color: AppTheme.getTextSecondary(
-                                                context),
-                                            fontFamily:
-                                                widget.userFont.isNotEmpty
-                                                    ? widget.userFont
-                                                    : null),
+                                                context),),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
@@ -1044,13 +1044,6 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                               isDense: true,
                               padding: const EdgeInsets.symmetric(
                                   horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingMicro),
-                              textStyle: TextStyle(
-                                fontSize: GlassConstants.fontSmall,
-                                color: AppTheme.getTextPrimary(context),
-                                fontFamily: widget.userFont.isNotEmpty
-                                    ? widget.userFont
-                                    : null,
-                              ),
                               items: const [
                                 DropdownMenuItem(
                                     value: _BatchScrapeSource.none,
@@ -1076,10 +1069,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                                 name,
                                 style: TextStyle(
                                     fontSize: GlassConstants.fontBody,
-                                    color: AppTheme.getTextPrimary(context),
-                                    fontFamily: widget.userFont.isNotEmpty
-                                        ? widget.userFont
-                                        : null),
+                                    color: AppTheme.getTextPrimary(context),),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -1088,10 +1078,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                               child: TextFormField(
                                 initialValue: item.keyword,
                                 style: TextStyle(
-                                    fontSize: GlassConstants.fontBody,
-                                    fontFamily: widget.userFont.isNotEmpty
-                                        ? widget.userFont
-                                        : null),
+                                    fontSize: GlassConstants.fontBody,),
                                 decoration: InputDecoration(
                                   hintText: '搜索关键词',
                                   hintStyle: TextStyle(
@@ -1154,7 +1141,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                           : '成功导入 $_successCount 个游戏',
                       style: TextStyle(
                         fontSize: GlassConstants.fontControl,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: AppTypography.medium,
                         color: _failCount > 0
                             ? AppTheme.warningColor
                             : AppTheme.successColor,
@@ -1172,10 +1159,6 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                       Navigator.of(context).pop();
                       widget.onImportComplete();
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.getPrimaryColor(context),
-                      foregroundColor: AppTheme.getOnPrimaryColor(context),
-                    ),
                     child: const Text('确认'),
                   ),
                 ],
@@ -1207,12 +1190,6 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                             !_items.any((i) => i.selected)
                         ? null
                         : _startImport,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.getPrimaryColor(context),
-                      foregroundColor: AppTheme.getOnPrimaryColor(context),
-                      disabledBackgroundColor:
-                          AppTheme.getPrimaryColor(context).withValues(alpha: 0.4),
-                    ),
                     child: _importing
                         ? SizedBox(
                             width: 16,

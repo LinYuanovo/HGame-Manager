@@ -199,7 +199,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                       style: TextStyle(
                         color: AppTheme.getTextPrimary(context),
                         fontSize: fontSize,
-                        fontWeight: FontWeight.w400,
+                        fontWeight: AppTypography.regular,
                       ),
                     ),
                   ),
@@ -265,13 +265,13 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                   ? MainAxisAlignment.start
                   : MainAxisAlignment.center,
               children: [
-                Icon(
+                AppSelectedMark(selected: isSelected, child: Icon(
                   isSelected ? route.selectedIcon : route.icon,
                   color: isSelected
                       ? AppTheme.getPrimaryColor(context)
                       : AppTheme.getTextPrimary(context),
                   size: GlassConstants.iconSection,
-                ),
+                )),
                 if (widget.controller.isExpanded) ...[
                   const SizedBox(width: GlassConstants.spacingCompact),
                   Flexible(
@@ -283,7 +283,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                             ? AppTheme.getPrimaryColor(context)
                             : AppTheme.getCardTitleColor(context),
                         fontSize: fontSize,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: isSelected ? AppTypography.semibold : AppTypography.regular,
                       ),
                     ),
                   ),
@@ -315,7 +315,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                                 : AppTheme.getTextPrimary(context),
                             fontSize: (fontSize * 0.78).clamp(
                                 GlassConstants.fontMicro, GlassConstants.fontControl),
-                            fontWeight: FontWeight.w600,
+                            fontWeight: AppTypography.semibold,
                           ),
                           textAlign: TextAlign.center,
                         ),

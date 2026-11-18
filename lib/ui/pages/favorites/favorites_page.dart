@@ -40,7 +40,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
           title: Text('收藏',
               style: TextStyle(
                   fontSize: GlassConstants.fontHeading,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: AppTypography.semibold,
                   color: AppTheme.getTextPrimary(context))),
         ),
         GlassTabBar(
@@ -88,7 +88,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
         );
       },
       loading: () => const GameListSkeleton(),
-      error: (e, _) => Center(child: Text('加载失败: $e')),
+      error: (error, _) => AppLoadError(message: '加载失败：$error', onRetry: () => ref.invalidate(favoriteGamesProvider)),
     );
   }
 
@@ -143,7 +143,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
                     child: Text(
                       tag.displayName ?? tag.name,
                       style: const TextStyle(
-                          fontSize: GlassConstants.fontTitle, fontWeight: FontWeight.w500),
+                          fontSize: GlassConstants.fontTitle, fontWeight: AppTypography.medium),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -165,7 +165,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
       },
       loading: () => const AppSkeleton(
           layout: SkeletonLayout.tags, label: '正在加载收藏分类'),
-      error: (e, _) => Center(child: Text('加载失败: $e')),
+      error: (error, _) => AppLoadError(message: '加载失败：$error', onRetry: () => ref.invalidate(favoriteTagsProvider)),
     );
   }
 }

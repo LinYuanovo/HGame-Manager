@@ -6,9 +6,33 @@ import '../theme/app_theme.dart';
 
 enum SkeletonLayout { posters, rows, tags, tools, image }
 
+class AppLoadError extends StatelessWidget {
+  const AppLoadError({super.key, required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(GlassConstants.spacingMedium),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: GlassConstants.spacingSmall),
+            OutlinedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('重试')),
+          ]),
+        ),
+      );
+}
+
 Widget appImageFrameBuilder(BuildContext context, Widget child, int? frame,
     bool wasSynchronouslyLoaded) {
-  if (wasSynchronouslyLoaded || frame != null) return child;
+  if (wasSynchronouslyLoaded) return child;
+  if (frame != null) {
+    return AppMotionValue(begin: 0, target: 1, duration: AppMotion.fast,
+      builder: (context, value, child) => Opacity(opacity: value, child: child),
+      child: child);
+  }
   return LayoutBuilder(
     builder: (context, constraints) => SizedBox(
       width: constraints.hasBoundedWidth ? constraints.maxWidth : 160,
@@ -44,7 +68,7 @@ class AppSkeleton extends StatefulWidget {
 }
 
 class _AppSkeletonState extends State<AppSkeleton>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+    with SingleTickerProviderStateMixin, AppDisplayTicks, WidgetsBindingObserver {
   late final AnimationController _controller =
       AnimationController(vsync: this, duration: AppMotion.shimmer);
   bool _active = true;
@@ -63,7 +87,7 @@ class _AppSkeletonState extends State<AppSkeleton>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _active = state == AppLifecycleState.resumed;
+    _active = state == AppLifecycleState.resumed || state == AppLifecycleState.inactive;
     _updateAnimation();
   }
 
@@ -297,13 +321,18 @@ class AppLinearProgress extends StatelessWidget {
         ),
       );
     }
-    return LinearProgressIndicator(
-      value: value,
+    final target = value;
+    Widget indicator(double? painted) => LinearProgressIndicator(
+      value: painted,
+      semanticsValue: target == null ? null : '${(target * 100).round()}',
       minHeight: minHeight,
       backgroundColor: backgroundColor,
       valueColor: valueColor,
       borderRadius: borderRadius,
       semanticsLabel: '正在处理',
     );
+    if (target == null) return indicator(null);
+    return AppMotionValue(target: target.clamp(0.0, 1.0), duration: AppMotion.fast,
+        builder: (context, painted, child) => indicator(painted));
   }
 }

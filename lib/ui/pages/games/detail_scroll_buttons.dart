@@ -57,20 +57,14 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
     final position = controller.position;
     final maxScroll = position.maxScrollExtent;
     
-    if (maxScroll <= 0) {
-      setState(() {
-        _showTop = false;
-        _showBottom = false;
-      });
-      return;
-    }
-
     final currentScroll = controller.offset;
     const threshold = 100.0;
-
+    final top = maxScroll > 0 && currentScroll > threshold;
+    final bottom = maxScroll > 0 && currentScroll < maxScroll - threshold;
+    if (_showTop == top && _showBottom == bottom) return;
     setState(() {
-      _showTop = currentScroll > threshold;
-      _showBottom = currentScroll < maxScroll - threshold;
+      _showTop = top;
+      _showBottom = bottom;
     });
   }
 

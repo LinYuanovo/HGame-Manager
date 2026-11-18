@@ -36,7 +36,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
               },
               loading: () => const AppSkeleton(
                   layout: SkeletonLayout.tools, label: '正在加载工具'),
-              error: (e, _) => Center(child: Text('加载失败: $e')),
+              error: (error, _) => AppLoadError(message: '加载失败：$error', onRetry: () => ref.invalidate(allToolsProvider)),
             ),
           ),
         ],
@@ -53,7 +53,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
           '工具',
           style: TextStyle(
             fontSize: GlassConstants.fontDisplay,
-            fontWeight: FontWeight.bold,
+            fontWeight: AppTypography.bold,
             color: AppTheme.getTextPrimary(context),
           ),
         ),
@@ -62,14 +62,6 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
           onPressed: _importTool,
           icon: const Icon(Icons.add, size: GlassConstants.iconAction),
           label: const Text('导入工具'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.getPrimaryColor(context),
-            foregroundColor: AppTheme.getOnPrimaryColor(context),
-            padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingInline),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-            ),
-          ),
         ),
       ],
     );
@@ -107,7 +99,8 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
       itemCount: tools.length,
       itemBuilder: (context, index) {
         final tool = tools[index];
-        return _buildToolCard(tool);
+        return StaggeredItem(key: ValueKey(tool.path), index: index,
+          child: _buildToolCard(tool));
       },
     );
   }
@@ -137,7 +130,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
         child: Material(
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-          child: InkWell(
+          child: AppActionSurface(
             borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
             onDoubleTap: () => _launchTool(tool),
             onSecondaryTapUp: (details) => _showContextMenu(details.globalPosition, tool),
@@ -157,7 +150,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
                     style: TextStyle(
                       fontSize: GlassConstants.fontSmall,
                       color: AppTheme.getTextPrimary(context),
-                      fontWeight: FontWeight.w500,
+                      fontWeight: AppTypography.medium,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -209,6 +202,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
   void _showContextMenu(Offset position, Tool tool) {
     showMenu(
       context: context,
+      popUpAnimationStyle: AppMotion.overlayStyle(context),
       position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx + 1, position.dy + 1),
       items: [
         PopupMenuItem(
@@ -269,7 +263,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('编辑工具名', style: TextStyle(fontSize: GlassConstants.fontSection, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+                  Text('编辑工具名', style: AppTypography.dialogTitle(context)),
                   const SizedBox(height: GlassConstants.spacingMedium),
                   TextField(
                     controller: controller,

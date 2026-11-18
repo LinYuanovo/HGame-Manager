@@ -86,7 +86,19 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     return GlassContainer(
       width: 300,
       padding: const EdgeInsets.all(GlassConstants.spacingLarge),
-      child: Column(
+      child: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: _buildControls()),
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Align(alignment: Alignment.bottomCenter, child: _buildStatsPanel()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildControls() => Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Row(
@@ -102,7 +114,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                   style: TextStyle(
                     color: AppTheme.lightForegroundColor,
                     fontSize: GlassConstants.fontSection,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: AppTypography.bold,
                   ),
                 ),
               ),
@@ -140,19 +152,16 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               onPressed: _cancelProcess,
             ),
           ],
-          const Spacer(),
-          _buildStatsPanel(),
+          const SizedBox(height: GlassConstants.spacingCompact),
         ],
-      ),
-    );
-  }
+      );
 
   Widget _buildProcessStatus() {
     final isRunning = _isProcessing;
-    return SizedBox(
-      width: 200,
+    return SizedBox.fromSize(
+      size: _controlSize,
       child: GlassContainer(
-        padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingControl),
+        padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact),
         color: isRunning
             ? AppTheme.successColor.withValues(alpha: 0.15)
             : AppTheme.getDisabledColor(context).withValues(alpha: 0.1),
@@ -183,13 +192,20 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                     ? AppTheme.successColor
                     : AppTheme.getDisabledColor(context),
                 fontSize: GlassConstants.fontControl,
-                fontWeight: FontWeight.w500,
+                fontWeight: AppTypography.medium,
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Size get _controlSize {
+    final extra = (MediaQuery.textScalerOf(context).scale(GlassConstants.fontControl) -
+            GlassConstants.fontControl).clamp(0.0, double.infinity);
+    return Size(LayoutConstants.panelControlWidth + extra * 2,
+        LayoutConstants.panelControlHeight + extra);
   }
 
   Widget _buildActionButton({
@@ -199,58 +215,22 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     bool isEnabled = true,
     required VoidCallback onPressed,
   }) {
-    return SizedBox(
-      width: 200,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-          onTap: isEnabled ? onPressed : null,
-          child: AnimatedContainer(
-            duration: AppMotion.duration(context, GlassConstants.animFast),
-            padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingControl),
-            decoration: BoxDecoration(
-              color: isEnabled
-                  ? color.withValues(alpha: 0.15)
-                  : AppTheme.getDisabledColor(context).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-              border: Border.all(
-                color: isEnabled
-                    ? color.withValues(alpha: 0.3)
-                    : AppTheme.getDisabledColor(context).withValues(alpha: 0.2),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon,
-                    color:
-                        isEnabled ? color : AppTheme.getDisabledColor(context),
-                    size: GlassConstants.iconAction),
-                const SizedBox(width: GlassConstants.spacingSmall),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color:
-                        isEnabled ? color : AppTheme.getDisabledColor(context),
-                    fontSize: GlassConstants.fontControl,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+    return SizedBox.fromSize(
+      size: _controlSize,
+      child: ElevatedButton.icon(
+        onPressed: isEnabled ? onPressed : null,
+        style: AppButtonStyles.tinted(context, color: color),
+        icon: Icon(icon, size: GlassConstants.iconAction),
+        label: Text(label),
       ),
     );
   }
 
   Widget _buildThreadCountSelector() {
-    return SizedBox(
-      width: 200,
+    return SizedBox.fromSize(
+      size: _controlSize,
       child: GlassContainer(
-        padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingInline),
+        padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact),
         color: AppTheme.getGlassFillColor(context),
         border: Border.all(
             color: AppTheme.getBorderColor(context).withValues(alpha: 0.15)),
@@ -262,7 +242,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 style: TextStyle(
                     color: AppTheme.getTextSecondary(context),
                     fontSize: GlassConstants.fontBody,
-                    fontWeight: FontWeight.w500)),
+                    fontWeight: AppTypography.medium)),
             Row(
               children: [
                 _buildThreadButton(-1),
@@ -271,7 +251,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                     style: TextStyle(
                         color: AppTheme.getPrimaryColor(context),
                         fontSize: GlassConstants.fontBodyLarge,
-                        fontWeight: FontWeight.w700)),
+                        fontWeight: AppTypography.bold)),
                 const SizedBox(width: GlassConstants.spacingSmall),
                 _buildThreadButton(1),
               ],
@@ -283,41 +263,18 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   }
 
   Widget _buildThreadButton(int delta) {
-    return GestureDetector(
-      onTap: _isProcessing
-          ? null
-          : () {
-              setState(() {
-                _threadCount = (_threadCount + delta).clamp(1, 8);
-              });
-            },
-      child: Container(
-        width: 24,
-        height: 24,
-        decoration: BoxDecoration(
-          color: _isProcessing
-              ? AppTheme.getDisabledColor(context).withValues(alpha: 0.1)
-              : AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
-          border: Border.all(
-              color: _isProcessing
-                  ? AppTheme.getDisabledColor(context).withValues(alpha: 0.3)
-                  : AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
-        ),
-        child: Center(
-          child: Text(delta > 0 ? '+' : '-',
-              style: TextStyle(
-                  fontSize: GlassConstants.fontControl,
-                  fontWeight: FontWeight.bold,
-                  color: _isProcessing ? AppTheme.getDisabledColor(context) : AppTheme.getPrimaryColor(context))),
-        ),
-      ),
+    final next = (_threadCount + delta).clamp(1, 8);
+    return AppMiniIconButton(
+      icon: delta > 0 ? Icons.add : Icons.remove,
+      tooltip: delta > 0 ? '增加线程数' : '减少线程数',
+      color: AppTheme.getPrimaryColor(context),
+      onTap: _isProcessing || next == _threadCount ? null : () => setState(() => _threadCount = next),
     );
   }
 
   Widget _buildIncludeScrapedToggle() {
     return SizedBox(
-      width: 200,
+      width: _controlSize.width,
       child: InkWell(
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
         onTap: _isProcessing
@@ -339,17 +296,17 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 ),
               ),
               const SizedBox(width: GlassConstants.spacingSmall),
-              Tooltip(
+              Flexible(child: Tooltip(
                 message: 'metadata.json 含 scraped_at 标识的游戏视为已刮削',
                 child: Text(
                   '包含已刮削的游戏',
                   style: TextStyle(
                     color: AppTheme.getTextSecondary(context),
                     fontSize: GlassConstants.fontBody,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: AppTypography.medium,
                   ),
                 ),
-              ),
+              )),
             ],
           ),
         ),
@@ -372,7 +329,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 style: TextStyle(
                     color: AppTheme.getTextSecondary(context),
                     fontSize: GlassConstants.fontBody,
-                    fontWeight: FontWeight.w600)),
+                    fontWeight: AppTypography.semibold)),
             const SizedBox(height: GlassConstants.spacingCompact),
             _StatRow(
                 label: '已扫描',
@@ -429,7 +386,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 style: TextStyle(
                   color: AppTheme.getTextPrimary(context),
                   fontSize: GlassConstants.fontBodyLarge,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: AppTypography.semibold,
                 ),
               ),
               const Spacer(),
@@ -447,7 +404,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                   style: TextStyle(
                     color: AppTheme.successColor,
                     fontSize: GlassConstants.fontSmall,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: AppTypography.medium,
                   ),
                 ),
               ],
@@ -535,7 +492,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                       item.game.version),
                   style: TextStyle(
                       fontSize: GlassConstants.fontBody,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: AppTypography.semibold,
                       color: AppTheme.getTextPrimary(context)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -570,7 +527,9 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           SizedBox(
             width: 80,
             child: Center(
-              child: Container(
+              child: AnimatedContainer(
+                duration: AppMotion.duration(context, AppMotion.fast),
+                curve: AppMotion.curve,
                 padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingFine),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.1),
@@ -582,7 +541,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                   style: TextStyle(
                       fontSize: GlassConstants.fontCaption,
                       color: statusColor,
-                      fontWeight: FontWeight.w500),
+                      fontWeight: AppTypography.medium),
                 ),
               ),
             ),
@@ -622,7 +581,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 style: TextStyle(
                   color: AppTheme.getTextPrimary(context),
                   fontSize: GlassConstants.fontBodyLarge,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: AppTypography.semibold,
                 ),
               ),
               const Spacer(),
@@ -630,8 +589,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 onPressed: () => setState(() => _logs.clear()),
                 icon: const Icon(Icons.delete_sweep, size: GlassConstants.iconSmall),
                 label: const Text('清空'),
-                style: TextButton.styleFrom(
-                    foregroundColor: AppTheme.getTextSecondary(context)),
+                style: AppButtonStyles.muted(context),
               ),
             ],
           ),
@@ -1157,10 +1115,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('编辑来源链接',
-                      style: TextStyle(
-                          fontSize: GlassConstants.fontSection,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.getTextPrimary(context))),
+                      style: AppTypography.dialogTitle(context)),
                   const SizedBox(height: GlassConstants.spacingMedium),
                   TextField(
                     controller: controller,
@@ -1250,7 +1205,7 @@ class _StatRow extends StatelessWidget {
                 color: AppTheme.getTextSecondary(context), fontSize: GlassConstants.fontSmall)),
         Text(value,
             style: TextStyle(
-                color: color ?? AppTheme.getTextPrimary(context), fontSize: GlassConstants.fontControl, fontWeight: FontWeight.w700)),
+                color: color ?? AppTheme.getTextPrimary(context), fontSize: GlassConstants.fontControl, fontWeight: AppTypography.bold)),
       ],
     );
   }

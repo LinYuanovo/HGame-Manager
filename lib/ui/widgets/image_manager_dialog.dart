@@ -197,10 +197,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                 Expanded(
                   child: Text(
                     '图片管理 - ${widget.game.title ?? "未命名游戏"}',
-                    style: TextStyle(
-                        fontSize: GlassConstants.fontSection,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.getTextPrimary(context)),
+                    style: AppTypography.dialogTitle(context),
                   ),
                 ),
                 IconButton(
@@ -218,13 +215,6 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                     onPressed: _isLoading ? null : _addLocalImage,
                     icon: const Icon(Icons.folder_open, size: GlassConstants.iconAction),
                     label: const Text('本地图片'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.getPrimaryColor(context),
-                      side: BorderSide(
-                          color: AppTheme.getPrimaryColor(context)
-                              .withValues(alpha: 0.3)),
-                      padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingCompact),
-                    ),
                   ),
                 ),
                 const SizedBox(width: GlassConstants.spacingCompact),
@@ -233,13 +223,6 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                     onPressed: _isLoading ? null : _addImageFromUrl,
                     icon: const Icon(Icons.link, size: GlassConstants.iconAction),
                     label: const Text('URL图片'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.getPrimaryColor(context),
-                      side: BorderSide(
-                          color: AppTheme.getPrimaryColor(context)
-                              .withValues(alpha: 0.3)),
-                      padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingCompact),
-                    ),
                   ),
                 ),
               ],
@@ -297,12 +280,6 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                   onPressed: _isLoading ? null : _saveChanges,
                   icon: const Icon(Icons.save, size: GlassConstants.iconAction),
                   label: const Text('保存'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.getPrimaryColor(context),
-                    foregroundColor: AppTheme.getOnPrimaryColor(context),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingCompact),
-                  ),
                 ),
               ],
             ),

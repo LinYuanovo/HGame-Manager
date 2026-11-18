@@ -25,6 +25,8 @@ class LayoutConstants {
   static const double defaultWindowWidth = 1400;
   static const double defaultWindowHeight = 900;
   static const double titleBarHeight = 40;
+  static const double panelControlWidth = 200;
+  static const double panelControlHeight = 52;
   static const double sidebarWidth = 220;
   static const double minSidebarWidth = 70;
   static const double maxSidebarWidth = 280;
@@ -113,12 +115,119 @@ class GlassConstants {
   static const double spacingLarge = 24.0;
   static const double spacingXLarge = 32.0;
 
-  // 缩放
-  static const double hoverScale = 1.02;
-  static const double pressScale = 0.97;
-
   // 对话框
   static const double dialogWidth = 600.0;
+}
+
+abstract final class AppTypography {
+  static const family = 'Microsoft YaHei';
+  static const bundledFamily = 'MapleMonoNL-NF-CN';
+  static const regular = FontWeight.w400;
+  static const medium = FontWeight.w500;
+  static const semibold = FontWeight.w600;
+  static const bold = FontWeight.w700;
+  static const labelHeight = 1.3;
+  static const compactHeight = 1.4;
+  static const bodyHeight = 1.5;
+  static const readingHeight = 1.7;
+  static const spaciousHeight = 1.8;
+  static const buttonLabel = TextStyle(
+    fontSize: GlassConstants.fontControl,
+    fontWeight: medium,
+  );
+  static const bundledPreview = TextStyle(fontFamily: bundledFamily);
+
+  static TextStyle dialogTitle(BuildContext context) => TextStyle(
+        fontSize: GlassConstants.fontSection,
+        fontWeight: bold,
+        color: AppTheme.getTextPrimary(context),
+      );
+
+  static TextStyle preview(String family, double size, Color color) => TextStyle(
+        fontFamily: family.isEmpty ? AppTypography.family : family,
+        fontSize: size,
+        color: color,
+      );
+}
+
+abstract final class AppButtonStyles {
+  static const _compactPadding = EdgeInsets.symmetric(
+    horizontal: GlassConstants.spacingCompact,
+    vertical: GlassConstants.spacingTiny,
+  );
+
+  static ButtonStyle solid({required Color color, bool compact = false}) =>
+      ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: color.computeLuminance() > 0.179 ? Colors.black : Colors.white,
+        padding: compact ? _compactPadding : null,
+      );
+
+  static ButtonStyle tinted(BuildContext context, {Color? color, bool compact = false}) {
+    final accent = color ?? AppTheme.getPrimaryColor(context);
+    final ink = Theme.of(context).brightness == Brightness.light
+        ? Color.alphaBlend(Colors.black.withValues(alpha: 0.35), accent)
+        : Color.alphaBlend(Colors.white.withValues(alpha: 0.30), accent);
+    return ElevatedButton.styleFrom(
+      foregroundColor: ink,
+      backgroundColor: accent.withValues(alpha: 0.12),
+      padding: compact ? _compactPadding : null,
+      side: BorderSide(color: accent.withValues(alpha: 0.3)),
+    );
+  }
+
+  static ButtonStyle outline({Color? color, bool compact = false}) =>
+      OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: color == null ? null : BorderSide(color: color),
+        padding: compact ? _compactPadding : null,
+        minimumSize: compact ? Size.zero : null,
+        tapTargetSize: compact ? MaterialTapTargetSize.shrinkWrap : null,
+      );
+
+  static ButtonStyle get compact => ElevatedButton.styleFrom(padding: _compactPadding);
+
+  static ButtonStyle muted(BuildContext context) =>
+      TextButton.styleFrom(foregroundColor: AppTheme.getTextSecondary(context));
+
+  static ButtonStyle iconTint(BuildContext context) => IconButton.styleFrom(
+        foregroundColor: AppTheme.getPrimaryColor(context),
+        backgroundColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.12),
+      );
+
+  static ButtonStyle caption(BuildContext context, {required bool close, required bool active}) {
+    bool highlighted(Set<WidgetState> states) =>
+        states.contains(WidgetState.hovered) || states.contains(WidgetState.focused);
+    return ButtonStyle(
+      shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+      padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+      backgroundColor: WidgetStateProperty.resolveWith((states) =>
+          close && highlighted(states) ? AppTheme.errorColor : null),
+      foregroundColor: WidgetStateProperty.resolveWith((states) =>
+          close && highlighted(states) ? Colors.black : active
+              ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context)),
+    );
+  }
+}
+
+class AppMiniIconButton extends StatelessWidget {
+  const AppMiniIconButton({super.key, required this.icon, required this.tooltip, required this.color, required this.onTap});
+
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: tooltip,
+    onPressed: onTap,
+    color: color,
+    iconSize: GlassConstants.iconSmall,
+    constraints: const BoxConstraints.tightFor(width: GlassConstants.iconLarge, height: GlassConstants.iconLarge),
+    padding: const EdgeInsets.all(GlassConstants.spacingTiny),
+    icon: Icon(icon),
+  );
 }
 
 class AppTheme {
@@ -252,7 +361,7 @@ class AppTheme {
   };
 
   static ThemeData lightTheme({String? fontFamily}) {
-    final effectiveFontFamily = fontFamily ?? 'Microsoft YaHei';
+    final effectiveFontFamily = fontFamily ?? AppTypography.family;
     return ThemeData(
       fontFamily: effectiveFontFamily,
       brightness: Brightness.light,
@@ -279,14 +388,15 @@ class AppTheme {
         ),
         shadowColor: Colors.black.withValues(alpha: 0.05),
       ),
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
         titleTextStyle: TextStyle(
+          fontFamily: effectiveFontFamily,
           color: textPrimary,
           fontSize: GlassConstants.fontHeading,
-          fontWeight: FontWeight.w600,
+          fontWeight: AppTypography.semibold,
         ),
         iconTheme: IconThemeData(
           color: textSecondary,
@@ -297,35 +407,36 @@ class AppTheme {
         size: GlassConstants.iconMedium,
       ),
       textTheme: TextTheme(
+        labelLarge: AppTypography.buttonLabel,
         headlineLarge: TextStyle(
           color: textPrimary,
           fontSize: GlassConstants.fontHero,
-          fontWeight: FontWeight.bold,
+          fontWeight: AppTypography.bold,
         ),
         headlineMedium: TextStyle(
           color: textPrimary,
           fontSize: GlassConstants.fontDetailTitle,
-          fontWeight: FontWeight.w600,
+          fontWeight: AppTypography.semibold,
         ),
         headlineSmall: TextStyle(
           color: textPrimary,
           fontSize: GlassConstants.fontHeadline,
-          fontWeight: FontWeight.w600,
+          fontWeight: AppTypography.semibold,
         ),
         titleLarge: TextStyle(
           color: textPrimary,
           fontSize: GlassConstants.fontHeading,
-          fontWeight: FontWeight.w500,
+          fontWeight: AppTypography.medium,
         ),
         titleMedium: TextStyle(
           color: textPrimary,
           fontSize: GlassConstants.fontSection,
-          fontWeight: FontWeight.w500,
+          fontWeight: AppTypography.medium,
         ),
         titleSmall: TextStyle(
           color: textSecondary,
           fontSize: GlassConstants.fontTitle,
-          fontWeight: FontWeight.w400,
+          fontWeight: AppTypography.regular,
         ),
         bodyLarge: TextStyle(
           color: textPrimary,
@@ -340,9 +451,18 @@ class AppTheme {
           fontSize: GlassConstants.fontBody,
         ),
       ).apply(fontFamily: effectiveFontFamily),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          foregroundBuilder: AppMotion.buttonFace,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+        ),
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor.withValues(alpha: 0.7),
+          foregroundBuilder: AppMotion.buttonFace,
+          backgroundColor: primaryColor,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingCompact),
           shape: RoundedRectangleBorder(
@@ -354,7 +474,7 @@ class AppTheme {
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
           foregroundColor: textSecondary.withValues(alpha: 0.7),
-        ),
+        ).copyWith(foregroundBuilder: AppMotion.buttonFace),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
@@ -375,12 +495,14 @@ class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: primaryColor.withValues(alpha: 0.7),
+          foregroundBuilder: AppMotion.buttonFace,
+          foregroundColor: primaryColor,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: primaryColor.withValues(alpha: 0.7),
+          foregroundBuilder: AppMotion.buttonFace,
+          foregroundColor: primaryColor,
           side: BorderSide(color: primaryColor.withValues(alpha: 0.7)),
         ),
       ),
@@ -420,17 +542,18 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.black26,
         elevation: 12,
-        textStyle: const TextStyle(
+        textStyle: TextStyle(
+          fontFamily: effectiveFontFamily,
           color: textPrimary,
           fontSize: GlassConstants.fontControl,
-          fontWeight: FontWeight.w500,
+          fontWeight: AppTypography.medium,
         ),
       ),
     );
   }
 
   static ThemeData darkTheme({String? fontFamily}) {
-    final effectiveFontFamily = fontFamily ?? 'Microsoft YaHei';
+    final effectiveFontFamily = fontFamily ?? AppTypography.family;
     return ThemeData(
       fontFamily: effectiveFontFamily,
       brightness: Brightness.dark,
@@ -458,14 +581,15 @@ class AppTheme {
         ),
         shadowColor: Colors.transparent,
       ),
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
         titleTextStyle: TextStyle(
+          fontFamily: effectiveFontFamily,
           color: darkTextPrimary,
           fontSize: GlassConstants.fontHeading,
-          fontWeight: FontWeight.w600,
+          fontWeight: AppTypography.semibold,
         ),
         iconTheme: IconThemeData(
           color: darkTextSecondary,
@@ -476,27 +600,37 @@ class AppTheme {
         size: GlassConstants.iconMedium,
       ),
       textTheme: TextTheme(
+        labelLarge: AppTypography.buttonLabel,
         headlineLarge: TextStyle(
-            color: darkTextPrimary, fontSize: GlassConstants.fontHero, fontWeight: FontWeight.bold),
+            color: darkTextPrimary, fontSize: GlassConstants.fontHero, fontWeight: AppTypography.bold),
         headlineMedium: TextStyle(
-            color: darkTextPrimary, fontSize: GlassConstants.fontDetailTitle, fontWeight: FontWeight.w600),
+            color: darkTextPrimary, fontSize: GlassConstants.fontDetailTitle, fontWeight: AppTypography.semibold),
         headlineSmall: TextStyle(
-            color: darkTextPrimary, fontSize: GlassConstants.fontHeadline, fontWeight: FontWeight.w600),
+            color: darkTextPrimary, fontSize: GlassConstants.fontHeadline, fontWeight: AppTypography.semibold),
         titleLarge: TextStyle(
-            color: darkTextPrimary, fontSize: GlassConstants.fontHeading, fontWeight: FontWeight.w500),
+            color: darkTextPrimary, fontSize: GlassConstants.fontHeading, fontWeight: AppTypography.medium),
         titleMedium: TextStyle(
-            color: darkTextPrimary, fontSize: GlassConstants.fontSection, fontWeight: FontWeight.w500),
+            color: darkTextPrimary, fontSize: GlassConstants.fontSection, fontWeight: AppTypography.medium),
         titleSmall: TextStyle(
             color: darkTextSecondary,
             fontSize: GlassConstants.fontTitle,
-            fontWeight: FontWeight.w400),
+            fontWeight: AppTypography.regular),
         bodyLarge: TextStyle(color: darkTextPrimary, fontSize: GlassConstants.fontSection),
         bodyMedium: TextStyle(color: darkTextSecondary, fontSize: GlassConstants.fontBodyLarge),
         bodySmall: TextStyle(color: darkTextSecondary, fontSize: GlassConstants.fontBody),
       ).apply(fontFamily: effectiveFontFamily),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: darkPrimaryColor,
+          foregroundColor: darkBackgroundColor,
+          foregroundBuilder: AppMotion.buttonFace,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+        ),
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: darkPrimaryColor.withValues(alpha: 0.8),
+          foregroundBuilder: AppMotion.buttonFace,
+          backgroundColor: darkPrimaryColor,
           foregroundColor: darkBackgroundColor,
           padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingCompact),
           shape: RoundedRectangleBorder(
@@ -508,7 +642,7 @@ class AppTheme {
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
           foregroundColor: darkTextSecondary,
-        ),
+        ).copyWith(foregroundBuilder: AppMotion.buttonFace),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
@@ -529,11 +663,13 @@ class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
+          foregroundBuilder: AppMotion.buttonFace,
           foregroundColor: darkPrimaryColor,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
+          foregroundBuilder: AppMotion.buttonFace,
           foregroundColor: darkPrimaryColor,
           side: BorderSide(color: darkPrimaryColor),
         ),
@@ -574,10 +710,11 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.transparent,
         elevation: 0,
-        textStyle: const TextStyle(
+        textStyle: TextStyle(
+          fontFamily: effectiveFontFamily,
           color: darkTextPrimary,
           fontSize: GlassConstants.fontControl,
-          fontWeight: FontWeight.w500,
+          fontWeight: AppTypography.medium,
         ),
       ),
     );
@@ -631,7 +768,7 @@ class AppTheme {
                   style: TextStyle(
                     color: color ?? AppTheme.getPrimaryColor(context),
                     fontSize: GlassConstants.fontControl,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: AppTypography.medium,
                   ),
                 ),
               ),
@@ -659,6 +796,7 @@ class AppTheme {
   }) {
     return showMenu<T>(
       context: context,
+      popUpAnimationStyle: AppMotion.overlayStyle(context),
       position: position,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
@@ -700,7 +838,7 @@ class AppTheme {
         left: 0,
         right: 0,
         child: IgnorePointer(
-          child: Material(
+          child: AppEntrance(child: Material(
             color: Colors.transparent,
             child: Center(
               child: ClipRRect(
@@ -749,7 +887,7 @@ class AppTheme {
                 ),
               ),
             ),
-          ),
+          )),
         ),
       ),
     );
@@ -1063,7 +1201,7 @@ class GlassCard extends StatefulWidget {
 }
 
 class _GlassCardState extends State<GlassCard>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AppDisplayTicks {
   bool _isHovered = false;
   bool _isPressed = false;
   AnimationController? _borderController;
@@ -1137,12 +1275,9 @@ class _GlassCardState extends State<GlassCard>
             : null,
         onTapCancel: () => setState(() => _isPressed = false),
         onTap: widget.onTap,
-        child: AnimatedScale(
-          scale: AppMotion.reduced(context) ? 1 : _isPressed
-              ? GlassConstants.pressScale
-              : (_isHovered ? GlassConstants.hoverScale : 1.0),
-          duration: AppMotion.duration(context, GlassConstants.animFast),
-          curve: GlassConstants.animCurve,
+        child: AppControlScale(
+          pressed: _isPressed && widget.onTap != null,
+          hovered: _isHovered && widget.enableHoverEffect,
           child: AnimatedContainer(
             duration: AppMotion.duration(context, GlassConstants.animFast),
             curve: GlassConstants.animCurve,
@@ -1226,7 +1361,7 @@ class BreathingBorder extends StatefulWidget {
 }
 
 class _BreathingBorderState extends State<BreathingBorder>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AppDisplayTicks {
   AnimationController? _controller;
   Animation<double>? _animation;
 
@@ -1327,6 +1462,7 @@ class _GlassButtonState extends State<GlassButton> {
 
   @override
   Widget build(BuildContext context) {
+    final enabled = widget.isEnabled && widget.onPressed != null;
     return MouseRegion(
       onEnter:
           widget.isEnabled ? (_) => setState(() => _isHovered = true) : null,
@@ -1344,7 +1480,9 @@ class _GlassButtonState extends State<GlassButton> {
         onTapCancel:
             widget.isEnabled ? () => setState(() => _isPressed = false) : null,
         onTap: widget.isEnabled ? widget.onPressed : null,
-        child: AnimatedContainer(
+        child: AppControlScale(
+          pressed: _isPressed, hovered: _isHovered, enabled: enabled,
+          child: AnimatedContainer(
           duration: AppMotion.duration(context, GlassConstants.animFast),
           curve: GlassConstants.animCurve,
           padding: widget.padding,
@@ -1387,6 +1525,7 @@ class _GlassButtonState extends State<GlassButton> {
             ],
           ),
           child: widget.child,
+          ),
         ),
       ),
     );
@@ -1641,7 +1780,7 @@ class GlassChip extends StatelessWidget {
           style: TextStyle(
             color: isSelected ? chipColor : AppTheme.getTextSecondary(context),
             fontSize: GlassConstants.fontBody,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            fontWeight: isSelected ? AppTypography.semibold : AppTypography.regular,
           ),
         ),
       ),
@@ -1718,7 +1857,7 @@ class _CopyToastContent extends StatefulWidget {
 }
 
 class _CopyToastContentState extends State<_CopyToastContent>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AppDisplayTicks {
   late AnimationController _controller;
   late Animation<double> _opacityAnimation;
 
@@ -1800,7 +1939,7 @@ class _CopyToastContentState extends State<_CopyToastContent>
                 style:  TextStyle(
                   color: AppTheme.getPrimaryColor(context),
                   fontSize: GlassConstants.fontControl,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: AppTypography.medium,
                 ),
               ),
             ),
@@ -1860,12 +1999,12 @@ class GlassTabBar extends StatelessWidget implements PreferredSizeWidget {
             labelColor: AppTheme.getPrimaryColor(context),
             unselectedLabelColor: AppTheme.getTextSecondary(context),
             labelStyle: const TextStyle(
-              fontWeight: FontWeight.w600,
+              fontWeight: AppTypography.semibold,
               fontSize: GlassConstants.fontControl,
               height: 1.0,
             ),
             unselectedLabelStyle: const TextStyle(
-              fontWeight: FontWeight.w400,
+              fontWeight: AppTypography.regular,
               fontSize: GlassConstants.fontControl,
               height: 1.0,
             ),
@@ -1898,12 +2037,7 @@ Future<T?> showAppDialog<T>({
     builder: builder,
     barrierDismissible: barrierDismissible,
     barrierColor: barrierColor,
-    animationStyle: AnimationStyle(
-      duration: AppMotion.duration(context, AppMotion.medium),
-      reverseDuration: AppMotion.duration(context, AppMotion.fast),
-      curve: AppMotion.curve,
-      reverseCurve: Curves.easeInCubic,
-    ),
+    animationStyle: AppMotion.overlayStyle(context),
   );
 }
 
@@ -2004,16 +2138,16 @@ class EmptyStateWidget extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon,
+          AppEntrance(child: Icon(icon,
               size: GlassConstants.iconEmptyState,
-              color: AppTheme.getTextSecondary(context).withValues(alpha: 0.4)),
+              color: AppTheme.getTextSecondary(context).withValues(alpha: 0.4))),
           const SizedBox(height: GlassConstants.spacingMedium),
           Text(
             message,
             style: TextStyle(
               color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
               fontSize: GlassConstants.fontTitle,
-              fontWeight: FontWeight.w500,
+              fontWeight: AppTypography.medium,
             ),
           ),
           if (subMessage != null) ...[

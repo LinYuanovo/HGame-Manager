@@ -33,7 +33,7 @@ class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAli
             _selectedGames.isNotEmpty ? '已选 ${_selectedGames.length} 项' : '通关',
             style: TextStyle(
                 fontSize: GlassConstants.fontHeading,
-                fontWeight: FontWeight.w600,
+                fontWeight: AppTypography.semibold,
                 color: AppTheme.getTextPrimary(context)),
           ),
         ),
@@ -68,7 +68,7 @@ class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAli
               );
             },
             loading: () => const GameListSkeleton(),
-            error: (e, _) => Center(child: Text('加载失败: $e')),
+            error: (error, _) => AppLoadError(message: '加载失败：$error', onRetry: () => ref.invalidate(clearedGamesProvider)),
           ),
         ),
       ],

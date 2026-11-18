@@ -208,7 +208,7 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
             '攻略浮窗快捷键',
             style: TextStyle(
               fontSize: GlassConstants.fontHeading,
-              fontWeight: FontWeight.bold,
+              fontWeight: AppTypography.bold,
               color: AppTheme.getTextPrimary(context),
             ),
           ),
@@ -314,14 +314,6 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.getPrimaryColor(context),
-              foregroundColor: AppTheme.getTextColorOnPrimary(context),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(GlassConstants.radiusCompact)),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingInline),
-            ),
             child: const Text('完成'),
           ),
         ],

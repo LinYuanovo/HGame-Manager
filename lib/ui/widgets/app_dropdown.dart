@@ -64,7 +64,7 @@ class AppDropdown<T> extends StatelessWidget {
               ),
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
           dropdownColor: AppTheme.getSurfaceColor(context),
-          style: textStyle ?? defaultTextStyle,
+          style: defaultTextStyle?.merge(textStyle) ?? textStyle,
           menuMaxHeight: menuMaxHeight,
           items: items,
           onChanged: onChanged,

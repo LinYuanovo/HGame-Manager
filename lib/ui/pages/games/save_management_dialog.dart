@@ -139,11 +139,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
           Expanded(
             child: Text(
               '存档管理 - ${widget.game.title ?? "未知游戏"}',
-              style: TextStyle(
-                fontSize: GlassConstants.fontSection,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.getDetailTextPrimary(context),
-              ),
+              style: AppTypography.dialogTitle(context),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -186,37 +182,22 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
               ),
             ),
             const SizedBox(width: GlassConstants.spacingSmall),
-            SizedBox(
-              height: 32,
-              child: OutlinedButton.icon(
+            OutlinedButton.icon(
                 onPressed: _selectSaveFolder,
                 icon: const Icon(Icons.folder_open, size: GlassConstants.iconCompact),
-                label: const Text('选择', style: TextStyle(fontSize: GlassConstants.fontSmall)),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall),
-                  side: BorderSide(color: AppTheme.successColor.withValues(alpha: 0.3)),
-                  foregroundColor: AppTheme.successColor,
-                ),
-              ),
+                label: const Text('选择'),
+                style: AppButtonStyles.outline(color: AppTheme.successColor, compact: true),
             ),
             const SizedBox(width: GlassConstants.spacingTiny),
-            SizedBox(
-              height: 32,
-              child: ElevatedButton(
-                onPressed: _savePathEdit,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact),
-                ),
-                child: const Text('保存', style: TextStyle(fontSize: GlassConstants.fontSmall)),
-              ),
+            ElevatedButton(
+              onPressed: _savePathEdit,
+              style: AppButtonStyles.compact,
+              child: const Text('保存'),
             ),
             const SizedBox(width: GlassConstants.spacingTiny),
-            SizedBox(
-              height: 32,
-              child: TextButton(
-                onPressed: () => setState(() => _isEditingPath = false),
-                child: const Text('取消', style: TextStyle(fontSize: GlassConstants.fontSmall)),
-              ),
+            TextButton(
+              onPressed: () => setState(() => _isEditingPath = false),
+              child: const Text('取消'),
             ),
           ] else ...[
             Expanded(
@@ -230,35 +211,21 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
               ),
             ),
             const SizedBox(width: GlassConstants.spacingSmall),
-            SizedBox(
-              height: 32,
-              child: OutlinedButton.icon(
+            OutlinedButton.icon(
                 onPressed: _selectSaveFolder,
                 icon: const Icon(Icons.folder_open, size: GlassConstants.iconCompact),
-                label: const Text('选择路径', style: TextStyle(fontSize: GlassConstants.fontSmall)),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact),
-                  side: BorderSide(color: AppTheme.successColor.withValues(alpha: 0.3)),
-                  foregroundColor: AppTheme.successColor,
-                ),
-              ),
+                label: const Text('选择路径'),
+                style: AppButtonStyles.outline(color: AppTheme.successColor, compact: true),
             ),
             const SizedBox(width: GlassConstants.spacingTiny),
-            SizedBox(
-              height: 32,
-              child: OutlinedButton.icon(
+            OutlinedButton.icon(
                 onPressed: () {
                   _pathEditController.text = _savePath ?? '';
                   setState(() => _isEditingPath = true);
                 },
                 icon: const Icon(Icons.edit, size: GlassConstants.iconCompact),
-                label: const Text('编辑', style: TextStyle(fontSize: GlassConstants.fontSmall)),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact),
-                  side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
-                  foregroundColor: AppTheme.getPrimaryColor(context),
-                ),
-              ),
+                label: const Text('编辑'),
+                style: AppButtonStyles.outline(compact: true),
             ),
           ],
         ],
@@ -270,36 +237,28 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
   Widget _buildActionButtons() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingCompact),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+      child: Wrap(
+          alignment: WrapAlignment.center,
+          spacing: GlassConstants.spacingInline,
+          runSpacing: GlassConstants.spacingSmall,
           children: [
             if (!_isBatchDeleteMode) ...[
               _buildActionButton(Icons.folder_open, '打开存档', AppTheme.getPrimaryColor(context), _openSaveFolder),
-              const SizedBox(width: GlassConstants.spacingInline),
               _buildActionButton(Icons.backup, '打开备份', AppTheme.getSecondaryColor(context), _openBackupFolder),
-              const SizedBox(width: GlassConstants.spacingInline),
               _buildActionButton(Icons.add_circle_outline, '导入存档', AppTheme.warningColor, _addCustomBackup),
-              const SizedBox(width: GlassConstants.spacingInline),
               _buildActionButton(Icons.cloud_download_outlined,
                   _isDownloading ? '正在获取存档…' : '下载存档',
                   AppTheme.getPrimaryColor(context), _downloadFrom2dfan,
                   loading: _isDownloading),
-              const SizedBox(width: GlassConstants.spacingInline),
               _buildActionButton(Icons.save_alt, '备份存档', AppTheme.successColor, _backupCurrentSave),
-              const SizedBox(width: GlassConstants.spacingInline),
               _buildActionButton(Icons.cloud_outlined, '云端备份', AppTheme.getPrimaryColor(context), _showCloudBackups),
-              const SizedBox(width: GlassConstants.spacingInline),
               _buildActionButton(Icons.delete_sweep_outlined, '批量删除', AppTheme.errorColor, _toggleBatchDeleteMode),
             ],
             if (_isBatchDeleteMode) ...[
               _buildActionButton(Icons.cancel_outlined, '取消', AppTheme.getTextSecondary(context), _toggleBatchDeleteMode),
-              const SizedBox(width: GlassConstants.spacingInline),
               _buildActionButton(Icons.delete_forever, '删除 ${_selectedForDelete.length} 项', AppTheme.errorColor, _confirmBatchDelete),
             ],
           ],
-        ),
       ),
     );
   }
@@ -307,34 +266,13 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
   /// 构建单个操作按钮
   Widget _buildActionButton(IconData icon, String label, Color color, VoidCallback onPressed,
       {bool loading = false}) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-        onTap: loading ? null : onPressed,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-            border: Border.all(color: color.withValues(alpha: 0.3)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (loading)
-                SizedBox(width: GlassConstants.iconSmall,
-                    height: GlassConstants.iconSmall,
-                    child: AppProgressIndicator(strokeWidth: 2, color: color))
-              else
-                Icon(icon, color: color, size: GlassConstants.iconSmall),
-              const SizedBox(width: GlassConstants.spacingTiny),
-              Text(label, style: TextStyle(color: color, fontSize: GlassConstants.fontSmall, fontWeight: FontWeight.w500)),
-            ],
-          ),
-        ),
-      ),
+    return ElevatedButton.icon(
+      onPressed: loading ? null : onPressed,
+      style: AppButtonStyles.tinted(context, color: color, compact: true),
+      icon: loading
+          ? const SizedBox.square(dimension: GlassConstants.iconSmall, child: AppProgressIndicator(strokeWidth: 2))
+          : Icon(icon, size: GlassConstants.iconSmall),
+      label: Text(label),
     );
   }
 
@@ -450,7 +388,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
               style: TextStyle(
                 fontSize: GlassConstants.fontControl,
                 color: accentColor ?? AppTheme.getDetailTextPrimary(context),
-                fontWeight: (isImported || isPreRestore) ? FontWeight.w500 : FontWeight.normal,
+                fontWeight: (isImported || isPreRestore) ? AppTypography.medium : AppTypography.regular,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -460,29 +398,14 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
             style: TextStyle(fontSize: GlassConstants.fontBody, color: AppTheme.getTextSecondary(context)),
           ),
           const SizedBox(width: GlassConstants.spacingMedium),
-          _buildMiniButton(Icons.edit, '编辑名称', AppTheme.getPrimaryColor(context), () => _renameBackup(backup)),
+          AppMiniIconButton(icon: Icons.edit, tooltip: '编辑名称', color: AppTheme.getPrimaryColor(context), onTap: () => _renameBackup(backup)),
           const SizedBox(width: GlassConstants.spacingTiny),
-          _buildMiniButton(Icons.cloud_upload_outlined, '备份至云端', AppTheme.getSecondaryColor(context), () => _uploadToCloud(backup)),
+          AppMiniIconButton(icon: Icons.cloud_upload_outlined, tooltip: '备份至云端', color: AppTheme.getSecondaryColor(context), onTap: () => _uploadToCloud(backup)),
           const SizedBox(width: GlassConstants.spacingTiny),
-          _buildMiniButton(Icons.restore, '还原到此备份', AppTheme.successColor, () => _restoreBackup(backup)),
+          AppMiniIconButton(icon: Icons.restore, tooltip: '还原到此备份', color: AppTheme.successColor, onTap: () => _restoreBackup(backup)),
           const SizedBox(width: GlassConstants.spacingTiny),
-          _buildMiniButton(Icons.delete_outline, '删除', AppTheme.errorColor, () => _deleteBackup(backup)),
+          AppMiniIconButton(icon: Icons.delete_outline, tooltip: '删除', color: AppTheme.errorColor, onTap: () => _deleteBackup(backup)),
         ],
-      ),
-    );
-  }
-
-  /// 构建操作小图标按钮
-  Widget _buildMiniButton(IconData icon, String tooltip, Color color, VoidCallback onTap) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(GlassConstants.spacingTight),
-          child: Icon(icon, size: GlassConstants.iconSmall, color: color),
-        ),
       ),
     );
   }
@@ -534,7 +457,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('添加自定义备份', style: TextStyle(fontSize: GlassConstants.fontSection, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+              Text('添加自定义备份', style: AppTypography.dialogTitle(context)),
               const SizedBox(height: GlassConstants.spacingMedium),
               Text('请选择要导入的类型：', style: TextStyle(color: AppTheme.getTextSecondary(context))),
               const SizedBox(height: GlassConstants.spacingComfortable),
@@ -754,7 +677,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
                 children: [
                   Icon(Icons.cloud_download_outlined, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconSection),
                   const SizedBox(width: GlassConstants.spacingInline),
-                  Text('选择要下载的存档', style: TextStyle(fontSize: GlassConstants.fontSection, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+                  Text('选择要下载的存档', style: AppTypography.dialogTitle(context)),
                 ],
               ),
               const SizedBox(height: GlassConstants.spacingSmall),
@@ -823,7 +746,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
                 children: [
                   Icon(Icons.folder_open, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconSection),
                   const SizedBox(width: GlassConstants.spacingInline),
-                  Text('选择存档', style: TextStyle(fontSize: GlassConstants.fontSection, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+                  Text('选择存档', style: AppTypography.dialogTitle(context)),
                 ],
               ),
               const SizedBox(height: GlassConstants.spacingSmall),
@@ -952,7 +875,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('编辑备份名称', style: TextStyle(fontSize: GlassConstants.fontSection, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+              Text('编辑备份名称', style: AppTypography.dialogTitle(context)),
               const SizedBox(height: GlassConstants.spacingMedium),
               TextField(
                 controller: controller,
@@ -1058,7 +981,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('确认还原', style: TextStyle(fontSize: GlassConstants.fontSection, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+              Text('确认还原', style: AppTypography.dialogTitle(context)),
               const SizedBox(height: GlassConstants.spacingCompact),
               Text(
                 '将还原备份 "${backup.name}" 到存档目录。\n\n当前存档会先自动备份为"还原前备份"。\n\n目标路径: $_savePath',
@@ -1072,7 +995,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
                   const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context, true),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.warningColor, foregroundColor: AppTheme.lightForegroundColor),
+                    style: AppButtonStyles.solid(color: AppTheme.warningColor, compact: true),
                     child: const Text('确认还原'),
                   ),
                 ],
@@ -1129,7 +1052,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('删除备份', style: TextStyle(fontSize: GlassConstants.fontSection, fontWeight: FontWeight.bold, color: AppTheme.getDetailTextPrimary(context))),
+              Text('删除备份', style: AppTypography.dialogTitle(context)),
               const SizedBox(height: GlassConstants.spacingCompact),
               Text('确定要删除备份 "${backup.name}" 吗？\n此操作不可撤销。', style: TextStyle(color: AppTheme.getTextSecondary(context))),
               const SizedBox(height: GlassConstants.spacingComfortable),
@@ -1140,7 +1063,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
                   const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context, true),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor, foregroundColor: AppTheme.lightForegroundColor),
+                    style: AppButtonStyles.solid(color: AppTheme.errorColor, compact: true),
                     child: const Text('删除'),
                   ),
                 ],

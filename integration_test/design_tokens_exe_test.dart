@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hgame_manager/core/database/database_helper.dart';
@@ -49,7 +50,44 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets('真实窗口：显示器节奏下的装饰采样', (tester) async {
+    final policy = binding.framePolicy;
+    binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
+    final done = Completer<void>();
+    final samples = <Duration>[];
+    double? previous;
+    double? rate;
+    try {
+      await tester.pumpWidget(MaterialApp(home: Center(child: AppMotionValue(
+        target: 1, begin: 0, duration: const Duration(milliseconds: 800),
+        curve: Curves.linear, child: const FlutterLogo(size: 64),
+        builder: (context, value, child) {
+          rate = View.of(context).display.refreshRate;
+          if (previous != value) {
+            samples.add(SchedulerBinding.instance.currentFrameTimeStamp);
+            previous = value;
+          }
+          if (value == 1 && !done.isCompleted) done.complete();
+          return Transform.translate(offset: Offset(value * 100, 0), child: child);
+        },
+      ))));
+      await done.future.timeout(const Duration(seconds: 10));
+      expect(previous, 1);
+      final elapsed = samples.last - samples.first;
+      if (!MediaQuery.disableAnimationsOf(tester.element(find.byType(AppMotionValue))) &&
+          !MediaQuery.accessibleNavigationOf(tester.element(find.byType(AppMotionValue)))) {
+        expect(samples.length, greaterThan(2));
+        expect(elapsed.inMilliseconds, greaterThanOrEqualTo(799));
+        if (rate != null && rate! > 1) {
+          expect(samples.length, lessThanOrEqualTo((elapsed.inMicroseconds * rate! / 1000000).ceil() + 2));
+        }
+      }
+      debugPrint('动效采样 窗口 $rate Hz，耗时 ${elapsed.inMicroseconds / 1000} ms，观察到 ${samples.length} 个不同动画值，终值 $previous');
+    } finally {
+      binding.framePolicy = policy;
+    }
+  });
   testWidgets('主题与动效：浅深色逐页、加载状态及共享弹窗', (tester) async {
     final dataRoot = await AppPaths.rootDir;
     expect(path.normalize(dataRoot).replaceAll('\\', '/'),
@@ -225,10 +263,12 @@ void main() {
             ]) {
               await render(theme, route.buildPage(), scope: scope);
               await capture('${mode}_${route.name}_$phase');
+              if (phase == 'error') expect(find.widgetWithText(OutlinedButton, '重试'), findsOneWidget);
               if (route == NavRoute.categories || route == NavRoute.favorites) {
                 await tester.tap(
                     find.text(route == NavRoute.categories ? '标签' : '分类').last);
                 await capture('${mode}_${route.name}_second_$phase');
+                if (phase == 'error') expect(find.widgetWithText(OutlinedButton, '重试'), findsOneWidget);
               }
               if (route == NavRoute.games && phase == 'loading') {
                 await settings.setString('game_list_view_mode', 'list');

@@ -45,7 +45,7 @@ class _GamesPageState extends ConsumerState<GamesPage>
       children: [
         GlassAppBar(
           title: const Text('游戏库',
-              style: TextStyle(fontSize: GlassConstants.fontSection, fontWeight: FontWeight.w600)),
+              style: TextStyle(fontSize: GlassConstants.fontSection, fontWeight: AppTypography.semibold)),
           actions: [
             IconButton(
               icon: Icon(Icons.add_circle_outline,
@@ -88,7 +88,7 @@ class _GamesPageState extends ConsumerState<GamesPage>
                             style: TextStyle(
                               fontSize: GlassConstants.fontBody,
                               color: AppTheme.getPrimaryColor(context),
-                              fontWeight: FontWeight.w500,
+                              fontWeight: AppTypography.medium,
                             ),
                           ),
                         ],
@@ -221,7 +221,7 @@ class _GamesPageState extends ConsumerState<GamesPage>
               },
             ),
             loading: () => const GameListSkeleton(),
-            error: (e, _) => Center(child: Text('加载失败: $e')),
+            error: (error, _) => AppLoadError(message: '加载失败：$error', onRetry: () => ref.invalidate(allGamesProvider)),
           ),
         ),
       ],
@@ -255,15 +255,12 @@ class _GamesPageState extends ConsumerState<GamesPage>
   }
 
   void _showAddGameDialog() {
-    final prefs = ref.read(sharedPreferencesProvider);
-    final userFont = prefs.getString('font_family') ?? '';
     showGlassDialog(
       context: context,
       child: BatchImportDialog(
         onImportComplete: () {
           ref.invalidate(allGamesProvider);
         },
-        userFont: userFont,
       ),
     );
   }
@@ -827,11 +824,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           children: [
             Text(
               '添加单个游戏',
-              style: TextStyle(
-                fontSize: GlassConstants.fontSection,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.getTextPrimary(context),
-              ),
+              style: AppTypography.dialogTitle(context),
             ),
             const SizedBox(height: GlassConstants.spacingMedium),
 
@@ -886,10 +879,6 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                   onPressed: _isLoading ? null : _pickFolder,
                   icon: const Icon(Icons.folder_open, size: GlassConstants.iconSmall),
                   label: const Text('浏览'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.getPrimaryColor(context),
-                    foregroundColor: AppTheme.getOnPrimaryColor(context),
-                  ),
                 ),
               ],
             ),
@@ -924,10 +913,6 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                     onPressed: _isLoading ? null : _searchGame,
                     icon: const Icon(Icons.search, size: GlassConstants.iconSmall),
                     label: const Text('搜索'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.getPrimaryColor(context),
-                      foregroundColor: AppTheme.getOnPrimaryColor(context),
-                    ),
                   ),
                 ],
               ),
@@ -958,7 +943,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                 '选择游戏:',
                 style: TextStyle(
                     fontSize: GlassConstants.fontBody,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: AppTypography.medium,
                     color: AppTheme.getTextPrimary(context)),
               ),
               const SizedBox(height: GlassConstants.spacingSmall),
@@ -1000,12 +985,6 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                     onPressed: (_isLoading || _folderPath == null)
                         ? null
                         : _importNone,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.getPrimaryColor(context),
-                      foregroundColor: AppTheme.getOnPrimaryColor(context),
-                      disabledBackgroundColor:
-                          AppTheme.getPrimaryColor(context).withValues(alpha: 0.4),
-                    ),
                     child: _isLoading
                         ? SizedBox(
                             width: 16,
@@ -1022,12 +1001,6 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                     onPressed: (_isLoading || _selectedResult == null)
                         ? null
                         : _import,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.getPrimaryColor(context),
-                      foregroundColor: AppTheme.getOnPrimaryColor(context),
-                      disabledBackgroundColor:
-                          AppTheme.getPrimaryColor(context).withValues(alpha: 0.4),
-                    ),
                     child: _isLoading
                         ? SizedBox(
                             width: 16,
@@ -1079,7 +1052,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           label,
           style: TextStyle(
             fontSize: GlassConstants.fontBody,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            fontWeight: isSelected ? AppTypography.semibold : AppTypography.regular,
             color: isSelected
                 ? AppTheme.getPrimaryColor(context)
                 : AppTheme.getTextSecondary(context),
@@ -1118,7 +1091,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           result.name ?? result.id,
           style: TextStyle(
             fontSize: GlassConstants.fontBody,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontWeight: isSelected ? AppTypography.bold : AppTypography.regular,
             color: isSelected
                 ? AppTheme.getPrimaryColor(context)
                 : AppTheme.getTextPrimary(context),
@@ -1165,7 +1138,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
           result.name ?? result.id,
           style: TextStyle(
             fontSize: GlassConstants.fontBody,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontWeight: isSelected ? AppTypography.bold : AppTypography.regular,
             color: isSelected
                 ? AppTheme.getPrimaryColor(context)
                 : AppTheme.getTextPrimary(context),

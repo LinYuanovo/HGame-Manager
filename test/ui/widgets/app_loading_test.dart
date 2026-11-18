@@ -14,10 +14,29 @@ import 'package:hgame_manager/core/utils/app_settings.dart';
 import 'package:hgame_manager/ui/pages/games/cloud_backup_dialog.dart';
 import 'package:hgame_manager/ui/pages/games/save_management_dialog.dart';
 import 'package:hgame_manager/ui/theme/app_theme.dart';
+import 'package:hgame_manager/ui/pages/tools/tools_page.dart';
 import 'package:hgame_manager/ui/widgets/game_list_skeleton.dart';
 import 'package:hgame_manager/ui/widgets/image_manager_dialog.dart';
 
 void main() {
+  testWidgets('工具列表读取失败后可以重试，成功后移除错误提示', (tester) async {
+    var attempts = 0;
+    await tester.pumpWidget(ProviderScope(
+      overrides: [allToolsProvider.overrideWith((ref) async {
+        if (++attempts == 1) throw StateError('首次读取失败');
+        return [];
+      })],
+      child: MaterialApp(theme: AppTheme.lightTheme(), home: const Scaffold(body: ToolsPage())),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('首次读取失败'), findsOneWidget);
+    await tester.tap(find.text('重试'));
+    await tester.pumpAndSettle();
+    expect(attempts, 2);
+    expect(find.byType(AppLoadError), findsNothing);
+    expect(find.byType(AppSkeleton), findsNothing);
+  });
+
   testWidgets('存档读取失败结束等待并提供重试入口', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));

@@ -69,7 +69,7 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
             '右键菜单管理',
             style: TextStyle(
               fontSize: GlassConstants.fontHeading,
-              fontWeight: FontWeight.bold,
+              fontWeight: AppTypography.bold,
               color: AppTheme.getTextPrimary(context),
             ),
           ),
@@ -133,10 +133,6 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
           const SizedBox(width: GlassConstants.spacingCompact),
           ElevatedButton(
             onPressed: _saveAndClose,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.getPrimaryColor(context),
-              foregroundColor: AppTheme.getOnPrimaryColor(context),
-            ),
             child: Text('保存'),
           ),
         ],
@@ -202,7 +198,7 @@ class _TabItemWidgetState extends State<_TabItemWidget> {
             widget.label,
             style: TextStyle(
               color: widget.isSelected ? AppTheme.getOnPrimaryColor(context) : AppTheme.getTextSecondary(context),
-              fontWeight: widget.isSelected ? FontWeight.w500 : FontWeight.normal,
+              fontWeight: widget.isSelected ? AppTypography.medium : AppTypography.regular,
             ),
           ),
         ),
