@@ -200,10 +200,9 @@ class ScrapeApplyService {
       game.features,
       game.changelog,
       game.guide,
-      if (metadata?['intro'] is String) metadata!['intro'] as String,
-      if (metadata?['intro_html'] is String) metadata!['intro_html'] as String,
-      for (final key in _descriptionKeys)
-        if (original?[key] is String) original![key] as String,
+      for (final fields in [metadata, original])
+        for (final key in _descriptionKeys)
+          if (fields?[key] is String) fields![key] as String,
     ];
     final replacements = <String, String>{};
     await for (final entity in directory.list(followLinks: false)) {
@@ -506,10 +505,12 @@ class ScrapeApplyService {
         final previousOriginal = previousMetadata == null
             ? null
             : MetadataTranslationService.originalFrom(previousMetadata);
+        final sourceFile = GameDataPaths.sourceUrlFile(game.path);
         for (final previousSource in [
           (original ?? game).sourceUrl,
           previousMetadata?['source_url'],
           previousOriginal?['source_url'],
+          if (await sourceFile.exists()) await sourceFile.readAsString(),
         ]) {
           if (previousSource is! String ||
               !DlsiteService.isDlsiteUrl(previousSource)) {
