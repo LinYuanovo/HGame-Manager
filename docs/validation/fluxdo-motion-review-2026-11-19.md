@@ -32,7 +32,9 @@
 
 `codex/fluxdo-motion-plan` 与 `codex/motion-loading` 起点相同，可在提交审阅结果后快进合并。
 
-清理检查发现 `codex/pr20-preserve-local-metadata` 的 `e5ce953` 尚未进入 master 或动效分支。完整历史已保存到 `build/validation/branch-cleanup-2026-11-19/pr20-preserve-local-metadata.bundle` 并通过 `git bundle verify`；5 个被忽略的网页样例已复制并逐文件核对 SHA-256。该目录的 `README.md` 包含恢复命令。
+远程状态复核（2026-11-19）：[PR #20](https://github.com/LinYuanovo/HGame-Manager/pull/20) 已于北京时间 2026-11-16 14:32:46 合并，提交为 `d1e0b60`。其后续修复 `e5ce953` 已通过 [PR #21](https://github.com/LinYuanovo/HGame-Manager/pull/21) 于 2026-11-18 20:46:27 合入远程 master，合并提交为 `3d2c31f`；祖先关系检查与实际代码比对均确认已纳入。清理时本地 master 和尚未刷新的 origin/master 停在 `d1e0b60`，此前据此判断“尚未进入 master”不准确。复核已更新 origin/master，本地 master 保持原提交。
+
+当前 `codex/motion-loading` 仍未包含 PR #20、#21 的业务修复；本次动效合并不代表已与远程主分支整合。`e5ce953` 的完整历史另外保存到 `build/validation/branch-cleanup-2026-11-19/pr20-preserve-local-metadata.bundle` 并通过 `git bundle verify`；5 个被忽略的网页样例已复制并逐文件核对 SHA-256。该目录的 `README.md` 包含恢复命令。
 
 两处旧工作树源码均干净，目录归属其他会话，采用保留目录与文件、切换至原提交 detached 状态的方式释放分支。主工作区随后切换到 `codex/motion-loading`，快进纳入审阅提交，再删除本地 `codex/fluxdo-motion-plan` 和 `codex/pr20-preserve-local-metadata`。动效合并范围为本次审阅的改动；远程分支及发布版本不在本次操作范围内。
 
