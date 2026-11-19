@@ -56,6 +56,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     showGlassDialog(
       context: context,
       child: BatchImportDialog(
+        onLocate: (id) {
+          ref.read(libraryLocationProvider.notifier).state = id;
+          ref.read(selectedNavIndexProvider.notifier).state = NavRoute.games.navIndex;
+        },
         onImportComplete: () {
           ref.invalidate(allGamesProvider);
         },
@@ -89,7 +93,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                         selectedIndex: selectedIndex,
                       ),
                       Expanded(
-                        child: AppRouter.getCurrentPage(selectedIndex),
+                        child: AppRouter.getCurrentPage(
+                          selectedIndex,
+                          routeOrder: ref.watch(visibleSidebarRoutesProvider),
+                        ),
                       ),
                     ],
                   ),

@@ -519,7 +519,7 @@ class _PausedImages extends Fake implements GameRepository {
   final saved = Completer<void>();
 
   @override
-  Future<void> deleteGameImagesByGameId(int gameId) => saved.future;
+  Future<void> setGameImages(int gameId, List<GameImage> images, {int? coverIndex}) => saved.future;
 
   @override
   Future<void> addGameImage(

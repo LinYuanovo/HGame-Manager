@@ -42,17 +42,23 @@ import '../../widgets/cloudflare_browser_dialog.dart';
 import '../../widgets/app_update_dialog.dart';
 import '../../widgets/app_dropdown.dart';
 import 'metadata_translation_dialog.dart';
+import '../../widgets/result_location.dart';
+import '../../widgets/selection_surface.dart';
 
-Future<void> showSettingsDialog(BuildContext context, WidgetRef ref) async {
+final _settingsSectionProvider = StateProvider<int>((ref) => 0);
+final _settingsStorageProvider = Provider<PageStorageBucket>((ref) => PageStorageBucket());
+
+Future<void> showSettingsDialog(BuildContext context, WidgetRef ref, {String? targetItem}) async {
   AppLogger.instance.info('Navigation', '打开设置');
   await showGlassDialog(
     context: context,
-    child: const SettingsDialogContent(),
+    child: SettingsDialogContent(targetItem: targetItem),
   );
 }
 
 class SettingsDialogContent extends ConsumerStatefulWidget {
-  const SettingsDialogContent({super.key});
+  const SettingsDialogContent({super.key, this.targetItem});
+  final String? targetItem;
 
   @override
   ConsumerState<SettingsDialogContent> createState() =>
@@ -95,6 +101,11 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   bool _keepPlayedInGames = false;
   bool _favoriteFirst = false;
   int _selectedSidebarIndex = 0;
+  String? _markedItem;
+  int _markRevision = 0;
+  void _markItem(String item) {
+    if (mounted) setState(() { _markedItem = item; _markRevision++; });
+  }
   List<ChangelogEntry> _changelogEntries = [];
   bool _isChangelogExpanded = false;
   bool _isCheckingAppUpdate = false;
@@ -157,6 +168,10 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   @override
   void initState() {
     super.initState();
+    _selectedSidebarIndex = ref.read(_settingsSectionProvider).clamp(0, _categories.length - 1);
+    _markedItem = widget.targetItem;
+    final targetSection = _categories.indexWhere((section) => section.items.contains(_markedItem));
+    if (targetSection >= 0) _selectedSidebarIndex = targetSection;
     _loadSettings();
     _loadChangelog();
   }
@@ -389,10 +404,12 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               color: AppTheme.getBorderColor(context).withValues(alpha: 0.2)),
         ),
       ),
-      child: ListView.builder(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingSmall),
-        itemCount: _categories.length,
-        itemBuilder: (context, index) {
+        child: SelectionSurface(index: _selectedSidebarIndex,
+          insets: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingMicro),
+          decoration: BoxDecoration(color: AppTheme.getPrimaryColor(context).withValues(alpha: .15), borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+          child: Column(children: List.generate(_categories.length, (index) {
           final cat = _categories[index];
           final isSelected = _selectedSidebarIndex == index;
           return Padding(
@@ -403,29 +420,15 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               child: InkWell(
                 borderRadius:
                     BorderRadius.circular(GlassConstants.radiusMedium),
-                onTap: () => setState(() => _selectedSidebarIndex = index),
+                onTap: () {
+                  ref.read(_settingsSectionProvider.notifier).state = index;
+                  setState(() { _selectedSidebarIndex = index; _markedItem = null; });
+                },
                 child: AnimatedContainer(
                   duration: AppMotion.duration(context, AppMotion.fast),
                   curve: AppMotion.curve,
                   padding:
                       const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingInline),
-                  decoration: BoxDecoration(
-                    borderRadius:
-                        BorderRadius.circular(GlassConstants.radiusMedium),
-                    gradient: isSelected
-                        ? LinearGradient(
-                            colors: [
-                              AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
-                              AppTheme.getSecondaryColor(context).withValues(alpha: 0.15),
-                            ],
-                          )
-                        : null,
-                    border: Border.all(
-                      color: isSelected
-                          ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)
-                          : Colors.transparent,
-                    ),
-                  ),
                   child: Row(
                     children: [
                       Icon(
@@ -453,7 +456,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
               ),
             ),
           );
-        },
+        })),
+        ),
       ),
     );
   }
@@ -462,17 +466,19 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     final cat = _categories[_selectedSidebarIndex];
     final widgets = <Widget>[];
     for (final item in cat.items) {
-      widgets.add(_buildSectionForItem(item));
+      final section = _buildSectionForItem(item);
+      widgets.add(item == _markedItem ? ResultLocation(key: ValueKey((item, _markRevision)), child: section) : section);
       widgets.add(const SizedBox(height: GlassConstants.spacingMedium));
     }
-    return SingleChildScrollView(
-      key: ValueKey(cat.label),
+    return PageStorage(key: ValueKey(cat.label), bucket: ref.read(_settingsStorageProvider), child: SingleChildScrollView(
+      key: PageStorageKey(cat.label),
+      primary: false,
       padding: const EdgeInsets.all(GlassConstants.spacingComfortable),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: widgets,
       ),
-    );
+    ));
   }
 
   Widget _buildSectionForItem(String item) {
@@ -532,7 +538,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
                 builder: (_) => MetadataTranslationDialog(
                   settings: ref.read(sharedPreferencesProvider),
                 ),
-              ),
+              ).then((_) => _markItem('元信息自动翻译')),
             ),
           ],
         );
@@ -1284,7 +1290,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             onPressed: () => showAppDialog(
               context: context,
               builder: (_) => const ScrapeModeConfigDialog(),
-            ),
+            ).then((_) => _markItem('刮削行为管理')),
             icon: const Icon(Icons.settings, size: GlassConstants.iconAction),
             label: const Text('打开刮削行为管理'),
             style: AppButtonStyles.tinted(context),
@@ -1328,7 +1334,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     showAppDialog<bool>(
       context: context,
       builder: (context) => const RenameManagerDialog(),
-    );
+    ).then((_) => _markItem('重命名规则管理'));
   }
 
   Widget _buildGuideHotkeySection() {
@@ -1359,7 +1365,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     showAppDialog<bool>(
       context: context,
       builder: (context) => const GuideHotkeyDialog(),
-    );
+    ).then((_) => _markItem('攻略浮窗快捷键'));
   }
 
   Widget _buildProxySection() {
@@ -3356,6 +3362,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       context: context,
       builder: (context) => const ContextMenuManagerDialog(),
     ).then((saved) {
+      if (!mounted) return;
+      _markItem('右键菜单管理');
       if (saved == true) {
         ref.invalidate(contextMenuGamesProvider);
         ref.invalidate(contextMenuPlayedProvider);
@@ -3390,6 +3398,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
       context: context,
       builder: (context) => const SidebarManagerDialog(),
     ).then((saved) {
+      if (!mounted) return;
+      _markItem('侧边栏页面管理');
       if (saved == true) {
         ref.read(sidebarRefreshProvider.notifier).state++;
       }

@@ -117,6 +117,31 @@ void main() {
     expect(find.text('选择攻略'), findsNothing);
     expect(find.text('打开攻略'), findsOneWidget);
   });
+
+  testWidgets('改选另一条攻略时迟到的正文不覆盖当前选择', (tester) async {
+    final service = _DelayedGuides();
+    final returned = <String?>[];
+    await openSearch(tester, service, onResult: returned.add);
+    await tester.tap(find.text('搜索'));
+    service.searchResults.complete([
+      Fan2dGuideResult(title: '攻略甲', guideUrl: 'https://example.invalid/one'),
+      Fan2dGuideResult(title: '攻略乙', guideUrl: 'https://example.invalid/two'),
+    ]);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('攻略甲'));
+    await tester.pump();
+    final earlier = service.content;
+    service.content = Completer<Fan2dGuideScrapeResult>();
+    await tester.tap(find.text('攻略乙'));
+    await tester.pump();
+    expect(service.contentCalls, 2);
+    earlier.complete(Fan2dGuideScrapeResult(content: '甲正文'));
+    await tester.pump();
+    expect(returned, isEmpty);
+    service.content.complete(Fan2dGuideScrapeResult(content: '乙正文'));
+    await tester.pumpAndSettle();
+    expect(returned, ['乙正文']);
+  });
 }
 
 class _DelayedGuides extends Fake implements Fan2dService {

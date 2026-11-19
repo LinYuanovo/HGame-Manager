@@ -1072,6 +1072,8 @@ final searchGamesProvider =
 final selectedNavIndexProvider =
     StateProvider<int>((ref) => 1); // Default to games page
 
+final libraryLocationProvider = StateProvider<int?>((ref) => null);
+
 final viewModeProvider = StateProvider<ViewMode>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
   final index = prefs.getInt('view_mode') ?? 0;

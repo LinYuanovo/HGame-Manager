@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,6 +30,8 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
   GuideSource _selectedSource = GuideSource.pilipili;
   bool _isSearching = false;
   bool _isLoadingContent = false;
+  Object? _activeResult;
+  int _contentGeneration = 0;
   List<dynamic> _results = [];
 
   bool get _isBusy => _isSearching || _isLoadingContent;
@@ -84,8 +87,9 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
   }
 
   Future<void> _selectResult(dynamic result) async {
-    if (_isBusy || ModalRoute.of(context)?.isCurrent == false) return;
-    setState(() => _isLoadingContent = true);
+    if (_isSearching || (_isLoadingContent && identical(result, _activeResult)) || ModalRoute.of(context)?.isCurrent == false) return;
+    final generation = ++_contentGeneration;
+    setState(() { _isLoadingContent = true; _activeResult = result; });
     String? content;
     try {
       if (result is PilipiliSearchResult) {
@@ -97,7 +101,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
 
         // 如果有多个walkthrough，让用户选择
         if (scrapeResult.hasWalkthroughs) {
-          if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
+          if (!mounted || generation != _contentGeneration || ModalRoute.of(context)?.isCurrent == false) return;
           final selectedWalkthrough =
               await _showWalkthroughDialog(scrapeResult.walkthroughs);
           if (selectedWalkthrough == null) {
@@ -109,20 +113,20 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
             }
             return;
           }
-          if (!mounted) return;
+          if (!mounted || generation != _contentGeneration) return;
           content = await service.scrapeWalkthrough(selectedWalkthrough.url);
         } else {
           content = scrapeResult.content;
         }
       }
 
-      if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
+      if (!mounted || generation != _contentGeneration || ModalRoute.of(context)?.isCurrent == false) return;
       // 下载图片并替换URL为本地路径
       if (content != null && content.isNotEmpty) {
-        content = await _downloadGuideImages(content);
+        content = await _downloadGuideImages(content, generation);
       }
 
-      if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
+      if (!mounted || generation != _contentGeneration || ModalRoute.of(context)?.isCurrent == false) return;
       if (content != null) {
         Navigator.of(context).pop(content);
       } else {
@@ -133,19 +137,19 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
       }
     } catch (e) {
       final errorMsg = e.toString().replaceFirst('Exception: ', '');
-      if (mounted) {
+      if (mounted && generation == _contentGeneration) {
         AppTheme.showGlassToast(context,
             message: errorMsg,
             icon: Icons.error_outline,
             iconColor: AppTheme.errorColor);
       }
     } finally {
-      if (mounted) setState(() => _isLoadingContent = false);
+      if (mounted && generation == _contentGeneration) setState(() => _isLoadingContent = false);
     }
   }
 
   /// 下载攻略中的图片并替换为本地路径
-  Future<String> _downloadGuideImages(String content) async {
+  Future<String> _downloadGuideImages(String content, int generation) async {
     // 提取所有图片URL - 支持 ![图片](url) 和 [图片:url] 两种格式
     final imagePattern = RegExp(r'!\[图片\]\(([^)]+)\)|\[图片:([^\]]+)\]');
     final matches = imagePattern.allMatches(content).toList();
@@ -173,11 +177,13 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
     final gamePath = widget.game.path;
     final imagesDir = await GameDataPaths.ensureImagesDir(gamePath);
 
-    // 下载图片并保存为 guide_xx.xx 格式
+    // 每次选择独立命名，旧请求的文件写入不会覆盖新攻略或已保存攻略。
+    final requestId = const Uuid().v4();
     final localPaths = <String>[];
     final client = await createProxyClientFromPrefs(domain: 'i0.hdslb.com');
     try {
       for (int i = 0; i < imageUrls.length; i++) {
+        if (!mounted || generation != _contentGeneration) return content;
         final url = imageUrls[i];
         try {
           final response = await client.get(
@@ -189,6 +195,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
             },
           ).timeout(const Duration(seconds: 30));
 
+          if (!mounted || generation != _contentGeneration) return content;
           if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
             // 从URL获取扩展名
             final uri = Uri.parse(url);
@@ -201,7 +208,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
               }
             }
 
-            final fileName = 'guide_${(i + 1).toString().padLeft(2, '0')}$ext';
+            final fileName = 'guide_${requestId}_${(i + 1).toString().padLeft(2, '0')}$ext';
             final filePath =
                 '${imagesDir.path}${Platform.pathSeparator}$fileName';
             if (kDebugMode)
@@ -503,7 +510,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
             borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
             child: InkWell(
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-              onTap: _isBusy ? null : () => _selectResult(result),
+              onTap: _isSearching || (_isLoadingContent && identical(result, _activeResult)) ? null : () => _selectResult(result),
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingCompact),
@@ -545,7 +552,9 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                         ],
                       ),
                     ),
-                    Icon(Icons.arrow_forward_ios,
+                    if (_isLoadingContent && identical(result, _activeResult))
+                      const SizedBox.square(dimension: GlassConstants.iconCompact, child: AppProgressIndicator(strokeWidth: 2))
+                    else Icon(Icons.arrow_forward_ios,
                         size: GlassConstants.iconCompact, color: AppTheme.getTextSecondary(context)),
                   ],
                 ),

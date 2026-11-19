@@ -26,6 +26,7 @@ import '../../widgets/app_dropdown.dart';
 ///   [presetKeywords] 提供各目录的预设刮削关键词），跳过父目录选择流程。
 class BatchImportDialog extends StatefulWidget {
   final VoidCallback onImportComplete;
+  final ValueChanged<int>? onLocate;
 
   /// 拖拽模式：直接传入游戏目录列表
   final List<String>? initialFolderPaths;
@@ -36,6 +37,7 @@ class BatchImportDialog extends StatefulWidget {
   const BatchImportDialog({
     super.key,
     required this.onImportComplete,
+    this.onLocate,
     this.initialFolderPaths,
     this.presetKeywords,
   });
@@ -53,6 +55,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
   bool _importDone = false;
   int _successCount = 0;
   int _failCount = 0;
+  bool _showFailures = false;
 
   /// 是否为拖拽模式（直接传入游戏目录列表，跳过父目录选择）
   bool get _isDragMode =>
@@ -242,6 +245,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
         onSuccess();
       } catch (e) {
         item.status = '失败: $e';
+        item.failed = true;
         if (mounted) setState(() {});
         onFail();
       }
@@ -273,6 +277,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
     // 重命名/移动整理逻辑统一走共享层，保持各入口行为一致
     final organized = await ScrapeApplyService.organizeFolder(
         translated, ScrapeMode.batchAdd, repo, configs);
+    item.gameId = organized.id;
     item.status =
         item.translationNotices.isEmpty ? '导入完成' : '导入完成（翻译有提示）';
     if (mounted) setState(() {});
@@ -286,6 +291,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
       await GameDataMigrationService(gameRepository: repo)
           .migrateGameDirectory(folderPath, gameId: existing.id);
       item.status = '已存在，跳过';
+      item.gameId = existing.id;
       if (mounted) setState(() {});
       return;
     }
@@ -912,14 +918,24 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                             .withValues(alpha: 0.2)),
                   ),
                   child: ListView.builder(
-                    itemCount: _importing
+                    itemCount: _showFailures ? _items.where((item) => item.failed).length : _importing
                         ? _items.where((i) => i.selected).length
                         : _items.length,
                     itemBuilder: (context, index) {
-                      final item = _importing
+                      final item = _showFailures ? _items.where((item) => item.failed).elementAt(index) : _importing
                           ? _items.where((i) => i.selected).toList()[index]
                           : _items[index];
                       final name = path.basename(item.folder.path);
+                      if (_importDone) return ListTile(
+                        key: ValueKey(item.folder.path), title: Text(name),
+                        subtitle: Text('${item.folder.path}\n${item.status}'),
+                        trailing: item.gameId != null && widget.onLocate != null
+                            ? IconButton(tooltip: '在游戏库中查看', icon: const Icon(Icons.my_location), onPressed: () {
+                                widget.onImportComplete();
+                                widget.onLocate!(item.gameId!);
+                                Navigator.of(context).pop();
+                              }) : null,
+                      );
                       if (_importing) {
                         return Padding(
                           padding: const EdgeInsets.symmetric(
@@ -1109,6 +1125,10 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
             ],
             const SizedBox(height: GlassConstants.spacingComfortable),
             if (_importDone) ...[
+              if (_failCount > 0) Align(alignment: Alignment.centerLeft, child: TextButton(
+                onPressed: () => setState(() => _showFailures = !_showFailures),
+                child: Text(_showFailures ? '查看全部结果' : '查看 $_failCount 项失败'),
+              )),
               Container(
                 padding: const EdgeInsets.all(GlassConstants.spacingCompact),
                 decoration: BoxDecoration(
@@ -1217,6 +1237,8 @@ class _BatchGameItem {
   String keyword;
   _BatchScrapeSource source;
   String status;
+  int? gameId;
+  bool failed = false;
   final List<String> translationNotices = [];
   double progress;
   bool selected;

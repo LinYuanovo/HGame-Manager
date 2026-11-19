@@ -22,6 +22,9 @@ class _PlayedPageState extends ConsumerState<PlayedPage>
 
   bool _isScanning = false;
   String _scanProgress = '';
+  String? _scanResult;
+  ({int gameId, int sequence})? _locationRequest;
+  int _locationSequence = 0;
   List<Game> _selectedGames = [];
 
   @override
@@ -32,6 +35,12 @@ class _PlayedPageState extends ConsumerState<PlayedPage>
     return Column(
       children: [
         GlassAppBar(
+          actions: [IconButton(tooltip: '定位最近游玩的游戏', icon: const Icon(Icons.my_location),
+            onPressed: gamesAsync.valueOrNull?.any((game) => game.id != null && game.lastPlayedTime != null) == true ? () {
+              final recent = gamesAsync.valueOrNull!.where((game) => game.id != null && game.lastPlayedTime != null).toList()
+                ..sort((first, second) => second.lastPlayedTime!.compareTo(first.lastPlayedTime!));
+              setState(() => _locationRequest = (gameId: recent.first.id!, sequence: ++_locationSequence));
+            } : null)],
           title: Text(
             _selectedGames.isNotEmpty ? '已选 ${_selectedGames.length} 项' : '已玩',
             style: TextStyle(
@@ -40,6 +49,7 @@ class _PlayedPageState extends ConsumerState<PlayedPage>
                 color: AppTheme.getTextPrimary(context)),
           ),
         ),
+        if (_scanResult != null) Semantics(liveRegion: true, child: Text(_scanResult!, style: TextStyle(color: AppTheme.getTextSecondary(context)))),
         Expanded(
           child: gamesAsync.when(
             data: (games) {
@@ -53,6 +63,7 @@ class _PlayedPageState extends ConsumerState<PlayedPage>
               return Material(
                 color: Colors.transparent,
                 child: GameListWidget(
+                  locationRequest: _locationRequest,
                   games: games,
                   contextMenuMode: ContextMenuMode.played,
                   routeIndex: 4,
@@ -80,6 +91,7 @@ class _PlayedPageState extends ConsumerState<PlayedPage>
   Future<void> _scanSavePaths() async {
     setState(() {
       _isScanning = true;
+      _scanResult = null;
     });
 
     try {
@@ -99,6 +111,7 @@ class _PlayedPageState extends ConsumerState<PlayedPage>
 
       int found = 0;
       int skipped = 0;
+      int discovered = 0;
       int total = gamesToScan.length;
 
       for (int i = 0; i < gamesToScan.length; i++) {
@@ -124,13 +137,15 @@ class _PlayedPageState extends ConsumerState<PlayedPage>
         if (savePath != null) {
           await repo.updateSavePath(game.id!, savePath);
           found++;
+          discovered++;
         }
       }
 
       ref.invalidate(playedGamesProvider);
 
       if (mounted) {
-        final newFound = found - skipped;
+        final newFound = discovered;
+        setState(() => _scanResult = '扫描完成：新增 $discovered，跳过 $skipped，共 $found/$total 个有存档');
         if (skipped > 0) {
           AppTheme.showGlassToast(context,
               message:
@@ -142,6 +157,7 @@ class _PlayedPageState extends ConsumerState<PlayedPage>
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _scanResult = '扫描失败：$e');
         AppTheme.showGlassToast(context,
             message: '扫描失败: $e',
             icon: Icons.error_outline,

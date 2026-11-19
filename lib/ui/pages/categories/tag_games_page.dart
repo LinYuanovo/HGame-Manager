@@ -7,11 +7,27 @@ import '../../widgets/game_list_widget.dart';
 
 const double _sidebarHalfWidth = LayoutConstants.sidebarWidth / 2;
 
+class TagRouteTitle extends StatelessWidget {
+  const TagRouteTitle({super.key, required this.anchor, required this.name, required this.style});
+
+  final Object? anchor;
+  final String name;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = Text(name, style: style, maxLines: 1, overflow: TextOverflow.ellipsis);
+    if (anchor == null || AppMotion.reduced(context)) return title;
+    return Hero(tag: anchor!, child: DefaultTextStyle(style: DefaultTextStyle.of(context).style, child: title));
+  }
+}
+
 class TagGamesPage extends ConsumerStatefulWidget {
   final int tagId;
   final String tagName;
+  final Object? titleAnchor;
 
-  const TagGamesPage({super.key, required this.tagId, required this.tagName});
+  const TagGamesPage({super.key, required this.tagId, required this.tagName, this.titleAnchor});
 
   @override
   ConsumerState<TagGamesPage> createState() => _TagGamesPageState();
@@ -50,11 +66,11 @@ class _TagGamesPageState extends ConsumerState<TagGamesPage> {
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: GlassConstants.spacingSmall),
-                      Text(widget.tagName,
+                      Flexible(child: TagRouteTitle(name: widget.tagName, anchor: widget.titleAnchor,
                           style: TextStyle(
                               fontSize: GlassConstants.fontSection,
                               fontWeight: AppTypography.semibold,
-                              color: AppTheme.getTextPrimary(context))),
+                              color: AppTheme.getTextPrimary(context)))),
                     ],
                   ),
                 ),

@@ -4,6 +4,8 @@ import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/game_list_widget.dart';
+import '../../widgets/layout_reflow.dart';
+import '../../widgets/result_location.dart';
 import '../categories/tag_games_page.dart';
 
 class FavoritesPage extends ConsumerStatefulWidget {
@@ -18,6 +20,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
   @override
   bool get wantKeepAlive => true;
   late AppTabController _tabController;
+  final _leavingTags = <int>{};
+  final _pendingTags = <int>{};
+  final _tagErrors = <int, String>{};
+  final _tagFocus = <int, FocusNode>{};
+  int? _returnedTag;
+  int _returnSequence = 0;
 
   @override
   void initState() {
@@ -28,6 +36,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
   @override
   void dispose() {
     _tabController.dispose();
+    for (final focus in _tagFocus.values) { focus.dispose(); }
     super.dispose();
   }
 
@@ -96,6 +105,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
     final tagsAsync = ref.watch(favoriteTagsProvider);
     return tagsAsync.when(
       data: (tags) {
+        _leavingTags.removeWhere((id) => !tags.any((tag) => tag.id == id));
         if (tags.isEmpty) {
           return const EmptyStateWidget(
             icon: Icons.category_outlined,
@@ -104,6 +114,11 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
           );
         }
         return GridView.builder(
+          key: const PageStorageKey('favorite-tags'),
+          findChildIndexCallback: (key) {
+            final index = tags.indexWhere((tag) => ValueKey(tag.id) == key);
+            return index < 0 ? null : index;
+          },
           padding: const EdgeInsets.fromLTRB(GlassConstants.spacingMedium, GlassConstants.spacingCompact, GlassConstants.spacingMedium, GlassConstants.spacingMedium),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 6,
@@ -114,7 +129,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
           itemCount: tags.length,
           itemBuilder: (context, index) {
             final tag = tags[index];
-            return GlassCard(
+            final titleAnchor = tag.id == null ? null : (this, tag.id);
+            Widget card = GlassCard(
+              focusNode: _tagFocus.putIfAbsent(tag.id!, () => FocusNode()),
               padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
               onTap: () {
                 if (tag.id != null) {
@@ -122,9 +139,13 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
                     context,
                     MaterialPageRoute(
                         builder: (_) => TagGamesPage(
-                            tagId: tag.id!,
+                            tagId: tag.id!, titleAnchor: titleAnchor,
                             tagName: tag.displayName ?? tag.name)),
-                  );
+                  ).then((_) {
+                    if (!mounted) return;
+                    setState(() { _returnedTag = tag.id; _returnSequence++; });
+                    _tagFocus[tag.id]?.requestFocus();
+                  });
                 }
               },
               child: Row(
@@ -140,26 +161,45 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
                   ),
                   const SizedBox(width: GlassConstants.spacingSmall),
                   Expanded(
-                    child: Text(
-                      tag.displayName ?? tag.name,
+                    child: TagRouteTitle(
+                      anchor: titleAnchor, name: tag.displayName ?? tag.name,
                       style: const TextStyle(
                           fontSize: GlassConstants.fontTitle, fontWeight: AppTypography.medium),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   IconButton(
                     icon: Icon(Icons.favorite, size: GlassConstants.iconSmall, color: AppTheme.getFavoriteColor(context)),
-                    onPressed: () async {
-                      await ref.read(tagRepositoryProvider).toggleFavorite(tag.id!, false);
-                      ref.invalidate(favoriteTagsProvider);
-                      ref.invalidate(allTagsProvider);
-                      ref.invalidate(allSeriesProvider);
+                    onPressed: _pendingTags.contains(tag.id) ? null : () async {
+                      if (!_pendingTags.add(tag.id!)) return;
+                      setState(() => _tagErrors.remove(tag.id));
+                      try {
+                        await ref.read(tagRepositoryProvider).toggleFavorite(tag.id!, false);
+                        if (!mounted) return;
+                        setState(() => _leavingTags.add(tag.id!));
+                        await Future<void>.delayed(AppMotion.duration(context, AppMotion.fast));
+                        if (!mounted) return;
+                        final remaining = tags.where((candidate) => !_leavingTags.contains(candidate.id)).toList();
+                        final next = remaining.isEmpty ? null : remaining[index.clamp(0, remaining.length - 1)];
+                        _tagFocus[next?.id]?.requestFocus();
+                        ref.invalidate(favoriteTagsProvider);
+                        ref.invalidate(allTagsProvider);
+                        ref.invalidate(allSeriesProvider);
+                      } catch (error) {
+                        if (mounted) setState(() => _tagErrors[tag.id!] = '更新失败：$error');
+                      } finally {
+                        if (mounted) setState(() => _pendingTags.remove(tag.id));
+                      }
                     },
                     tooltip: '取消收藏',
                   ),
                 ],
               ),
             );
+            if (_tagErrors[tag.id] != null) card = Tooltip(message: _tagErrors[tag.id]!, child: Semantics(liveRegion: true, label: _tagErrors[tag.id], child: card));
+            if (_returnedTag == tag.id) card = ResultLocation(key: ValueKey(_returnSequence), child: card);
+            return LayoutReflow(key: ValueKey(tag.id), revision: tags.length, child: AppMotionValue(
+                target: _leavingTags.contains(tag.id) ? 0 : 1, duration: AppMotion.fast,
+                builder: (context, value, child) => IgnorePointer(ignoring: value < 1, child: Opacity(opacity: value, child: Transform.scale(scale: .9 + value * .1, child: child))), child: card));
           },
         );
       },

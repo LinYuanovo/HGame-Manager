@@ -94,15 +94,15 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
       top: 0,
       bottom: 0,
       child: Center(
-        child: Column(
+        child: AnimatedSize(duration: AppMotion.duration(context, AppMotion.fast), curve: AppMotion.curve, child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (_showTop)
-              _buildButton(
+              AppEntrance(key: const ValueKey('top'), child: _buildButton(
                 icon: Icons.keyboard_arrow_up,
                 onPressed: _scrollToTop,
                 tooltip: '滚动到顶部',
-              ),
+              )),
             const SizedBox(height: GlassConstants.spacingSmall),
             if (widget.onToggleGuide != null)
               _buildButton(
@@ -120,13 +120,13 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
             ],
             const SizedBox(height: GlassConstants.spacingSmall),
             if (_showBottom)
-              _buildButton(
+              AppEntrance(key: const ValueKey('bottom'), child: _buildButton(
                 icon: Icons.keyboard_arrow_down,
                 onPressed: _scrollToBottom,
                 tooltip: '滚动到底部',
-              ),
+              )),
           ],
-        ),
+        )),
       ),
     );
   }

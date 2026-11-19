@@ -28,6 +28,7 @@ class TagInputDialog extends StatefulWidget {
 class _TagInputDialogState extends State<TagInputDialog> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
+  String? _duplicate;
   late final List<Tag> _selected = List.of(widget.selectedTags);
 
   bool _contains(Tag tag) => _selected.any((item) =>
@@ -44,7 +45,12 @@ class _TagInputDialogState extends State<TagInputDialog> {
               tag.displayName?.toLowerCase() == name.toLowerCase())
           .firstOrNull;
       final tag = existing ?? Tag(name: name, type: widget.newTagType);
-      if (!_contains(tag)) _selected.add(tag);
+      if (_contains(tag)) {
+        _duplicate = '已添加「${tag.displayName ?? tag.name}」';
+      } else {
+        _selected.add(tag);
+        _duplicate = null;
+      }
     }
     _controller.clear();
     _focusNode.requestFocus();
@@ -109,10 +115,11 @@ class _TagInputDialogState extends State<TagInputDialog> {
                   controller: _controller,
                   focusNode: _focusNode,
                   autofocus: true,
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (_) => setState(() => _duplicate = null),
                   onSubmitted: (_) => _addInput(),
                   decoration: InputDecoration(
                     hintText: widget.hintText,
+                    helperText: _duplicate,
                     suffixIcon: IconButton(
                         tooltip: '添加标签',
                         icon: const Icon(Icons.add),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/scrape_mode_config.dart';
 import '../../../core/providers/providers.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/selection_surface.dart';
 
 class ScrapeModeConfigDialog extends ConsumerStatefulWidget {
   const ScrapeModeConfigDialog({super.key});
@@ -108,12 +109,14 @@ class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
         color: AppTheme.getBackgroundColor(context),
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
       ),
-      child: Row(
+      child: SelectionSurface(index: _tabController.index,
+        decoration: BoxDecoration(color: AppTheme.getPrimaryColor(context).withValues(alpha: .15), borderRadius: BorderRadius.circular(GlassConstants.radiusSmall)),
+        child: Row(
         children: List.generate(
           ScrapeMode.values.length,
           (index) => Expanded(child: _buildTabItem(index, _tabLabels[index])),
         ),
-      ),
+      )),
     );
   }
 
@@ -185,9 +188,7 @@ class _TabItemWidgetState extends State<_TabItemWidget> {
           duration: AppMotion.duration(context, GlassConstants.animFast),
           padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingInline),
           decoration: BoxDecoration(
-            color: widget.isSelected
-                ? AppTheme.getPrimaryColor(context)
-                : _isHovered
+            color: _isHovered
                     ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.08)
                     : Colors.transparent,
             borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
@@ -196,7 +197,7 @@ class _TabItemWidgetState extends State<_TabItemWidget> {
           child: Text(
             widget.label,
             style: TextStyle(
-              color: widget.isSelected ? AppTheme.getOnPrimaryColor(context) : AppTheme.getTextSecondary(context),
+              color: widget.isSelected ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context),
               fontWeight: widget.isSelected ? AppTypography.medium : AppTypography.regular,
             ),
           ),

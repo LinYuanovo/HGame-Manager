@@ -24,6 +24,8 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
   ];
 
   final Map<String, HotKey> _hotkeys = {};
+  final _errors = <String, String>{};
+  bool _saving = false;
 
   /// 正在录制快捷键的功能键（null 表示未在录制）
   String? _recordingKey;
@@ -122,12 +124,14 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
   }
 
   Future<void> _onHotkeyRecorded(String storageKey, HotKey hotKey) async {
+    if (_saving) return;
     // 与其他功能的快捷键冲突时拒绝
     final conflict = _actions.any((action) =>
         action.key != storageKey &&
         _hotkeys[action.key] != null &&
         _isSameHotkey(_hotkeys[action.key]!, hotKey));
     if (conflict) {
+      setState(() => _errors[storageKey] = '该快捷键已被其他功能占用');
       AppTheme.showGlassToast(
         context,
         message: '该快捷键已被其他功能占用',
@@ -136,28 +140,55 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
       );
       return;
     }
-    setState(() => _hotkeys[storageKey] = hotKey);
-    await _service.saveHotkey(storageKey, hotKey);
-    await _service.registerHotkeys();
+    final service = _service;
+    final previous = _hotkeys[storageKey]!;
+    setState(() { _saving = true; _errors.remove(storageKey); });
+    try {
+      await service.saveHotkey(storageKey, hotKey);
+      final error = await service.registerHotkeys();
+      if (error != null) {
+        await service.saveHotkey(storageKey, previous);
+        await service.registerHotkeys();
+        if (mounted) setState(() => _errors[storageKey] = '注册失败：$error');
+      } else if (mounted) {
+        setState(() => _hotkeys[storageKey] = hotKey);
+      }
+    } catch (error) {
+      if (mounted) setState(() => _errors[storageKey] = '保存快捷键失败：$error');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<void> _resetToDefaults() async {
+    if (_saving) return;
     _stopRecording();
-    await _service.resetHotkeys();
-    await _service.registerHotkeys();
-    setState(() {
-      final defaults = GuideWindowService.defaultHotkeys();
-      for (final action in _actions) {
-        _hotkeys[action.key] = defaults[action.key]!;
-      }
-    });
-    if (mounted) {
+    final service = _service;
+    setState(() => _saving = true);
+    try {
+      await service.resetHotkeys();
+      final error = await service.registerHotkeys();
+      if (!mounted) return;
+      setState(() {
+        _errors.clear();
+        if (error != null) _errors[GuideWindowService.hotkeyToggleKey] = '注册失败：$error';
+        final defaults = GuideWindowService.defaultHotkeys();
+        for (final action in _actions) {
+          _hotkeys[action.key] = defaults[action.key]!;
+        }
+      });
       AppTheme.showGlassToast(
         context,
-        message: '已恢复默认快捷键',
-        icon: Icons.check_circle_outline,
-        iconColor: AppTheme.successColor,
+        message: error == null ? '已恢复默认快捷键' : '默认快捷键已保存，注册失败',
+        icon: error == null ? Icons.check_circle_outline : Icons.error_outline,
+        iconColor: error == null ? AppTheme.successColor : AppTheme.errorColor,
       );
+    } catch (error) {
+      if (mounted) {
+        setState(() => _errors[GuideWindowService.hotkeyToggleKey] = '恢复默认快捷键失败：$error');
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -229,7 +260,7 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
     final isRecording = _recordingKey == action.key;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingSmall),
-      child: Row(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(
         children: [
           SizedBox(
             width: 110,
@@ -248,7 +279,7 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
           ),
           const SizedBox(width: GlassConstants.spacingSmall),
           TextButton(
-            onPressed: () =>
+            onPressed: _saving ? null : () =>
                 isRecording ? _stopRecording() : _startRecording(action.key),
             child: Text(
               isRecording ? '取消' : '修改',
@@ -256,7 +287,9 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
             ),
           ),
         ],
-      ),
+      ), if (_errors[action.key] case final error?) Semantics(liveRegion: true,
+        child: Text(error, style: const TextStyle(color: AppTheme.errorColor))),
+      ]),
     );
   }
 
@@ -307,7 +340,7 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           TextButton(
-            onPressed: _resetToDefaults,
+            onPressed: _saving ? null : _resetToDefaults,
             child: Text('恢复默认',
                 style:
                     TextStyle(color: AppTheme.getTextSecondary(context))),

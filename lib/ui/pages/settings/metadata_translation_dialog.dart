@@ -157,6 +157,7 @@ class _MetadataTranslationDialogState extends State<MetadataTranslationDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 SwitchListTile(
+                  autofocus: true,
                   contentPadding: EdgeInsets.zero,
                   title: const Text('刮削后自动翻译为简体中文'),
                   activeThumbColor: AppTheme.getPrimaryColor(context),

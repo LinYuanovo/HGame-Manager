@@ -15,6 +15,7 @@ import '../../core/utils/guide_window_state.dart';
 import '../../core/utils/media_reference_parser.dart';
 import '../theme/app_theme.dart';
 import '../widgets/window_caption_button.dart';
+import '../widgets/picture_motion.dart';
 
 /// 攻略浮窗子窗口入口。
 ///
@@ -697,9 +698,17 @@ class _GuideWindowPageState extends State<GuideWindowPage>
         alignment: Alignment.centerLeft,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-          child: image,
+          child: PictureOrigin(origins: _pictures, identity: imagePath, child: image,
+              onOpen: (tag) => showPictureDialog<void>(context, (dialogContext) => Dialog(
+                child: Stack(children: [
+                  Center(child: InteractiveViewer(child: pictureHero(dialogContext, tag, image))),
+                  Positioned(top: GlassConstants.spacingSmall, right: GlassConstants.spacingSmall,
+                      child: IconButton(tooltip: '关闭图片', onPressed: () => Navigator.pop(dialogContext), icon: const Icon(Icons.close))),
+                ]),
+              ))),
         ),
       ),
     );
   }
+  final _pictures = PictureOrigins();
 }

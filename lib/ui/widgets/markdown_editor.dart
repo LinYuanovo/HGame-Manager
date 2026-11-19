@@ -22,6 +22,39 @@ class MarkdownEditor extends StatefulWidget {
 
 class _MarkdownEditorState extends State<MarkdownEditor> {
   bool _isPreview = false;
+  final _editorFocus = FocusNode();
+  final _editorScroll = ScrollController();
+  final _previewScroll = ScrollController();
+  TextSelection? _editingSelection;
+
+  void _switchMode(bool preview) {
+    if (preview == _isPreview) return;
+    final from = preview ? _editorScroll : _previewScroll;
+    final to = preview ? _previewScroll : _editorScroll;
+    final ratio = from.hasClients && from.position.maxScrollExtent > 0
+        ? (from.offset / from.position.maxScrollExtent).clamp(0.0, 1.0) : 0.0;
+    if (preview) _editingSelection = widget.controller.selection;
+    setState(() => _isPreview = preview);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _isPreview != preview) return;
+      if (!preview) {
+        _editorFocus.requestFocus();
+        final selection = _editingSelection;
+        if (selection != null && selection.isValid && selection.end <= widget.controller.text.length) {
+          widget.controller.selection = selection;
+        }
+      }
+      if (to.hasClients) to.jumpTo(to.position.maxScrollExtent * ratio);
+    });
+  }
+
+  @override
+  void dispose() {
+    _editorFocus.dispose();
+    _editorScroll.dispose();
+    _previewScroll.dispose();
+    super.dispose();
+  }
 
   String _toPreview(String text) {
     var result = MediaReferenceParser.replaceImageLines(text, (imagePath) {
@@ -53,9 +86,9 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
     final end = sel.end >= 0 ? sel.end : text.length;
     final selected = text.substring(start, end);
     final replacement = '$prefix$selected$suffix';
-    ctrl.text = text.substring(0, start) + replacement + text.substring(end);
-    ctrl.selection = TextSelection.collapsed(
-        offset: start + prefix.length + selected.length);
+    ctrl.value = TextEditingValue(text: text.replaceRange(start, end, replacement),
+        selection: TextSelection(baseOffset: start + prefix.length, extentOffset: start + prefix.length + selected.length));
+    _editorFocus.requestFocus();
   }
 
   void _insertImage(String path) {
@@ -73,10 +106,10 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
         children: [
           _buildToolbar(),
           Expanded(
-            child: AppContentSwitcher(child: KeyedSubtree(
-              key: ValueKey(_isPreview),
-              child: _isPreview ? _buildPreview() : _buildEditor(),
-            )),
+            child: Stack(fit: StackFit.expand, children: [
+              Offstage(offstage: _isPreview, child: ExcludeFocus(excluding: _isPreview, child: _buildEditor())),
+              if (_isPreview) AppEntrance(child: _buildPreview()),
+            ]),
           ),
         ],
       ),
@@ -96,13 +129,13 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
             icon: Icons.edit,
             label: '编辑',
             active: !_isPreview,
-            onTap: () => setState(() => _isPreview = false),
+            onTap: () => _switchMode(false),
           ),
           _toggleButton(
             icon: Icons.preview,
             label: '预览',
             active: _isPreview,
-            onTap: () => setState(() => _isPreview = true),
+            onTap: () => _switchMode(true),
           ),
           const SizedBox(width: GlassConstants.spacingSmall),
           Container(
@@ -186,6 +219,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
     return PopupMenuButton<String>(
       popUpAnimationStyle: AppMotion.overlayStyle(context),
       tooltip: '插入图片',
+      onCanceled: () => _editorFocus.requestFocus(),
       onSelected: _insertImage,
       itemBuilder: (_) => widget.imagePaths.map((p) {
         final name = p.split(RegExp(r'[/\\]')).last;
@@ -215,6 +249,8 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
 
   Widget _buildEditor() {
     return TextField(
+      focusNode: _editorFocus,
+      scrollController: _editorScroll,
       controller: widget.controller,
       maxLines: null,
       expands: true,
@@ -241,6 +277,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       );
     }
     return SingleChildScrollView(
+      controller: _previewScroll,
       padding: const EdgeInsets.all(GlassConstants.spacingMedium),
       child: MarkdownBody(
         data: preview,

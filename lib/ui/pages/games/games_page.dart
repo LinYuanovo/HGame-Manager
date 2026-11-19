@@ -258,6 +258,7 @@ class _GamesPageState extends ConsumerState<GamesPage>
     showGlassDialog(
       context: context,
       child: BatchImportDialog(
+        onLocate: (id) => ref.read(libraryLocationProvider.notifier).state = id,
         onImportComplete: () {
           ref.invalidate(allGamesProvider);
         },
@@ -269,8 +270,9 @@ class _GamesPageState extends ConsumerState<GamesPage>
     showGlassDialog(
       context: context,
       child: _CloudImportDialog(
-        onImportComplete: () {
+        onImportComplete: (id) {
           ref.invalidate(allGamesProvider);
+          ref.read(libraryLocationProvider.notifier).state = id;
         },
       ),
     );
@@ -280,7 +282,7 @@ class _GamesPageState extends ConsumerState<GamesPage>
 enum ImportSource { none, dlsite, steam }
 
 class _CloudImportDialog extends StatefulWidget {
-  final VoidCallback onImportComplete;
+  final ValueChanged<int?> onImportComplete;
 
   const _CloudImportDialog({required this.onImportComplete});
 
@@ -293,8 +295,11 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
   final _dlsiteService = DlsiteService();
   final _steamService = SteamService();
   final _idController = TextEditingController();
+  final _queryFocus = FocusNode();
   String? _folderPath;
   bool _isLoading = false;
+  int _searchGeneration = 0;
+  bool _searching = false;
   String _statusText = '';
   final List<String> _translationNotices = [];
   List<dynamic> _searchResults = [];
@@ -304,6 +309,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
   @override
   void dispose() {
     _idController.dispose();
+    _queryFocus.dispose();
     super.dispose();
   }
 
@@ -342,6 +348,8 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
   }
 
   Future<void> _searchGame() async {
+    if (_isLoading && !_searching) return;
+    final generation = ++_searchGeneration;
     if (_folderPath == null) {
       AppTheme.showGlassToast(
         context,
@@ -360,6 +368,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     setState(() {
       _isLoading = true;
       _statusText = '正在搜索...';
+      _searching = true;
       _showSearchResults = true;
       _searchResults = [];
       _selectedResult = null;
@@ -367,16 +376,16 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
 
     try {
       if (_source == ImportSource.dlsite) {
-        await _searchDlsite();
+        await _searchDlsite(generation);
       } else {
-        await _searchSteam();
+        await _searchSteam(generation);
       }
     } catch (e, stackTrace) {
       AppLogger.instance.error('Import', '操作失败', e, stackTrace);
-      if (mounted) setState(() => _statusText = '搜索失败: $e');
+      if (mounted && generation == _searchGeneration) setState(() => _statusText = '搜索失败: $e');
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
+      if (mounted && generation == _searchGeneration) {
+        setState(() { _isLoading = false; _searching = false; });
       }
     }
   }
@@ -460,7 +469,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
 
       if (mounted) {
         Navigator.of(context).pop();
-        widget.onImportComplete();
+        widget.onImportComplete(savedGame?.id);
         AppTheme.showGlassToast(
           context,
           message: existingGame != null ? '游戏信息已更新' : '游戏导入成功',
@@ -478,7 +487,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     }
   }
 
-  Future<void> _searchDlsite() async {
+  Future<void> _searchDlsite(int generation) async {
     List<DlsiteSearchResult> results;
     final inputText = _idController.text.trim();
     if (inputText.isNotEmpty) {
@@ -498,7 +507,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       results = await _dlsiteService.searchWithFallback(_folderPath!);
     }
 
-    if (!mounted) return;
+    if (!mounted || generation != _searchGeneration) return;
     setState(() {
       _searchResults = results;
       _showSearchResults = true;
@@ -510,7 +519,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
     });
   }
 
-  Future<void> _searchSteam() async {
+  Future<void> _searchSteam(int generation) async {
     List<SteamSearchResult> results;
     final rawInput = _idController.text.trim();
     if (rawInput.isNotEmpty) {
@@ -524,7 +533,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
       results = await _steamService.searchWithFallback(_folderPath!);
     }
 
-    if (!mounted) return;
+    if (!mounted || generation != _searchGeneration) return;
     setState(() {
       _searchResults = results;
       _showSearchResults = true;
@@ -652,7 +661,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
 
     if (mounted) {
       Navigator.of(context).pop();
-      widget.onImportComplete();
+      widget.onImportComplete(gameId);
       AppTheme.showGlassToast(
         context,
         message: [
@@ -756,7 +765,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
 
     if (mounted) {
       Navigator.of(context).pop();
-      widget.onImportComplete();
+      widget.onImportComplete(gameId);
       AppTheme.showGlassToast(
         context,
         message: [
@@ -891,6 +900,8 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                   Expanded(
                     child: TextField(
                       controller: _idController,
+                      focusNode: _queryFocus,
+                      onSubmitted: (_) => _searchGame(),
                       decoration: InputDecoration(
                         hintText: _source == ImportSource.dlsite
                             ? '输入DLsite ID (如 RJ123456)，留空则自动按游戏名称搜索'
@@ -910,7 +921,7 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
                   ),
                   const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _searchGame,
+                    onPressed: _isLoading && !_searching ? null : _searchGame,
                     icon: const Icon(Icons.search, size: GlassConstants.iconSmall),
                     label: const Text('搜索'),
                   ),
@@ -1023,11 +1034,15 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
   Widget _buildSourceChip(ImportSource source, String label) {
     final isSelected = _source == source;
     return GestureDetector(
-      onTap: _isLoading
+      onTap: _isLoading && !_searching
           ? null
           : () {
               setState(() {
                 _source = source;
+                _searchGeneration++;
+                _isLoading = false;
+                _searching = false;
+                _queryFocus.requestFocus();
                 _searchResults = [];
                 _selectedResult = null;
                 _showSearchResults = false;
@@ -1106,7 +1121,8 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         ),
         selected: isSelected,
         selectedTileColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
-        onTap: () => setState(() => _selectedResult = result),
+        trailing: _isLoading && !_searching && isSelected ? const SizedBox.square(dimension: GlassConstants.iconSmall, child: AppProgressIndicator(strokeWidth: 2)) : null,
+        onTap: _isLoading ? null : () => setState(() => _selectedResult = result),
       );
     } else if (_source == ImportSource.steam && result is SteamSearchResult) {
       return ListTile(
@@ -1153,7 +1169,8 @@ class _CloudImportDialogState extends State<_CloudImportDialog> {
         ),
         selected: isSelected,
         selectedTileColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
-        onTap: () => setState(() => _selectedResult = result),
+        trailing: _isLoading && !_searching && isSelected ? const SizedBox.square(dimension: GlassConstants.iconSmall, child: AppProgressIndicator(strokeWidth: 2)) : null,
+        onTap: _isLoading ? null : () => setState(() => _selectedResult = result),
       );
     }
     return const SizedBox.shrink();

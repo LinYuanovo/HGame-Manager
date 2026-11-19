@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../core/models/models.dart';
 import '../theme/app_theme.dart';
+import 'layout_reflow.dart';
 
 class DraggableImageGrid extends StatelessWidget {
   final List<GameImage> images;
@@ -47,6 +48,10 @@ class DraggableImageGrid extends StatelessWidget {
     }
 
     return GridView.builder(
+      findChildIndexCallback: (key) {
+        final index = images.indexWhere((image) => ValueKey(image.imagePath) == key);
+        return index < 0 ? null : index;
+      },
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
         crossAxisSpacing: 8,
@@ -58,7 +63,22 @@ class DraggableImageGrid extends StatelessWidget {
         final image = images[index];
         final isCover = index == coverIndex;
 
-        return Stack(
+        return LayoutReflow(key: ValueKey(image.imagePath), revision: images,
+          child: LayoutBuilder(builder: (context, constraints) => DragTarget<GameImage>(
+            onWillAcceptWithDetails: (details) => details.data != image && images.contains(details.data),
+            onAcceptWithDetails: (details) {
+              final order = List<GameImage>.from(images)..remove(details.data);
+              order.insert(index, details.data);
+              onReorder(order);
+            },
+            builder: (context, candidates, rejected) => Draggable<GameImage>(
+              data: image,
+              feedback: Material(color: Colors.transparent, child: SizedBox(width: constraints.maxWidth, height: constraints.maxHeight,
+                child: Image.file(File(image.imagePath), fit: BoxFit.contain))),
+              childWhenDragging: Container(decoration: BoxDecoration(color: AppTheme.getPrimaryColor(context).withValues(alpha: .1), borderRadius: BorderRadius.circular(GlassConstants.radiusSmall))),
+              child: AnimatedContainer(duration: AppMotion.duration(context, AppMotion.fast),
+                color: candidates.isEmpty ? Colors.transparent : AppTheme.getPrimaryColor(context).withValues(alpha: .15),
+                child: Stack(
           children: [
             GestureDetector(
               onTap: () => _onImageTap(index),
@@ -117,7 +137,7 @@ class DraggableImageGrid extends StatelessWidget {
               ),
             ),
           ],
-        );
+        ))))));
       },
     );
   }

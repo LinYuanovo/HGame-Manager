@@ -387,7 +387,7 @@ class _DelayedImages extends Fake implements GameRepository {
   final saved = Completer<void>();
 
   @override
-  Future<void> deleteGameImagesByGameId(int gameId) => saved.future;
+  Future<void> setGameImages(int gameId, List<GameImage> images, {int? coverIndex}) => saved.future;
 }
 
 class _EmptyBackups extends Fake implements BackupService {

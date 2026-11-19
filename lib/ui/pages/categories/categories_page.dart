@@ -5,6 +5,7 @@ import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/result_location.dart';
 import '../../widgets/app_dropdown.dart';
 import '../../widgets/tag_input_dialog.dart';
 import 'tag_games_page.dart';
@@ -30,6 +31,9 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
   List<int> _dragOriginIds = [];
   final Map<String, GlobalKey> _gridKeys = {};
   final Map<int, GlobalKey> _cardKeys = {};
+  final _tagFocus = <int, FocusNode>{};
+  int? _returnedTag;
+  int _returnSequence = 0;
   final Map<int, Offset> _shiftStarts = {};
   final Map<int, Offset> _currentShift = {};
   int _shiftTick = 0;
@@ -233,6 +237,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
 
   @override
   void dispose() {
+    for (final focus in _tagFocus.values) { focus.dispose(); }
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -502,11 +507,13 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
 
   Widget _buildTagChip(Tag tag) {
     final isSelected = _selectedTagIds.contains(tag.id);
-    return GestureDetector(
+    final titleAnchor = tag.id == null || _isMultiSelectMode || _draggingTag != null ? null : (this, tag.id);
+    Widget card = GestureDetector(
       onSecondaryTapUp: _isMultiSelectMode
           ? null
           : (details) => _showTagContextMenu(tag, details.globalPosition),
       child: GlassCard(
+        focusNode: tag.id != null && _draggingTag == null ? _tagFocus.putIfAbsent(tag.id!, () => FocusNode()) : null,
         padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
         onTap: () {
           if (_isMultiSelectMode) {
@@ -523,8 +530,11 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                 context,
                 MaterialPageRoute(
                     builder: (_) => TagGamesPage(
-                        tagId: tag.id!, tagName: tag.displayName ?? tag.name)),
+                        tagId: tag.id!, tagName: tag.displayName ?? tag.name, titleAnchor: titleAnchor)),
               ).then((_) {
+                if (!mounted) return;
+                setState(() { _returnedTag = tag.id; _returnSequence++; });
+                _tagFocus[tag.id]?.requestFocus();
                 ref.invalidate(allTagsProvider);
                 ref.invalidate(allSeriesProvider);
               });
@@ -550,10 +560,9 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
               ),
               const SizedBox(width: GlassConstants.spacingSmall),
               Expanded(
-                child: Text(
-                  tag.displayName ?? tag.name,
+                child: TagRouteTitle(
+                  anchor: titleAnchor, name: tag.displayName ?? tag.name,
                   style: TextStyle(fontSize: GlassConstants.fontTitle, fontWeight: AppTypography.medium),
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (tag.gameCount > 0)
@@ -593,6 +602,10 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
         ),
       ),
     );
+    if (tag.id != null && _draggingTag == null) {
+      if (_returnedTag == tag.id) card = ResultLocation(key: ValueKey((tag.id, _returnSequence)), child: card);
+    }
+    return card;
   }
 
   Future<void> _deleteSelectedTags() async {

@@ -255,10 +255,10 @@ class GuideWindowService {
   bool get hotkeysEnabled => _prefs.getBool(hotkeysEnabledKey) ?? true;
 
   /// 按当前配置重新注册全部全局快捷键；总开关关闭时反注册全部
-  Future<void> registerHotkeys() async {
+  Future<String?> registerHotkeys() async {
     try {
       await hotKeyManager.unregisterAll();
-      if (!hotkeysEnabled) return;
+      if (!hotkeysEnabled) return null;
       await hotKeyManager.register(
         loadHotkey(hotkeyToggleKey),
         keyDownHandler: (_) => toggleOpenClose(),
@@ -277,7 +277,9 @@ class GuideWindowService {
       );
     } catch (e, stackTrace) {
       AppLogger.instance.error('GuideWindow', '[GuideWindow] register hotkeys error: $e', e, stackTrace);
+      return e.toString();
     }
+    return null;
   }
 
   Future<void> dispose() async {

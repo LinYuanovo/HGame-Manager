@@ -1,6 +1,8 @@
 import '../../../core/services/app_logger.dart';
 // lib/ui/pages/games/save_management_dialog.dart
 import 'dart:io';
+import 'package:path/path.dart' as path;
+import '../../widgets/result_location.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,6 +25,22 @@ class SaveManagementDialog extends ConsumerStatefulWidget {
 }
 
 class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
+  final _backupScroll = ScrollController();
+  String? _locatedBackup;
+  int _loadRevision = 0;
+  String? _operationTarget;
+  String? _operationError;
+  bool _operating = false;
+
+  Future<void> _runOperation(String target, Future<void> Function() action) async {
+    if (_operating || _isDownloading) return;
+    setState(() { _operating = true; _operationTarget = target; _operationError = null; });
+    try { await action(); } catch (error) {
+      if (mounted) setState(() => _operationError = '操作失败：$error');
+    } finally {
+      if (mounted) setState(() => _operating = false);
+    }
+  }
   late String? _savePath;
   List<BackupEntry> _backups = [];
   bool _isLoading = false;
@@ -45,6 +63,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
   @override
   void dispose() {
     _pathEditController.dispose();
+    _backupScroll.dispose();
     super.dispose();
   }
 
@@ -58,8 +77,9 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
   }
 
   /// 加载本地备份列表
-  Future<void> _loadBackups() async {
+  Future<void> _loadBackups({String? locate}) async {
     if (!mounted) return;
+    final revision = ++_loadRevision;
     setState(() {
       _isLoading = true;
       _loadError = null;
@@ -67,12 +87,19 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
     final service = ref.read(backupServiceProvider);
     try {
       final backups = await service.listBackups(widget.game.path);
-      if (mounted) setState(() => _backups = backups);
+      if (!mounted || revision != _loadRevision) return;
+      final previous = _backups.map((entry) => entry.filePath).toSet();
+      locate ??= previous.isEmpty ? null : backups.where((entry) => !previous.contains(entry.filePath)).firstOrNull?.filePath;
+      setState(() { _backups = backups; _locatedBackup = locate; });
+      final index = backups.indexWhere((entry) => entry.filePath == locate);
+      if (index >= 0) WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && revision == _loadRevision) seekListIndex(_backupScroll, index, isCurrent: () => mounted && revision == _loadRevision);
+      });
     } catch (error, stackTrace) {
       AppLogger.instance.error('SaveUI', '加载存档失败', error, stackTrace);
-      if (mounted) setState(() => _loadError = error.toString());
+      if (mounted && revision == _loadRevision) setState(() => _loadError = error.toString());
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted && revision == _loadRevision) setState(() => _isLoading = false);
     }
   }
 
@@ -116,6 +143,8 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
                     _buildHeader(),
                     _buildSavePathSection(),
                     _buildActionButtons(),
+                    if (_operating || _operationError != null)
+                      Semantics(liveRegion: true, child: Text(_operationError ?? '正在处理：$_operationTarget', style: TextStyle(color: _operationError == null ? AppTheme.getTextSecondary(context) : AppTheme.errorColor))),
                     Divider(height: 1, color: AppTheme.getBorderColor(context)),
                     Expanded(child: _buildBackupList()),
                   ],
@@ -245,12 +274,12 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
             if (!_isBatchDeleteMode) ...[
               _buildActionButton(Icons.folder_open, '打开存档', AppTheme.getPrimaryColor(context), _openSaveFolder),
               _buildActionButton(Icons.backup, '打开备份', AppTheme.getSecondaryColor(context), _openBackupFolder),
-              _buildActionButton(Icons.add_circle_outline, '导入存档', AppTheme.warningColor, _addCustomBackup),
+              _buildActionButton(Icons.add_circle_outline, '导入存档', AppTheme.warningColor, () => _runOperation('导入存档', _addCustomBackup)),
               _buildActionButton(Icons.cloud_download_outlined,
                   _isDownloading ? '正在获取存档…' : '下载存档',
                   AppTheme.getPrimaryColor(context), _downloadFrom2dfan,
                   loading: _isDownloading),
-              _buildActionButton(Icons.save_alt, '备份存档', AppTheme.successColor, _backupCurrentSave),
+              _buildActionButton(Icons.save_alt, '备份存档', AppTheme.successColor, () => _runOperation('备份存档', _backupCurrentSave)),
               _buildActionButton(Icons.cloud_outlined, '云端备份', AppTheme.getPrimaryColor(context), _showCloudBackups),
               _buildActionButton(Icons.delete_sweep_outlined, '批量删除', AppTheme.errorColor, _toggleBatchDeleteMode),
             ],
@@ -267,7 +296,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
   Widget _buildActionButton(IconData icon, String label, Color color, VoidCallback onPressed,
       {bool loading = false}) {
     return ElevatedButton.icon(
-      onPressed: loading ? null : onPressed,
+      onPressed: loading || _operating ? null : onPressed,
       style: AppButtonStyles.tinted(context, color: color, compact: true),
       icon: loading
           ? const SizedBox.square(dimension: GlassConstants.iconSmall, child: AppProgressIndicator(strokeWidth: 2))
@@ -278,7 +307,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
 
   /// 构建备份列表
   Widget _buildBackupList() {
-    if (_isLoading) {
+    if (_isLoading && _backups.isEmpty) {
       return const AppSkeleton(label: '正在加载存档');
     }
 
@@ -301,11 +330,13 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
     }
 
     return ListView.builder(
+      controller: _backupScroll,
       padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingSmall),
       itemCount: _backups.length,
       itemBuilder: (context, index) {
         final backup = _backups[index];
-        return _buildBackupItem(backup);
+        final row = _buildBackupItem(backup);
+        return _locatedBackup == backup.filePath ? ResultLocation(key: ValueKey((_loadRevision, backup.filePath)), child: row) : row;
       },
     );
   }
@@ -384,7 +415,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
           const SizedBox(width: GlassConstants.spacingCompact),
           Expanded(
             child: Text(
-              backup.name,
+              _operating && _operationTarget == backup.filePath ? '${backup.name}（处理中）' : backup.name,
               style: TextStyle(
                 fontSize: GlassConstants.fontControl,
                 color: accentColor ?? AppTheme.getDetailTextPrimary(context),
@@ -398,13 +429,13 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
             style: TextStyle(fontSize: GlassConstants.fontBody, color: AppTheme.getTextSecondary(context)),
           ),
           const SizedBox(width: GlassConstants.spacingMedium),
-          AppMiniIconButton(icon: Icons.edit, tooltip: '编辑名称', color: AppTheme.getPrimaryColor(context), onTap: () => _renameBackup(backup)),
+          AppMiniIconButton(icon: Icons.edit, tooltip: '编辑名称', color: AppTheme.getPrimaryColor(context), onTap: _operating ? null : () => _runOperation(backup.filePath, () => _renameBackup(backup))),
           const SizedBox(width: GlassConstants.spacingTiny),
-          AppMiniIconButton(icon: Icons.cloud_upload_outlined, tooltip: '备份至云端', color: AppTheme.getSecondaryColor(context), onTap: () => _uploadToCloud(backup)),
+          AppMiniIconButton(icon: Icons.cloud_upload_outlined, tooltip: '备份至云端', color: AppTheme.getSecondaryColor(context), onTap: _operating ? null : () => _runOperation(backup.filePath, () => _uploadToCloud(backup))),
           const SizedBox(width: GlassConstants.spacingTiny),
-          AppMiniIconButton(icon: Icons.restore, tooltip: '还原到此备份', color: AppTheme.successColor, onTap: () => _restoreBackup(backup)),
+          AppMiniIconButton(icon: Icons.restore, tooltip: '还原到此备份', color: AppTheme.successColor, onTap: _operating ? null : () => _runOperation(backup.filePath, () => _restoreBackup(backup))),
           const SizedBox(width: GlassConstants.spacingTiny),
-          AppMiniIconButton(icon: Icons.delete_outline, tooltip: '删除', color: AppTheme.errorColor, onTap: () => _deleteBackup(backup)),
+          AppMiniIconButton(icon: Icons.delete_outline, tooltip: '删除', color: AppTheme.errorColor, onTap: _operating ? null : () => _runOperation(backup.filePath, () => _deleteBackup(backup))),
         ],
       ),
     );
@@ -520,7 +551,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
     if (mounted) {
       if (entry != null) {
         AppTheme.showGlassToast(context, message: '导入成功', icon: Icons.check_circle, iconColor: AppTheme.successColor);
-        _loadBackups();
+        _loadBackups(locate: entry.filePath);
       } else {
         AppTheme.showGlassToast(context, message: '导入失败，请检查文件格式', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
@@ -553,9 +584,10 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
     if (mounted) {
       if (entry != null) {
         AppTheme.showGlassToast(context, message: '备份成功', icon: Icons.check_circle, iconColor: AppTheme.successColor);
-        _loadBackups();
+        _loadBackups(locate: entry.filePath);
       } else {
         AppTheme.showGlassToast(context, message: '备份失败', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        _operationError = '备份失败，可重试';
       }
     }
   }
@@ -583,6 +615,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
           webdavUsername: username,
           webdavPassword: password,
           onBackupDownloaded: _loadBackups,
+          onBackupLocated: (filePath) => _loadBackups(locate: filePath),
         ),
       );
     }
@@ -908,9 +941,10 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
       if (mounted) {
         if (success) {
           AppTheme.showGlassToast(context, message: '重命名成功', icon: Icons.check_circle, iconColor: AppTheme.successColor);
-          _loadBackups();
+          _loadBackups(locate: path.join(path.dirname(backup.filePath), '$newName.zip'));
         } else {
           AppTheme.showGlassToast(context, message: '重命名失败，可能名称已存在', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+          _operationError = '重命名失败，可能名称已存在';
         }
       }
     }
@@ -960,6 +994,7 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
         AppTheme.showGlassToast(context, message: '上传成功', icon: Icons.check_circle, iconColor: AppTheme.successColor);
       } else {
         AppTheme.showGlassToast(context, message: '上传失败', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        _operationError = '上传失败，可重试';
       }
     }
   }
@@ -1033,9 +1068,10 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
     if (mounted) {
       if (success) {
         AppTheme.showGlassToast(context, message: '还原成功', icon: Icons.check_circle, iconColor: AppTheme.successColor);
-        _loadBackups();
+        _loadBackups(locate: backup.filePath);
       } else {
         AppTheme.showGlassToast(context, message: '还原失败', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        _operationError = '还原失败，可重试';
       }
     }
   }
@@ -1076,10 +1112,11 @@ class _SaveManagementDialogState extends ConsumerState<SaveManagementDialog> {
 
     if (confirmed == true) {
       final service = ref.read(backupServiceProvider);
+      final next = _backups.where((entry) => entry.filePath != backup.filePath).firstOrNull?.filePath;
       await service.deleteBackup(backup.filePath);
       if (mounted) {
         AppTheme.showGlassToast(context, message: '已删除', icon: Icons.check_circle, iconColor: AppTheme.successColor);
-        _loadBackups();
+        _loadBackups(locate: next);
       }
     }
   }

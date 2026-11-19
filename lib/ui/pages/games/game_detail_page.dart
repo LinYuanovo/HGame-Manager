@@ -41,6 +41,9 @@ import '../../../core/utils/game_data_paths.dart';
 import '../../../core/utils/media_reference_parser.dart';
 import '../../../core/utils/path_reference_rewriter.dart';
 import '../../widgets/image_manager_dialog.dart';
+import '../../widgets/picture_motion.dart';
+import '../../widgets/rating_input.dart';
+import '../../widgets/result_location.dart';
 import '../../widgets/tag_input_dialog.dart';
 import '../../widgets/cloudflare_browser_dialog.dart';
 import '../../widgets/folder_move_progress_dialog.dart';
@@ -56,8 +59,10 @@ import 'content_search_engine.dart';
 class GameDetailDialog extends ConsumerStatefulWidget {
   final Game game;
   final void Function(Tag tag)? onTagTap;
+  final Object? Function()? coverOrigin;
+  final String? openingCover;
 
-  const GameDetailDialog({super.key, required this.game, this.onTagTap});
+  const GameDetailDialog({super.key, required this.game, this.onTagTap, this.coverOrigin, this.openingCover});
 
   @override
   ConsumerState<GameDetailDialog> createState() => _GameDetailDialogState();
@@ -80,8 +85,27 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   late Game _currentGame;
 
   bool _isImageViewerOpen = false;
+  final _pictureOrigins = PictureOrigins();
   int _currentImageIndex = 0;
   int _imageVersion = 0;
+  int _metadataPulse = 0;
+  final _sectionPulses = <int, int>{};
+
+  void _acceptScrapedGame(Game game) {
+    final before = _currentGame;
+    final oldSections = [before.intro, before.features, before.changelog];
+    final newSections = [game.intro, game.features, game.changelog];
+    for (var index = 0; index < oldSections.length; index++) {
+      if (oldSections[index] != newSections[index]) _sectionPulses[index] = (_sectionPulses[index] ?? 0) + 1;
+    }
+    if (before.title != game.title || before.intro != game.intro || before.version != game.version ||
+        before.features != game.features || before.changelog != game.changelog ||
+        before.tags.map((tag) => (tag.id, tag.name, tag.displayName)).join('|') != game.tags.map((tag) => (tag.id, tag.name, tag.displayName)).join('|')) {
+      _metadataPulse++;
+    }
+    _currentGame = game;
+    _currentImageIndex = game.images.isEmpty ? 0 : _currentImageIndex.clamp(0, game.images.length - 1);
+  }
   bool _isCheckingUpdate = false;
   bool _isRescraping = false;
   bool _isLocal = false;
@@ -292,6 +316,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     super.initState();
     AppLogger.instance.info('Navigation', '打开游戏详情: id=${widget.game.id}');
     _currentGame = widget.game;
+    if (_currentGame.images.isNotEmpty) {
+      _currentImageIndex = _currentGame.coverIndex.clamp(0, _currentGame.images.length - 1);
+    }
     _titleController = TextEditingController(text: _currentGame.title);
     _versionController = TextEditingController(text: _currentGame.version);
     _introController = TextEditingController(text: _currentGame.intro);
@@ -998,7 +1025,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               ),
             ),
           const SizedBox(height: GlassConstants.spacingLarge),
-          _buildInfoCard(),
+          _metadataPulse == 0 ? _buildInfoCard() : ResultLocation(key: ValueKey(_metadataPulse), reveal: false, child: _buildInfoCard()),
         ],
       ),
     );
@@ -1006,6 +1033,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   Widget _buildImageCarousel() {
     final images = _currentGame.images;
+    _currentImageIndex = images.isEmpty ? 0 : _currentImageIndex.clamp(0, images.length - 1);
 
     return Column(
       children: [
@@ -1054,7 +1082,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   ClipRRect(
                     borderRadius:
                         BorderRadius.circular(GlassConstants.radiusMedium - 1),
-                    child: Image.file(
+                    child: pictureHero(context, widget.openingCover == images[_currentImageIndex].imagePath ? widget.coverOrigin?.call() : null, Image.file(
                       File(images[_currentImageIndex].imagePath),
                       frameBuilder: appImageFrameBuilder,
                       key: ValueKey(
@@ -1069,7 +1097,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                                 color: AppTheme.getDetailTextPrimary(context)
                                     .withValues(alpha: 0.3))),
                       ),
-                    ),
+                    )),
                   ),
                   if (images.length > 1)
                     Positioned(
@@ -1708,6 +1736,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   bool _handleKeyDown(KeyEvent event) {
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return false;
     if (event is KeyDownEvent) {
       if (event.logicalKey == LogicalKeyboardKey.keyF &&
           (HardwareKeyboard.instance.isControlPressed ||
@@ -1929,7 +1958,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             '[HTMLSearch] match: sectionKey=${m.sectionKey}, lineIndex=${m.lineIndex}, charOffset=${m.charOffset}, matchLength=${m.matchLength}');
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToMatch(_searchMatches[_currentMatchIndex]);
+        if (mounted && _currentMatchIndex >= 0 && _currentMatchIndex < _searchMatches.length) {
+          _scrollToMatch(_searchMatches[_currentMatchIndex]);
+        }
       });
     }
   }
@@ -2448,9 +2479,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     final title = _currentGame.title ?? '';
     final keyword = _extractSearchKeyword(title);
 
-    // 先删除旧的攻略图片（在下载新图片之前）
-    await _deleteGuideImages();
-
     final content = await showAppDialog<String>(
       context: context,
       builder: (context) =>
@@ -2532,7 +2560,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     // 本地游戏：不自动显示图片，由用户通过插入功能选择
     final isLocal = _isLocalGame();
 
-    return Column(
+    final section = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
@@ -2623,6 +2651,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           ),
       ],
     );
+    final revision = _sectionPulses[sectionIndex];
+    return revision == null || _isEditing ? section : ResultLocation(key: ValueKey((sectionIndex, revision)), reveal: false, child: section);
   }
 
   List<_ContentBlock> _parseHtmlToBlocks(String html, String fallbackText) {
@@ -3023,8 +3053,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           alignment: Alignment.centerLeft,
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxImageWidth),
-            child: GestureDetector(
-              onTap: () => _openImageViewer(imageUrl),
+            child: PictureOrigin(
+              origins: _pictureOrigins,
+              identity: _resolveExistingMediaPath(imageUrl) ?? (_isRemoteMediaPath(imageUrl) ? _canonicalRemoteMediaPath(imageUrl) : imageUrl),
+              onOpen: (origin) => _openImageViewer(imageUrl, origin),
               child: _buildMediaImage(imageUrl),
             ),
           ),
@@ -3033,7 +3065,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     );
   }
 
-  void _openImageViewer(String imagePath) {
+  void _openImageViewer(String imagePath, Object origin) {
     final allImages = _currentGame.images;
     final resolvedPath = _resolveExistingMediaPath(imagePath);
     final viewerPath = resolvedPath ??
@@ -3047,38 +3079,23 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       // 如果找不到，创建一个临时列表
       final image =
           GameImage(gameId: _currentGame.id ?? 0, imagePath: viewerPath);
-      setState(() => _isImageViewerOpen = true);
-      showAppDialog(
-        context: context,
-        barrierDismissible: true,
-        barrierColor: AppTheme.getOverlayColor(context),
-        builder: (dialogContext) => _ImageViewerDialog(
-          images: [image],
-          initialIndex: 0,
-          onClose: () {
-            setState(() => _isImageViewerOpen = false);
-          },
-        ),
-      ).then((_) {
-        if (mounted) setState(() => _isImageViewerOpen = false);
-      });
+      _presentImages([image], 0, origin);
       return;
     }
+    _presentImages(allImages, initialIndex, origin);
+  }
+
+  Future<void> _presentImages(List<GameImage> images, int index, Object origin) async {
+    if (_isImageViewerOpen || images.isEmpty) return;
     setState(() => _isImageViewerOpen = true);
-    showAppDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: AppTheme.getOverlayColor(context),
-      builder: (dialogContext) => _ImageViewerDialog(
-        images: allImages,
-        initialIndex: initialIndex,
-        onClose: () {
-          setState(() => _isImageViewerOpen = false);
-        },
-      ),
-    ).then((_) {
+    try {
+      await showPictureDialog<void>(context, (_) => _ImageViewerDialog(
+        images: images, initialIndex: index,
+        anchorFor: (path) => _pictureOrigins.visible(path, preferred: origin),
+      ));
+    } finally {
       if (mounted) setState(() => _isImageViewerOpen = false);
-    });
+    }
   }
 
   List<GameImage> _getUnusedImages(List<GameImage> allImages) {
@@ -3351,9 +3368,10 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     child: ConstrainedBox(
                       constraints:
                           BoxConstraints(maxWidth: availableWidth * 0.8),
-                      child: GestureDetector(
-                        onTap: () => _openImageViewerFromList(
-                            contentImages, imageIndex >= 0 ? imageIndex : 0),
+                      child: PictureOrigin(
+                        origins: _pictureOrigins, identity: resolvedPath,
+                        onOpen: (origin) => _openImageViewerFromList(
+                            contentImages, imageIndex >= 0 ? imageIndex : 0, origin),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(
                               GlassConstants.radiusMedium),
@@ -3426,25 +3444,11 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     );
   }
 
-  void _openImageViewerFromList(List<String> imagePaths, int initialIndex) {
-    setState(() => _isImageViewerOpen = true);
+  void _openImageViewerFromList(List<String> imagePaths, int initialIndex, Object origin) {
     final images = imagePaths
         .map((p) => GameImage(gameId: _currentGame.id ?? 0, imagePath: p))
         .toList();
-    showAppDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: AppTheme.getOverlayColor(context),
-      builder: (dialogContext) => _ImageViewerDialog(
-        images: images,
-        initialIndex: initialIndex,
-        onClose: () {
-          setState(() => _isImageViewerOpen = false);
-        },
-      ),
-    ).then((_) {
-      if (mounted) setState(() => _isImageViewerOpen = false);
-    });
+    _presentImages(images, initialIndex, origin);
   }
 
   Widget _buildDownloadLinks(String downloadUrl) {
@@ -3806,8 +3810,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   Widget _buildArticleImage(GameImage image) {
     final index = _currentGame.images.indexOf(image);
-    return GestureDetector(
-      onTap: () => _showImageViewer(index >= 0 ? index : 0),
+    return PictureOrigin(
+      origins: _pictureOrigins, identity: image.imagePath,
+      onOpen: (origin) => _presentImages(_currentGame.images, index >= 0 ? index : 0, origin),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
         child: ConstrainedBox(
@@ -3826,24 +3831,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   _CachedVideoPlayer _getOrCreatePlayer(String videoPath) {
     return _PlayerCache.getOrCreate(videoPath);
-  }
-
-  void _showImageViewer(int initialIndex) {
-    setState(() => _isImageViewerOpen = true);
-    showAppDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: AppTheme.getOverlayColor(context),
-      builder: (dialogContext) => _ImageViewerDialog(
-        images: _currentGame.images,
-        initialIndex: initialIndex,
-        onClose: () {
-          setState(() => _isImageViewerOpen = false);
-        },
-      ),
-    ).then((_) {
-      if (mounted) setState(() => _isImageViewerOpen = false);
-    });
   }
 
   Widget _buildImageGallery(List<GameImage> images) {
@@ -4809,6 +4796,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Future<void> _rescrapeGame() async {
+    if (_isRescraping) return;
     if (_currentGame.sourceUrl == null || _currentGame.sourceUrl!.isEmpty)
       return;
     setState(() => _isRescraping = true);
@@ -4925,7 +4913,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           _downloadTotal = 0;
           _downloadCurrent = 0;
           _downloadProgress = 0.0;
-          _currentGame = updated;
+          _acceptScrapedGame(updated);
           _imageVersion++;
           _titleController.text = updated.title ?? '';
           _versionController.text = updated.version ?? '';
@@ -4939,7 +4927,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         await _loadMetadataHtml();
         await _preloadMediaFiles();
         if (mounted) {
-          Navigator.of(context).pop();
           _refreshAllProviders();
           AppTheme.showGlassToast(context,
               message: ['重新刮削完成', ...translationNotices].join('\n'),
@@ -4971,6 +4958,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Future<void> _quickScrape() async {
+    if (_isRescraping) return;
     final input = _quickScrapeController.text.trim();
     if (input.isEmpty) return;
     setState(() => _isRescraping = true);
@@ -5126,7 +5114,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           _downloadTotal = 0;
           _downloadCurrent = 0;
           _downloadProgress = 0.0;
-          _currentGame = freshGame;
+          _acceptScrapedGame(freshGame);
           _imageVersion++;
           _titleController.text = freshGame.title ?? '';
           _versionController.text = freshGame.version ?? '';
@@ -5140,7 +5128,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         await _loadMetadataHtml();
         await _preloadMediaFiles();
         if (!mounted) return;
-        Navigator.of(context).pop();
         _refreshAllProviders();
         AppTheme.showGlassToast(context,
             message: [
@@ -5530,13 +5517,6 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
     super.dispose();
   }
 
-  double _calcRatingFromX(double x, double totalWidth) {
-    final starWidth = totalWidth / 5;
-    final rawRating = x / starWidth;
-    final clamped = rawRating.clamp(0.0, 5.0);
-    return (clamped * 2).round() / 2;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -5576,50 +5556,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                     fontWeight: AppTypography.semibold,
                     color: AppTheme.getDetailTextPrimary(context))),
             const SizedBox(height: GlassConstants.spacingSmall),
-            Builder(
-              builder: (context) {
-                const starSize = 32.0;
-                const starGap = GlassConstants.spacingTiny;
-                const starAreaWidth = 5 * (starSize + starGap) - starGap;
-                return Listener(
-                  onPointerDown: (event) {
-                    final newRating =
-                        _calcRatingFromX(event.localPosition.dx, starAreaWidth);
-                    if (newRating != _rating)
-                      setState(() => _rating = newRating);
-                  },
-                  onPointerMove: (event) {
-                    final newRating =
-                        _calcRatingFromX(event.localPosition.dx, starAreaWidth);
-                    if (newRating != _rating)
-                      setState(() => _rating = newRating);
-                  },
-                  child: Row(
-                    children: List.generate(5, (index) {
-                      final starValue = index + 1;
-                      IconData icon;
-                      if (_rating >= starValue) {
-                        icon = Icons.star;
-                      } else if (_rating >= starValue - 0.5) {
-                        icon = Icons.star_half;
-                      } else {
-                        icon = Icons.star_border;
-                      }
-                      return Padding(
-                        padding: const EdgeInsets.only(right: starGap),
-                        child: Icon(
-                          icon,
-                          size: starSize,
-                          color: icon == Icons.star_border
-                              ? AppTheme.getTextSecondary(context)
-                              : AppTheme.getStarColor(context),
-                        ),
-                      );
-                    }),
-                  ),
-                );
-              },
-            ),
+            RatingInput(value: _rating, onChanged: (value) => setState(() => _rating = value)),
             if (_rating > 0)
               Padding(
                 padding: const EdgeInsets.only(top: GlassConstants.spacingTiny),
@@ -5640,6 +5577,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
             const SizedBox(height: GlassConstants.spacingSmall),
             TextField(
               controller: _reviewController,
+              autofocus: true,
               maxLines: 5,
               style: TextStyle(
                   fontSize: GlassConstants.fontControl, color: AppTheme.getDetailTextPrimary(context)),
@@ -5712,12 +5650,12 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
 class _ImageViewerDialog extends StatefulWidget {
   final List<GameImage> images;
   final int initialIndex;
-  final VoidCallback onClose;
+  final Object? Function(String) anchorFor;
 
   const _ImageViewerDialog(
       {required this.images,
       required this.initialIndex,
-      required this.onClose});
+      required this.anchorFor});
 
   @override
   State<_ImageViewerDialog> createState() => _ImageViewerDialogState();
@@ -5739,7 +5677,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
     _currentIndex = widget.initialIndex;
     _focusNode = FocusNode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusNode.requestFocus();
+      if (mounted) _focusNode.requestFocus();
     });
   }
 
@@ -5770,11 +5708,10 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
   }
 
   void _close() {
-    widget.onClose();
-    Navigator.of(context).pop();
+    if (ModalRoute.of(context)?.isCurrent == true) Navigator.of(context).pop();
   }
 
-  void _handleScale(double delta) {
+  void _handleScale(double delta, Offset focalOffset) {
     setState(() {
       final oldScale = _scale;
       if (delta > 0) {
@@ -5786,7 +5723,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
         _offset = Offset.zero;
       } else {
         final ratio = _scale / oldScale;
-        _offset = Offset(_offset.dx * ratio, _offset.dy * ratio);
+        _offset = focalOffset + (_offset - focalOffset) * ratio;
       }
     });
   }
@@ -5798,18 +5735,22 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
     final viewerH = screenSize.height * 0.8;
     final isDraggable = _scale > 1.0;
 
-    return KeyboardListener(
+    return Focus(
       focusNode: _focusNode,
-      onKeyEvent: (event) {
+      onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
           if (event.logicalKey == LogicalKeyboardKey.escape) {
             _close();
+            return KeyEventResult.handled;
           } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
             _previous();
+            return KeyEventResult.handled;
           } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
             _next();
+            return KeyEventResult.handled;
           }
         }
+        return KeyEventResult.ignored;
       },
       child: Dialog(
         backgroundColor: Colors.transparent,
@@ -5869,9 +5810,9 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                             child: Listener(
                               onPointerSignal: (pointerSignal) {
                                 if (pointerSignal is PointerScrollEvent) {
-                                  _handleScale(pointerSignal.scrollDelta.dy > 0
-                                      ? -1
-                                      : 1);
+                                  final box = pointerSignal.localPosition;
+                                  final center = Offset((viewerW - 120) / 2, viewerH / 2);
+                                  _handleScale(pointerSignal.scrollDelta.dy > 0 ? -1 : 1, box - center);
                                 }
                               },
                               child: GestureDetector(
@@ -5914,7 +5855,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
                                             child: AppMotionValue(
                                               begin: 0, target: 1, duration: AppMotion.fast,
                                               builder: (context, value, child) => Opacity(opacity: value, child: child),
-                                              child: _buildViewerImage(widget.images[_currentIndex].imagePath),
+                                              child: pictureHero(context, widget.anchorFor(widget.images[_currentIndex].imagePath), _buildViewerImage(widget.images[_currentIndex].imagePath)),
                                             ),
                                           )
                                         : const SizedBox.shrink(),

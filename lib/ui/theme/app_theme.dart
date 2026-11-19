@@ -1183,6 +1183,7 @@ class GlassCard extends StatefulWidget {
   final bool enableHoverEffect;
   final bool enableBorderBreathing;
   final VoidCallback? onTap;
+  final FocusNode? focusNode;
 
   const GlassCard({
     super.key,
@@ -1194,6 +1195,7 @@ class GlassCard extends StatefulWidget {
     this.enableHoverEffect = true,
     this.enableBorderBreathing = false,
     this.onTap,
+    this.focusNode,
   });
 
   @override
@@ -1203,6 +1205,7 @@ class GlassCard extends StatefulWidget {
 class _GlassCardState extends State<GlassCard>
     with SingleTickerProviderStateMixin, AppDisplayTicks {
   bool _isHovered = false;
+  bool _isFocused = false;
   bool _isPressed = false;
   AnimationController? _borderController;
   Animation<double>? _borderAnimation;
@@ -1256,7 +1259,12 @@ class _GlassCardState extends State<GlassCard>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return MouseRegion(
+    return FocusableActionDetector(
+      focusNode: widget.focusNode,
+      enabled: widget.onTap != null,
+      onShowFocusHighlight: (focused) => setState(() => _isFocused = focused),
+      actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) { widget.onTap?.call(); return null; })},
+      child: Semantics(button: widget.onTap != null, child: MouseRegion(
       onEnter: widget.enableHoverEffect
           ? (_) => setState(() => _isHovered = true)
           : null,
@@ -1294,7 +1302,7 @@ class _GlassCardState extends State<GlassCard>
                           : Colors.white.withValues(alpha: 0.65))),
               borderRadius: BorderRadius.circular(widget.borderRadius),
               border: Border.all(
-                color: _isHovered
+                color: _isHovered || _isFocused
                     ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.25)
                     : widget.enableBorderBreathing
                         ? AppTheme.getPrimaryColor(context)
@@ -1329,7 +1337,7 @@ class _GlassCardState extends State<GlassCard>
           ),
         ),
       ),
-    );
+    )));
   }
 }
 
@@ -1645,8 +1653,7 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
       child: Row(
         children: [
           if (leading != null) leading!,
-          title,
-          const Spacer(),
+          Expanded(child: Align(alignment: Alignment.centerLeft, child: title)),
           if (actions != null) ...actions!,
         ],
       ),

@@ -113,22 +113,17 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
   }
 
   Future<void> _deleteImage(int index) async {
-    final image = _images[index];
-    // 删除应用存储目录下的图片
-    final storageDir = await _imageService.getImageStorageDir();
-    if (image.imagePath.startsWith(storageDir)) {
-      await _imageService.deleteImageFile(image.imagePath);
-    }
-    // 删除游戏目录 HGMDatas/images 或旧 images 文件夹下的图片
-    if (GameDataPaths.isManagedImagePath(widget.game.path, image.imagePath)) {
-      await _imageService.deleteImageFile(image.imagePath);
-    }
-    if (!mounted) return;
-    setState(() => _images.removeAt(index));
+    final cover = _images.isEmpty ? null : _images[_coverIndex.clamp(0, _images.length - 1)].imagePath;
+    setState(() {
+      _images = List<GameImage>.from(_images)..removeAt(index);
+      _coverIndex = _images.indexWhere((image) => image.imagePath == cover);
+      if (_coverIndex < 0) _coverIndex = 0;
+    });
   }
 
   void _reorderImages(List<GameImage> newOrder) {
-    setState(() => _images = newOrder);
+    final cover = _images.isEmpty ? null : _images[_coverIndex.clamp(0, _images.length - 1)].imagePath;
+    setState(() { _images = newOrder; _coverIndex = newOrder.indexWhere((image) => image.imagePath == cover).clamp(0, newOrder.length - 1); });
   }
 
   Future<void> _saveChanges() async {
@@ -137,17 +132,12 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
       final repo = ref.read(gameRepositoryProvider);
       final gameId = widget.game.id!;
 
-      // 删除原有图片记录
-      await repo.deleteGameImagesByGameId(gameId);
-
-      // 添加新图片记录
-      for (int i = 0; i < _images.length; i++) {
-        await repo.addGameImage(gameId, _images[i].imagePath, i);
-      }
-
-      // 更新封面索引
-      if (_coverIndex < _images.length) {
-        await repo.updateCoverIndex(gameId, _coverIndex);
+      await repo.setGameImages(gameId, _images, coverIndex: _coverIndex);
+      for (final image in widget.game.images) {
+        if (!_images.any((retained) => retained.imagePath == image.imagePath) &&
+            GameDataPaths.isManagedImagePath(widget.game.path, image.imagePath)) {
+          try { await _imageService.deleteImageFile(image.imagePath); } catch (_) {}
+        }
       }
 
       // 刷新数据
@@ -237,7 +227,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                   const SizedBox(width: GlassConstants.spacingSmall),
                 ],
                 Text(
-                  _isLoading ? '正在处理图片…' : '点击图片设为封面，封面将显示在第一张',
+                  _isLoading ? '正在处理图片…' : '拖动图片调整顺序，点击图片设为封面',
                   style: TextStyle(fontSize: GlassConstants.fontSmall,
                       color: AppTheme.getTextSecondary(context)),
                 ),

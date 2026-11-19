@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
@@ -54,6 +55,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   final _scraper = HtmlScraper();
   final _vikAcgService = VikAcgService();
   final ScrollController _logScrollController = ScrollController();
+  final ScrollController _taskScrollController = ScrollController();
+  _GameScrapeItem? _locatedFailure;
+  Timer? _failureEmphasis;
+  bool _followLog = true;
   bool _isProcessing = false;
   String _processStatus = '空闲';
   final List<String> _logs = [];
@@ -68,6 +73,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   @override
   void dispose() {
     _logScrollController.dispose();
+    _taskScrollController.dispose();
+    _failureEmphasis?.cancel();
     super.dispose();
   }
 
@@ -348,6 +355,12 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 label: '失败',
                 value: '${_stats.failed}',
                 color: AppTheme.errorColor),
+            if (_stats.failed > 0)
+              TextButton.icon(
+                onPressed: _locateNextFailure,
+                icon: const Icon(Icons.my_location, size: GlassConstants.iconSmall),
+                label: Text(_locatedFailure == null || _stats.failed == 1 ? '查看失败项' : '下一项失败'),
+              ),
           ],
         ),
       ),
@@ -371,6 +384,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   }
 
   Widget _buildGameListPanel() {
+    final failure = _locatedFailure;
     return GlassContainer(
       padding: const EdgeInsets.all(GlassConstants.spacingComfortable),
       child: Column(
@@ -427,6 +441,12 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             ),
             const SizedBox(height: GlassConstants.spacingCompact),
           ],
+          if (failure != null)
+            Semantics(liveRegion: true, child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text('${failure.game.path} · ${failure.error}', maxLines: 2,
+                  overflow: TextOverflow.ellipsis, style: TextStyle(color: AppTheme.errorColor)),
+            )),
           Expanded(
             child: _isProcessing && _gameItems.isEmpty
                 ? const AppSkeleton(label: '正在扫描游戏库')
@@ -454,14 +474,12 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                       ],
                     ),
                   )
-                : ListView.separated(
+                : ListView.builder(
+                    controller: _taskScrollController,
+                    padding: EdgeInsets.zero,
+                    prototypeItem: _taskRow(_gameItems.first),
                     itemCount: _gameItems.length,
-                    separatorBuilder: (_, __) => Divider(
-                        height: 1,
-                        color: AppTheme.getBorderColor(context)
-                            .withValues(alpha: 0.3)),
-                    itemBuilder: (_, index) =>
-                        _buildGameListItem(_gameItems[index]),
+                    itemBuilder: (_, index) => _taskRow(_gameItems[index]),
                   ),
           ),
         ],
@@ -469,8 +487,42 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     );
   }
 
+  void _locateNextFailure() {
+    final failed = _gameItems.where((item) => item.error != null).toList();
+    if (failed.isEmpty) return;
+    final previous = failed.indexWhere((item) => identical(item, _locatedFailure));
+    final item = failed[(previous + 1) % failed.length];
+    _failureEmphasis?.cancel();
+    _failureEmphasis = Timer(const Duration(seconds: 1), () {
+      if (mounted && identical(_locatedFailure, item)) setState(() {});
+    });
+    setState(() => _locatedFailure = item);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _locatedFailure != item || !_taskScrollController.hasClients) return;
+      final position = _taskScrollController.position;
+      if (position.maxScrollExtent == 0) return;
+      final rowHeight = (position.maxScrollExtent + position.viewportDimension) / _gameItems.length;
+      final index = _gameItems.indexOf(item);
+      final target = ((index + 0.5) * rowHeight - position.viewportDimension / 2)
+          .clamp(0.0, position.maxScrollExtent);
+      AppMotion.scrollTo(context, _taskScrollController, target);
+    });
+  }
+
+  Widget _taskRow(_GameScrapeItem item) => AnimatedContainer(
+    duration: AppMotion.duration(context, AppMotion.fast),
+    color: identical(_locatedFailure, item) &&
+            (AppMotion.reduced(context) || (_failureEmphasis?.isActive ?? false))
+        ? AppTheme.errorColor.withValues(alpha: 0.12)
+        : Colors.transparent,
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      _buildGameListItem(item),
+      Divider(height: 1, color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+    ]),
+  );
+
   Widget _buildGameListItem(_GameScrapeItem item) {
-    final statusColor = switch (item.status) {
+    final statusColor = item.error != null ? AppTheme.errorColor : switch (item.status) {
       '成功' => AppTheme.successColor,
       '失败' || '刮削失败' => AppTheme.errorColor,
       '刮削中' => AppTheme.getPrimaryColor(context),
@@ -537,6 +589,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 ),
                 child: Text(
                   item.status,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       fontSize: GlassConstants.fontCaption,
@@ -585,6 +639,15 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 ),
               ),
               const Spacer(),
+              IconButton(
+                tooltip: _followLog ? '暂停跟随日志' : '跟随最新日志',
+                isSelected: _followLog,
+                icon: const Icon(Icons.vertical_align_bottom, size: GlassConstants.iconSmall),
+                onPressed: () {
+                  setState(() => _followLog = !_followLog);
+                  if (_followLog) _scheduleLogScrollToBottom();
+                },
+              ),
               TextButton.icon(
                 onPressed: () => setState(() => _logs.clear()),
                 icon: const Icon(Icons.delete_sweep, size: GlassConstants.iconSmall),
@@ -620,7 +683,19 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                         ],
                       ),
                     )
-                  : ListView.builder(
+                  : NotificationListener<ScrollMetricsNotification>(
+                      onNotification: (event) {
+                        if (event.metrics.extentAfter > 1) _scheduleLogScrollToBottom();
+                        return false;
+                      },
+                      child: NotificationListener<UserScrollNotification>(
+                      onNotification: (event) {
+                        if (_followLog && event.direction == ScrollDirection.forward) {
+                          setState(() => _followLog = false);
+                        }
+                        return false;
+                      },
+                      child: ListView.builder(
                       controller: _logScrollController,
                       itemCount: _logs.length,
                       itemBuilder: (_, i) {
@@ -644,7 +719,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                           ),
                         );
                       },
-                    ),
+                    ))),
             ),
           ),
         ],
@@ -657,6 +732,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       _isProcessing = true;
       _processStatus = '扫描中';
       _gameItems.clear();
+      _locatedFailure = null;
       _stats.total = 0;
       _stats.pending = 0;
       _stats.success = 0;
@@ -801,6 +877,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       _stats.pending = _gameItems.length;
       _stats.success = 0;
       _stats.failed = 0;
+      _locatedFailure = null;
       for (final item in _gameItems) {
         item.progress = 0;
         item.status = '待处理';
@@ -1060,6 +1137,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             setState(() {
               item.progress = 1.0;
               item.status = '无解析器';
+              item.error = '已获取页面，但没有匹配的解析器';
               _stats.failed++;
               _stats.pending--;
             });
@@ -1071,6 +1149,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           setState(() {
             item.progress = 1.0;
             item.status = 'HTTP${response?.statusCode ?? '失败'}';
+            item.error = response == null ? '来源未返回可用结果' : '来源返回 HTTP ${response.statusCode}';
             _stats.failed++;
             _stats.pending--;
           });
@@ -1175,14 +1254,15 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   }
 
   void _scheduleLogScrollToBottom() {
-    if (_logScrollScheduled) return;
+    if (_logScrollScheduled || !_followLog) return;
     _logScrollScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _logScrollScheduled = false;
-      if (!mounted || !_logScrollController.hasClients) return;
-      _logScrollController.jumpTo(
-        _logScrollController.position.maxScrollExtent,
-      );
+      if (!mounted || !_followLog || !_logScrollController.hasClients) return;
+      final position = _logScrollController.position;
+      if (position.extentAfter > 1) {
+        _logScrollController.jumpTo(position.maxScrollExtent);
+      }
     });
   }
 }
