@@ -109,10 +109,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('删除'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.tap(find.widgetWithText(ElevatedButton, '删除'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 420));
     expect(service.deleteCalls, 1);
     expect(find.text('正在处理云端备份…'), findsOneWidget);
     expect(

@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 class AppMotion {
-  static const fast = Duration(milliseconds: 140);
-  static const medium = Duration(milliseconds: 220);
-  static const slow = Duration(milliseconds: 300);
+  static const fast = Duration(milliseconds: 200);
+  static const medium = Duration(milliseconds: 310);
+  static const slow = Duration(milliseconds: 420);
   static const shimmer = Duration(milliseconds: 1400);
   static const curve = Curves.easeOutCubic;
   static const settle = Cubic(0.20, 0.88, 0.27, 1.20);
-  static const press = Duration(milliseconds: 75);
+  static const press = Duration(milliseconds: 100);
 
   static AnimationStyle overlayStyle(BuildContext context) => AnimationStyle(
         duration: duration(context, medium),
