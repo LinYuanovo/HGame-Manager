@@ -70,8 +70,9 @@ class AppFrameGate {
 }
 
 class AppMotionVisibility extends StatefulWidget {
-  const AppMotionVisibility({super.key, required this.child});
+  const AppMotionVisibility({super.key, required this.child, this.reduceMotion = false});
   final Widget child;
+  final bool reduceMotion;
   @override
   State<AppMotionVisibility> createState() => _AppMotionVisibilityState();
 }
@@ -95,11 +96,75 @@ class _AppMotionVisibilityState extends State<AppMotionVisibility>
   }
 
   @override
-  Widget build(BuildContext context) => TickerMode(
-      enabled: _state == null ||
-          _state == AppLifecycleState.resumed ||
-          _state == AppLifecycleState.inactive,
-      child: widget.child);
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    return MediaQuery(
+      data: media.copyWith(
+          disableAnimations: media.disableAnimations || widget.reduceMotion),
+      child: TickerMode(
+        enabled: _state == null ||
+            _state == AppLifecycleState.resumed ||
+            _state == AppLifecycleState.inactive,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class AppDialogTransition extends StatefulWidget {
+  const AppDialogTransition({
+    super.key,
+    required this.animation,
+    required this.child,
+    this.initialScale = 0.92,
+  });
+
+  final Animation<double> animation;
+  final Widget child;
+  final double initialScale;
+
+  @override
+  State<AppDialogTransition> createState() => _AppDialogTransitionState();
+}
+
+class _AppDialogTransitionState extends State<AppDialogTransition> {
+  late CurvedAnimation _curve = _createCurve();
+
+  CurvedAnimation _createCurve() => CurvedAnimation(
+        parent: widget.animation,
+        curve: AppMotion.settle,
+        reverseCurve: Curves.easeInCubic,
+      );
+
+  @override
+  void didUpdateWidget(AppDialogTransition oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.animation != oldWidget.animation) {
+      _curve.dispose();
+      _curve = _createCurve();
+    }
+  }
+
+  @override
+  void dispose() {
+    _curve.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = AppMotion.reduced(context);
+    const stationary = AlwaysStoppedAnimation(1.0);
+    return FadeTransition(
+      opacity: reduced ? stationary : widget.animation,
+      child: ScaleTransition(
+        scale: reduced
+            ? stationary
+            : _curve.drive(Tween<double>(begin: widget.initialScale, end: 1)),
+        child: widget.child,
+      ),
+    );
+  }
 }
 
 class AppSelectedMark extends StatelessWidget {

@@ -21,6 +21,7 @@ class AppSettings {
   static const String contextMenuPlayedKey = 'context_menu_played';
   static const String noImageModeKey = 'no_image_mode';
   static const String coverMemorySavingKey = 'cover_memory_saving';
+  static const String reduceMotionKey = 'reduce_motion';
   static const String keepPlayedInGamesKey = 'keep_played_in_games';
   static const String favoriteFirstKey = 'favorite_first';
   static const String sidebarConfigKey = 'sidebar_config';

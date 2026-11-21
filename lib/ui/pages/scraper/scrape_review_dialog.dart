@@ -23,7 +23,7 @@ Future<void> showScrapeReviewDialog({
   VoidCallback? onChanged,
 }) async {
   if (items.isEmpty) return;
-  await showDialog<void>(
+  await showAppDialog<void>(
     context: context,
     barrierDismissible: false,
     barrierColor: AppTheme.getDialogBarrierColor(context),

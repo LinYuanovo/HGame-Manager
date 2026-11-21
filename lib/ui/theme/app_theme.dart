@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
@@ -1692,7 +1691,7 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 // ===== 搜索栏 =====
-class GlassSearchBar extends StatelessWidget {
+class GlassSearchBar extends StatefulWidget {
   final TextEditingController? controller;
   final String? hintText;
   final ValueChanged<String>? onChanged;
@@ -1707,19 +1706,34 @@ class GlassSearchBar extends StatelessWidget {
   });
 
   @override
+  State<GlassSearchBar> createState() => _GlassSearchBarState();
+}
+
+class _GlassSearchBarState extends State<GlassSearchBar> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
+    return Focus(
+      canRequestFocus: false,
+      onFocusChange: (focused) => setState(() => _focused = focused),
+      child: _buildSearchBar(context),
+    );
+  }
+
+  Widget _buildSearchBar(BuildContext context) {
     return GlassContainer(
-      margin: margin ?? EdgeInsets.zero,
-      borderRadius: 24,
+      margin: widget.margin ?? EdgeInsets.zero,
+      borderRadius: GlassConstants.radiusXLarge,
       blur: GlassConstants.blurSmall,
       color: Theme.of(context).brightness == Brightness.dark
           ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5)
           : Colors.white.withValues(alpha: 0.5),
       padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium),
       border: Border.all(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? AppTheme.darkGlassBorderWhite.withValues(alpha: 0.4)
-            : Colors.white.withValues(alpha: 0.4),
+        color: _focused
+            ? AppTheme.getPrimaryColor(context)
+            : AppTheme.getBorderLightColor(context).withValues(alpha: 0.4),
         width: 1,
       ),
       boxShadow: [
@@ -1732,12 +1746,13 @@ class GlassSearchBar extends StatelessWidget {
       child: SizedBox(
         height: 40,
         child: TextField(
-          controller: controller,
-          onChanged: onChanged,
+          controller: widget.controller,
+          onChanged: widget.onChanged,
           style:
               TextStyle(color: AppTheme.getTextPrimary(context), fontSize: GlassConstants.fontControl),
           decoration: InputDecoration(
-            hintText: hintText ?? '搜索...',
+            hintText: widget.hintText ?? '搜索...',
+            filled: false,
             hintStyle: TextStyle(
               color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
               fontSize: GlassConstants.fontControl,
@@ -1748,6 +1763,11 @@ class GlassSearchBar extends StatelessWidget {
               size: GlassConstants.iconControl,
             ),
             border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            errorBorder: InputBorder.none,
+            focusedErrorBorder: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingInline),
           ),
         ),
@@ -2059,13 +2079,15 @@ Future<T?> showAppDialog<T>({
   bool barrierDismissible = true,
   Color? barrierColor,
 }) {
-  return showDialog<T>(
+  final navigator = Navigator.of(context, rootNavigator: true);
+  final animationStyle = AppMotion.overlayStyle(context);
+  return navigator.push<T>(_SpringDialogRoute<T>(
     context: context,
     builder: builder,
     barrierDismissible: barrierDismissible,
     barrierColor: barrierColor,
-    animationStyle: AppMotion.overlayStyle(context),
-  );
+    animationStyle: animationStyle,
+  ));
 }
 
 Future<T?> showGlassDialog<T>({
@@ -2140,8 +2162,139 @@ Future<T?> showGlassDialog<T>({
   );
 }
 
+Widget buildAppTextSelectionToolbar(
+  BuildContext context,
+  TextSelectionToolbarAnchors anchors,
+  List<ContextMenuButtonItem> buttonItems,
+) {
+  final items = buttonItems.where((item) => _textSelectionLabel(item).isNotEmpty);
+  if (items.isEmpty) return const SizedBox.shrink();
+
+  return TextSelectionToolbar(
+    anchorAbove: anchors.primaryAnchor,
+    anchorBelow: anchors.secondaryAnchor ?? anchors.primaryAnchor,
+    toolbarBuilder: (context, child) => GlassContainer(
+      borderRadius: GlassConstants.radiusLarge,
+      enableBlur: false,
+      color: Theme.of(context).brightness == Brightness.dark
+          ? AppTheme.darkSurfaceColor.withValues(alpha: 0.95)
+          : Colors.white.withValues(alpha: 0.95),
+      padding: EdgeInsets.zero,
+      child: child,
+    ),
+    children: [
+      ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 112, maxWidth: 280),
+        child: IntrinsicWidth(
+          stepWidth: 56,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final item in items)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    _textSelectionIcon(item.type),
+                    size: GlassConstants.iconAction,
+                    color: item.type == ContextMenuButtonType.delete
+                        ? AppTheme.errorColor
+                        : AppTheme.getPrimaryColor(context),
+                  ),
+                  title: Text(
+                    _textSelectionLabel(item),
+                    style: item.type == ContextMenuButtonType.delete
+                        ? const TextStyle(color: AppTheme.errorColor)
+                        : null,
+                  ),
+                  onTap: item.onPressed == null
+                      ? null
+                      : () {
+                          item.onPressed!();
+                          ContextMenuController.removeAny();
+                        },
+                ),
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+Widget buildAppEditableTextContextMenu(
+        BuildContext context, EditableTextState state) =>
+    buildAppTextSelectionToolbar(
+        context, state.contextMenuAnchors, state.contextMenuButtonItems);
+
+Widget buildAppSelectableTextContextMenu(
+        BuildContext context, SelectableRegionState state) =>
+    buildAppTextSelectionToolbar(
+        context, state.contextMenuAnchors, state.contextMenuButtonItems);
+
+String _textSelectionLabel(ContextMenuButtonItem item) => switch (item.type) {
+      ContextMenuButtonType.cut => '剪切',
+      ContextMenuButtonType.copy => '复制',
+      ContextMenuButtonType.paste => '粘贴',
+      ContextMenuButtonType.selectAll => '全选',
+      ContextMenuButtonType.delete => '删除',
+      ContextMenuButtonType.lookUp => '查找',
+      ContextMenuButtonType.searchWeb => '网页搜索',
+      ContextMenuButtonType.share => '分享',
+      ContextMenuButtonType.liveTextInput => '识别文字',
+      ContextMenuButtonType.custom => item.label ?? '',
+    };
+
+IconData _textSelectionIcon(ContextMenuButtonType type) => switch (type) {
+      ContextMenuButtonType.cut => Icons.content_cut,
+      ContextMenuButtonType.copy => Icons.content_copy,
+      ContextMenuButtonType.paste => Icons.content_paste,
+      ContextMenuButtonType.selectAll => Icons.select_all,
+      ContextMenuButtonType.delete => Icons.delete_outline,
+      ContextMenuButtonType.lookUp => Icons.search,
+      ContextMenuButtonType.searchWeb => Icons.public,
+      ContextMenuButtonType.share => Icons.share,
+      ContextMenuButtonType.liveTextInput => Icons.text_fields,
+      ContextMenuButtonType.custom => Icons.more_horiz,
+    };
+
 class _DismissDialogIntent extends Intent {
   const _DismissDialogIntent();
+}
+
+class _SpringDialogRoute<T> extends DialogRoute<T> {
+  _SpringDialogRoute({
+    required BuildContext context,
+    required WidgetBuilder builder,
+    required bool barrierDismissible,
+    required Color? barrierColor,
+    required AnimationStyle animationStyle,
+  })  : _reverseDuration = animationStyle.reverseDuration,
+        super(
+          context: context,
+          builder: builder,
+          themes: InheritedTheme.capture(
+              from: context,
+              to: Navigator.of(context, rootNavigator: true).context),
+          barrierDismissible: barrierDismissible,
+          barrierColor: barrierColor,
+          animationStyle: animationStyle,
+        );
+
+  final Duration? _reverseDuration;
+
+  @override
+  Duration get reverseTransitionDuration =>
+      _reverseDuration ?? super.reverseTransitionDuration;
+
+  @override
+  Widget buildTransitions(BuildContext context, Animation<double> animation,
+      Animation<double> secondaryAnimation, Widget child) =>
+      AppDialogTransition(
+        animation: animation,
+        child: child,
+      );
 }
 
 // ===== 空状态占位组件 =====

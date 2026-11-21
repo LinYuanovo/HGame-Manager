@@ -182,6 +182,10 @@ class GuideWindowService {
     await _invokeOnWindow('scroll', {'delta': delta});
   }
 
+  Future<void> setReduceMotion(bool enabled) async {
+    await _invokeOnWindow('setReduceMotion', {'enabled': enabled});
+  }
+
   Future<void> _invokeOnWindow(String method, [dynamic arguments]) async {
     final id = _windowId;
     if (id == null) return;

@@ -249,6 +249,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
 
   Widget _buildEditor() {
     return TextField(
+      contextMenuBuilder: buildAppEditableTextContextMenu,
       focusNode: _editorFocus,
       scrollController: _editorScroll,
       controller: widget.controller,

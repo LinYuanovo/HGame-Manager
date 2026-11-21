@@ -98,7 +98,7 @@ bool _isHarmlessWindowsNoise(String message) {
       );
 }
 
-class GuideWindowApp extends StatelessWidget {
+class GuideWindowApp extends StatefulWidget {
   final String windowId;
   final Map<String, dynamic> arguments;
   final AppSettings prefs;
@@ -111,20 +111,39 @@ class GuideWindowApp extends StatelessWidget {
   });
 
   @override
+  State<GuideWindowApp> createState() => _GuideWindowAppState();
+}
+
+class _GuideWindowAppState extends State<GuideWindowApp> {
+  late final _reduceMotion = ValueNotifier<bool>(
+      widget.prefs.getBool(AppSettings.reduceMotionKey) ?? false);
+
+  @override
+  void dispose() {
+    _reduceMotion.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final fontFamily = prefs.getString('font_family') ?? '';
-    final isDark = prefs.getString(AppSettings.themeModeKey) == 'dark';
-    return MaterialApp(
-      title: '攻略',
-      builder: (context, child) => AppMotionVisibility(child: child!),
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme(fontFamily: fontFamily.isEmpty ? null : fontFamily),
-      darkTheme: AppTheme.darkTheme(fontFamily: fontFamily.isEmpty ? null : fontFamily),
-      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
-      home: GuideWindowPage(
-        windowId: windowId,
-        arguments: arguments,
-        fontSize: prefs.getDouble('detail_font_size') ?? GlassConstants.fontControl,
+    final fontFamily = widget.prefs.getString('font_family') ?? '';
+    final isDark = widget.prefs.getString(AppSettings.themeModeKey) == 'dark';
+    return ValueListenableBuilder<bool>(
+      valueListenable: _reduceMotion,
+      builder: (context, reduceMotion, _) => MaterialApp(
+        title: '攻略',
+        builder: (context, child) => AppMotionVisibility(
+            reduceMotion: reduceMotion, child: child!),
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme(fontFamily: fontFamily.isEmpty ? null : fontFamily),
+        darkTheme: AppTheme.darkTheme(fontFamily: fontFamily.isEmpty ? null : fontFamily),
+        themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+        home: GuideWindowPage(
+          windowId: widget.windowId,
+          arguments: widget.arguments,
+          fontSize: widget.prefs.getDouble('detail_font_size') ?? GlassConstants.fontControl,
+          onReduceMotionChanged: (value) => _reduceMotion.value = value,
+        ),
       ),
     );
   }
@@ -134,12 +153,14 @@ class GuideWindowPage extends StatefulWidget {
   final String windowId;
   final Map<String, dynamic> arguments;
   final double fontSize;
+  final ValueChanged<bool>? onReduceMotionChanged;
 
   const GuideWindowPage({
     super.key,
     required this.windowId,
     required this.arguments,
     required this.fontSize,
+    this.onReduceMotionChanged,
   });
 
   @override
@@ -248,6 +269,10 @@ class _GuideWindowPageState extends State<GuideWindowPage>
           return true;
         case 'togglePin':
           await _togglePin();
+          return true;
+        case 'setReduceMotion':
+          final args = (call.arguments as Map?)?.cast<String, dynamic>();
+          widget.onReduceMotionChanged?.call(args?['enabled'] as bool? ?? false);
           return true;
         case 'closeWindow':
           unawaited(Future<void>.delayed(Duration.zero, _handleClose));

@@ -214,9 +214,116 @@ void main() {
     await tester.tap(find.text('打开'));
     await tester.pump();
     expect(find.text('确认').hitTestable(), findsOneWidget);
+    expect(
+      tester.widgetList<ScaleTransition>(find.byType(ScaleTransition)).last.scale.value,
+      1,
+    );
     await tester.tap(find.text('确认'));
     await tester.pumpAndSettle();
     expect(await result, isTrue);
+  });
+
+  testWidgets('普通弹窗以弹柔缩放进入并平稳收束', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: Builder(builder: (context) {
+        return TextButton(
+          onPressed: () => showAppDialog<void>(
+            context: context,
+            builder: (_) => const AlertDialog(title: Text('弹窗')),
+          ),
+          child: const Text('打开'),
+        );
+      })),
+    ));
+
+    await tester.tap(find.text('打开'));
+    await tester.pump();
+    var transition =
+        tester.widgetList<ScaleTransition>(find.byType(ScaleTransition)).last;
+    expect(transition.scale.value, closeTo(0.92, 0.001));
+
+    await tester.pump(const Duration(milliseconds: 160));
+    transition =
+        tester.widgetList<ScaleTransition>(find.byType(ScaleTransition)).last;
+    expect(transition.scale.value, greaterThan(1));
+
+    await tester.pumpAndSettle();
+    transition =
+        tester.widgetList<ScaleTransition>(find.byType(ScaleTransition)).last;
+    expect(transition.scale.value, 1);
+  });
+
+  testWidgets('统一搜索框只显示玻璃容器底色', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: Scaffold(body: GlassSearchBar()),
+    ));
+
+    final decoration =
+        tester.widget<TextField>(find.byType(TextField)).decoration!;
+    expect(decoration.filled, isFalse);
+    expect(decoration.fillColor, isNull);
+    expect(decoration.focusedBorder, InputBorder.none);
+
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    final context = tester.element(find.byType(GlassSearchBar));
+    final glass = tester.widget<GlassContainer>(find.byType(GlassContainer));
+    expect(glass.border!.top.color, AppTheme.getPrimaryColor(context));
+  });
+
+  testWidgets('文本选择菜单使用中文标签和项目文字令牌', (tester) async {
+    var copied = false;
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: buildAppTextSelectionToolbar(
+            context,
+            const TextSelectionToolbarAnchors(
+                primaryAnchor: Offset(120, 120)),
+            [
+              ContextMenuButtonItem(
+                type: ContextMenuButtonType.copy,
+                onPressed: () => copied = true,
+              ),
+              const ContextMenuButtonItem(
+                type: ContextMenuButtonType.selectAll,
+                onPressed: null,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('复制'), findsOneWidget);
+    expect(find.text('全选'), findsOneWidget);
+    final menuTile = tester.widget<ListTile>(
+      find.ancestor(of: find.text('复制'), matching: find.byType(ListTile)),
+    );
+    expect(menuTile.dense, isTrue);
+    expect(menuTile.contentPadding, EdgeInsets.zero);
+    expect(menuTile.onTap, isNotNull);
+    final selectAllTile = tester.widget<ListTile>(
+      find.ancestor(of: find.text('全选'), matching: find.byType(ListTile)),
+    );
+    expect(selectAllTile.onTap, isNull);
+    await tester.tap(find.text('复制'));
+    await tester.pumpAndSettle();
+    expect(copied, isTrue);
+  });
+
+  testWidgets('应用级减弱动效覆盖到媒体环境', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      builder: (context, child) =>
+          AppMotionVisibility(reduceMotion: true, child: child!),
+      home: const Scaffold(body: Text('状态')),
+    ));
+
+    expect(
+      MediaQuery.disableAnimationsOf(tester.element(find.text('状态'))),
+      isTrue,
+    );
   });
 }
 

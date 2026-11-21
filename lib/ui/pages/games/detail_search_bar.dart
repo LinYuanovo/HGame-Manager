@@ -84,6 +84,7 @@ class _DetailSearchBarState extends State<DetailSearchBar> {
           const SizedBox(width: GlassConstants.spacingSmall),
           Expanded(
             child: TextField(
+              contextMenuBuilder: buildAppEditableTextContextMenu,
               controller: widget.controller,
               focusNode: _focusNode,
               style: TextStyle(fontSize: GlassConstants.fontControl, color: AppTheme.getTextPrimary(context)),

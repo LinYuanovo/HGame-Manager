@@ -45,8 +45,13 @@ class _GamesPageState extends ConsumerState<GamesPage>
     return Column(
       children: [
         GlassAppBar(
-          title: const Text('游戏库',
-              style: TextStyle(fontSize: GlassConstants.fontSection, fontWeight: AppTypography.semibold)),
+          title: Text(
+            '游戏库',
+            style: TextStyle(
+                fontSize: GlassConstants.fontHeading,
+                fontWeight: AppTypography.semibold,
+                color: AppTheme.getTextPrimary(context)),
+          ),
           actions: [
             IconButton(
               icon: Icon(Icons.add_circle_outline,

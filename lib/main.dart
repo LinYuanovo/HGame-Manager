@@ -478,6 +478,7 @@ class _HGameManagerAppState extends ConsumerState<HGameManagerApp> {
     final prefs = ref.watch(sharedPreferencesProvider);
     final fontFamily = prefs.getString('font_family') ?? '';
     final themeMode = ref.watch(flutterThemeModeProvider);
+    final reduceMotion = ref.watch(reduceMotionProvider);
 
     return MaterialApp(
       title: 'HGame Manager',
@@ -487,11 +488,14 @@ class _HGameManagerAppState extends ConsumerState<HGameManagerApp> {
       darkTheme: _getDarkTheme(fontFamily),
       themeMode: themeMode,
       builder: (context, child) {
-        return AppMotionVisibility(child: GradientBackground(
-          child: ErrorBoundary(
-            child: child ?? const SizedBox.shrink(),
+        return AppMotionVisibility(
+          reduceMotion: reduceMotion,
+          child: GradientBackground(
+            child: ErrorBoundary(
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
-        ));
+        );
       },
       home: HomePage(windowController: widget.windowController),
     );

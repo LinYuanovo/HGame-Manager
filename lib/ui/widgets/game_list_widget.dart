@@ -1457,7 +1457,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        _buildGameCover(game, fit: BoxFit.cover),
+                        _buildGameCover(game,
+                            fit: BoxFit.cover,
+                            borderRadius: BorderRadius.circular(
+                                GlassConstants.radiusSmall)),
                         if (isBackupOnly)
                           Positioned(
                             top: 4,
@@ -1747,7 +1750,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      _buildGameCover(game, fit: BoxFit.cover),
+                      _buildGameCover(game,
+                          fit: BoxFit.cover,
+                          borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(
+                                  GlassConstants.radiusLarge))),
                       if (isBackupOnly)
                         Positioned(
                           top: 8,
@@ -1953,7 +1960,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   Widget _buildGameCover(Game game,
-      {double? width, double? height, BoxFit fit = BoxFit.cover}) {
+      {double? width,
+      double? height,
+      BoxFit fit = BoxFit.cover,
+      BorderRadius borderRadius = BorderRadius.zero}) {
     final noImageMode = ref.watch(noImageModeProvider);
     if (noImageMode) {
       return SizedBox.expand(
@@ -1987,6 +1997,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     return PictureOrigin(
       origins: _coverOrigins,
       identity: (game.id ?? game.path, coverPath),
+      borderRadius: borderRadius,
       child: Image(
       key: ValueKey((coverPath, game.images[coverIndex].id, _coverRevision, cacheWidth)),
       image: ResizeImage.resizeIfNeeded(cacheWidth, null, source),
@@ -2159,6 +2170,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     final coverPath = game.images.isEmpty ? null : game.images[game.coverIndex.clamp(0, game.images.length - 1)].imagePath;
     showPictureDialog<Tag>(context, (dialogContext) => GameDetailDialog(
         game: game,
+        onContextMenu: (menuContext, position, onEdit) => _showContextMenu(
+          menuContext,
+          position,
+          game,
+          onEdit: onEdit,
+        ),
         coverOrigin: () => _coverOrigins.visible((game.id ?? game.path, coverPath)),
         openingCover: coverPath,
         onTagTap: (tag) => Navigator.of(dialogContext).pop(tag),
@@ -2200,7 +2217,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     return _getMenuConfig().enabledItems.map((i) => i.id).toList();
   }
 
-  void _showContextMenu(BuildContext context, Offset position, Game game) async {
+  void _showContextMenu(BuildContext context, Offset position, Game game,
+      {VoidCallback? onEdit}) async {
     final isBackupOnly = await _isBackupOnly(game);
     if (!context.mounted) return;
     final isMultiSelect = _multiSelectController.isMultiSelectMode;
@@ -2210,6 +2228,18 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
     // 定义所有可能的菜单项
     final allItems = <String, PopupMenuItem<String>>{};
+
+    if (onEdit != null) {
+      allItems['edit'] = PopupMenuItem(
+          value: 'edit',
+          child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.edit_outlined,
+                  size: GlassConstants.iconAction,
+                  color: AppTheme.getPrimaryColor(context)),
+              title: const Text('进入编辑模式')));
+    }
 
     allItems['open_folder'] = PopupMenuItem(
         value: 'open_folder',
@@ -2353,6 +2383,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     final filteredItems = <PopupMenuEntry<String>>[];
     bool hasDangerItem = false;
 
+    if (onEdit != null) filteredItems.add(allItems['edit']!);
+
     for (final id in menuOrder) {
       if (allItems.containsKey(id)) {
         // 在危险项之前添加分隔线
@@ -2380,6 +2412,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               : [game];
 
       switch (value) {
+        case 'edit':
+          onEdit?.call();
+          break;
         case 'open_folder':
           for (final g in targets) {
             await Process.run('explorer.exe', [g.path]);

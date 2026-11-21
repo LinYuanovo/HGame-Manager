@@ -87,10 +87,12 @@ class PictureOrigin extends StatefulWidget {
       required this.origins,
       required this.identity,
       required this.child,
+      this.borderRadius = BorderRadius.zero,
       this.onOpen});
   final PictureOrigins origins;
   final Object identity;
   final Widget child;
+  final BorderRadius borderRadius;
   final ValueChanged<Object>? onOpen;
 
   @override
@@ -145,22 +147,26 @@ class _PictureOriginState extends State<PictureOrigin> {
 
   @override
   Widget build(BuildContext context) {
-    final child = pictureHero(context, this,
-        _hidden ? Opacity(opacity: 0, child: widget.child) : widget.child);
+    final child = pictureHero(
+        context,
+        this,
+        _hidden ? Opacity(opacity: 0, child: widget.child) : widget.child,
+        borderRadius: widget.borderRadius);
     return widget.onOpen == null
         ? child
         : InkWell(onTap: () => widget.onOpen!(this), child: child);
   }
 }
 
-Widget pictureHero(BuildContext context, Object? tag, Widget child) =>
+Widget pictureHero(BuildContext context, Object? tag, Widget child,
+        {BorderRadius borderRadius = BorderRadius.zero}) =>
     tag == null || AppMotion.reduced(context)
         ? child
         : Hero(
             tag: tag,
             createRectTween: (begin, end) => RectTween(begin: begin, end: end),
             flightShuttleBuilder: _pictureFlight,
-            child: child);
+            child: _PictureHeroChild(borderRadius: borderRadius, child: child));
 
 Widget _pictureFlight(BuildContext context, Animation<double> animation,
     HeroFlightDirection direction, BuildContext from, BuildContext to) {
@@ -208,7 +214,24 @@ Widget _pictureFlight(BuildContext context, Animation<double> animation,
       animation: animation,
       direction: direction,
       start: start,
-      end: end);
+      end: end,
+      startRadius: _pictureHeroRadius(from),
+      endRadius: _pictureHeroRadius(to));
+}
+
+BorderRadius _pictureHeroRadius(BuildContext context) {
+  final child = (context.widget as Hero).child;
+  return child is _PictureHeroChild ? child.borderRadius : BorderRadius.zero;
+}
+
+class _PictureHeroChild extends StatelessWidget {
+  const _PictureHeroChild({required this.borderRadius, required this.child});
+  final BorderRadius borderRadius;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      ClipRRect(borderRadius: borderRadius, child: child);
 }
 
 class _PictureFlight extends StatefulWidget {
@@ -217,11 +240,14 @@ class _PictureFlight extends StatefulWidget {
       required this.animation,
       required this.direction,
       required this.start,
-      required this.end});
+      required this.end,
+      required this.startRadius,
+      required this.endRadius});
   final ui.Image image;
   final Animation<double> animation;
   final HeroFlightDirection direction;
   final (Rect, Rect) start, end;
+  final BorderRadius startRadius, endRadius;
   @override
   State<_PictureFlight> createState() => _PictureFlightState();
 }
@@ -250,29 +276,40 @@ class _PictureFlightState extends State<_PictureFlight> {
             painter: _PictureFlightPainter(
                 widget.image,
                 Rect.lerp(widget.start.$1, widget.end.$1, progress)!,
-                Rect.lerp(widget.start.$2, widget.end.$2, progress)!));
+                Rect.lerp(widget.start.$2, widget.end.$2, progress)!,
+                BorderRadius.lerp(widget.startRadius, widget.endRadius,
+                    progress)!));
       });
 }
 
 class _PictureFlightPainter extends CustomPainter {
-  _PictureFlightPainter(this.image, this.source, this.destination);
+  _PictureFlightPainter(this.image, this.source, this.destination,
+      this.borderRadius);
   final ui.Image image;
   final Rect source, destination;
+  final BorderRadius borderRadius;
+
   @override
-  void paint(Canvas canvas, Size size) => canvas.drawImageRect(
-      image,
-      source,
-      Rect.fromLTRB(
-          destination.left * size.width,
-          destination.top * size.height,
-          destination.right * size.width,
-          destination.bottom * size.height),
-      Paint()..filterQuality = FilterQuality.medium);
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTRB(
+        destination.left * size.width,
+        destination.top * size.height,
+        destination.right * size.width,
+        destination.bottom * size.height);
+    canvas
+      ..save()
+      ..clipRRect(borderRadius.toRRect(rect))
+      ..drawImageRect(
+          image, source, rect, Paint()..filterQuality = FilterQuality.low)
+      ..restore();
+  }
+
   @override
   bool shouldRepaint(_PictureFlightPainter oldDelegate) =>
       oldDelegate.image != image ||
       oldDelegate.source != source ||
-      oldDelegate.destination != destination;
+      oldDelegate.destination != destination ||
+      oldDelegate.borderRadius != borderRadius;
 }
 
 class _PictureRoute<T> extends PageRouteBuilder<T> {
@@ -316,8 +353,8 @@ Future<T?> showPictureDialog<T>(
   final route = _PictureRoute<T>(
     barrierColor: AppTheme.getOverlayColor(context),
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    transitionDuration: AppMotion.duration(context, AppMotion.slow),
-    reverseTransitionDuration: AppMotion.duration(context, AppMotion.medium),
+    transitionDuration: AppMotion.duration(context, AppMotion.medium),
+    reverseTransitionDuration: AppMotion.duration(context, AppMotion.fast),
     pageBuilder: (context, _, __) => themes.wrap(SafeArea(
         child: Focus(
             onKeyEvent: (node, event) {

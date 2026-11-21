@@ -89,9 +89,8 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
           games: games,
           routeIndex: 3,
           onTagTap: (tag) {
-            Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) =>
-                    TagGamesPage(tagId: tag.id!, tagName: tag.name)));
+            Navigator.of(context).push(TagGamesPage.route(
+                context: context, tagId: tag.id!, tagName: tag.name));
           },
         ),
         );
@@ -137,10 +136,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage>
                 if (tag.id != null) {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                        builder: (_) => TagGamesPage(
-                            tagId: tag.id!, titleAnchor: titleAnchor,
-                            tagName: tag.displayName ?? tag.name)),
+                    TagGamesPage.route(
+                      context: context,
+                      tagId: tag.id!,
+                      titleAnchor: titleAnchor,
+                      tagName: tag.displayName ?? tag.name,
+                    ),
                   ).then((_) {
                     if (!mounted) return;
                     setState(() { _returnedTag = tag.id; _returnSequence++; });

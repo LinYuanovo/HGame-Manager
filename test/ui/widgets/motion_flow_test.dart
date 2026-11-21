@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -276,6 +277,69 @@ void main() {
     tester.state<NavigatorState>(find.byType(Navigator)).pop();
     await tester.pumpAndSettle();
     expect(find.text('甲'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('封面 Hero 两端使用各自的圆角', (tester) async {
+    const sourceRadius = BorderRadius.all(Radius.circular(30));
+    const detailRadius = BorderRadius.all(Radius.circular(8));
+    final origins = PictureOrigins();
+    final imageBytes = base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAPSURBVBhXY/iPBhhIFwAAeDw/wZciT7UAAAAASUVORK5CYII=');
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Builder(builder: (context) => PictureOrigin(
+                origins: origins,
+                identity: 'cover',
+                borderRadius: sourceRadius,
+                onOpen: (origin) => showPictureDialog<void>(
+                  context,
+                  (dialogContext) => Dialog(
+                    backgroundColor: Colors.transparent,
+                    child: SizedBox(
+                      width: 260,
+                      height: 300,
+                      child: pictureHero(
+                        dialogContext,
+                        origin,
+                        Image.memory(imageBytes, fit: BoxFit.cover),
+                        borderRadius: detailRadius,
+                      ),
+                    ),
+                  ),
+                ),
+                child: SizedBox(
+                  width: 100,
+                  height: 140,
+                  child: Image.memory(imageBytes, fit: BoxFit.cover),
+                ),
+              )),
+          ),
+        ),
+    ));
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .widgetList<ClipRRect>(find.byType(ClipRRect))
+            .map((clip) => clip.borderRadius),
+        contains(sourceRadius));
+    await tester.tap(find.byType(PictureOrigin));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final route = ModalRoute.of(tester.element(find.byType(Dialog)))!;
+    expect(route.animation!.status, AnimationStatus.forward);
+    expect(route.animation!.value, greaterThan(0));
+    expect(route.animation!.value, lessThan(1));
+
+    final heroRadii = tester
+        .widgetList<ClipRRect>(find.byType(ClipRRect))
+        .map((clip) => clip.borderRadius)
+        .toList();
+
+    expect(find.byType(Hero), findsNWidgets(2));
+    expect(heroRadii, contains(detailRadius));
     expect(tester.takeException(), isNull);
   });
 

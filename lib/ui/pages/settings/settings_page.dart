@@ -137,6 +137,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         '已玩游戏保留库中',
         '收藏游戏优先排序',
         '无图模式',
+        '减弱动效',
+        '封面画质',
         '注册全局攻略浮窗快捷键',
         '字体设置'
       ],
@@ -149,7 +151,6 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         '右键菜单管理',
         '侧边栏页面管理',
         '封面比例管理',
-        '封面画质',
         '刮削行为管理',
         '重命名规则管理',
         '攻略浮窗快捷键'
@@ -510,6 +511,8 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
         return _buildFavoriteFirstSection();
       case '无图模式':
         return _buildNoImageModeSection();
+      case '减弱动效':
+        return _buildReduceMotionSection();
       case '字体设置':
         return _buildFontSection();
       case '注册全局攻略浮窗快捷键':
@@ -2056,6 +2059,37 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
             ref.read(coverMemorySavingProvider.notifier).state = value;
             await prefs.setBool(AppSettings.coverMemorySavingKey, value);
             await prefs.flush();
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReduceMotionSection() {
+    return _buildSection(
+      title: '减弱动效',
+      icon: Icons.motion_photos_off_outlined,
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text('减弱界面动效',
+              style: TextStyle(
+                  fontSize: GlassConstants.fontControl,
+                  color: AppTheme.getTextPrimary(context))),
+          subtitle: Text(
+            '关闭弹窗、页面和图片的过渡动画。',
+            style: TextStyle(
+                fontSize: GlassConstants.fontSmall,
+                color: AppTheme.getTextSecondary(context)),
+          ),
+          activeThumbColor: AppTheme.getPrimaryColor(context),
+          value: ref.watch(reduceMotionProvider),
+          onChanged: (value) async {
+            ref.read(reduceMotionProvider.notifier).state = value;
+            final prefs = ref.read(sharedPreferencesProvider);
+            await prefs.setBool(AppSettings.reduceMotionKey, value);
+            await prefs.flush();
+            await ref.read(guideWindowServiceProvider).setReduceMotion(value);
           },
         ),
       ],

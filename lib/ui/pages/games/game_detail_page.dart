@@ -61,10 +61,12 @@ import 'content_search_engine.dart';
 class GameDetailDialog extends ConsumerStatefulWidget {
   final Game game;
   final void Function(Tag tag)? onTagTap;
+  final void Function(
+      BuildContext context, Offset position, VoidCallback onEdit)? onContextMenu;
   final Object? Function()? coverOrigin;
   final String? openingCover;
 
-  const GameDetailDialog({super.key, required this.game, this.onTagTap, this.coverOrigin, this.openingCover});
+  const GameDetailDialog({super.key, required this.game, this.onTagTap, this.onContextMenu, this.coverOrigin, this.openingCover});
 
   @override
   ConsumerState<GameDetailDialog> createState() => _GameDetailDialogState();
@@ -114,6 +116,15 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   bool _isLocal = false;
   Set<String> _existingMediaFiles = {};
   Map<String, String> _mediaPathAliases = {};
+
+  void _enterEditMode() {
+    if (_isSavingTags) return;
+    setState(() {
+      _viewingOriginal = false;
+      _editedTags = List.from(_currentGame.tags);
+      _isEditing = true;
+    });
+  }
 
   String? _introHtml;
   bool _isDlsiteUserOnly = false;
@@ -576,9 +587,15 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     final dialogWidth = screenSize.width * 0.9;
     final dialogHeight = screenSize.height * 0.9;
 
-    return PopScope(
-      canPop: !_isImageViewerOpen,
-      child: Dialog(
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onSecondaryTapUp: widget.onContextMenu == null
+          ? null
+          : (details) =>
+              widget.onContextMenu!(context, details.globalPosition, _enterEditMode),
+      child: PopScope(
+        canPop: !_isImageViewerOpen,
+        child: Dialog(
         backgroundColor: AppTheme.getSurfaceDeepColor(context),
         insetPadding: const EdgeInsets.all(GlassConstants.spacingLarge),
         shape: RoundedRectangleBorder(
@@ -663,6 +680,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             ],
           ),
         ),
+        ),
       ),
     );
   }
@@ -702,6 +720,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               width: 320,
               height: 36,
               child: TextField(
+                contextMenuBuilder: buildAppEditableTextContextMenu,
                 controller: _quickScrapeController,
                 style: TextStyle(
                     fontSize: GlassConstants.fontBody,
@@ -883,11 +902,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               tooltip: '编辑',
               onPressed: _isSavingTags
                   ? null
-                  : () => setState(() {
-                      _viewingOriginal = false;
-                      _editedTags = List.from(_currentGame.tags);
-                      _isEditing = true;
-                    }),
+                  : _enterEditMode,
             ),
             IconButton(
               icon: Icon(Icons.close,
@@ -1109,7 +1124,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                                 color: AppTheme.getDetailTextPrimary(context)
                                     .withValues(alpha: 0.3))),
                       ),
-                    )),
+                    ), borderRadius: BorderRadius.circular(GlassConstants.radiusMedium - 1)),
                   ),
                   if (images.length > 1)
                     Positioned(
@@ -1344,6 +1359,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 const SizedBox(width: GlassConstants.spacingTight),
                 Expanded(
                   child: TextField(
+                    contextMenuBuilder: buildAppEditableTextContextMenu,
                     controller: _pathController,
                     maxLines: 3,
                     style: TextStyle(
@@ -1389,6 +1405,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 const SizedBox(width: GlassConstants.spacingTight),
                 Expanded(
                   child: TextField(
+                    contextMenuBuilder: buildAppEditableTextContextMenu,
                     controller: _versionController,
                     style: TextStyle(
                         fontSize: GlassConstants.fontSmall,
@@ -1422,6 +1439,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 const SizedBox(width: GlassConstants.spacingTight),
                 Expanded(
                   child: TextField(
+                    contextMenuBuilder: buildAppEditableTextContextMenu,
                     controller: _makerController,
                     style: TextStyle(
                         fontSize: GlassConstants.fontSmall,
@@ -1486,6 +1504,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 const SizedBox(width: GlassConstants.spacingTight),
                 Expanded(
                   child: TextField(
+                    contextMenuBuilder: buildAppEditableTextContextMenu,
                     controller: _sourceUrlController,
                     style: TextStyle(
                         fontSize: GlassConstants.fontSmall,
@@ -1550,6 +1569,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               children: [
                 Expanded(
                   child: TextField(
+                    contextMenuBuilder: buildAppEditableTextContextMenu,
                     controller: _gameLauncherController,
                     decoration: InputDecoration(
                       hintText: '留空则自动检测',
@@ -1685,6 +1705,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 const SizedBox(width: GlassConstants.spacingTight),
                 Expanded(
                   child: TextField(
+                    contextMenuBuilder: buildAppEditableTextContextMenu,
                     controller: _downloadUrlController,
                     maxLines: 3,
                     style: TextStyle(
@@ -2140,6 +2161,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     return Stack(
       children: [
         SelectionArea(
+          contextMenuBuilder: buildAppSelectableTextContextMenu,
           child: SingleChildScrollView(
             key: _contentPanelKey,
             controller: _contentScrollController,
@@ -2150,6 +2172,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               children: [
                 if (_isEditing)
                   TextField(
+                    contextMenuBuilder: buildAppEditableTextContextMenu,
                     controller: _titleController,
                     style: TextStyle(
                         fontSize: GlassConstants.fontDetailTitle,
@@ -2172,6 +2195,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 else
                   SelectableText(
                     _displayGame.title ?? '未命名游戏',
+                    contextMenuBuilder: buildAppEditableTextContextMenu,
                     style: TextStyle(
                         fontSize: GlassConstants.fontDetailTitle,
                         fontWeight: AppTypography.bold,
@@ -2703,6 +2727,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             children: [
               Expanded(
                 child: TextField(
+                  contextMenuBuilder: buildAppEditableTextContextMenu,
                   controller: title == '特性'
                       ? _featuresController
                       : _changelogController,
@@ -3033,6 +3058,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     }
     if (blocks.isEmpty) {
       return SelectableText('暂无信息',
+          contextMenuBuilder: buildAppEditableTextContextMenu,
           style: TextStyle(
               fontSize: fontSize,
               color: AppTheme.getDetailTextPrimary(context)));
@@ -3084,6 +3110,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         }
         return SelectableText.rich(
           TextSpan(children: spans),
+          contextMenuBuilder: buildAppEditableTextContextMenu,
           style: TextStyle(fontSize: fontSize, height: AppTypography.spaciousHeight),
         );
       }
@@ -3303,6 +3330,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     }
     return SelectableText.rich(
       TextSpan(children: spans),
+      contextMenuBuilder: buildAppEditableTextContextMenu,
       style: TextStyle(fontSize: fontSize, height: AppTypography.spaciousHeight),
     );
   }
@@ -4646,6 +4674,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       style: AppTypography.dialogTitle(context)),
                   const SizedBox(height: GlassConstants.spacingMedium),
                   TextField(
+                    contextMenuBuilder: buildAppEditableTextContextMenu,
                     controller: controller,
                     decoration: const InputDecoration(
                       hintText: '输入存档文件夹路径',
@@ -4727,6 +4756,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                     children: [
                       Expanded(
                         child: TextField(
+                          contextMenuBuilder: buildAppEditableTextContextMenu,
                           controller: hoursController,
                           keyboardType: TextInputType.number,
                           decoration: const InputDecoration(
@@ -4738,6 +4768,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                       const SizedBox(width: GlassConstants.spacingMedium),
                       Expanded(
                         child: TextField(
+                          contextMenuBuilder: buildAppEditableTextContextMenu,
                           controller: minutesController,
                           keyboardType: TextInputType.number,
                           decoration: const InputDecoration(
@@ -5570,6 +5601,7 @@ class _InfoRow extends StatelessWidget {
                 )
               : SelectableText(
                   value,
+                  contextMenuBuilder: buildAppEditableTextContextMenu,
                   style: TextStyle(
                       fontSize: GlassConstants.fontSmall,
                       color:
@@ -5670,6 +5702,7 @@ class _DetailReviewDialogState extends State<_DetailReviewDialog> {
                     color: AppTheme.getDetailTextPrimary(context))),
             const SizedBox(height: GlassConstants.spacingSmall),
             TextField(
+              contextMenuBuilder: buildAppEditableTextContextMenu,
               controller: _reviewController,
               autofocus: true,
               maxLines: 5,
