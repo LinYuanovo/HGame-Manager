@@ -25,6 +25,7 @@ import 'package:hgame_manager/ui/widgets/game_list_widget.dart';
 import 'package:hgame_manager/ui/widgets/image_manager_dialog.dart';
 import 'package:hgame_manager/ui/widgets/draggable_image_grid.dart';
 import 'package:hgame_manager/ui/widgets/picture_motion.dart';
+import 'package:hgame_manager/ui/widgets/selection_surface.dart';
 import 'package:hgame_manager/ui/pages/games/batch_import_dialog.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path/path.dart' as path;
@@ -121,6 +122,22 @@ void main() {
       await settle();
     }
 
+    Future<void> verifyPromptActionRow({
+      required String targetItem,
+      required String prompt,
+      required Finder action,
+    }) async {
+      await show(SettingsDialogContent(targetItem: targetItem));
+      final promptFinder = find.textContaining(prompt).first;
+      final row = find
+          .ancestor(of: promptFinder, matching: find.byType(Row))
+          .first;
+      final actionFinder = find.descendant(of: row, matching: action);
+      expect(actionFinder, findsOneWidget);
+      expect(tester.getTopLeft(promptFinder).dx,
+          lessThan(tester.getTopLeft(actionFinder).dx));
+    }
+
     await show(GameListWidget(games: games, routeIndex: 1));
     container.read(libraryLocationProvider.notifier).state = games[8].id;
     await settle();
@@ -133,6 +150,12 @@ void main() {
     await screenshot('detail-opening', settleFirst: false);
     await settle();
     expect(find.byType(GameDetailDialog), findsOneWidget);
+    final playButton = find.widgetWithText(ElevatedButton, '开始游玩');
+    final manageImagesButton = find.widgetWithText(OutlinedButton, '管理图片');
+    final standardOutlinedButtonHeight =
+        tester.getSize(manageImagesButton).height;
+    expect(tester.getSize(manageImagesButton).height,
+        tester.getSize(playButton).height);
     final origin = find.byWidgetPredicate(
         (widget) => widget is PictureOrigin && widget.identity == images[0]);
     await tester.ensureVisible(origin.first);
@@ -165,8 +188,16 @@ void main() {
     final grid = find.byType(DraggableImageGrid);
     final drags =
         find.descendant(of: grid, matching: find.byType(Draggable<GameImage>));
-    await tester.dragFrom(tester.getCenter(drags.first),
-        tester.getCenter(drags.last) - tester.getCenter(drags.first));
+    final dragStart = tester.getCenter(drags.first);
+    final dragEnd = tester.getCenter(drags.last);
+    final imageDrag = await tester.startGesture(dragStart);
+    await imageDrag.moveTo(Offset.lerp(dragStart, dragEnd, 0.4)!);
+    await tester.pump(const Duration(milliseconds: 60));
+    await imageDrag.moveTo(dragEnd);
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(tester.widget<DraggableImageGrid>(grid).images.first.imagePath,
+        images[1]);
+    await imageDrag.up();
     await settle();
     final reordered = tester.widget<DraggableImageGrid>(grid);
     expect(reordered.images.first.imagePath, images[1]);
@@ -193,6 +224,107 @@ void main() {
     await show(const SettingsDialogContent(targetItem: '自动更新'));
     expect(find.text('自动更新').hitTestable(), findsWidgets);
     await screenshot('settings-located');
+    await show(const SettingsDialogContent(targetItem: '诊断日志'));
+    final diagnosticsText = find.textContaining('遇到问题后导出诊断包');
+    final exportDiagnostics =
+        find.widgetWithText(ElevatedButton, '导出诊断包');
+    final diagnosticsRow = find
+        .ancestor(of: diagnosticsText, matching: find.byType(Row))
+        .first;
+    expect(
+        find.descendant(
+            of: diagnosticsRow, matching: exportDiagnostics),
+        findsOneWidget);
+    expect(
+        (tester.widget<Row>(diagnosticsRow).children[1] as SizedBox).width,
+        GlassConstants.spacingLarge);
+    expect(tester.getTopLeft(diagnosticsText).dx,
+        lessThan(tester.getTopLeft(exportDiagnostics).dx));
+    await screenshot('diagnostics-layout');
+    await show(const SettingsDialogContent(targetItem: '封面画质'));
+    expect(
+        tester.widget<SelectionSurface>(find.byType(SelectionSurface)).index,
+        0);
+    expect(find.text('节省封面内存'), findsOneWidget);
+
+    await show(const SettingsDialogContent(targetItem: '忽略文件夹'));
+    final folderButtons =
+        find.widgetWithText(OutlinedButton, '选择文件夹');
+    expect(folderButtons, findsNWidgets(2));
+    for (var index = 0; index < 2; index++) {
+      expect(tester.getSize(folderButtons.at(index)).height,
+          standardOutlinedButtonHeight);
+    }
+    await verifyPromptActionRow(
+      targetItem: '忽略文件夹',
+      prompt: '扫描游戏库时将跳过这些文件夹',
+      action: find.widgetWithText(OutlinedButton, '选择文件夹'),
+    );
+    await verifyPromptActionRow(
+      targetItem: '字体设置',
+      prompt: '导入自定义 TTF 字体文件',
+      action: find.widgetWithText(OutlinedButton, '导入 TTF 字体'),
+    );
+    expect(
+        tester.getSize(find.widgetWithText(OutlinedButton, '导入 TTF 字体'))
+            .height,
+        standardOutlinedButtonHeight);
+
+    await settings.setString('xpath_parsers', jsonEncode([
+      {'domain': 'example.test', 'name': '示例站点', 'title': '//h1'},
+    ]));
+    await verifyPromptActionRow(
+      targetItem: '自定义解析器',
+      prompt: '当内置解析器无法覆盖新站点时',
+      action: find.widgetWithText(OutlinedButton, '添加站点'),
+    );
+    final parserHeader = find.text('示例站点 (example.test)');
+    final parserCard = find
+        .ancestor(of: parserHeader, matching: find.byType(GlassContainer))
+        .first;
+    final parserCardWidget = tester.widget<GlassContainer>(parserCard);
+    expect(parserCardWidget.enableBlur, isFalse);
+    expect(parserCardWidget.color,
+        AppTheme.getCardDefaultColor(tester.element(parserCard)));
+    expect(tester.getSize(find.widgetWithText(OutlinedButton, '添加站点')).height,
+        standardOutlinedButtonHeight);
+    await screenshot('settings-parser-card');
+
+    await verifyPromptActionRow(
+      targetItem: '黑名单管理',
+      prompt: '管理扫描时忽略的游戏路径',
+      action: find.widgetWithText(ElevatedButton, '编辑黑名单'),
+    );
+    await verifyPromptActionRow(
+      targetItem: '右键菜单管理',
+      prompt: '管理游戏列表右键菜单中显示的选项',
+      action: find.widgetWithText(ElevatedButton, '打开菜单管理'),
+    );
+    await verifyPromptActionRow(
+      targetItem: '侧边栏页面管理',
+      prompt: '管理侧边栏中显示的页面及顺序',
+      action: find.widgetWithText(ElevatedButton, '打开侧边栏管理'),
+    );
+    await verifyPromptActionRow(
+      targetItem: '封面比例管理',
+      prompt: '仅调整海报网格的封面宽高比',
+      action: find.text('4:3'),
+    );
+    await verifyPromptActionRow(
+      targetItem: '刮削行为管理',
+      prompt: '为每种刮削模式独立设置重命名和移动行为',
+      action: find.widgetWithText(ElevatedButton, '打开刮削行为管理'),
+    );
+    await verifyPromptActionRow(
+      targetItem: '重命名规则管理',
+      prompt: '配置游戏文件夹重命名规则',
+      action: find.widgetWithText(ElevatedButton, '打开重命名规则管理'),
+    );
+    await verifyPromptActionRow(
+      targetItem: '攻略浮窗快捷键',
+      prompt: '自定义攻略浮窗的全局快捷键',
+      action: find.widgetWithText(ElevatedButton, '打开快捷键设置'),
+    );
     await show(Consumer(
         builder: (context, ref, _) => TextButton(
             onPressed: () => showSettingsDialog(context, ref),

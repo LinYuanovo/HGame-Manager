@@ -1132,7 +1132,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             onPressed: _openImageManager,
             icon: const Icon(Icons.edit, size: GlassConstants.iconSmall),
             label: const Text('管理图片'),
-            style: AppButtonStyles.outline(compact: true),
           ),
         ),
       ],

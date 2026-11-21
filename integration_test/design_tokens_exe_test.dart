@@ -89,13 +89,30 @@ void main() {
     }
   });
   testWidgets('主题与动效：浅深色逐页、加载状态及共享弹窗', (tester) async {
+    final dataDirectory =
+        await Directory.systemTemp.createTemp('hgame-design-tokens-');
+    AppPaths.overrideRootDirForTesting(dataDirectory.path);
+    AppSettings? settingsForCleanup;
+    addTearDown(() async {
+      await settingsForCleanup?.flush();
+      await DatabaseHelper.close();
+      AppPaths.overrideRootDirForTesting(null);
+      if (await dataDirectory.exists()) {
+        await dataDirectory.delete(recursive: true);
+      }
+    });
     final dataRoot = await AppPaths.rootDir;
-    expect(path.normalize(dataRoot).replaceAll('\\', '/'),
-        contains('/build/windows/x64/runner/Debug/'));
+    expect(
+        path
+            .normalize(path.dirname(Platform.resolvedExecutable))
+            .replaceAll('\\', '/'),
+        contains('/build/windows/x64/runner/Debug'));
+    expect(path.normalize(dataRoot), path.normalize(dataDirectory.path));
     expect(await Directory(dataRoot).list().isEmpty, isTrue,
-        reason: '必须使用空的构建数据目录');
+        reason: '每次运行都使用独立的空测试目录');
     final settings = await AppSettings.loadFromFileForTest(
         path.join(dataRoot, 'settings.json'));
+    settingsForCleanup = settings;
     await settings.setBool('guide_window_hotkeys_enabled', false);
     await settings.setBool('auto_update_enabled', false);
     await settings.setString(
@@ -510,7 +527,7 @@ void main() {
       await settings.flush();
       await DatabaseHelper.close();
       await AppLogger.instance.flush();
-      await Directory(dataRoot).delete(recursive: true);
+      AppPaths.overrideRootDirForTesting(null);
     }
   });
 }
