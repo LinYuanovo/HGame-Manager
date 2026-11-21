@@ -329,7 +329,7 @@ class _FakeGameRepository extends GameRepository {
   Future<Game?> getGameById(int id) async => game;
 
   @override
-  Future<void> updateGame(Game game) async {
+  Future<void> updateGame(Game game, {Object? executor}) async {
     this.game = game;
   }
 }

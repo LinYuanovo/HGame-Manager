@@ -30,7 +30,7 @@ features:
     details: 列表 / 海报墙双视图、灵活排序、收藏置顶、游玩追踪，内置 Markdown 富文本编辑器。
   - icon: 📁
     title: 分类系统
-    details: 标签与系列双重管理，支持收藏分类、批量归类，刮削后自动按系列整理目录。
+    details: 标签与系列双重管理，支持收藏分类、批量归类，可按配置在刮削后整理目录。
     link: /guide/categories
     linkText: 查看教程
   - icon: 💾

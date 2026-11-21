@@ -1,19 +1,26 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 import '../../../core/models/models.dart';
+import '../../../core/models/scrape_review_item.dart';
+import '../../../core/providers/providers.dart';
+import '../../../core/providers/scrape_review_provider.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../../core/utils/game_data_paths.dart';
+import '../../../core/utils/game_path_utils.dart';
+import '../../../core/services/app_logger.dart';
 import '../../../core/services/scrape_apply_service.dart';
 import '../../../core/repositories/game_repository.dart';
-import '../../../core/repositories/tag_repository.dart';
 import '../../../core/services/dlsite_service.dart';
 import '../../../core/services/game_data_migration_service.dart';
 import '../../../core/services/steam_service.dart';
 import '../../../core/services/version_check_service.dart';
+import '../../../scraper/parse_utils.dart';
+import '../scraper/scrape_review_dialog.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_dropdown.dart';
 
@@ -24,9 +31,10 @@ import '../../widgets/app_dropdown.dart';
 ///   扫描其子文件夹生成导入列表；
 /// - 拖拽模式：传入 [initialFolderPaths] 直接给定游戏目录列表（可选
 ///   [presetKeywords] 提供各目录的预设刮削关键词），跳过父目录选择流程。
-class BatchImportDialog extends StatefulWidget {
+class BatchImportDialog extends ConsumerStatefulWidget {
   final VoidCallback onImportComplete;
   final ValueChanged<int>? onLocate;
+  final String userFont;
 
   /// 拖拽模式：直接传入游戏目录列表
   final List<String>? initialFolderPaths;
@@ -38,24 +46,27 @@ class BatchImportDialog extends StatefulWidget {
     super.key,
     required this.onImportComplete,
     this.onLocate,
+    this.userFont = '',
     this.initialFolderPaths,
     this.presetKeywords,
   });
 
   @override
-  State<BatchImportDialog> createState() => _BatchImportDialogState();
+  ConsumerState<BatchImportDialog> createState() => _BatchImportDialogState();
 }
 
-class _BatchImportDialogState extends State<BatchImportDialog> {
+class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
   String? _parentPath;
   List<_BatchGameItem> _items = [];
   bool _scanning = false;
   String? _scanError;
   bool _importing = false;
   bool _importDone = false;
+  bool _reviewOpen = false;
   int _successCount = 0;
   int _failCount = 0;
   bool _showFailures = false;
+  int _skippedCount = 0;
 
   /// 是否为拖拽模式（直接传入游戏目录列表，跳过父目录选择）
   bool get _isDragMode =>
@@ -121,6 +132,10 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
       _items = [];
       _scanning = true;
       _scanError = null;
+      _importDone = false;
+      _successCount = 0;
+      _failCount = 0;
+      _showFailures = false;
     });
     try {
       final parent = Directory(result);
@@ -189,67 +204,321 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
   }
 
   Future<void> _startImport() async {
+    if (_importing || _reviewOpen) return;
     final selected = _items.where((i) => i.selected).toList();
     if (selected.isEmpty) return;
+    final container = ProviderScope.containerOf(context, listen: false);
 
     setState(() => _importing = true);
 
     int successCount = 0;
     int failCount = 0;
+    int skippedCount = 0;
 
-    final queue = List<_BatchGameItem>.from(selected);
-    const workerCount = 3;
-    final workers = <Future>[];
-
-    for (int i = 0; i < workerCount; i++) {
-      workers.add(_processQueue(queue, () async {
-        successCount++;
-      }, () {
-        failCount++;
-      }));
+    try {
+      final repo = container.read(gameRepositoryProvider);
+      final existingKeys = (await repo.getGameIdsByPathKey()).keys.toSet();
+      final selectedKeys = <String>{};
+      final queue = <_BatchGameItem>[];
+      for (final item in selected) {
+        final key = GamePathUtils.comparisonKey(item.folder.path);
+        if (existingKeys.contains(key) || !selectedKeys.add(key)) {
+          item.status = existingKeys.contains(key) ? '已在库中，已跳过' : '本批路径重复，已跳过';
+          item.progress = 1.0;
+          skippedCount++;
+        } else {
+          queue.add(item);
+        }
+      }
+      if (mounted) setState(() {});
+      const workerCount = 3;
+      final workers = <Future>[];
+      for (int worker = 0; worker < workerCount; worker++) {
+        workers.add(_processQueue(queue, container, () {
+          successCount++;
+        }, () {
+          failCount++;
+        }, () {
+          skippedCount++;
+        }));
+      }
+      await Future.wait(workers);
+    } catch (error, stackTrace) {
+      failCount = selected.length - successCount - skippedCount;
+      AppLogger.instance.error(
+          'Import', '准备批量导入失败: 共 ${selected.length} 个目录', error, stackTrace);
+      for (final item in selected.where((item) => item.status.isEmpty)) {
+        item.status = '失败: $error';
+      }
+    } finally {
+      AppLogger.instance.info('Import',
+          '批量导入完成: 成功 $successCount 个，跳过 $skippedCount 个，失败 $failCount 个');
+      if (mounted) {
+        setState(() {
+          _importing = false;
+          _importDone = true;
+          _successCount = successCount;
+          _failCount = failCount;
+          _skippedCount = skippedCount;
+        });
+      }
     }
-
-    await Future.wait(workers);
-
     if (mounted) {
-      setState(() {
-        _importing = false;
-        _importDone = true;
-        _successCount = successCount;
-        _failCount = failCount;
-      });
+      widget.onImportComplete();
+      if (_reviewItems.isNotEmpty) await _confirmScrapeResults();
     }
+  }
+
+  List<_BatchGameItem> get _failedScrapeItems => _items.where((item) {
+        final review = item.reviewItem;
+        return item.selected &&
+            item.source != _BatchScrapeSource.none &&
+            review != null &&
+            !review.canKeep &&
+            !review.applied &&
+            !review.recoveryRequired;
+      }).toList();
+
+  Future<void> _retryFailedImports() async {
+    final failedItems = _failedScrapeItems;
+    if (_importing || _reviewOpen || failedItems.isEmpty) return;
+    final container = ProviderScope.containerOf(context, listen: false);
+    setState(() {
+      _importing = true;
+      for (final item in failedItems) {
+        item.status = '重试抓取中...';
+        item.progress = 0;
+      }
+    });
+    final queue = List<_BatchGameItem>.of(failedItems);
+    await Future.wait(
+        List.generate(3, (_) => _processQueue(queue, container, () {}, () {}, () {
+          _skippedCount++;
+        })));
+    if (!mounted) return;
+    setState(() {
+      _importing = false;
+      _failCount = _items
+          .where((item) =>
+              item.selected &&
+              ((item.source == _BatchScrapeSource.none &&
+                      item.status.startsWith('失败:')) ||
+                  (item.reviewItem != null && !item.reviewItem!.canKeep)))
+          .length;
+      _updateReviewStatuses();
+    });
+    await _confirmScrapeResults();
   }
 
   Future<void> _processQueue(
     List<_BatchGameItem> queue,
+    ProviderContainer container,
     VoidCallback onSuccess,
     VoidCallback onFail,
+    VoidCallback onSkipped,
   ) async {
-    final repo = GameRepository();
-    final tagRepo = TagRepository();
+    final repo = container.read(gameRepositoryProvider);
     final dlsiteService = DlsiteService();
     final steamService = SteamService();
 
     while (queue.isNotEmpty) {
       final item = queue.removeAt(0);
+      Game? originalGame;
       try {
+        if (await repo.getStoredGameByPath(item.folder.path) != null) {
+          throw GameAlreadyExistsException(item.folder.path);
+        }
         if (item.source == _BatchScrapeSource.none) {
           await _importNone(repo, item);
-        } else if (item.source == _BatchScrapeSource.steam) {
-          await _importSteam(repo, tagRepo, steamService, item);
+          await _postImportProcess(repo, item);
+          onSuccess();
         } else {
-          await _importDlsite(repo, tagRepo, dlsiteService, item);
+          final reusable = _reusableReview(container, item.currentPath);
+          if (reusable != null) {
+            item.reviewItem = reusable;
+            item.status = reusable.status;
+            item.progress = 1;
+            if (mounted) setState(() {});
+            continue;
+          }
+          originalGame = await _readOriginalGame(repo, item.currentPath);
+          final candidate = item.source == _BatchScrapeSource.steam
+              ? await _importSteam(steamService, item)
+              : await _importDlsite(dlsiteService, item);
+          _storeReviewItem(
+            item,
+            ScrapeReviewItem(
+              game: originalGame,
+              candidate: candidate,
+              mode: ScrapeMode.batchAdd,
+            ),
+            container,
+          );
+          item.status = '待确认';
+          item.progress = 1;
+          if (mounted) setState(() {});
         }
-        await _postImportProcess(repo, item);
-        onSuccess();
-      } catch (e) {
+      } on GameAlreadyExistsException {
+        item.status = '已在库中，已跳过';
+        item.progress = 1.0;
+        if (mounted) setState(() {});
+        onSkipped();
+      } catch (e, stackTrace) {
+        AppLogger.instance
+            .error('Import', '导入游戏失败: path=${item.folder.path}', e, stackTrace);
         item.status = '失败: $e';
         item.failed = true;
+        if (item.source != _BatchScrapeSource.none) {
+          _storeReviewItem(
+            item,
+            ScrapeReviewItem(
+              game: originalGame ??
+                  Game(
+                      path: item.currentPath,
+                      title: path.basename(item.currentPath)),
+              fetchError: e.toString(),
+              mode: ScrapeMode.batchAdd,
+            ),
+            container,
+          );
+        }
         if (mounted) setState(() {});
         onFail();
       }
     }
+  }
+
+  List<ScrapeReviewItem> get _reviewItems => _items
+      .map((item) => item.reviewItem)
+      .whereType<ScrapeReviewItem>()
+      .toList();
+
+  ScrapeReviewItem? _reusableReview(
+      ProviderContainer container, String gamePath) {
+    for (final review in container.read(scrapeReviewItemsProvider)) {
+      if (path.equals(review.game.path, gamePath) &&
+          (review.recoveryRequired ||
+              (review.canKeep &&
+                  !review.applied &&
+                  review.decision != ScrapeReviewDecision.discard))) {
+        return review;
+      }
+    }
+    return null;
+  }
+
+  void _storeReviewItem(_BatchGameItem item, ScrapeReviewItem review,
+      ProviderContainer container) {
+    final reusable = _reusableReview(container, review.game.path);
+    if (reusable != null) {
+      item.reviewItem = reusable;
+      return;
+    }
+    item.reviewItem = review;
+    final previous = container.read(scrapeReviewItemsProvider);
+    container.read(scrapeReviewItemsProvider.notifier).state = [
+      ...previous
+          .where((entry) => !path.equals(entry.game.path, review.game.path)),
+      review,
+    ];
+  }
+
+  Future<void> _confirmScrapeResults() async {
+    if (_importing || _reviewOpen) return;
+    setState(() => _reviewOpen = true);
+    try {
+      final configs = await _loadScrapeModeConfigs();
+      if (!mounted) return;
+      final container = ProviderScope.containerOf(context, listen: false);
+      await showScrapeReviewDialog(
+        context: context,
+        items: _reviewItems,
+        mode: ScrapeMode.batchAdd,
+        configs: configs,
+        repository: container.read(gameRepositoryProvider),
+        tagRepository: container.read(tagRepositoryProvider),
+        onChanged: () {
+          container.read(scrapeReviewItemsProvider.notifier).state =
+              List.of(container.read(scrapeReviewItemsProvider));
+          if (!mounted) return;
+          setState(_updateReviewStatuses);
+          widget.onImportComplete();
+        },
+      );
+      final repository = container.read(gameRepositoryProvider);
+      for (final item in _items) {
+        if (item.reviewItem?.applied == true) {
+          item.gameId = (await repository.getGameByPath(item.currentPath))?.id;
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _reviewOpen = false;
+          _updateReviewStatuses();
+        });
+      }
+    }
+  }
+
+  void _updateReviewStatuses() {
+    for (final item in _items) {
+      final review = item.reviewItem;
+      if (review == null) continue;
+      item.status = review.applied
+          ? '已保留并保存'
+          : review.applyError != null
+              ? '保存失败: ${review.applyError}'
+              : review.fetchError != null
+                  ? '抓取失败: ${review.fetchError}'
+                  : review.decision == ScrapeReviewDecision.discard
+                      ? '已放弃'
+                      : '待确认';
+      item.translationNotices
+        ..clear()
+        ..addAll(review.notices);
+      item.failed = review.fetchError != null || review.applyError != null;
+    }
+    _failCount = _items
+        .where((item) =>
+            item.selected && (item.failed || _failedScrapeItems.contains(item)))
+        .length;
+    if (_failCount == 0) _showFailures = false;
+  }
+
+  Future<Game> _readOriginalGame(GameRepository repo, String folderPath) async {
+    final existing = await repo.getStoredGameByPath(folderPath);
+    if (existing != null) return existing;
+    Map<String, dynamic> metadata = {};
+    final metadataFile = await GameDataPaths.existingMetadataFile(folderPath);
+    if (await metadataFile.exists()) {
+      try {
+        final decoded = jsonDecode(await metadataFile.readAsString());
+        if (decoded is Map<String, dynamic>) metadata = decoded;
+      } catch (error) {
+        debugPrint('[BatchImport] 读取原有元数据失败: $error');
+      }
+    }
+    return Game(
+      path: folderPath,
+      title: metadata['title'] as String? ?? path.basename(folderPath),
+      version: metadata['version'] as String?,
+      intro: metadata['intro'] as String?,
+      features: metadata['features'] as String?,
+      changelog: metadata['changelog'] as String?,
+      sourceUrl: metadata['source_url'] as String?,
+      downloadUrl: metadata['download_url'] as String?,
+      maker: metadata['maker'] as String?,
+      makerUrl: metadata['maker_url'] as String?,
+      guide: metadata['guide'] as String?,
+      tags: [
+        for (final name
+            in (metadata['tags'] as List? ?? []).whereType<String>())
+          Tag(name: name, type: Tag.typeCustom),
+        if (metadata['series'] is String)
+          Tag(name: metadata['series'] as String, type: Tag.typeSeries),
+      ],
+    );
   }
 
   Future<void> _postImportProcess(
@@ -262,24 +531,11 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
     item.translationNotices.clear();
     item.status = '正在处理元信息...';
     if (mounted) setState(() {});
-    final translated = item.source == _BatchScrapeSource.none
-        ? initialGame
-        : await ScrapeApplyService.translateGameMetadata(
-            game: initialGame,
-            repo: repo,
-            tagRepo: TagRepository(),
-            onNotice: (message) {
-              item.translationNotices.add(message);
-              if (mounted) setState(() {});
-            },
-          );
-
     // 重命名/移动整理逻辑统一走共享层，保持各入口行为一致
     final organized = await ScrapeApplyService.organizeFolder(
-        translated, ScrapeMode.batchAdd, repo, configs);
+        initialGame, ScrapeMode.batchAdd, repo, configs);
     item.gameId = organized.id;
-    item.status =
-        item.translationNotices.isEmpty ? '导入完成' : '导入完成（翻译有提示）';
+    item.status = '导入完成';
     if (mounted) setState(() {});
     debugPrint('[BatchImport] 整理完成: ${organized.path}');
   }
@@ -288,12 +544,7 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
     final folderPath = item.folder.path;
     final existing = await repo.getGameByPath(folderPath);
     if (existing != null) {
-      await GameDataMigrationService(gameRepository: repo)
-          .migrateGameDirectory(folderPath, gameId: existing.id);
-      item.status = '已存在，跳过';
-      item.gameId = existing.id;
-      if (mounted) setState(() {});
-      return;
+      throw GameAlreadyExistsException(folderPath);
     }
 
     item.status = '正在导入...';
@@ -448,370 +699,365 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
     return urlMatch?.group(1);
   }
 
-  Future<void> _importSteam(
-    GameRepository repo,
-    TagRepository tagRepo,
+  Future<GameInfo> _importSteam(
     SteamService steamService,
     _BatchGameItem item,
   ) async {
-    final folderPath = item.folder.path;
-    final existing = await repo.getGameByPath(folderPath);
-    await GameDataMigrationService(gameRepository: repo)
-        .migrateGameDirectory(folderPath, gameId: existing?.id);
-
+    final folderPath = item.currentPath;
     item.status = '搜索中...';
     if (mounted) setState(() {});
 
-    // 先检测是否为 Steam ID
     final steamId = _detectSteamId(item.keyword);
-
     List<SteamSearchResult> results;
     if (steamId != null) {
-      // 直接使用 ID
       results = [SteamSearchResult(id: steamId, name: 'ID: $steamId')];
     } else if (item.keyword.isNotEmpty) {
-      // 使用关键词搜索
       results = await steamService.search(item.keyword);
-      // 如果关键词搜索无结果，使用回退搜索
       if (results.isEmpty) {
         results = await steamService.searchWithFallback(folderPath);
       }
     } else {
       results = await steamService.searchWithFallback(folderPath);
     }
-
-    if (results.isEmpty) {
-      item.status = '未找到，按名称导入';
-      final game = Game(
-        path: folderPath,
-        title: path.basename(folderPath),
-      );
-      if (existing != null) {
-        await repo.updateGame(game.copyWith(id: existing.id));
-      } else {
-        await repo.insertGame(game);
-      }
-      item.progress = 1.0;
-      if (mounted) setState(() {});
-      return;
-    }
+    if (results.isEmpty) throw StateError('Steam 未找到匹配作品');
 
     final searchResult = results.first;
     item.status = '获取信息: ${searchResult.name ?? searchResult.id}';
+    item.progress = 0.5;
     if (mounted) setState(() {});
-
     final gameInfo = await steamService.fetchById(searchResult.id);
-    if (gameInfo == null) {
-      item.status = '获取失败，按名称导入';
-      final game = Game(
-        path: folderPath,
-        title: path.basename(folderPath),
-      );
-      if (existing != null) {
-        await repo.updateGame(game.copyWith(id: existing.id));
-      } else {
-        await repo.insertGame(game);
-      }
-      item.progress = 1.0;
-      if (mounted) setState(() {});
-      return;
+    if (gameInfo == null || gameInfo.title?.trim().isNotEmpty != true) {
+      throw StateError('Steam 获取作品资料失败');
     }
-
-    item.status = '下载图片...';
-    item.progress = 0.1;
-    if (mounted) setState(() {});
-
-    final urlToLocal = await steamService.downloadAllImages(
-      gameInfo.screenshots,
-      folderPath,
-    );
-
-    item.progress = 0.8;
-    if (mounted) setState(() {});
-
-    String? description = gameInfo.description;
-    if (description != null && urlToLocal.isNotEmpty) {
-      for (final entry in urlToLocal.entries) {
-        description =
-            description!.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
-      }
-    }
-
-    if (description != null && description.contains('[视频:')) {
-      item.status = '下载视频...';
-      if (mounted) setState(() {});
-      final videoMap = await steamService.downloadVideosFromDescription(
-          description, folderPath);
-      for (final entry in videoMap.entries) {
-        description =
-            description!.replaceAll('[视频:${entry.key}]', '[视频:${entry.value}]');
-      }
-    }
-
-    item.status = '保存数据...';
-    if (mounted) setState(() {});
-
-    final developers = gameInfo.developers;
-    final game = Game(
-      path: folderPath,
+    return GameInfo(
       title: gameInfo.title,
-      intro: description,
+      description: gameInfo.description,
+      tags: gameInfo.tags,
+      screenshots: gameInfo.screenshots,
       sourceUrl: gameInfo.sourceUrl,
-      maker: developers.isNotEmpty ? developers.join(', ') : null,
+      maker: gameInfo.developers.isNotEmpty
+          ? gameInfo.developers.join(', ')
+          : null,
     );
-
-    int gameId;
-    if (existing != null) {
-      await repo.updateGame(game.copyWith(id: existing.id));
-      gameId = existing.id!;
-    } else {
-      gameId = await repo.insertGame(game);
-    }
-
-    await repo.clearGameTags(gameId);
-    for (final tagName in gameInfo.tags) {
-      final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
-      await repo.addTagToGame(gameId, tagId);
-    }
-
-    final metadata = <String, dynamic>{
-      if (gameInfo.title != null) 'title': gameInfo.title,
-      if (description != null) 'intro': description,
-      if (gameInfo.tags.isNotEmpty) 'tags': gameInfo.tags,
-      'source_url': gameInfo.sourceUrl,
-      if (gameInfo.screenshots.isNotEmpty) 'image_urls': gameInfo.screenshots,
-    };
-    await _saveImagesAndMetadata(
-        folderPath, gameId, gameInfo.sourceUrl, metadata, repo);
-
-    item.status = '导入完成';
-    item.progress = 1.0;
-    if (mounted) setState(() {});
   }
 
-  Future<void> _importDlsite(
-    GameRepository repo,
-    TagRepository tagRepo,
+  Future<GameInfo> _importDlsite(
     DlsiteService dlsiteService,
     _BatchGameItem item,
   ) async {
-    final folderPath = item.folder.path;
-    final existing = await repo.getGameByPath(folderPath);
-    await GameDataMigrationService(gameRepository: repo)
-        .migrateGameDirectory(folderPath, gameId: existing?.id);
-
+    final folderPath = item.currentPath;
     item.status = '搜索中...';
     if (mounted) setState(() {});
 
-    // 先检测是否为 DLsite ID
     final dlsiteId = _detectDlsiteId(item.keyword);
-
     List<DlsiteSearchResult> results;
     if (dlsiteId != null) {
-      // 直接使用 ID
       results = [DlsiteSearchResult(id: dlsiteId, name: 'ID: $dlsiteId')];
     } else if (item.keyword.isNotEmpty) {
-      // 使用带回退的搜索
       results = await _searchDlsiteWithFallback(
           dlsiteService, item.keyword, folderPath);
     } else {
       results = await dlsiteService.searchWithFallback(folderPath);
     }
-
-    if (results.isEmpty) {
-      item.status = '未找到，按名称导入';
-      final game = Game(
-        path: folderPath,
-        title: path.basename(folderPath),
-      );
-      if (existing != null) {
-        await repo.updateGame(game.copyWith(id: existing.id));
-      } else {
-        await repo.insertGame(game);
-      }
-      item.progress = 1.0;
-      if (mounted) setState(() {});
-      return;
-    }
+    if (results.isEmpty) throw StateError('DLsite 未找到匹配作品');
 
     final searchResult = results.first;
     item.status = '获取信息: ${searchResult.name ?? searchResult.id}';
+    item.progress = 0.5;
     if (mounted) setState(() {});
-
     final gameInfo = await dlsiteService.fetchById(searchResult.id);
-    if (gameInfo == null) {
-      item.status = '获取失败，按名称导入';
-      final game = Game(
-        path: folderPath,
-        title: path.basename(folderPath),
+    if (gameInfo == null || gameInfo.title?.trim().isNotEmpty != true) {
+      throw StateError('DLsite 获取作品资料失败');
+    }
+    return gameInfo;
+  }
+
+  double get _controlHeight =>
+      LayoutConstants.controlHeight +
+      (MediaQuery.textScalerOf(context).scale(GlassConstants.fontControl) -
+              GlassConstants.fontControl)
+          .clamp(0.0, double.infinity);
+
+  double get _sourceWidth =>
+      LayoutConstants.batchImportSourceWidth *
+      (MediaQuery.textScalerOf(context).scale(GlassConstants.fontControl) /
+              GlassConstants.fontControl)
+          .clamp(1.0, double.infinity);
+
+  TextStyle get _controlTextStyle => Theme.of(context).textTheme.labelLarge!.copyWith(
+        fontSize: GlassConstants.fontControl,
+        color: AppTheme.getTextPrimary(context),
+        fontFamily: widget.userFont.isNotEmpty ? widget.userFont : Theme.of(context).textTheme.labelLarge!.fontFamily,
       );
-      if (existing != null) {
-        await repo.updateGame(game.copyWith(id: existing.id));
-      } else {
-        await repo.insertGame(game);
-      }
-      item.progress = 1.0;
-      if (mounted) setState(() {});
-      return;
-    }
 
-    item.status = '下载图片...';
-    item.progress = 0.1;
-    if (mounted) setState(() {});
+  Widget _gameName(_BatchGameItem item) => Tooltip(
+        message: item.currentPath,
+        child: Text(path.basename(item.currentPath),
+            style: _controlTextStyle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis),
+      );
 
-    final urlToLocal = await dlsiteService.downloadAllImages(
-      gameInfo.screenshots,
-      folderPath,
+  Widget _platformFields(_BatchGameItem item,
+      {bool retry = false, bool showName = false}) {
+    const padding = EdgeInsets.symmetric(
+        horizontal: GlassConstants.spacingCompact,
+        vertical: GlassConstants.spacingSmall);
+    final border = OutlineInputBorder(
+        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+        borderSide: BorderSide(
+            color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)));
+    return Row(
+      children: [
+        AppDropdown<_BatchScrapeSource>(
+          key: ValueKey(
+              '${retry ? 'retry' : 'batch'}-source-${item.folder.path}'),
+          value: item.source,
+          width: _sourceWidth,
+          height: _controlHeight,
+          isExpanded: true,
+          isDense: true,
+          padding: padding,
+          textStyle: _controlTextStyle,
+          items: [
+            if (!retry)
+              const DropdownMenuItem(
+                  value: _BatchScrapeSource.none, child: Text('不刮削')),
+            const DropdownMenuItem(
+                value: _BatchScrapeSource.steam, child: Text('Steam')),
+            const DropdownMenuItem(
+                value: _BatchScrapeSource.dlsite, child: Text('DLsite')),
+          ],
+          onChanged: _importing || _reviewOpen
+              ? null
+              : (value) {
+                  if (value != null) setState(() => item.source = value);
+                },
+        ),
+        const SizedBox(width: GlassConstants.spacingSmall),
+        if (showName) ...[
+          SizedBox(
+              width: LayoutConstants.batchImportNameWidth,
+              child: _gameName(item)),
+          const SizedBox(width: GlassConstants.spacingSmall),
+        ],
+        Expanded(
+          child: SizedBox(
+            height: _controlHeight,
+            child: TextFormField(
+              key: ValueKey(
+                  '${retry ? 'retry' : 'batch'}-keyword-${item.folder.path}'),
+              initialValue: item.keyword,
+              enabled: !_importing && !_reviewOpen,
+              style: _controlTextStyle,
+              textAlignVertical: TextAlignVertical.center,
+              decoration: InputDecoration(
+                hintText: '搜索关键词或作品 ID',
+                hintStyle: _controlTextStyle.copyWith(
+                    color: AppTheme.getTextSecondary(context)),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: GlassConstants.spacingCompact,
+                    vertical: GlassConstants.spacingMedium),
+                border: border,
+                enabledBorder: border,
+                isDense: true,
+              ),
+              onChanged: (value) => item.keyword = value,
+            ),
+          ),
+        ),
+      ],
     );
-
-    item.progress = 0.8;
-    if (mounted) setState(() {});
-
-    String? description = gameInfo.description;
-    if (description != null && urlToLocal.isNotEmpty) {
-      description =
-          dlsiteService.replaceImageUrlsInDescription(description, urlToLocal);
-    }
-
-    item.status = '保存数据...';
-    if (mounted) setState(() {});
-
-    final game = Game(
-      path: folderPath,
-      title: gameInfo.title,
-      intro: description,
-      sourceUrl: gameInfo.sourceUrl,
-      maker: gameInfo.maker,
-      makerUrl: gameInfo.makerUrl,
-    );
-
-    int gameId;
-    if (existing != null) {
-      await repo.updateGame(game.copyWith(id: existing.id));
-      gameId = existing.id!;
-    } else {
-      gameId = await repo.insertGame(game);
-    }
-
-    await repo.clearGameTags(gameId);
-    for (final tagName in gameInfo.tags) {
-      final tagId = await tagRepo.insertOrGetTag(tagName, Tag.typeCustom);
-      await repo.addTagToGame(gameId, tagId);
-    }
-
-    final metadata = gameInfo.toJson();
-    if (description != null) metadata['intro'] = description;
-    if (metadata['intro_html'] is String && urlToLocal.isNotEmpty) {
-      var introHtml = metadata['intro_html'] as String;
-      for (final entry in urlToLocal.entries) {
-        introHtml = introHtml.replaceAll(entry.key, entry.value);
-      }
-      metadata['intro_html'] = introHtml;
-    }
-    await _saveImagesAndMetadata(
-        folderPath, gameId, gameInfo.sourceUrl, metadata, repo);
-
-    item.status = '导入完成';
-    item.progress = 1.0;
-    if (mounted) setState(() {});
   }
 
-  Future<void> _saveImagesAndMetadata(
-    String folderPath,
-    int gameId,
-    String sourceUrl,
-    Map<String, dynamic> metadataJson,
-    GameRepository repo,
-  ) async {
-    final imageDir = GameDataPaths.imagesDir(folderPath);
-    if (await imageDir.exists()) {
-      final imagePaths = <String>[];
-      await for (final entity in imageDir.list()) {
-        if (entity is File) {
-          final ext = path.extension(entity.path).toLowerCase();
-          if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext)) {
-            imagePaths.add(entity.path);
+  Widget _editableItem(_BatchGameItem item) => Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: GlassConstants.spacingCompact,
+            vertical: GlassConstants.spacingSmall),
+        child: LayoutBuilder(builder: (context, constraints) {
+          final checkbox = SizedBox(
+            width: _controlHeight,
+            height: _controlHeight,
+            child: Checkbox(
+              value: item.selected,
+              onChanged: _importing
+                  ? null
+                  : (checked) =>
+                      setState(() => item.selected = checked ?? false),
+              activeColor: AppTheme.getPrimaryColor(context),
+            ),
+          );
+          if (constraints.maxWidth < LayoutConstants.batchImportCompactWidth) {
+            return Column(
+              children: [
+                Row(children: [
+                  checkbox,
+                  const SizedBox(width: GlassConstants.spacingSmall),
+                  Expanded(child: _gameName(item)),
+                ]),
+                const SizedBox(height: GlassConstants.spacingSmall),
+                _platformFields(item),
+              ],
+            );
           }
-        }
-      }
-      imagePaths.sort();
-      if (imagePaths.isNotEmpty) {
-        final images = imagePaths
-            .asMap()
-            .entries
-            .map((e) => GameImage(
-                  gameId: gameId,
-                  imagePath: e.value,
-                  sortOrder: e.key,
-                ))
-            .toList();
-        await repo.setGameImages(gameId, images);
-      }
-    }
+          return Row(children: [
+            checkbox,
+            const SizedBox(width: GlassConstants.spacingSmall),
+            Expanded(child: _platformFields(item, showName: true)),
+          ]);
+        }),
+      );
 
-    final metadataFile = GameDataPaths.metadataFile(folderPath);
-    await GameDataPaths.ensureDataDir(folderPath);
-    await metadataFile.writeAsString(
-        jsonEncode(ScrapeApplyService.markScraped(metadataJson)),
-        flush: true);
-
-    final sourceUrlFile = GameDataPaths.sourceUrlFile(folderPath);
-    await sourceUrlFile.writeAsString(sourceUrl, flush: true);
-  }
+  Widget _statusItem(_BatchGameItem item) => Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: GlassConstants.spacingCompact,
+            vertical: GlassConstants.spacingSmall),
+        child: LayoutBuilder(builder: (context, constraints) {
+          final source = Container(
+            key: ValueKey('batch-status-source-${item.folder.path}'),
+            width: _sourceWidth,
+            height: _controlHeight,
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(
+                horizontal: GlassConstants.spacingCompact),
+            decoration: BoxDecoration(
+              color: (item.source == _BatchScrapeSource.none
+                      ? AppTheme.getTextSecondary(context)
+                      : AppTheme.getPrimaryColor(context))
+                  .withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+            ),
+            child: Text(
+              item.source == _BatchScrapeSource.none
+                  ? '不刮削'
+                  : item.source == _BatchScrapeSource.steam
+                      ? 'Steam'
+                      : 'DLsite',
+              style: _controlTextStyle.copyWith(
+                  color: item.source == _BatchScrapeSource.none
+                      ? AppTheme.getTextSecondary(context)
+                      : AppTheme.getPrimaryColor(context)),
+            ),
+          );
+          final progress = SizedBox(
+            height: _controlHeight,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(children: [
+                  Expanded(
+                    child: Text(item.status,
+                        style: _controlTextStyle.copyWith(
+                            color: AppTheme.getTextSecondary(context)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                  if (item.translationNotices.isNotEmpty)
+                    Tooltip(
+                      message: item.translationNotices.join('\n'),
+                      child: const Icon(Icons.translate,
+                          size: GlassConstants.iconSmall,
+                          color: AppTheme.warningColor),
+                    ),
+                ]),
+                if (item.progress > 0) ...[
+                  const SizedBox(height: GlassConstants.spacingSmall),
+                  ClipRRect(
+                    borderRadius:
+                        BorderRadius.circular(GlassConstants.radiusIndicator),
+                    child: AppLinearProgress(
+                      key:
+                          ValueKey('batch-status-progress-${item.folder.path}'),
+                      value: item.progress,
+                      minHeight: GlassConstants.spacingTight,
+                      backgroundColor: AppTheme.getTextSecondary(context)
+                          .withValues(alpha: 0.1),
+                      valueColor: AlwaysStoppedAnimation(item.progress >= 1
+                          ? AppTheme.successColor
+                          : AppTheme.getPrimaryColor(context)),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+          if (constraints.maxWidth < LayoutConstants.batchImportCompactWidth) {
+            return Column(children: [
+              Row(children: [
+                source,
+                const SizedBox(width: GlassConstants.spacingSmall),
+                Expanded(child: _gameName(item)),
+              ]),
+              const SizedBox(height: GlassConstants.spacingSmall),
+              progress,
+            ]);
+          }
+          return Row(children: [
+            source,
+            const SizedBox(width: GlassConstants.spacingSmall),
+            SizedBox(
+                width: LayoutConstants.batchImportNameWidth,
+                child: _gameName(item)),
+            const SizedBox(width: GlassConstants.spacingSmall),
+            Expanded(child: progress),
+          ]);
+        }),
+      );
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(GlassConstants.spacingDialog),
-      child: SizedBox(
-        width: MediaQuery.of(context).size.width * 0.5,
-        height: 500,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-                // 拖拽模式且仅传入 1 个目录时按单个添加显示标题
-                _isDragMode && widget.initialFolderPaths!.length == 1
-                    ? '添加游戏'
-                    : '批量添加游戏',
-                style: AppTypography.dialogTitle(context)),
-            const SizedBox(height: GlassConstants.spacingMedium),
-            if (_isDragMode)
-              // 拖拽模式：文件夹列表由调用方传入，仅展示数量，不提供浏览按钮
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingInline),
-                decoration: BoxDecoration(
-                  color: AppTheme.getSurfaceColor(context)
-                      .withValues(alpha: 0.5),
-                  borderRadius:
-                      BorderRadius.circular(GlassConstants.radiusMedium),
-                  border: Border.all(
-                      color: AppTheme.getBorderColor(context)
-                          .withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '已添加 ${widget.initialFolderPaths!.length} 个游戏文件夹',
-                        style: TextStyle(
-                          fontSize: GlassConstants.fontBody,
-                          color: AppTheme.getTextPrimary(context),
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              Row(
+    final savedReviews = _reviewItems.where((item) => item.applied).length;
+    final pendingReviews = _reviewItems
+        .where((item) =>
+            item.candidate != null &&
+            !item.applied &&
+            item.decision != ScrapeReviewDecision.discard)
+        .length;
+    final hasWarnings = _failCount > 0 ||
+        pendingReviews > 0 ||
+        _reviewItems.any((item) => item.applyError != null);
+    final selectedItems = _items.where((item) => item.selected).toList();
+    final resultItems = _importing || _importDone ? selectedItems : _items;
+    final visibleItems = _showFailures
+        ? resultItems
+            .where((item) => item.failed || _failedScrapeItems.contains(item))
+            .toList()
+        : resultItems;
+    return PopScope(
+      canPop: !_importing,
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.escape): () {
+            if (!_importing) Navigator.of(context).maybePop();
+          },
+        },
+        child: Focus(
+          autofocus: true,
+          child: Padding(
+            padding: const EdgeInsets.all(GlassConstants.spacingDialog),
+            child: SizedBox(
+              key: const ValueKey('batch-import-content'),
+              width: LayoutConstants.batchImportDialogWidth,
+              height: LayoutConstants.batchImportDialogHeight,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Container(
+                  Text(
+                      // 拖拽模式且仅传入 1 个目录时按单个添加显示标题
+                      _isDragMode && widget.initialFolderPaths!.length == 1
+                          ? '添加游戏'
+                          : '批量添加游戏',
+                      style: AppTypography.dialogTitle(context)),
+                  const SizedBox(height: GlassConstants.spacingMedium),
+                  if (_isDragMode)
+                    // 拖拽模式：文件夹列表由调用方传入，仅展示数量，不提供浏览按钮
+                    Container(
+                      height: _controlHeight,
+                      alignment: Alignment.centerLeft,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingInline),
+                          horizontal: GlassConstants.spacingCompact,
+                          vertical: GlassConstants.spacingInline),
                       decoration: BoxDecoration(
                         color: AppTheme.getSurfaceColor(context)
                             .withValues(alpha: 0.5),
@@ -821,409 +1067,355 @@ class _BatchImportDialogState extends State<BatchImportDialog> {
                             color: AppTheme.getBorderColor(context)
                                 .withValues(alpha: 0.3)),
                       ),
-                      child: Text(
-                        _parentPath ?? '未选择文件夹',
-                        style: TextStyle(
-                          fontSize: GlassConstants.fontBody,
-                          color: _parentPath != null
-                              ? AppTheme.getTextPrimary(context)
-                              : AppTheme.getTextSecondary(context),
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '已添加 ${widget.initialFolderPaths!.length} 个游戏文件夹',
+                              style: TextStyle(
+                                fontSize: GlassConstants.fontBody,
+                                color: AppTheme.getTextPrimary(context),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
+                    )
+                  else
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            key: const ValueKey('batch-import-folder-path'),
+                            height: _controlHeight,
+                            alignment: Alignment.centerLeft,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: GlassConstants.spacingCompact,
+                                vertical: GlassConstants.spacingInline),
+                            decoration: BoxDecoration(
+                              color: AppTheme.getSurfaceColor(context)
+                                  .withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(
+                                  GlassConstants.radiusMedium),
+                              border: Border.all(
+                                  color: AppTheme.getBorderColor(context)
+                                      .withValues(alpha: 0.3)),
+                            ),
+                            child: Text(
+                              _parentPath ?? '未选择文件夹',
+                              style: TextStyle(
+                                fontSize: GlassConstants.fontBody,
+                                color: _parentPath != null
+                                    ? AppTheme.getTextPrimary(context)
+                                    : AppTheme.getTextSecondary(context),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: GlassConstants.spacingSmall),
+                        ElevatedButton.icon(
+                          key: const ValueKey('batch-import-browse'),
+                          onPressed:
+                              _scanning || _importing ? null : _pickFolder,
+                          icon: const Icon(Icons.folder_open,
+                              size: GlassConstants.iconSmall),
+                          label: const Text('浏览'),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: GlassConstants.spacingSmall),
-                  ElevatedButton.icon(
-                    onPressed: _scanning || _importing ? null : _pickFolder,
-                    icon: const Icon(Icons.folder_open, size: GlassConstants.iconSmall),
-                    label: const Text('浏览'),
-                  ),
-                ],
-              ),
-            const SizedBox(height: GlassConstants.spacingSmall),
-            Text(
-              '提示: 若要刮削信息，需要游戏在该平台能搜到',
-              style: TextStyle(fontSize: GlassConstants.fontSmall, color: AppTheme.warningColor),
-            ),
-            const SizedBox(height: GlassConstants.spacingSmall),
-            if (_scanning)
-              const Expanded(
-                child: AppSkeleton(label: '正在扫描文件夹'),
-              )
-            else if (_scanError != null)
-              Expanded(child: AppLoadError(message: _scanError!, onRetry: () {
-                if (_isDragMode) {
-                  setState(() {
-                    _scanning = true;
-                    _scanError = null;
-                  });
-                  _initFromDraggedFolders();
-                } else {
-                  _scanFolder(_parentPath!);
-                }
-              }))
-            else if (_items.isEmpty)
-              Expanded(
-                child: Center(
-                  child: Text(
-                    _parentPath != null ? '未找到子文件夹' : '选择一个包含游戏子文件夹的目录',
+                  const SizedBox(height: GlassConstants.spacingSmall),
+                  const Text(
+                    'Steam / DLsite 抓取完成后自动打开确认表单，保留所选结果后再保存',
                     style: TextStyle(
-                        color: AppTheme.getTextSecondary(context),
-                        fontSize: GlassConstants.fontControl),
+                        fontSize: GlassConstants.fontSmall,
+                        color: AppTheme.warningColor),
                   ),
-                ),
-              )
-            else ...[
-              Row(
-                children: [
-                  Text(
-                    '找到 ${_items.length} 个文件夹，已选 ${_items.where((i) => i.selected).length} 个',
-                    style: TextStyle(
-                        fontSize: GlassConstants.fontBody,
-                        color: AppTheme.getTextSecondary(context)),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: _importing
-                        ? null
-                        : () {
+                  const SizedBox(height: GlassConstants.spacingSmall),
+                  if (_scanning)
+                    const Expanded(child: AppSkeleton(label: '正在扫描文件夹'))
+                  else if (_scanError != null)
+                    Expanded(
+                      child: AppLoadError(
+                        message: _scanError!,
+                        onRetry: () {
+                          if (_isDragMode) {
                             setState(() {
-                              final allSelected =
-                                  _items.every((i) => i.selected);
-                              for (final item in _items) {
-                                item.selected = !allSelected;
-                              }
+                              _scanning = true;
+                              _scanError = null;
                             });
-                          },
-                    child: Text(
-                      _items.every((i) => i.selected) ? '取消全选' : '全选',
-                      style: TextStyle(
-                          fontSize: GlassConstants.fontBody,
-                          color: AppTheme.getPrimaryColor(context)),
+                            _initFromDraggedFolders();
+                          } else if (_parentPath != null) {
+                            _scanFolder(_parentPath!);
+                          }
+                        },
+                      ),
+                    )
+                  else if (_items.isEmpty)
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          _parentPath != null ? '未找到子文件夹' : '选择一个包含游戏子文件夹的目录',
+                          style: TextStyle(
+                              color: AppTheme.getTextSecondary(context),
+                              fontSize: GlassConstants.fontControl),
+                        ),
+                      ),
+                    )
+                  else ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '找到 ${_items.length} 个文件夹，已选 ${_items.where((i) => i.selected).length} 个',
+                            style: TextStyle(
+                                fontSize: GlassConstants.fontBody,
+                                color: AppTheme.getTextSecondary(context)),
+                          ),
+                        ),
+                        const SizedBox(width: GlassConstants.spacingSmall),
+                        TextButton(
+                          key: const ValueKey('batch-import-select-all'),
+                          onPressed: _importing || _importDone
+                              ? null
+                              : () {
+                                  setState(() {
+                                    final allSelected =
+                                        _items.every((i) => i.selected);
+                                    for (final item in _items) {
+                                      item.selected = !allSelected;
+                                    }
+                                  });
+                                },
+                          child: Text(
+                            _items.every((i) => i.selected) ? '取消全选' : '全选',
+                            style: TextStyle(
+                                fontSize: GlassConstants.fontBody,
+                                color: AppTheme.getPrimaryColor(context)),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: GlassConstants.spacingSmall),
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppTheme.getSurfaceColor(context)
-                        .withValues(alpha: 0.3),
-                    borderRadius:
-                        BorderRadius.circular(GlassConstants.radiusMedium),
-                    border: Border.all(
-                        color: AppTheme.getBorderColor(context)
-                            .withValues(alpha: 0.2)),
-                  ),
-                  child: ListView.builder(
-                    itemCount: _showFailures ? _items.where((item) => item.failed).length : _importing
-                        ? _items.where((i) => i.selected).length
-                        : _items.length,
-                    itemBuilder: (context, index) {
-                      final item = _showFailures ? _items.where((item) => item.failed).elementAt(index) : _importing
-                          ? _items.where((i) => i.selected).toList()[index]
-                          : _items[index];
-                      final name = path.basename(item.folder.path);
-                      if (_importDone) return ListTile(
-                        key: ValueKey(item.folder.path), title: Text(name),
-                        subtitle: Text('${item.folder.path}\n${item.status}'),
-                        trailing: item.gameId != null && widget.onLocate != null
-                            ? IconButton(tooltip: '在游戏库中查看', icon: const Icon(Icons.my_location), onPressed: () {
-                                widget.onImportComplete();
-                                widget.onLocate!(item.gameId!);
-                                Navigator.of(context).pop();
-                              }) : null,
-                      );
-                      if (_importing) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingTight),
-                          child: Row(
-                            children: [
-                              SizedBox(
-                                width: 100,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingTiny),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        item.source == _BatchScrapeSource.none
-                                            ? AppTheme.getTextSecondary(context)
-                                                .withValues(alpha: 0.1)
-                                            : AppTheme.getPrimaryColor(context)
-                                                .withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(GlassConstants.radiusTiny),
-                                  ),
-                                  child: Text(
-                                    item.source == _BatchScrapeSource.none
-                                        ? '不刮削'
-                                        : item.source ==
-                                                _BatchScrapeSource.steam
-                                            ? 'Steam'
-                                            : 'DLsite',
-                                    style: TextStyle(
-                                      fontSize: GlassConstants.fontSmall,
-                                      color: item.source ==
-                                              _BatchScrapeSource.none
-                                          ? AppTheme.getTextSecondary(context)
-                                          : AppTheme.getPrimaryColor(context),
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: GlassConstants.spacingSmall),
-                              SizedBox(
-                                width: 220,
-                                child: Text(
-                                  name,
-                                  style: TextStyle(
-                                      fontSize: GlassConstants.fontBody,
-                                      color: AppTheme.getTextPrimary(context),),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: GlassConstants.spacingSmall),
-                              Expanded(
-                                child: Row(
+                    const SizedBox(height: GlassConstants.spacingSmall),
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppTheme.getSurfaceColor(context)
+                              .withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(
+                              GlassConstants.radiusMedium),
+                          border: Border.all(
+                              color: AppTheme.getBorderColor(context)
+                                  .withValues(alpha: 0.2)),
+                        ),
+                        child: ListView.builder(
+                          itemCount: visibleItems.length,
+                          itemBuilder: (context, index) {
+                            final item = visibleItems[index];
+                            if (_importDone &&
+                                !_importing &&
+                                _failedScrapeItems.contains(item)) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: GlassConstants.spacingCompact,
+                                    vertical: GlassConstants.spacingSmall),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
-                                    Flexible(
-                                      child: Text(
-                                        item.status,
-                                        style: TextStyle(
-                                            fontSize: GlassConstants.fontSmall,
-                                            color: AppTheme.getTextSecondary(
-                                                context),),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    if (item.progress > 0) ...[
-                                      if (item.translationNotices.isNotEmpty)
-                                        Tooltip(
-                                          message:
-                                              item.translationNotices.join('\n'),
-                                          child: const Icon(Icons.translate,
-                                              color: AppTheme.warningColor),
-                                        ),
-                                      const SizedBox(width: GlassConstants.spacingSmall),
-                                      SizedBox(
-                                        width: 200,
-                                        child: ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(GlassConstants.radiusIndicator),
-                                          child: AppLinearProgress(
-                                            value: item.progress,
-                                            backgroundColor:
-                                                AppTheme.getTextSecondary(
-                                                        context)
-                                                    .withValues(alpha: 0.1),
-                                            valueColor: AlwaysStoppedAnimation(
-                                              item.progress >= 1.0
-                                                  ? AppTheme.successColor
-                                                  : AppTheme.getPrimaryColor(context),
-                                            ),
-                                            minHeight: 6,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                    _gameName(item),
+                                    const SizedBox(
+                                        height: GlassConstants.spacingSmall),
+                                    _platformFields(item, retry: true),
+                                    const SizedBox(
+                                        height: GlassConstants.spacingSmall),
+                                    Text(item.status,
+                                        style: const TextStyle(
+                                          color: AppTheme.warningOrange,
+                                          fontSize: GlassConstants.fontSmall,
+                                        )),
                                   ],
                                 ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingMicro),
-                        child: Row(
-                          children: [
-                            Checkbox(
-                              value: item.selected,
-                              onChanged: _importing
-                                  ? null
-                                  : (checked) {
-                                      setState(() =>
-                                          item.selected = checked ?? false);
-                                    },
-                              activeColor: AppTheme.getPrimaryColor(context),
-                              visualDensity:
-                                  VisualDensity(horizontal: -4, vertical: -4),
-                            ),
-                            AppDropdown<_BatchScrapeSource>(
-                              value: item.source,
-                              width: 80,
-                              isExpanded: true,
-                              isDense: true,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingMicro),
-                              items: const [
-                                DropdownMenuItem(
-                                    value: _BatchScrapeSource.none,
-                                    child: Text('不刮削')),
-                                DropdownMenuItem(
-                                    value: _BatchScrapeSource.steam,
-                                    child: Text('Steam')),
-                                DropdownMenuItem(
-                                    value: _BatchScrapeSource.dlsite,
-                                    child: Text('DLsite')),
-                              ],
-                              onChanged: _importing
-                                  ? null
-                                  : (val) {
-                                      if (val != null)
-                                        setState(() => item.source = val);
-                                    },
-                            ),
-                            const SizedBox(width: GlassConstants.spacingSmall),
-                            SizedBox(
-                              width: 220,
-                              child: Text(
-                                name,
-                                style: TextStyle(
-                                    fontSize: GlassConstants.fontBody,
-                                    color: AppTheme.getTextPrimary(context),),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: GlassConstants.spacingSmall),
-                            Expanded(
-                              child: TextFormField(
-                                initialValue: item.keyword,
-                                style: TextStyle(
-                                    fontSize: GlassConstants.fontBody,),
-                                decoration: InputDecoration(
-                                  hintText: '搜索关键词',
-                                  hintStyle: TextStyle(
-                                      fontSize: GlassConstants.fontSmall,
-                                      color:
-                                          AppTheme.getTextSecondary(context)),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingSmall),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(GlassConstants.radiusTiny),
-                                    borderSide: BorderSide(
-                                        color:
-                                            AppTheme.getTextSecondary(context)
-                                                .withValues(alpha: 0.3)),
-                                  ),
-                                  isDense: true,
-                                ),
-                                onChanged: (val) => item.keyword = val,
-                              ),
-                            ),
-                          ],
+                              );
+                            }
+                            if (_importing || _importDone) {
+                              return Row(
+                                children: [
+                                  Expanded(child: _statusItem(item)),
+                                  if (_importDone &&
+                                      item.gameId != null &&
+                                      widget.onLocate != null)
+                                    IconButton(
+                                      tooltip: '在游戏库中查看',
+                                      icon: const Icon(Icons.my_location),
+                                      onPressed: () {
+                                        widget.onImportComplete();
+                                        widget.onLocate!(item.gameId!);
+                                        Navigator.of(context).pop();
+                                      },
+                                    ),
+                                ],
+                              );
+                            }
+                            return _editableItem(item);
+                          },
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: GlassConstants.spacingComfortable),
-            if (_importDone) ...[
-              if (_failCount > 0) Align(alignment: Alignment.centerLeft, child: TextButton(
-                onPressed: () => setState(() => _showFailures = !_showFailures),
-                child: Text(_showFailures ? '查看全部结果' : '查看 $_failCount 项失败'),
-              )),
-              Container(
-                padding: const EdgeInsets.all(GlassConstants.spacingCompact),
-                decoration: BoxDecoration(
-                  color: _failCount > 0
-                      ? AppTheme.warningColor.withValues(alpha: 0.1)
-                      : AppTheme.successColor.withValues(alpha: 0.1),
-                  borderRadius:
-                      BorderRadius.circular(GlassConstants.radiusSmall),
-                  border: Border.all(
-                    color: _failCount > 0
-                        ? AppTheme.warningColor.withValues(alpha: 0.3)
-                        : AppTheme.successColor.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _failCount > 0
-                          ? Icons.warning_amber
-                          : Icons.check_circle_outline,
-                      color: _failCount > 0
-                          ? AppTheme.warningColor
-                          : AppTheme.successColor,
-                      size: GlassConstants.iconControl,
-                    ),
-                    const SizedBox(width: GlassConstants.spacingSmall),
-                    Text(
-                      _failCount > 0
-                          ? '导入完成: $_successCount 成功, $_failCount 失败'
-                          : '成功导入 $_successCount 个游戏',
-                      style: TextStyle(
-                        fontSize: GlassConstants.fontControl,
-                        fontWeight: AppTypography.medium,
-                        color: _failCount > 0
-                            ? AppTheme.warningColor
-                            : AppTheme.successColor,
                       ),
                     ),
                   ],
-                ),
-              ),
-              const SizedBox(height: GlassConstants.spacingCompact),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      widget.onImportComplete();
-                    },
-                    child: const Text('确认'),
-                  ),
-                ],
-              ),
-            ] else ...[
-              if (_importing)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.only(bottom: GlassConstants.spacingCompact),
-                    child: Text(
-                      '请不要退出该页面',
-                      style:
-                          TextStyle(fontSize: GlassConstants.fontBody, color: AppTheme.warningColor),
+                  const SizedBox(height: GlassConstants.spacingComfortable),
+                  if (_importDone) ...[
+                    Container(
+                      padding:
+                          const EdgeInsets.all(GlassConstants.spacingCompact),
+                      decoration: BoxDecoration(
+                        color: hasWarnings
+                            ? AppTheme.warningColor.withValues(alpha: 0.1)
+                            : AppTheme.successColor.withValues(alpha: 0.1),
+                        borderRadius:
+                            BorderRadius.circular(GlassConstants.radiusSmall),
+                        border: Border.all(
+                          color: hasWarnings
+                              ? AppTheme.warningColor.withValues(alpha: 0.3)
+                              : AppTheme.successColor.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            hasWarnings
+                                ? Icons.warning_amber
+                                : Icons.check_circle_outline,
+                            color: hasWarnings
+                                ? AppTheme.warningColor
+                                : AppTheme.successColor,
+                            size: GlassConstants.iconControl,
+                          ),
+                          const SizedBox(width: GlassConstants.spacingSmall),
+                          Expanded(
+                            child: Text(
+                              _reviewItems.isEmpty
+                                  ? '导入完成: 成功 $_successCount 个，跳过 $_skippedCount 个，失败 $_failCount 个'
+                                  : '本地导入 $_successCount 个，跳过 $_skippedCount 个，刮削已保存 $savedReviews 个，待确认 $pendingReviews 个，抓取失败 $_failCount 个',
+                              style: TextStyle(
+                                fontSize: GlassConstants.fontControl,
+                                fontWeight: AppTypography.medium,
+                                color: hasWarnings
+                                    ? AppTheme.warningColor
+                                    : AppTheme.successColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed:
-                        _importing ? null : () => Navigator.of(context).pop(),
-                    child: const Text('取消'),
-                  ),
-                  const SizedBox(width: GlassConstants.spacingCompact),
-                  ElevatedButton(
-                    onPressed: _items.isEmpty ||
-                            _importing ||
-                            !_items.any((i) => i.selected)
-                        ? null
-                        : _startImport,
-                    child: _importing
-                        ? SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: AppProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppTheme.getTextColorOnPrimary(context)))
-                        : Text(
-                            '导入 (${_items.where((i) => i.selected).length})'),
-                  ),
+                    const SizedBox(height: GlassConstants.spacingCompact),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        alignment: WrapAlignment.end,
+                        spacing: GlassConstants.spacingSmall,
+                        runSpacing: GlassConstants.spacingSmall,
+                        children: [
+                          if (_failCount > 0)
+                            TextButton.icon(
+                              onPressed: () => setState(
+                                  () => _showFailures = !_showFailures),
+                              icon: Icon(_showFailures
+                                  ? Icons.list_alt
+                                  : Icons.filter_alt_outlined),
+                              label: Text(_showFailures
+                                  ? '查看全部结果'
+                                  : '查看 $_failCount 项失败'),
+                            ),
+                          if (_failedScrapeItems.isNotEmpty)
+                            TextButton.icon(
+                              key: const ValueKey('retry-failed-batch-scrapes'),
+                              onPressed: _importing || _reviewOpen
+                                  ? null
+                                  : _retryFailedImports,
+                              icon: const Icon(Icons.refresh,
+                                  size: GlassConstants.iconSmall),
+                              label:
+                                  Text('重试失败项（${_failedScrapeItems.length}）'),
+                            ),
+                          if (_reviewItems.isNotEmpty) ...[
+                            TextButton.icon(
+                              key: const ValueKey(
+                                  'batch-confirm-scrape-results'),
+                              onPressed: _importing || _reviewOpen
+                                  ? null
+                                  : _confirmScrapeResults,
+                              icon: const Icon(Icons.fact_check_outlined,
+                                  size: GlassConstants.iconSmall),
+                              label: const Text('确认刮削结果'),
+                            ),
+                          ],
+                          ElevatedButton(
+                            key: const ValueKey('batch-import-finish'),
+                            onPressed: _importing || _reviewOpen
+                                ? null
+                                : () {
+                                    Navigator.of(context).pop();
+                                    widget.onImportComplete();
+                                  },
+                            child: const Text('完成'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    if (_importing)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                              bottom: GlassConstants.spacingCompact),
+                          child: Text(
+                            '请不要退出该页面',
+                            style: TextStyle(
+                                fontSize: GlassConstants.fontBody,
+                                color: AppTheme.warningColor),
+                          ),
+                        ),
+                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          key: const ValueKey('batch-import-cancel'),
+                          onPressed: _importing
+                              ? null
+                              : () => Navigator.of(context).pop(),
+                          child: const Text('取消'),
+                        ),
+                        const SizedBox(width: GlassConstants.spacingCompact),
+                        ElevatedButton(
+                          key: const ValueKey('batch-import-start'),
+                          onPressed: _items.isEmpty ||
+                                  _importing ||
+                                  !_items.any((i) => i.selected)
+                              ? null
+                              : _startImport,
+                          child: _importing
+                              ? SizedBox(
+                                  width: GlassConstants.iconSmall,
+                                  height: GlassConstants.iconSmall,
+                                  child: AppProgressIndicator(
+                                      strokeWidth: GlassConstants.spacingMicro,
+                                      color: AppTheme.getTextColorOnPrimary(
+                                          context)))
+                              : Text(
+                                  '开始 (${_items.where((i) => i.selected).length})'),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
-            ],
-          ],
+            ),
+          ),
         ),
       ),
     );
@@ -1240,8 +1432,11 @@ class _BatchGameItem {
   int? gameId;
   bool failed = false;
   final List<String> translationNotices = [];
+  ScrapeReviewItem? reviewItem;
   double progress;
   bool selected;
+
+  String get currentPath => reviewItem?.game.path ?? folder.path;
 
   _BatchGameItem({
     required this.folder,

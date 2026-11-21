@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import '../utils/proxy_client.dart';
-import '../../scraper/html_parser.dart';
+import '../../scraper/dlsite_parser.dart';
 import '../../scraper/parse_utils.dart';
 import 'app_logger.dart';
 import 'concurrent_image_downloader.dart';
@@ -48,8 +50,22 @@ class DlsiteService {
     'feedback.exe',
   ];
 
-  final _scraper = HtmlScraper();
+  final _parser = DlsiteParser();
   final _log = AppLogger.instance;
+  final Future<http.Client> Function() _clientFactory;
+
+  DlsiteService({Future<http.Client> Function()? clientFactory})
+      : _clientFactory = clientFactory ?? _createClient;
+
+  static Future<http.Client> _createClient() =>
+      createProxyClientFromPrefs(domain: 'www.dlsite.com');
+
+  static bool isDlsiteUrl(String value) {
+    final uri = Uri.tryParse(value.trim());
+    if (uri == null || !['http', 'https'].contains(uri.scheme)) return false;
+    final host = uri.host.replaceFirst(RegExp(r'\.$'), '');
+    return host == 'dlsite.com' || host.endsWith('.dlsite.com');
+  }
 
   String? normalizeId(String input) {
     final trimmed = input.trim();
@@ -222,7 +238,7 @@ class DlsiteService {
     _log.info('DlsiteService', '[search] 搜索关键词: "$keyword"');
     _log.info('DlsiteService', '[search] 请求URL: $url');
 
-    final client = await createProxyClientFromPrefs(domain: 'www.dlsite.com');
+    final client = await _clientFactory();
     try {
       final headers = await _buildHeaders();
       var response = await client.get(Uri.parse(url), headers: headers)
@@ -364,11 +380,11 @@ class DlsiteService {
     _log.info('DlsiteService', '[fetchById] 获取游戏信息: $normalizedId');
     _log.info('DlsiteService', '[fetchById] 请求URL: $url');
 
-    final client = await createProxyClientFromPrefs(domain: 'www.dlsite.com');
+    final client = await _clientFactory();
     try {
       final headers = await _buildHeaders();
-      final response = await client.get(Uri.parse(url), headers: headers)
-          .timeout(const Duration(seconds: 15));
+      final response = await httpGetWithRetry(Uri.parse(url),
+          headers: headers, client: client);
 
       _log.info('DlsiteService', '[fetchById] HTTP状态码: ${response.statusCode}');
 
@@ -377,12 +393,19 @@ class DlsiteService {
         return null;
       }
 
-      await _scraper.ensureLoaded();
-      final gameInfo = _scraper.scrapeGameInfo(response.body, url);
+      final gameInfo = _parser.parseGameInfo(html_parser.parse(response.body), url);
+      if (gameInfo != null && gameInfo.isDlsiteUserOnly &&
+          !await _completeUserOnly(gameInfo, normalizedId, client, headers)) {
+        return null;
+      }
       if (gameInfo != null) {
-        _log.info('DlsiteService', '[fetchById] 解析成功');
-        _log.info('DlsiteService', '[fetchById]   标题: ${gameInfo.title}');
-        _log.info('DlsiteService', '[fetchById]   标签: ${gameInfo.tags}');
+        if (gameInfo.isDlsiteUserOnly) {
+          _log.warning('DlsiteService', '[fetchById] 已补全公开图片和类型；完整简介仍受登录限制');
+        } else {
+          _log.info('DlsiteService', '[fetchById] 解析成功');
+        }
+        _log.info('DlsiteService', '[fetchById]   标题长度: ${gameInfo.title?.length ?? 0}');
+        _log.info('DlsiteService', '[fetchById]   标签数: ${gameInfo.tags.length}');
         _log.info('DlsiteService', '[fetchById]   截图数: ${gameInfo.screenshots.length}');
         _log.info('DlsiteService', '[fetchById]   描述长度: ${gameInfo.description?.length ?? 0}');
       } else {
@@ -391,11 +414,77 @@ class DlsiteService {
 
       return gameInfo;
     } catch (e) {
-      _log.error('DlsiteService', '[fetchById] 获取异常', e);
+      _log.error('DlsiteService', '[fetchById] 获取异常: ${e.runtimeType}');
       return null;
     } finally {
       client.close();
     }
+  }
+
+  Future<bool> _completeUserOnly(GameInfo info, String id, http.Client client,
+      Map<String, String> headers) async {
+    _log.warning('DlsiteService', '[fetchById] 检测到用户限定作品，尝试补全公开信息: $id');
+    final channel = id.startsWith('VJ') ? 'pro' : 'maniax';
+    final apiUrl = Uri.https('www.dlsite.com', '/$channel/api/=/product.json',
+        {'workno': id, 'locale': 'zh_CN'});
+    try {
+      final response = await httpGetWithRetry(apiUrl,
+          headers: headers, client: client);
+      if (response.statusCode != 200) {
+        _log.warning('DlsiteService', '[fetchById] 公开信息获取失败: HTTP ${response.statusCode}');
+        return false;
+      }
+      final data = jsonDecode(response.body);
+      if (data is! List) {
+        _log.warning('DlsiteService', '[fetchById] 公开信息响应结构无效');
+        return false;
+      }
+      final products = data.whereType<Map<String, dynamic>>().where((product) =>
+          product['workno'] == id || product['product_id'] == id).toList();
+      if (products.length != 1 ||
+          [products.single['workno'], products.single['product_id']]
+              .where((value) => value != null)
+              .any((value) => value != id)) {
+        _log.warning('DlsiteService', '[fetchById] 公开信息作品标识不匹配或存在歧义');
+        return false;
+      }
+      final product = products.single;
+      final mainImage = _publicImageUrl(product['image_main'], info.sourceUrl);
+      final samples = product['image_samples'];
+      final type = product['work_type_string'];
+      final genres = product['genres'];
+      if (mainImage == null || samples is! List ||
+          type is! String || type.trim().isEmpty || genres is! List) {
+        _log.warning('DlsiteService', '[fetchById] 公开信息缺少可用图片或类型');
+        return false;
+      }
+      final sampleImages = <String>{
+        for (final sample in samples)
+          if (_publicImageUrl(sample, info.sourceUrl) case final String image)
+            image,
+      };
+      final genreNames = <String>{
+        for (final genre in genres)
+          if (genre is Map && genre['name'] is String &&
+              (genre['name'] as String).trim().isNotEmpty)
+            (genre['name'] as String).trim(),
+      };
+      if (genreNames.isEmpty || (samples.isNotEmpty && sampleImages.isEmpty)) {
+        _log.warning('DlsiteService', '[fetchById] 公开信息缺少可用示例图或标签');
+        return false;
+      }
+      info.screenshots = {mainImage, ...sampleImages, ...info.screenshots}.toList();
+      info.tags = {...info.tags, type.trim(), ...genreNames}.toList();
+      return true;
+    } catch (error) {
+      _log.warning('DlsiteService', '[fetchById] 公开信息补全失败: ${error.runtimeType}');
+      return false;
+    }
+  }
+
+  static String? _publicImageUrl(Object? image, String baseUrl) {
+    if (image is! Map) return null;
+    return DlsiteParser.normalizeImageUrl(image['url'], baseUrl);
   }
 
   Future<GameInfo?> fetchByName(String name) async {
@@ -412,39 +501,9 @@ class DlsiteService {
 
   /// 获取搜索结果的封面图URL
   Future<String?> fetchCoverUrl(String id) async {
-    final normalizedId = normalizeId(id);
-    if (normalizedId == null) return null;
-
-    final url = buildUrl(normalizedId);
-    final client = await createProxyClientFromPrefs(domain: 'www.dlsite.com');
-    try {
-      final headers = await _buildHeaders();
-      final response = await client.get(Uri.parse(url), headers: headers)
-          .timeout(const Duration(seconds: 15));
-
-      if (response.statusCode != 200) return null;
-
-      final document = html_parser.parse(response.body);
-      
-      // 从product-slider-data获取
-      final productSlider = document.querySelector('.product-slider-data');
-      if (productSlider != null) {
-        final firstSlide = productSlider.querySelector('div[data-src]');
-        if (firstSlide != null) {
-          final dataSrc = firstSlide.attributes['data-src'];
-          if (dataSrc != null && dataSrc.isNotEmpty) {
-            return dataSrc.startsWith('//') ? 'https:$dataSrc' : dataSrc;
-          }
-        }
-      }
-
-      // 回退到og:image
-      return document.querySelector('meta[property="og:image"]')?.attributes['content'];
-    } catch (e) {
-      return null;
-    } finally {
-      client.close();
-    }
+    final gameInfo = await fetchById(id);
+    if (gameInfo == null || gameInfo.screenshots.isEmpty) return null;
+    return gameInfo.screenshots.first;
   }
 
   /// 下载所有图片（封面+截图）到images文件夹

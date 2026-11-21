@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/services/pilipili_service.dart';
@@ -208,7 +209,12 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
               }
             }
 
-            final fileName = 'guide_${requestId}_${(i + 1).toString().padLeft(2, '0')}$ext';
+            if (!['.jpg', '.jpeg', '.png', '.gif', '.webp']
+                .contains(ext.toLowerCase())) {
+              ext = '.jpg';
+            }
+            final fileName =
+                'guide_${requestId}_${(i + 1).toString().padLeft(2, '0')}$ext';
             final filePath =
                 '${imagesDir.path}${Platform.pathSeparator}$fileName';
             if (kDebugMode)

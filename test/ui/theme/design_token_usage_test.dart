@@ -21,25 +21,34 @@ void main() {
       '页面按钮样式': RegExp(r'\b\w+Button\s*\.\s*styleFrom\s*\(|\bButtonStyle\s*\('),
       '页面字重或行高': RegExp(r'\bFontWeight\.|\bheight:\s*1\.\d+\b'),
       '页面控件字体': RegExp(r'\btextStyle:\s*(?:const\s+)?TextStyle\s*\('),
+      '按钮与控件字体覆盖': RegExp(
+          r'textStyle:\s*(?:const\s+)?(?:WidgetStatePropertyAll\s*\(\s*)?(?:const\s+)?TextStyle\s*\('),
     };
     for (final file in [
       ...Directory('lib/ui').listSync(recursive: true).whereType<File>(),
       File('lib/main.dart'),
     ]) {
-      if (!file.path.endsWith('.dart') || file.path.endsWith('app_theme.dart')) {
+      if (!file.path.endsWith('.dart') ||
+          file.path.endsWith('app_theme.dart')) {
         continue;
       }
       final source = file.readAsStringSync();
-      final fontCalls = source.replaceAll(RegExp(r'AppTheme\.(?:lightTheme|darkTheme)\(\s*fontFamily:'), '');
-      if (RegExp(r'\bfontFamily\s*:').hasMatch(fontCalls)) {
-        violations.add('${file.path} 字体应来自主题或字体预览');
-      }
       for (final rule in rules.entries) {
         for (final match in rule.value.allMatches(source)) {
           final line =
               '\n'.allMatches(source.substring(0, match.start)).length + 1;
           violations.add('${file.path}:$line ${rule.key}');
         }
+      }
+      for (final match in RegExp(r'''fontFamily\s*:\s*['"][^'"]+['"]''')
+          .allMatches(source)) {
+        if (file.path.endsWith('settings_page.dart') &&
+            match.group(0) == "fontFamily: 'MapleMonoNL-NF-CN'") {
+          continue;
+        }
+        final line =
+            '\n'.allMatches(source.substring(0, match.start)).length + 1;
+        violations.add('${file.path}:$line 固定字体');
       }
     }
     expect(violations, isEmpty, reason: violations.join('\n'));

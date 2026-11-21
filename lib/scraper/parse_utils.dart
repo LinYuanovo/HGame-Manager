@@ -24,6 +24,9 @@ class DownloadLink {
 }
 
 class GameInfo {
+  static const dlsiteRestrictionKey = 'dlsite_restriction';
+  static const dlsiteUserOnlyNotice = '简介为 DLsite 用户限定内容';
+
   String? title;
   String? version;
   List<String> tags;
@@ -40,6 +43,7 @@ class GameInfo {
   String? makerUrl;
   String? descriptionHtml; // 原始HTML片段，用于保留布局
   String sourceUrl;
+  bool isDlsiteUserOnly;
 
   GameInfo({
     this.maker,
@@ -57,6 +61,7 @@ class GameInfo {
     this.fileSize,
     this.platforms = const [],
     this.publishDate,
+    this.isDlsiteUserOnly = false,
     required this.sourceUrl,
   });
 
@@ -89,13 +94,15 @@ class GameInfo {
         if (version != null) 'version': version,
         if (tags.isNotEmpty) 'tags': tags,
         if (category != null) 'series': category,
-        if (description != null) 'intro': description,
+        if (!isDlsiteUserOnly && description != null) 'intro': description,
         if (features.isNotEmpty) 'features': features.join('\n'),
         if (changelog != null) 'changelog': changelog,
         if (downloadUrl.isNotEmpty) 'download_url': downloadUrl,
         if (maker != null) 'maker': maker,
         if (makerUrl != null) 'maker_url': makerUrl,
-        if (descriptionHtml != null) 'intro_html': descriptionHtml,
+        if (!isDlsiteUserOnly && descriptionHtml != null)
+          'intro_html': descriptionHtml,
+        if (isDlsiteUserOnly) dlsiteRestrictionKey: 'user_only',
         'source_url': sourceUrl,
         if (screenshots.isNotEmpty) 'image_urls': screenshots,
       };

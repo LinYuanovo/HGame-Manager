@@ -1,9 +1,10 @@
 import 'dart:io';
 import '../repositories/game_repository.dart';
+import '../utils/game_data_paths.dart';
+import '../utils/path_reference_rewriter.dart';
 import 'app_logger.dart';
 import 'folder_move_progress.dart';
 import 'folder_transfer_service.dart';
-import 'game_data_migration_service.dart';
 
 class GameMoveService {
   static const String _logTag = 'GameMove';
@@ -22,7 +23,7 @@ class GameMoveService {
         _transfer = transfer ?? FolderTransferService();
 
   Future<FolderMoveResult> moveGameFolderCrossDrive({
-    required int gameId,
+    required int? gameId,
     required String oldPath,
     required String newPath,
     void Function(FolderMoveProgress progress)? onProgress,
@@ -86,7 +87,7 @@ class GameMoveService {
   }
 
   Future<void> _updateGameRecords({
-    required int gameId,
+    required int? gameId,
     required String oldPath,
     required String newPath,
   }) async {
@@ -116,35 +117,64 @@ class GameMoveService {
   }
 
   Future<void> _applyGameRecords({
-    required int gameId,
+    required int? gameId,
     required String oldPath,
     required String newPath,
   }) async {
-    await _gameRepository.updateGamePath(gameId, newPath);
-    await _gameRepository.updateImagePaths(gameId, oldPath, newPath);
-    await GameDataMigrationService(gameRepository: _gameRepository)
-        .rewriteGamePathReferences(
-      gameId: gameId,
-      oldPath: oldPath,
-      newPath: newPath,
-    );
-
-    final game = await _gameRepository.getGameById(gameId);
-    if (game != null &&
-        game.gameLauncher != null &&
-        game.gameLauncher!.startsWith(oldPath)) {
-      final relativeLauncher = game.gameLauncher!.substring(oldPath.length);
-      final newLauncher = '$newPath$relativeLauncher';
-      await _gameRepository.updateGameLauncher(
-          gameId, newLauncher, game.launcherLocked);
-    }
-
-    if (game != null &&
-        game.savePath != null &&
-        game.savePath!.startsWith(oldPath)) {
-      final relativeSave = game.savePath!.substring(oldPath.length);
-      final newSave = '$newPath$relativeSave';
-      await _gameRepository.updateSavePath(gameId, newSave);
+    final metadata = await GameDataPaths.existingMetadataFile(newPath);
+    final suffix = DateTime.now().microsecondsSinceEpoch;
+    final staged = File('${metadata.path}.move-$suffix.tmp');
+    final original = File('${metadata.path}.move-original-$suffix.tmp');
+    var metadataChanged = false;
+    var committed = false;
+    try {
+      if (await metadata.exists()) {
+        final content = await metadata.readAsString();
+        final updated =
+            PathReferenceRewriter.replaceRequired(content, {oldPath: newPath});
+        if (updated != content) {
+          await staged.writeAsString(updated, flush: true);
+          metadataChanged = true;
+        }
+      }
+      Future<void> replaceMetadata() async {
+        if (!metadataChanged) return;
+        await metadata.rename(original.path);
+        await staged.rename(metadata.path);
+      }
+      if (gameId == null) {
+        await replaceMetadata();
+      } else {
+        await _gameRepository.moveGameRecords(
+          gameId: gameId,
+          oldPath: oldPath,
+          newPath: newPath,
+          beforeCommit: replaceMetadata,
+        );
+      }
+      committed = true;
+    } catch (error, stackTrace) {
+      if (await original.exists()) {
+        try {
+          if (await metadata.exists()) await metadata.delete();
+          await original.rename(metadata.path);
+        } catch (restoreError) {
+          throw FolderMoveException(
+            '移动记录提交失败，元数据恢复失败：$restoreError；'
+            '原文件保存在 ${original.path}',
+          );
+        }
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    } finally {
+      // 清理失败不能撤销已提交的搬运，否则数据库和目录会重新分离。
+      for (final file in [staged, if (committed) original]) {
+        try {
+          if (await file.exists()) await file.delete();
+        } catch (error) {
+          AppLogger.instance.warning(_logTag, '移动临时文件清理失败：${file.path}，$error');
+        }
+      }
     }
   }
 

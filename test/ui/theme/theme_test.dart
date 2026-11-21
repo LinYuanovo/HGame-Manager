@@ -4,34 +4,48 @@ import 'package:hgame_manager/core/models/theme_mode.dart';
 import 'package:hgame_manager/ui/theme/app_theme.dart';
 
 void main() {
-  testWidgets('主窗口和浮窗的按钮、菜单、标题继承所选字体', (tester) async {
-    const family = '指定界面字体';
-    for (final theme in [AppTheme.lightTheme(fontFamily: family), AppTheme.darkTheme(fontFamily: family)]) {
+  testWidgets('所有标准按钮标签与菜单字体继承应用设置并使用字号令牌', (tester) async {
+    for (final dark in [false, true]) {
+      final theme = dark
+          ? AppTheme.darkTheme(fontFamily: '自定义字体')
+          : AppTheme.lightTheme(fontFamily: '自定义字体');
       await tester.pumpWidget(MaterialApp(theme: theme, home: Scaffold(body: Column(children: [
-        ElevatedButton(onPressed: () {}, child: const Text('主操作')),
-        FilledButton(onPressed: () {}, child: const Text('保存翻译')),
-        OutlinedButton(onPressed: () {}, child: const Text('选择')),
-        TextButton(onPressed: () {}, child: const Text('取消')),
+        TextButton(onPressed: () {}, child: const Text('文本按钮')),
+        OutlinedButton(onPressed: () {}, child: const Text('描边按钮')),
+        ElevatedButton(onPressed: () {}, child: const Text('提升按钮')),
+        FilledButton(onPressed: () {}, child: const Text('填充按钮')),
       ]))));
-      await tester.pumpAndSettle();
-      for (final label in ['主操作', '保存翻译', '选择', '取消']) {
-        final context = tester.element(find.text(label));
-        final style = DefaultTextStyle.of(context).style;
-        expect(style.fontFamily, family);
+      for (final label in ['文本按钮', '描边按钮', '提升按钮', '填充按钮']) {
+        final text = find.text(label);
+        final style = DefaultTextStyle.of(tester.element(text)).style;
+        expect(style.fontFamily, '自定义字体');
         expect(style.fontSize, GlassConstants.fontControl);
-        expect(find.ancestor(of: find.text(label), matching: find.byType(AppControlScale)), findsOneWidget);
+        expect(
+            find.ancestor(of: text, matching: find.byType(AppControlScale)),
+            findsOneWidget);
       }
-      expect(theme.popupMenuTheme.textStyle?.fontFamily, family);
-      expect(theme.appBarTheme.titleTextStyle?.fontFamily, family);
+      expect(theme.popupMenuTheme.textStyle!.fontFamily, '自定义字体');
+      expect(theme.appBarTheme.titleTextStyle?.fontFamily, '自定义字体');
+      expect(theme.textTheme.labelLarge!.fontSize, GlassConstants.fontControl);
+      expect(theme.textTheme.labelMedium!.fontSize, GlassConstants.fontSmall);
+      expect(theme.textTheme.labelSmall!.fontSize, GlassConstants.fontCaption);
     }
   });
 
   test('语义实色按钮前景与背景对比度至少为 4.5', () {
-    for (final color in [AppTheme.errorColor, AppTheme.successColor, AppTheme.warningColor, AppTheme.starColor, AppTheme.secondaryColor]) {
+    for (final color in [
+      AppTheme.errorColor,
+      AppTheme.successColor,
+      AppTheme.warningColor,
+      AppTheme.starColor,
+      AppTheme.secondaryColor,
+    ]) {
       final style = AppButtonStyles.solid(color: color);
       final background = color.computeLuminance();
       final foreground = style.foregroundColor!.resolve({})!.computeLuminance();
-      final ratio = background > foreground ? (background + .05) / (foreground + .05) : (foreground + .05) / (background + .05);
+      final ratio = background > foreground
+          ? (background + .05) / (foreground + .05)
+          : (foreground + .05) / (background + .05);
       expect(ratio, greaterThanOrEqualTo(4.5));
     }
   });

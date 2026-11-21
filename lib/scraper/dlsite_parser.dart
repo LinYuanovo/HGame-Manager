@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:html/dom.dart';
 import 'html_parser.dart';
 import 'parse_utils.dart';
+import 'rich_text_extractor.dart';
 
 class DlsiteParser extends SiteParser {
   @override
@@ -13,8 +16,16 @@ class DlsiteParser extends SiteParser {
     // 每次解析前清空描述图片列表
     _descriptionImageUrls.clear();
 
+    const userOnlyText = '\u3053\u306e\u4f5c\u54c1\u306fDLsite'
+        '\u30e6\u30fc\u30b6\u30fc\u9650\u5b9a'
+        '\u30b3\u30f3\u30c6\u30f3\u30c4\u3067\u3059\u3002';
+    final isUserOnly = document.querySelector('section.p-restricted') != null ||
+        document.querySelectorAll('.error_message').any(
+            (element) => element.text.trim() == userOnlyText);
+
     final titleEl = document.querySelector('#work_name');
-    var rawTitle = titleEl?.text.trim();
+    final product = _findProduct(document, url, titleEl?.text.trim());
+    final rawTitle = _text(titleEl?.text) ?? _text(product?['name']);
     if (rawTitle == null || rawTitle.isEmpty) return null;
 
     final tags = extractBracketsFromTitle(rawTitle) ?? [];
@@ -23,38 +34,92 @@ class DlsiteParser extends SiteParser {
         .replaceAll(RegExp(r'\[[^\]]*\]'), '')
         .trim();
 
-    String? coverImage;
-    final productSlider = document.querySelector('.product-slider-data');
-    if (productSlider != null) {
-      final firstSlide = productSlider.querySelector('div[data-src]');
-      if (firstSlide != null) {
-        final dataSrc = firstSlide.attributes['data-src'];
-        if (dataSrc != null && dataSrc.isNotEmpty) {
-          coverImage = dataSrc.startsWith('//') ? 'https:$dataSrc' : dataSrc;
-        }
+    final galleryImages = <String>[];
+    // 新版画廊有两种容器；控制栏和懒加载节点可能混有缩略图。
+    final galleryNodes = document.querySelectorAll(
+        '.product-slider-data [data-src], #work_visual .slider_body img, '
+        '.work_slider img');
+    for (final image in galleryNodes) {
+      final imageUrl =
+          normalizeImageUrl(RichTextExtractor.resolveImageUrl(image, url), url);
+      if (imageUrl != null && !galleryImages.contains(imageUrl)) {
+        galleryImages.add(imageUrl);
       }
     }
-    coverImage ??= document.querySelector('meta[property="og:image"]')
+    for (final imageUrl in _productImages(product?['image'], url)) {
+      if (!galleryImages.contains(imageUrl)) galleryImages.add(imageUrl);
+    }
+    final ogImage = document
+        .querySelector('meta[property="og:image"]')
         ?.attributes['content'];
+    final coverImage = galleryImages.isNotEmpty
+        ? galleryImages.first
+        : normalizeImageUrl(ogImage, url, allowThumbnail: true);
 
     String? description;
     String? descriptionHtml;
-    final descEl = document.querySelector('[itemprop="description"]');
-    if (descEl != null) {
+    var hasBodyText = false;
+    final legacyDescription =
+        document.querySelector('[itemprop="description"]');
+    final descriptionParts = isUserOnly
+        ? <Element>[]
+        : legacyDescription != null &&
+            (legacyDescription.text.trim().isNotEmpty ||
+                legacyDescription.querySelector('img') != null)
+        ? [legacyDescription]
+        : document.querySelectorAll('.c-productContent');
+    if (descriptionParts.isNotEmpty) {
+      final descEl = Element.tag('div');
+      for (final part in descriptionParts) {
+        descEl.append(part.clone(true));
+      }
+      // 富文本与图片下载列表使用同一绝对 URL，下载后可统一替换本地引用。
+      for (final image in descEl.querySelectorAll('img')) {
+        final imageUrl = normalizeImageUrl(
+            RichTextExtractor.resolveImageUrl(image, url), url,
+            allowThumbnail: true);
+        if (imageUrl == null) {
+          image.remove();
+          continue;
+        }
+        image.attributes['src'] = imageUrl;
+        image.attributes.remove('data-original');
+        image.attributes.remove('data-src');
+      }
       description = _extractDescriptionWithImages(descEl);
       descriptionHtml = descEl.innerHtml;
+      final textOnly = descEl.clone(true);
+      for (final node in textOnly.querySelectorAll(
+          'h1, h2, h3, h4, h5, h6, img, script, style, noscript')) {
+        node.remove();
+      }
+      hasBodyText = textOnly.text.trim().isNotEmpty;
+    }
+    // 结构化摘要较短，只补缺失正文；纯图片介绍仍保留内嵌图和原有 HTML。
+    final summary = _text(product?['description']);
+    if (!isUserOnly && !hasBodyText && summary != null) {
+      description =
+          [summary, if (_text(description) != null) description!].join('\n\n');
+      final paragraph = Element.tag('p')..text = summary;
+      descriptionHtml = '${paragraph.outerHtml}${descriptionHtml ?? ''}';
     }
 
     // 提取厂商名和链接
     String? maker;
     String? makerUrl;
-    final makerEl = document.querySelector('.maker_name a');
+    final makerEl = document.querySelector('.maker_name a') ??
+        document.querySelector('.c-productInfo__makerName');
     if (makerEl != null) {
       maker = makerEl.text.trim();
       final href = makerEl.attributes['href'];
       if (href != null && href.isNotEmpty) {
-        makerUrl = href.startsWith('//') ? 'https:$href' : href;
+        makerUrl = Uri.tryParse(url)?.resolve(href).toString();
       }
+    }
+    if (_text(maker) == null) {
+      final brand = product?['brand'];
+      maker = _text(brand is Map ? brand['name'] : brand);
+      makerUrl = brand is Map ? _httpUrl(brand['url'], url) : null;
     }
 
     final tagList = <String>[];
@@ -62,7 +127,11 @@ class DlsiteParser extends SiteParser {
     if (maker != null && maker.isNotEmpty) {
       tagList.add(maker);
     }
-    final mainGenreLinks = document.querySelectorAll('.main_genre a');
+    final mainGenreLinks = document
+        .querySelectorAll('.main_genre a, .c-productInfo__item a.tag_general, '
+            '.c-productInfo__item a.tag_game, '
+            'dd.c-productInfo__value a.tag_general, '
+            'dd.c-productInfo__value a.tag_game');
     for (final a in mainGenreLinks) {
       final tag = a.text.trim();
       if (tag.isNotEmpty && !tagList.contains(tag)) {
@@ -70,7 +139,8 @@ class DlsiteParser extends SiteParser {
       }
     }
 
-    final tableRows = document.querySelectorAll('table.work_work_table tr, table tr');
+    final tableRows =
+        document.querySelectorAll('table.work_work_table tr, table tr');
     for (final row in tableRows) {
       final th = row.querySelector('th');
       final td = row.querySelector('td');
@@ -88,21 +158,14 @@ class DlsiteParser extends SiteParser {
       }
     }
 
-    // 截图列表：封面 + slider中的图片 + 描述中的图片（去重）
+    // 截图列表：封面 + 画廊原图 + 描述中的图片（去重）
     final screenshots = <String>[];
     if (coverImage != null) {
       screenshots.add(coverImage);
     }
-    if (productSlider != null) {
-      final slides = productSlider.querySelectorAll('div[data-src]');
-      for (final slide in slides) {
-        final dataSrc = slide.attributes['data-src'];
-        if (dataSrc != null && dataSrc.isNotEmpty) {
-          final imgUrl = dataSrc.startsWith('//') ? 'https:$dataSrc' : dataSrc;
-          if (!screenshots.contains(imgUrl)) {
-            screenshots.add(imgUrl);
-          }
-        }
+    for (final imageUrl in galleryImages) {
+      if (!screenshots.contains(imageUrl)) {
+        screenshots.add(imageUrl);
       }
     }
     // 将描述中的图片也加入下载列表
@@ -121,7 +184,122 @@ class DlsiteParser extends SiteParser {
       maker: maker,
       makerUrl: makerUrl,
       sourceUrl: url,
+      isDlsiteUserOnly: isUserOnly,
     );
+  }
+
+  static String? _text(Object? value) =>
+      value is String && value.trim().isNotEmpty ? value.trim() : null;
+
+  static String? _httpUrl(Object? value, String baseUrl) {
+    final raw = _text(value);
+    if (raw == null) return null;
+    final parsed = Uri.tryParse(raw.startsWith('//') ? 'https:$raw' : raw);
+    if (parsed == null) return null;
+    final resolved = Uri.tryParse(baseUrl)?.resolveUri(parsed);
+    if (resolved == null ||
+        !{'http', 'https'}.contains(resolved.scheme) ||
+        resolved.host.isEmpty) {
+      return null;
+    }
+    return resolved.toString();
+  }
+
+  static String? normalizeImageUrl(Object? value, String baseUrl,
+      {bool allowThumbnail = false}) {
+    final resolved = _httpUrl(value, baseUrl);
+    if (resolved == null) return null;
+    final imagePath = Uri.parse(resolved).path.toLowerCase();
+    if (RegExp(r'/(?:no_img(?:_main)?\.gif|summary_large_image_[^/]+\.png)$')
+            .hasMatch(imagePath) ||
+        RegExp(r'\.(?:mp4|webm|m3u8|svg|ico)$').hasMatch(imagePath) ||
+        (!allowThumbnail &&
+            (imagePath.contains('/resize/') ||
+                RegExp(r'[_-]\d+x\d+\.[^/]+$').hasMatch(imagePath)))) {
+      return null;
+    }
+    return resolved;
+  }
+
+  static Iterable<String> _productImages(Object? value, String url) sync* {
+    if (value is List) {
+      for (final image in value) {
+        yield* _productImages(image, url);
+      }
+    } else {
+      final raw = value is Map
+          ? _text(value['contentUrl']) ?? _text(value['url'])
+          : value;
+      final imageUrl = normalizeImageUrl(raw, url);
+      if (imageUrl != null) yield imageUrl;
+    }
+  }
+
+  static Iterable<Map<String, dynamic>> _products(Object? value) sync* {
+    if (value is List) {
+      for (final entry in value) {
+        yield* _products(entry);
+      }
+    } else if (value is Map<String, dynamic>) {
+      final type = value['@type'];
+      if (type == 'Product' || (type is List && type.contains('Product'))) {
+        yield value;
+      }
+      yield* _products(value['@graph']);
+    }
+  }
+
+  static final _idPattern =
+      RegExp(r'\b(?:RJ|RE|VJ)\d{4,}\b', caseSensitive: false);
+
+  static Set<String> _productIds(Map<String, dynamic> product) {
+    final offers = product['offers'];
+    final values = [
+      for (final key in ['sku', 'productID', 'url', '@id']) product[key],
+      if (offers is Map) offers['url'],
+      if (offers is List)
+        for (final offer in offers)
+          if (offer is Map) offer['url'],
+    ];
+    return {
+      for (final value in values.whereType<String>())
+        for (final match in _idPattern.allMatches(value))
+          match.group(0)!.toUpperCase(),
+    };
+  }
+
+  static Map<String, dynamic>? _findProduct(
+      Document document, String url, String? title) {
+    final products = <Map<String, dynamic>>[];
+    for (final script
+        in document.querySelectorAll('script[type="application/ld+json"]')) {
+      try {
+        products.addAll(_products(jsonDecode(script.text)));
+      } on FormatException {
+        // 个别损坏的结构化数据不影响其余脚本和正文解析。
+      }
+    }
+    final expectedId = _idPattern.firstMatch(url)?.group(0)?.toUpperCase();
+    final unidentified = <Map<String, dynamic>>[];
+    final matching = <Map<String, dynamic>>[];
+    for (final product in products) {
+      final ids = _productIds(product);
+      if (ids.isEmpty) {
+        unidentified.add(product);
+      } else if (expectedId != null && ids.every((id) => id == expectedId)) {
+        matching.add(product);
+      }
+    }
+    if (matching.length == 1) return matching.single;
+    final candidates = matching.isNotEmpty ? matching : unidentified;
+    final titled = candidates
+        .where((product) => title != null && _text(product['name']) == title)
+        .toList();
+    if (titled.length == 1) return titled.single;
+    // 无标识的唯一 Product 可作兜底，多作品且无对应标题时不猜测。
+    return products.length == 1 && unidentified.length == 1
+        ? unidentified.single
+        : null;
   }
 
   String _extractDescriptionWithImages(Element descEl) {
@@ -138,12 +316,18 @@ class DlsiteParser extends SiteParser {
           buffer.write(text);
         }
       } else if (node is Element) {
-        if (node.localName == 'img') {
+        if (node.localName == 'script' ||
+            node.localName == 'style' ||
+            node.localName == 'noscript') {
+          continue;
+        } else if (node.localName == 'img') {
           final src = node.attributes['data-original'] ??
               node.attributes['data-src'] ??
               node.attributes['src'] ??
               '';
-          if (src.isNotEmpty && !src.contains('static/image') && !src.endsWith('.svg')) {
+          if (src.isNotEmpty &&
+              !src.contains('static/image') &&
+              !src.endsWith('.svg')) {
             final imgUrl = src.startsWith('//') ? 'https:$src' : src;
             _descriptionImageUrls.add(imgUrl);
             buffer.write('\n[图片:$imgUrl]\n');

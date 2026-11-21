@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +6,7 @@ import 'package:hgame_manager/core/models/metadata_translation_config.dart';
 import 'package:hgame_manager/core/models/models.dart';
 import 'package:hgame_manager/core/services/metadata_translation_service.dart';
 import 'package:hgame_manager/core/services/scrape_apply_service.dart';
+import 'package:hgame_manager/core/utils/media_reference_parser.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -32,6 +34,150 @@ http.Response _llmResponse(List<String> texts) => http.Response(
     );
 
 void main() {
+  test('连接测试仅测试当前服务并使用自定义 Prompt，正式翻译超时不变', () async {
+    final hosts = <String>[];
+    final service = MetadataTranslationService(clientFactory: () async => MockClient((request) async {
+      hosts.add(request.url.host);
+      final body = jsonDecode(request.body);
+      expect(body['messages'][0]['content'], startsWith('自然翻译\n\n'));
+      return _llmResponse(['连接正常']);
+    }));
+    final config = MetadataTranslationConfig.fromMap({..._llm.toMap(), 'prompt': '自然翻译'});
+    expect(await service.testConnection(config), '连接正常');
+    expect(hosts, ['llm.example.test']);
+    expect(MetadataTranslationService.connectionTestTimeout, const Duration(seconds: 20));
+    expect(service.requestTimeout, const Duration(seconds: 45));
+    expect(service.providerTimeout, const Duration(minutes: 3));
+  });
+
+  test('LLM 连接测试失败直接报告，不使用其他服务冒充连接成功', () async {
+    var requests = 0;
+    final service = MetadataTranslationService(clientFactory: () async => MockClient((request) async {
+      requests++;
+      return http.Response('Unavailable', 503);
+    }));
+    await expectLater(service.testConnection(_llm), throwsStateError);
+    expect(requests, 1);
+  });
+
+  testWidgets('创建客户端也计入 20 秒总时限，迟到客户端立即关闭', (tester) async {
+    final pending = Completer<http.Client>();
+    Object? error;
+    final service = MetadataTranslationService(clientFactory: () => pending.future);
+    final test = service.testConnection(_llm).then<void>((_) {}, onError: (Object value) { error = value; });
+    await tester.pump(const Duration(seconds: 20));
+    await test;
+    expect(error, isA<TimeoutException>());
+    final client = _ClosingClient();
+    pending.complete(client);
+    await tester.pump();
+    expect(client.closed, isTrue);
+    expect(client.requests, 0);
+  });
+  test('LLM 使用保存的自定义 Prompt，空白和旧设置使用默认 Prompt', () async {
+    for (final prompt in [null, '', '   ', '使用自然的中文，保留人名。\n避免书面语。']) {
+      final stored = MetadataTranslationConfig.fromMap({
+        ..._llm.toMap(),
+        'prompt': prompt,
+      });
+      final restored = MetadataTranslationConfig.fromMap(stored.toMap());
+      final expected = prompt == null || prompt.trim().isEmpty
+          ? MetadataTranslationConfig.defaultPrompt
+          : prompt;
+      expect(restored.effectivePrompt, expected);
+      final service = MetadataTranslationService(
+        clientFactory: () async => MockClient((request) async {
+          final body = jsonDecode(request.body);
+          final system = body['messages'][0]['content'] as String;
+          expect(system, startsWith('$expected\n\n'));
+          expect(system, contains('只返回 JSON 对象 {"texts":["译文"]}'));
+          expect(system, contains('条目数量和顺序必须完全一致'));
+          return _llmResponse(['探索']);
+        }),
+      );
+      final result = await service.translate({'intro': 'Explore'}, restored);
+      expect(result['intro'], '探索');
+      expect(jsonEncode(result), isNot(contains(expected)));
+    }
+    final legacy = Map<String, dynamic>.from(_llm.toMap())..remove('prompt');
+    expect(MetadataTranslationConfig.fromMap(legacy).effectivePrompt,
+        MetadataTranslationConfig.defaultPrompt);
+  });
+
+  test('图片和视频的方括号目录路径不进入翻译请求', () async {
+    const imagePath = r'C:\Games\[Group] Village\HGMDatas\images\scrape_1.png';
+    const videoPath = r'C:\Games\[Group] Village\HGMDatas\images\video_1.mp4';
+    final sent = <String>[];
+    final service = MetadataTranslationService(
+      clientFactory: () async => MockClient((request) async {
+        final body = jsonDecode(request.body);
+        final texts =
+            (jsonDecode(body['messages'][1]['content'])['texts'] as List)
+                .cast<String>();
+        sent.addAll(texts);
+        return _llmResponse(texts.map((text) => '探索').toList());
+      }),
+    );
+    final source = {
+      'intro': 'Explore\n[图片:$imagePath]\n[视频:$videoPath]',
+      'features': 'Explore [图片:$imagePath] Explore',
+    };
+    final result = await service.translate(source, _llm);
+    expect(sent, ['Explore']);
+    expect(MediaReferenceParser.extractImagePaths(result['intro'] as String),
+        [imagePath]);
+    expect(MediaReferenceParser.extractVideoPaths(result['intro'] as String),
+        [videoPath]);
+    expect(result['features'], '探索 [图片:$imagePath] 探索');
+    expect(MetadataTranslationService.originalFrom(result), source);
+  });
+
+  test('翻译 Markdown 链接文字并保留图片、代码和链接目标', () async {
+    final sent = <String>[];
+    final service = MetadataTranslationService(
+      clientFactory: () async => MockClient((request) async {
+        final body = jsonDecode(request.body);
+        final texts =
+            (jsonDecode(body['messages'][1]['content'])['texts'] as List)
+                .cast<String>();
+        sent.addAll(texts);
+        return _llmResponse(texts.map((text) => '阅读指南').toList());
+      }),
+    );
+    const source =
+        '[Read the guide](https://example.test/guide_(new)?lang=en "Guide")\n'
+        '![Cover](C:/Games/[Group]/cover_(1).png)\n'
+        '`[Read the guide](https://example.test/code)`';
+    final result = await service.translate({'intro': source}, _llm);
+    expect(sent, ['Read the guide']);
+    expect(
+        result['intro'],
+        '[阅读指南](https://example.test/guide_(new)?lang=en "Guide")\n'
+        '![Cover](C:/Games/[Group]/cover_(1).png)\n'
+        '`[Read the guide](https://example.test/code)`');
+  });
+
+  test('Google 也翻译仅含 Markdown 链接的正文', () async {
+    final service = MetadataTranslationService(
+      clientFactory: () async => MockClient((request) async {
+        expect(request.url.queryParameters['q'], 'Read the guide');
+        return http.Response(
+            jsonEncode([
+              [
+                ['阅读指南', 'Read the guide'],
+              ]
+            ]),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'});
+      }),
+    );
+    final result = await service.translate(
+      {'intro': '[Read the guide](https://example.test/guide)'},
+      const MetadataTranslationConfig(enabled: true),
+    );
+    expect(result['intro'], '[阅读指南](https://example.test/guide)');
+  });
+
   test('翻译保留目录分类标识、媒体引用和原文', () async {
     final source = {
       'title': 'A village',
@@ -136,4 +282,18 @@ void main() {
     });
     expect(identical(await service.translate(source, _llm), source), isTrue);
   });
+}
+
+class _ClosingClient extends http.BaseClient {
+  bool closed = false;
+  int requests = 0;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    requests++;
+    throw StateError('不应发送请求');
+  }
+
+  @override
+  void close() => closed = true;
 }

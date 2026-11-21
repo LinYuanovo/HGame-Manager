@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hgame_manager/core/database/database_helper.dart';
@@ -13,6 +14,7 @@ import 'package:hgame_manager/core/providers/providers.dart';
 import 'package:hgame_manager/core/repositories/game_repository.dart';
 import 'package:hgame_manager/core/repositories/tag_repository.dart';
 import 'package:hgame_manager/core/services/app_logger.dart';
+import 'package:hgame_manager/core/services/cleared_metadata_backup_service.dart';
 import 'package:hgame_manager/core/services/metadata_translation_service.dart';
 import 'package:hgame_manager/core/services/scrape_apply_service.dart';
 import 'package:hgame_manager/core/utils/app_paths.dart';
@@ -20,7 +22,7 @@ import 'package:hgame_manager/core/utils/app_settings.dart';
 import 'package:hgame_manager/core/utils/game_data_paths.dart';
 import 'package:hgame_manager/scraper/parse_utils.dart';
 import 'package:hgame_manager/ui/pages/games/game_detail_page.dart';
-import 'package:hgame_manager/ui/pages/settings/metadata_translation_dialog.dart';
+import 'package:hgame_manager/ui/pages/settings/metadata_translation_settings.dart';
 import 'package:hgame_manager/ui/pages/settings/settings_page.dart';
 import 'package:hgame_manager/ui/theme/app_theme.dart';
 import 'package:hgame_manager/ui/widgets/game_list_widget.dart';
@@ -33,20 +35,25 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('整合：五种流程保留原文和分类，浅深色切换及诊断导出', (tester) async {
+    expect(Platform.isWindows, isTrue);
+    final dataDirectory =
+        await Directory.systemTemp.createTemp('hgm_merge_review_data_');
+    AppPaths.overrideRootDirForTesting(dataDirectory.path);
     final dataRoot = await AppPaths.rootDir;
-    final normalized = path.normalize(dataRoot).replaceAll('\\', '/');
-    expect(normalized.contains('/build/windows/x64/runner/Debug/'), isTrue);
+    expect(path.normalize(dataRoot), path.normalize(dataDirectory.path));
     expect(await File(await AppPaths.databaseFile).exists(), isFalse,
-        reason: '验收必须使用独立且为空的构建数据目录');
+        reason: '验收必须使用隔离的临时数据库');
     expect(await Directory(dataRoot).list().isEmpty, isTrue,
-        reason: '验收数据目录必须为空，保留已有设置和其他文件');
+        reason: '验收数据目录必须为空');
     final temporary =
         await Directory.systemTemp.createTemp('hgm_merge_review_');
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     var requests = 0;
+    final systemPrompts = <String>[];
     server.listen((request) async {
       requests++;
       final body = jsonDecode(await utf8.decoder.bind(request).join());
+      systemPrompts.add(body['messages'][0]['content'] as String);
       final texts =
           (jsonDecode(body['messages'][1]['content'])['texts'] as List)
               .cast<String>();
@@ -93,6 +100,16 @@ void main() {
       for (final mode in ScrapeMode.values)
         mode: const ScrapeModeConfig(moveToSorted: true),
     });
+    const evidencePath = String.fromEnvironment('TRANSLATION_FIX_EVIDENCE');
+    final captureKey = GlobalKey();
+    Future<void> capture(String name) async {
+      if (evidencePath.isEmpty) return;
+      final boundary = captureKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+      final image = await boundary.toImage();
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      await File(path.join(evidencePath, '$name.png')).writeAsBytes(bytes!.buffer.asUint8List());
+      image.dispose();
+    }
     Game? displayGame;
     try {
       for (final mode in ScrapeMode.values) {
@@ -180,15 +197,25 @@ void main() {
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pumpAndSettle();
-        await tester.pumpWidget(MaterialApp(
-          theme: theme,
-          home: Scaffold(body: MetadataTranslationDialog(settings: settings)),
+        await tester.pumpWidget(RepaintBoundary(
+          key: captureKey,
+          child: MaterialApp(
+            theme: theme,
+            home: Scaffold(body: SingleChildScrollView(child: MetadataTranslationSettings(
+                config: config,
+                onChanged: (_) {},
+            ))),
+          ),
         ));
         await tester.pumpAndSettle();
-        final button = tester
-            .widget<FilledButton>(find.widgetWithText(FilledButton, '保存'));
-        expect(button.style!.foregroundColor!.resolve({}),
-            theme.colorScheme.onPrimary);
+        final prompt = find.byWidgetPredicate((widget) => widget is TextField &&
+            widget.decoration?.labelText == '翻译 Prompt（留空使用默认）');
+        await tester.ensureVisible(prompt);
+        await tester.pumpAndSettle();
+        expect(tester.widget<TextField>(prompt).controller!.text, isEmpty);
+        expect(find.text(MetadataTranslationConfig.defaultPrompt), findsOneWidget);
+        await capture('prompt-${brightness.name}');
+        expect(find.byKey(const ValueKey('metadata-translation-test')), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pumpAndSettle();
@@ -308,6 +335,41 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
+      final cleared = (await repo.getGameById(selectedGame.id!))!.copyWith(isCleared: true);
+      await repo.updateGame(cleared);
+      final backupService = ClearedMetadataBackupService();
+      final backupFile = await backupService.save(cleared);
+      final originalMetadata = await backupService.loadMetadata(cleared);
+      await GameDataPaths.metadataFile(cleared.path).delete();
+      await backupService.refresh(cleared);
+      expect(await backupService.loadMetadata(cleared), originalMetadata);
+      for (final brightness in [Brightness.light, Brightness.dark]) {
+        await tester.pumpWidget(RepaintBoundary(
+          key: captureKey,
+          child: ProviderScope(
+            overrides: [sharedPreferencesProvider.overrideWithValue(settings)],
+            child: MaterialApp(
+              theme: brightness == Brightness.light ? AppTheme.lightTheme() : AppTheme.darkTheme(),
+              home: Scaffold(body: GameDetailDialog(game: cleared)),
+            ),
+          ),
+        ));
+        for (var attempt = 0; attempt < 100 && find.text('查看原文').evaluate().isEmpty; attempt++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        expect(find.text('查看原文'), findsOneWidget);
+        await tester.tap(find.text('查看原文'));
+        await tester.pumpAndSettle();
+        expect(find.text(cleared.title!.substring(2)), findsWidgets);
+        expect(find.text('查看译文'), findsOneWidget);
+        await capture('backup-original-${brightness.name}');
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      }
+      expect(requests, 5);
+      expect(systemPrompts.every((prompt) => prompt.startsWith(MetadataTranslationConfig.defaultPrompt)), isTrue);
+      expect(await backupFile.exists(), isTrue);
       logger.info('MergeReview',
           'token=sample-token https://example.test/path?api_key=sample-key');
       final diagnosticPath = path.join(temporary.path, 'diagnostics.zip');
@@ -332,10 +394,24 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       await DatabaseHelper.close();
       await settings.flush();
+      AppSettings.invalidateCache();
       await logger.flush();
       await server.close(force: true);
+      final resolvedTemporary = path.normalize(path.absolute(temporary.path));
+      if (!path.isWithin(path.normalize(path.absolute(Directory.systemTemp.path)), resolvedTemporary) ||
+          !path.basename(resolvedTemporary).startsWith('hgm_merge_review_')) {
+        throw StateError('临时目录超出验收范围');
+      }
+      final resolvedDataRoot = path.normalize(path.absolute(dataRoot));
+      if (!path.isWithin(
+              path.normalize(path.absolute(Directory.systemTemp.path)),
+              resolvedDataRoot) ||
+          !path.basename(resolvedDataRoot).startsWith('hgm_merge_review_data_')) {
+        throw StateError('数据目录超出验收范围');
+      }
+      AppPaths.overrideRootDirForTesting(null);
+      await dataDirectory.delete(recursive: true);
       await temporary.delete(recursive: true);
-      await Directory(dataRoot).delete(recursive: true);
     }
   });
 }

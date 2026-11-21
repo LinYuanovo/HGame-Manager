@@ -9,7 +9,6 @@ import 'package:file_picker/file_picker.dart';
 import '../../../core/models/models.dart';
 import '../../../core/models/context_menu_config.dart';
 import '../../../core/providers/providers.dart';
-import '../../../core/services/game_data_migration_service.dart';
 import '../../../core/services/app_logger.dart';
 import '../../../core/services/image_service.dart';
 import '../../../core/services/folder_rename_service.dart';
@@ -514,12 +513,19 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             // Toolbar row
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingCompact),
-              child: Row(
-                children: [
-                  if (widget.showSearchBar) ...[
-                    Expanded(
-                      flex: 3,
-                      child: Stack(
+              child: LayoutBuilder(
+                builder: (context, constraints) => Wrap(
+                  spacing: GlassConstants.spacingCompact,
+                  runSpacing: GlassConstants.spacingSmall,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (widget.showSearchBar)
+                      SizedBox(
+                        width: constraints.maxWidth <
+                                LayoutConstants.gameListToolbarCompactWidth
+                            ? constraints.maxWidth
+                            : constraints.maxWidth * 0.35,
+                        child: Stack(
                         alignment: Alignment.centerRight,
                         children: [
                           GlassSearchBar(
@@ -556,31 +562,19 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                             ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: GlassConstants.spacingMedium),
+                      ),
+                    _buildViewModeToggle(sortedGames, displayedGames),
+                    _buildPosterColumnCountInput(),
+                    _buildSortDropdown(),
+                    _buildSortDirectionToggle(),
+                    _buildPaginationModeToggle(),
+                    _buildListItemsPerPageInput(),
+                    _buildMultiSelectToggle(sortedGames),
+                    if (widget.onScanSavePaths != null ||
+                        widget.scanProgress.isNotEmpty)
+                      _buildScanSaveButton(),
                   ],
-                  _buildViewModeToggle(sortedGames, displayedGames),
-                  const SizedBox(width: GlassConstants.spacingCompact),
-                  _buildPosterColumnCountInput(),
-                  if (_viewMode == ViewMode.poster) const SizedBox(width: GlassConstants.spacingCompact),
-                  _buildSortDropdown(),
-                  const SizedBox(width: GlassConstants.spacingTiny),
-                  _buildSortDirectionToggle(),
-                  const SizedBox(width: GlassConstants.spacingCompact),
-                  _buildPaginationModeToggle(),
-                  const SizedBox(width: GlassConstants.spacingCompact),
-                  _buildListItemsPerPageInput(),
-                  if (_viewMode == ViewMode.list &&
-                      _paginationMode == PaginationMode.paginated)
-                    const SizedBox(width: GlassConstants.spacingCompact),
-                  _buildMultiSelectToggle(sortedGames),
-                  // 扫描存档按钮（始终显示，如果有回调）
-                  if (widget.onScanSavePaths != null ||
-                      widget.scanProgress.isNotEmpty) ...[
-                    const SizedBox(width: GlassConstants.spacingTiny),
-                    _buildScanSaveButton(),
-                  ],
-                ],
+                ),
               ),
             ),
             // 多选操作栏
@@ -1431,7 +1425,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             ? BoxDecoration(
                 borderRadius:
                     BorderRadius.circular(GlassConstants.radiusMedium),
-                border: Border.all(color: AppTheme.getPrimaryColor(context), width: 2),
+                border: Border.all(color: AppTheme.getPrimaryColor(context), width: GlassConstants.spacingMicro),
               )
             : null,
         child: InkWell(
@@ -1724,7 +1718,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         decoration: isSelected
             ? BoxDecoration(
                 borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
-                border: Border.all(color: AppTheme.getPrimaryColor(context), width: 2),
+                border: Border.all(color: AppTheme.getPrimaryColor(context), width: GlassConstants.spacingMicro),
               )
             : null,
         child: GlassCard(
@@ -1983,24 +1977,24 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       return _buildCoverPlaceholder(width, height);
     }
 
+    final ImageProvider source;
+    if (coverPath.startsWith('http://') || coverPath.startsWith('https://')) {
+      source = NetworkImage(coverPath);
+    } else {
+      source = FileImage(File(coverPath));
+    }
     final cacheWidth = ref.watch(coverMemorySavingProvider) ? 768 : null;
-    return PictureOrigin(origins: _coverOrigins, identity: (game.id ?? game.path, coverPath), child: Image.file(
-      File(coverPath),
-      key: ValueKey((coverPath, _coverRevision, cacheWidth)),
+    return PictureOrigin(
+      origins: _coverOrigins,
+      identity: (game.id ?? game.path, coverPath),
+      child: Image(
+      key: ValueKey((coverPath, game.images[coverIndex].id, _coverRevision, cacheWidth)),
+      image: ResizeImage.resizeIfNeeded(cacheWidth, null, source),
       width: width,
       height: height,
       fit: fit,
-      cacheWidth: cacheWidth,
-      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-        if (wasSynchronouslyLoaded || frame != null) return child;
-        return SizedBox(
-          width: width,
-          height: height,
-          child: const AppSkeleton(layout: SkeletonLayout.image, label: '正在加载封面'),
-        );
-      },
-      errorBuilder: (context, error, stackTrace) =>
-          _buildCoverPlaceholder(width, height),
+      frameBuilder: appImageFrameBuilder,
+      errorBuilder: (_, __, ___) => _buildCoverPlaceholder(width, height),
     ));
   }
 
@@ -2812,48 +2806,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         return;
       }
 
-      await gameDir.rename(newPath);
-      await repo.updateGamePath(gameId, newPath);
-
-      final oldImages = await repo.getGameImages(gameId);
-      if (oldImages.isNotEmpty) {
-        final storageDir = await imageService.getImageStorageDir();
-        final updatedImages = oldImages.map((img) {
-          // 确保路径格式一致：统一使用正斜杠
-          final normalizedOldPath = game.path.replaceAll('\\', '/');
-          final normalizedNewPath = newPath.replaceAll('\\', '/');
-          final normalizedImagePath = img.imagePath.replaceAll('\\', '/');
-
-          // 检查旧路径是否在图片路径中
-          String newImagePath;
-          if (normalizedImagePath.startsWith(normalizedOldPath)) {
-            // 游戏目录中的图片，更新路径
-            newImagePath = normalizedImagePath.replaceFirst(
-                normalizedOldPath, normalizedNewPath);
-          } else if (img.imagePath.startsWith(storageDir)) {
-            // 应用管理的图片继续保留原引用，Backup 仅作为额外副本。
-            newImagePath = img.imagePath;
-          } else {
-            // 其他情况保持原路径不变
-            newImagePath = img.imagePath;
-          }
-
-          return GameImage(
-            id: img.id,
-            gameId: img.gameId,
-            imagePath: newImagePath,
-            sortOrder: img.sortOrder,
+      await ref.read(gameMoveServiceProvider).moveGameFolderCrossDrive(
+            gameId: gameId,
+            oldPath: game.path,
+            newPath: newPath,
           );
-        }).toList();
-        await repo.setGameImages(gameId, updatedImages);
-      }
-
-      await GameDataMigrationService(gameRepository: repo)
-          .rewriteGamePathReferences(
-        gameId: gameId,
-        oldPath: game.path,
-        newPath: newPath,
-      );
       await repo.updateClearedStatus(
         gameId,
         true,
@@ -2997,7 +2954,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       await runFolderMoveWithProgress(
         context: context,
         title: '移动游戏文件夹',
-        task: (onProgress, shouldCancel) => moveService.moveGameFolderCrossDrive(
+        task: (onProgress, shouldCancel) =>
+            moveService.moveGameFolderCrossDrive(
           gameId: game.id!,
           oldPath: game.path,
           newPath: newPath,
@@ -3159,7 +3117,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         return;
       }
 
-      final gameDir = Directory(game.path);
       final linkedBackupPath = await repo.findBackupPathForGame(game);
 
       final targetDir = Directory(targetPath);
@@ -3180,23 +3137,18 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         return;
       }
 
-      await gameDir.rename(newPath);
-      await repo.updateGamePath(game.id!, newPath);
+      await ref.read(gameMoveServiceProvider).moveGameFolderCrossDrive(
+            gameId: game.id!,
+            oldPath: game.path,
+            newPath: newPath,
+          );
 
       final oldImages = await repo.getGameImages(game.id!);
       if (oldImages.isNotEmpty) {
         final imageService = ImageService();
-        final normalizedOldPath = game.path.replaceAll('\\', '/');
-        final normalizedNewPath = newPath.replaceAll('\\', '/');
         final updatedImages = <GameImage>[];
         for (final image in oldImages) {
-          final normalizedImagePath = image.imagePath.replaceAll('\\', '/');
-          var newImagePath = normalizedImagePath.startsWith(normalizedOldPath)
-              ? normalizedImagePath.replaceFirst(
-                  normalizedOldPath,
-                  normalizedNewPath,
-                )
-              : image.imagePath;
+          var newImagePath = image.imagePath;
           if (linkedBackupPath != null &&
               _isPathInside(image.imagePath, linkedBackupPath) &&
               await File(image.imagePath).exists()) {
@@ -3213,12 +3165,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         await repo.setGameImages(game.id!, updatedImages);
       }
 
-      await GameDataMigrationService(gameRepository: repo)
-          .rewriteGamePathReferences(
-        gameId: game.id!,
-        oldPath: game.path,
-        newPath: newPath,
-      );
       await repo.updateClearedStatus(game.id!, false);
 
       if (linkedBackupPath != null) {
@@ -3446,7 +3392,10 @@ class _CoverPickerDialog extends StatelessWidget {
                                           '${i + 1}',
                                           style: TextStyle(
                                             fontSize: GlassConstants.fontBadge,
-                                            color: AppTheme.lightForegroundColor,
+                                            color:
+                                                AppTheme.getTextColorOnPrimary(
+                                              context,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -3463,8 +3412,8 @@ class _CoverPickerDialog extends StatelessWidget {
                                           child: Icon(
                                             Icons.check,
                                             size: GlassConstants.iconCompact,
-                                            color: AppTheme
-                                                .getTextColorOnPrimary(
+                                            color:
+                                                AppTheme.getTextColorOnPrimary(
                                               context,
                                             ),
                                           ),

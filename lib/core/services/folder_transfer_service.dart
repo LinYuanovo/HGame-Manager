@@ -73,6 +73,10 @@ class FolderTransferService {
       bytesTotal: bytesTotal,
     ));
 
+    if (shouldCancel?.call() == true) {
+      throw const FolderMoveCancelledException();
+    }
+
     if (!forceCopy &&
         path.rootPrefix(source.path) == path.rootPrefix(target.path)) {
       await source.rename(target.path);
@@ -200,6 +204,9 @@ class FolderTransferService {
         bytesTotal: bytesTotal,
       ));
       await _verify(target, manifest);
+      if (shouldCancel?.call() == true) {
+        throw const FolderMoveCancelledException();
+      }
     } catch (e) {
       final cleanupError = await _deleteDirectory(target);
       if (cleanupError != null) {

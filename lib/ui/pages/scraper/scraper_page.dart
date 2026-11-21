@@ -7,7 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import '../../../core/models/models.dart';
+import '../../../core/models/scrape_review_item.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/providers/scrape_review_provider.dart';
 import '../../../core/utils/cloudflare_challenge.dart';
 import '../../../core/utils/dynamic_page_detector.dart';
 import '../../../core/utils/forum_domain_utils.dart';
@@ -16,9 +18,11 @@ import '../../../core/utils/proxy_client.dart';
 import '../../../scraper/html_parser.dart';
 import '../../../scraper/parse_utils.dart';
 import '../../../core/services/scrape_apply_service.dart';
+import '../../../core/services/dlsite_service.dart';
 import '../../../core/services/vikacg_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/cloudflare_browser_dialog.dart';
+import 'scrape_review_dialog.dart';
 
 class ScraperPage extends ConsumerStatefulWidget {
   const ScraperPage({super.key});
@@ -41,6 +45,7 @@ class _GameScrapeItem {
   double progress;
   String status;
   String? error;
+  ScrapeReviewItem? review;
   final List<String> translationNotices = [];
 
   _GameScrapeItem({
@@ -60,6 +65,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   Timer? _failureEmphasis;
   bool _followLog = true;
   bool _isProcessing = false;
+  bool _cancelRequested = false;
+  bool _reviewOpen = false;
   String _processStatus = '空闲';
   final List<String> _logs = [];
   final _ScrapeStats _stats = _ScrapeStats();
@@ -70,8 +77,14 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   bool _includeScraped = false;
   int _skippedScraped = 0;
 
+  double get _controlHeight => LayoutConstants.controlHeight +
+      (MediaQuery.textScalerOf(context).scale(GlassConstants.fontControl) -
+              GlassConstants.fontControl)
+          .clamp(0, double.infinity);
+
   @override
   void dispose() {
+    _cancelRequested = true;
     _logScrollController.dispose();
     _taskScrollController.dispose();
     _failureEmphasis?.cancel();
@@ -91,7 +104,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
   Widget _buildControlPanel() {
     return GlassContainer(
-      width: 300,
+      key: const ValueKey('scraper-control-panel'),
+      width: LayoutConstants.scraperControlPanelWidth,
       padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: CustomScrollView(
         slivers: [
@@ -105,7 +119,9 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     );
   }
 
-  Widget _buildControls() => Column(
+  Widget _buildControls() {
+    final reviewItems = ref.watch(scrapeReviewItemsProvider);
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Row(
@@ -131,6 +147,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           _buildProcessStatus(),
           const SizedBox(height: GlassConstants.spacingComfortable),
           _buildActionButton(
+            key: const ValueKey('scraper-scan-button'),
             icon: Icons.search,
             label: '扫描游戏库',
             color: AppTheme.getPrimaryColor(context),
@@ -139,12 +156,24 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           ),
           const SizedBox(height: GlassConstants.spacingCompact),
           _buildActionButton(
+            key: const ValueKey('scraper-scrape-button'),
             icon: Icons.description_outlined,
             label: '刮削元数据',
             color: AppTheme.successColor,
             isEnabled: !_isProcessing && _gameItems.isNotEmpty,
             onPressed: _startScrape,
           ),
+          if (reviewItems.isNotEmpty) ...[
+            const SizedBox(height: GlassConstants.spacingCompact),
+            _buildActionButton(
+              key: const ValueKey('scraper-review-entry'),
+              icon: Icons.fact_check_outlined,
+              label: '确认刮削结果（${reviewItems.length}）',
+              color: AppTheme.getPrimaryColor(context),
+              isEnabled: !_isProcessing && !_reviewOpen,
+              onPressed: _openReview,
+            ),
+          ],
           const SizedBox(height: GlassConstants.spacingCompact),
           _buildThreadCountSelector(),
           const SizedBox(height: GlassConstants.spacingSmall),
@@ -162,11 +191,14 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           const SizedBox(height: GlassConstants.spacingCompact),
         ],
       );
+  }
 
   Widget _buildProcessStatus() {
     final isRunning = _isProcessing;
-    return SizedBox.fromSize(
-      size: _controlSize,
+    return SizedBox(
+      key: const ValueKey('scraper-process-status'),
+      width: _controlSize.width,
+      height: _controlSize.height,
       child: GlassContainer(
         padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact),
         color: isRunning
@@ -192,8 +224,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                   : AppTheme.getDisabledColor(context),
             ),
             const SizedBox(width: GlassConstants.spacingSmall),
-            Text(
+            Flexible(child: Text(
               _processStatus,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: isRunning
                     ? AppTheme.successColor
@@ -201,7 +235,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 fontSize: GlassConstants.fontControl,
                 fontWeight: AppTypography.medium,
               ),
-            ),
+            )),
           ],
         ),
       ),
@@ -216,26 +250,34 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   }
 
   Widget _buildActionButton({
+    Key? key,
     required IconData icon,
     required String label,
     required Color color,
     bool isEnabled = true,
     required VoidCallback onPressed,
   }) {
-    return SizedBox.fromSize(
-      size: _controlSize,
-      child: ElevatedButton.icon(
-        onPressed: isEnabled ? onPressed : null,
-        style: AppButtonStyles.tinted(context, color: color),
-        icon: Icon(icon, size: GlassConstants.iconAction),
-        label: Text(label),
+    return SizedBox(
+      key: key,
+      width: _controlSize.width,
+      height: _controlSize.height,
+      child: Tooltip(
+        message: label,
+        child: ElevatedButton.icon(
+          onPressed: isEnabled ? onPressed : null,
+          style: AppButtonStyles.tinted(context, color: color),
+          icon: Icon(icon, size: GlassConstants.iconAction),
+          label: Text(label),
+        ),
       ),
     );
   }
 
   Widget _buildThreadCountSelector() {
-    return SizedBox.fromSize(
-      size: _controlSize,
+    return SizedBox(
+      key: const ValueKey('scraper-thread-selector'),
+      width: _controlSize.width,
+      height: _controlSize.height,
       child: GlassContainer(
         padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact),
         color: AppTheme.getGlassFillColor(context),
@@ -281,6 +323,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
   Widget _buildIncludeScrapedToggle() {
     return SizedBox(
+      key: const ValueKey('scraper-include-scraped'),
       width: _controlSize.width,
       child: InkWell(
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -293,8 +336,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               SizedBox(
-                width: 20,
-                height: 20,
+                width: GlassConstants.iconControl,
+                height: GlassConstants.iconControl,
                 child: Checkbox(
                   value: _includeScraped,
                   onChanged: _isProcessing
@@ -307,6 +350,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 message: 'metadata.json 含 scraped_at 标识的游戏视为已刮削',
                 child: Text(
                   '包含已刮削的游戏',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: AppTheme.getTextSecondary(context),
                     fontSize: GlassConstants.fontBody,
@@ -323,7 +368,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
   Widget _buildStatsPanel() {
     return SizedBox(
-      width: 200,
+      key: const ValueKey('scraper-stats-panel'),
+      width: LayoutConstants.scraperControlWidth,
       child: GlassContainer(
         padding: const EdgeInsets.all(GlassConstants.spacingMedium),
         color: AppTheme.getGlassFillColor(context),
@@ -347,7 +393,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                 label: '待处理', value: '${_stats.pending}', color: AppTheme.warningOrange),
             const SizedBox(height: GlassConstants.spacingSmall),
             _StatRow(
-                label: '成功',
+                label: '已获取',
                 value: '${_stats.success}',
                 color: AppTheme.successColor),
             const SizedBox(height: GlassConstants.spacingSmall),
@@ -522,8 +568,11 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   );
 
   Widget _buildGameListItem(_GameScrapeItem item) {
-    final statusColor = item.error != null ? AppTheme.errorColor : switch (item.status) {
-      '成功' => AppTheme.successColor,
+    final status = item.review?.status ?? item.status;
+    final statusColor = item.error != null
+        ? AppTheme.errorColor
+        : switch (status) {
+      '成功' || '已保存' => AppTheme.successColor,
       '失败' || '刮削失败' => AppTheme.errorColor,
       '刮削中' => AppTheme.getPrimaryColor(context),
       _ => AppTheme.getTextSecondary(context),
@@ -588,7 +637,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
                   borderRadius: BorderRadius.circular(GlassConstants.radiusControl),
                 ),
                 child: Text(
-                  item.status,
+                  status,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
@@ -611,7 +660,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
               icon: const Icon(Icons.edit_outlined, size: GlassConstants.iconCompact),
               color: AppTheme.getTextSecondary(context),
               tooltip: '编辑来源',
-              onPressed: () => _editSourceUrl(item),
+              onPressed: _isProcessing ||
+                  (item.review?.canKeep == true &&
+                   item.review?.decision != ScrapeReviewDecision.discard)
+                  ? null : () => _editSourceUrl(item),
             ),
           ),
         ],
@@ -728,7 +780,9 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   }
 
   Future<void> _startScan() async {
+    if (_isProcessing) return;
     setState(() {
+      _cancelRequested = false;
       _isProcessing = true;
       _processStatus = '扫描中';
       _gameItems.clear();
@@ -780,6 +834,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
 
       final gamesToScrape = <Game>[];
       for (final libraryPath in libraryPaths) {
+        if (_cancelRequested || !mounted) break;
         final found =
             await _scanForSourceUrlFiles(libraryPath, scrapeIgnoreFolders);
         gamesToScrape.addAll(found);
@@ -818,6 +873,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     if (!await dir.exists()) return games;
 
     await for (final entity in dir.list(followLinks: false)) {
+      if (_cancelRequested || !mounted) break;
       if (entity is Directory) {
         final folderName = path.basename(entity.path);
 
@@ -844,12 +900,11 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           try {
             final sourceUrl = (await sourceUrlFile.readAsString()).trim();
             if (sourceUrl.isNotEmpty) {
-              games.add(Game(
-                id: null,
-                path: entity.path,
-                title: folderName,
-                sourceUrl: sourceUrl,
-              ));
+              final existing = await ref.read(gameRepositoryProvider)
+                  .getStoredGameByPath(entity.path);
+              games.add((existing ?? Game(
+                path: entity.path, title: folderName,
+              )).copyWith(sourceUrl: sourceUrl));
               _addLog('发现游戏: $folderName -> $sourceUrl');
             }
           } catch (e) {
@@ -866,12 +921,53 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   }
 
   Future<void> _startScrape() async {
+    if (_isProcessing) return;
+    _cancelRequested = false;
     if (_gameItems.isEmpty) {
       _addLog('错误: 没有待刮削的游戏，请先扫描');
       return;
     }
 
+    final pending = ref.read(scrapeReviewItemsProvider).any((review) =>
+        (review.recoveryRequired || (!review.applied && review.canKeep &&
+        review.decision != ScrapeReviewDecision.discard)) &&
+        _gameItems.any((item) => path.equals(item.game.path, review.game.path)));
+    if (pending) {
+      final retryIndexes = <int>[
+        for (var index = 0; index < _gameItems.length; index++)
+          if (_gameItems[index].review?.canKeep == false) index,
+      ];
+      if (retryIndexes.isNotEmpty) {
+        setState(() {
+          _isProcessing = true;
+          _cancelRequested = false;
+          _processStatus = '重试失败项';
+          _stats.pending = retryIndexes.length;
+          _stats.failed = 0;
+        });
+        try {
+          for (final index in retryIndexes) {
+            if (!mounted || _cancelRequested) break;
+            await _scrapeSingleGame(index);
+          }
+        } finally {
+          if (mounted) {
+            setState(() {
+              _isProcessing = false;
+              _processStatus = '空闲';
+            });
+          }
+        }
+        if (mounted && !_cancelRequested) await _openReview();
+        return;
+      }
+      _addLog('已有待确认结果，请先完成本批确认');
+      await _openReview();
+      return;
+    }
+
     setState(() {
+      _cancelRequested = false;
       _isProcessing = true;
       _processStatus = '刮削中';
       _stats.pending = _gameItems.length;
@@ -882,6 +978,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         item.progress = 0;
         item.status = '待处理';
         item.error = null;
+        item.review = null;
         item.translationNotices.clear();
       }
     });
@@ -890,42 +987,20 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         '========== 开始刮削 ${_gameItems.length} 个游戏 (线程数: $_threadCount) ==========');
 
     try {
-      final gameRepo = ref.read(gameRepositoryProvider);
-      final tagRepo = ref.read(tagRepositoryProvider);
       await _scraper.ensureLoaded();
-
-      int activeCount = 0;
       final queue = List.generate(_gameItems.length, (i) => i);
-      final completer = Completer<void>();
-
-      void processNext() {
-        if (queue.isEmpty) {
-          if (activeCount == 0 && !completer.isCompleted) {
-            completer.complete();
-          }
-          return;
+      Future<void> worker() async {
+        while (mounted && !_cancelRequested && queue.isNotEmpty) {
+          await _scrapeSingleGame(queue.removeAt(0));
         }
-        final idx = queue.removeAt(0);
-        activeCount++;
-        _scrapeSingleGame(idx, gameRepo, tagRepo).then((_) {
-          activeCount--;
-          processNext();
-        });
       }
-
-      final initialCount = _threadCount.clamp(1, _gameItems.length);
-      for (int i = 0; i < initialCount; i++) {
-        processNext();
-      }
-
-      await completer.future;
-
-      _addLog('========== 刮削完成 ==========');
+      await Future.wait(List.generate(
+          _threadCount.clamp(1, _gameItems.length), (_) => worker()));
+      if (!mounted) return;
+      _addLog(_cancelRequested ? '========== 抓取已停止 ==========' :
+          '========== 抓取完成，请确认结果 ==========');
       _addLog(
-          '总计: ${_gameItems.length}, 成功: ${_stats.success}, 失败: ${_stats.failed}');
-      ref.invalidate(allGamesProvider);
-      ref.invalidate(favoriteGamesProvider);
-      ref.invalidate(playedGamesProvider);
+          '总计: ${_gameItems.length}, 已获取: ${_stats.success}, 失败: ${_stats.failed}');
     } catch (e) {
       _addLog('刮削出错: $e');
     } finally {
@@ -936,6 +1011,60 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
         });
       }
     }
+    if (mounted && !_cancelRequested) await _openReview();
+  }
+
+  Future<void> _openReview() async {
+    if (_isProcessing || _reviewOpen) return;
+    final items = ref.read(scrapeReviewItemsProvider);
+    if (items.isEmpty) return;
+    setState(() => _reviewOpen = true);
+    try {
+      await showScrapeReviewDialog(
+        context: context,
+        items: items,
+        mode: ScrapeMode.scraperCenter,
+        configs: ref.read(scrapeModeConfigsProvider),
+        repository: ref.read(gameRepositoryProvider),
+        tagRepository: ref.read(tagRepositoryProvider),
+        onChanged: () {
+          if (!mounted) return;
+          ref.read(scrapeReviewItemsProvider.notifier).state = [...items];
+          ref.invalidate(allGamesProvider);
+          ref.invalidate(favoriteGamesProvider);
+          ref.invalidate(playedGamesProvider);
+          ref.invalidate(allTagsProvider);
+          ref.invalidate(allSeriesProvider);
+          ref.invalidate(gamesByTagProvider);
+          setState(() {
+            for (final item in _gameItems) {
+              if (item.review != null) item.game = item.review!.game;
+            }
+          });
+        },
+      );
+    } finally {
+      if (mounted) setState(() => _reviewOpen = false);
+    }
+  }
+
+  void _storeReview(_GameScrapeItem item, {GameInfo? candidate, String? error}) {
+    if (!mounted) return;
+    final review = ScrapeReviewItem(game: item.game, candidate: candidate, fetchError: error);
+    item.review = review;
+    final previous = ref.read(scrapeReviewItemsProvider);
+    for (final entry in previous) {
+      if (path.equals(entry.game.path, item.game.path) &&
+          (entry.recoveryRequired || (!entry.applied && entry.canKeep &&
+              entry.decision != ScrapeReviewDecision.discard))) {
+        item.review = entry;
+        return;
+      }
+    }
+    ref.read(scrapeReviewItemsProvider.notifier).state = [
+      ...previous.where((entry) => !path.equals(entry.game.path, item.game.path)),
+      review,
+    ];
   }
 
   Future<CloudflareBrowserResult?> _showQueuedCloudflareBrowser(
@@ -944,7 +1073,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     bool Function(String html)? isHtmlReady,
   }) {
     final task = _browserFallbackTail.then((_) async {
-      if (!mounted) return null;
+      if (!mounted || _cancelRequested) return null;
       return resolveCloudflareBrowserPage(
         context: context,
         url: url,
@@ -956,8 +1085,8 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     return task;
   }
 
-  Future<void> _scrapeSingleGame(
-      int i, dynamic gameRepo, dynamic tagRepo) async {
+  Future<void> _scrapeSingleGame(int i) async {
+    if (!mounted || _cancelRequested) return;
     final item = _gameItems[i];
     final game = item.game;
 
@@ -971,8 +1100,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     _addLog('  URL: ${game.sourceUrl}');
 
     // 自定义域名替换：旧域名来源链接自动重写为已配置的论坛自定义域名
+    try {
     final sourceUrl =
         await ForumDomainUtils.resolveWithCustomDomain(game.sourceUrl!);
+    if (!mounted || _cancelRequested) return;
     if (sourceUrl != game.sourceUrl) {
       _addLog('  -> 已按自定义域名替换来源: $sourceUrl');
     }
@@ -981,29 +1112,24 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
     _addLog(
         '  解析器: ${parser?.runtimeType.toString().replaceAll("Parser", "") ?? "无匹配"}');
 
-    try {
-      if (game.id != null) {
-        await ref
-            .read(gameDataMigrationServiceProvider)
-            .migrateGameDirectory(game.path, gameId: game.id);
-      } else {
-        await ref
-            .read(gameDataMigrationServiceProvider)
-            .migrateGameDirectory(game.path);
-      }
-
       GameInfo? gameInfo;
-      final isDlsite = sourceUrl.contains('dlsite');
+      final isDlsite = DlsiteService.isDlsiteUrl(sourceUrl);
       final isSteam = sourceUrl.contains('steam');
-      if (await VikAcgService.supportsUrl(sourceUrl)) {
+      if (isDlsite) {
+        final dlsiteService = ref.read(dlsiteServiceProvider);
+        final id = dlsiteService.normalizeId(sourceUrl);
+        if (id != null) {
+          gameInfo = await dlsiteService.fetchById(id);
+        }
+      } else if (await VikAcgService.supportsUrl(sourceUrl)) {
         gameInfo = await _vikAcgService.fetchByUrl(sourceUrl);
         if (gameInfo != null) _addLog('  -> 维咔 API 获取成功');
       }
       http.Response? response;
       Map<String, String> headers = {};
-      if (gameInfo == null) {
-        final client = await createProxyClientFromPrefs(
-            domain: Uri.parse(sourceUrl).host);
+      if (gameInfo == null && !isDlsite) {
+        final client =
+            await createProxyClientFromPrefs(domain: Uri.parse(sourceUrl).host);
         try {
           headers = await buildScrapeHeaders(sourceUrl);
           response = await httpGetWithRetry(Uri.parse(sourceUrl),
@@ -1043,13 +1169,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       }
 
       if (html != null || gameInfo != null) {
-        if (gameInfo == null && isDlsite) {
-          final dlsiteService = ref.read(dlsiteServiceProvider);
-          final id = dlsiteService.normalizeId(sourceUrl);
-          if (id != null) {
-            gameInfo = await dlsiteService.fetchById(id);
-          }
-        } else if (gameInfo == null && isSteam) {
+        if (gameInfo == null && isSteam) {
           final steamService = ref.read(steamServiceProvider);
           final appidMatch = RegExp(r'/app/(\d+)').firstMatch(sourceUrl);
           if (appidMatch != null) {
@@ -1097,42 +1217,24 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
             }
           }
         }
-        if (gameInfo != null) {
-          item.translationNotices.clear();
-          final updated = await ScrapeApplyService.applyScrapeResult(
-            game: game,
-            gameInfo: gameInfo,
-            mode: ScrapeMode.scraperCenter,
-            repo: gameRepo,
-            tagRepo: tagRepo,
-            configs: ref.read(scrapeModeConfigsProvider),
-            sourceUrl: sourceUrl,
-            maxConcurrency: _threadCount,
-            onProgress: (current, total) {
-              if (mounted && total > 0) {
-                setState(() {
-                  item.progress = 0.5 + 0.4 * (current / total);
-                });
-              }
-            },
-            onLog: (message) => _addLog('  -> $message'),
-            onTranslationNotice: (message) {
-              item.translationNotices.add(message);
-              _addLog('  -> $message');
-            },
-          );
-          item.game = updated;
-          _addLog('  -> 成功: ${updated.title ?? "无标题"}');
+        if (gameInfo?.title?.trim().isNotEmpty == true) {
+          gameInfo!.sourceUrl = sourceUrl;
+          _storeReview(item, candidate: gameInfo);
+          _addLog('  -> 待确认: ${gameInfo.title}');
+          if (gameInfo.isDlsiteUserOnly) {
+            _addLog('  -> ${GameInfo.dlsiteUserOnlyNotice}');
+          }
           if (mounted) {
             setState(() {
               item.progress = 1.0;
-              item.status = '成功';
+              item.status = '待确认';
               _stats.success++;
               _stats.pending--;
             });
           }
         } else {
           _addLog('  -> 无匹配的解析器 (HTML已获取但无法解析)');
+          _storeReview(item, error: '未能从来源页面提取游戏标题，请检查来源链接');
           if (mounted) {
             setState(() {
               item.progress = 1.0;
@@ -1144,12 +1246,21 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
           }
         }
       } else {
-        _addLog('  -> HTTP ${response?.statusCode ?? 'API无结果'}');
+        _addLog(isDlsite
+            ? '  -> DLsite 未取得可保存资料'
+            : '  -> HTTP ${response?.statusCode ?? 'API无结果'}');
+        _storeReview(item,
+            error: isDlsite
+                ? 'DLsite 获取资料失败，请检查网络或稍后重试'
+                : '来源访问失败：HTTP ${response?.statusCode ?? '无结果'}');
         if (mounted) {
           setState(() {
             item.progress = 1.0;
-            item.status = 'HTTP${response?.statusCode ?? '失败'}';
-            item.error = response == null ? '来源未返回可用结果' : '来源返回 HTTP ${response.statusCode}';
+            item.status =
+                isDlsite ? '获取失败' : 'HTTP${response?.statusCode ?? '失败'}';
+            item.error = response == null
+                ? '来源未返回可用结果'
+                : '来源返回 HTTP ${response.statusCode}';
             _stats.failed++;
             _stats.pending--;
           });
@@ -1157,6 +1268,7 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
       }
     } catch (e) {
       _addLog('  -> 失败: $e');
+      _storeReview(item, error: e.toString());
       if (mounted) {
         setState(() {
           item.progress = 1.0;
@@ -1170,12 +1282,12 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   }
 
   void _cancelProcess() {
+    _cancelRequested = true;
     ref.read(scanCancelProvider.notifier).state = true;
     setState(() {
-      _isProcessing = false;
-      _processStatus = '已取消';
+      _processStatus = '正在停止';
     });
-    _addLog('用户取消了操作');
+    _addLog('正在停止，已发出的请求完成后可确认取得的结果');
   }
 
   Future<void> _editSourceUrl(_GameScrapeItem item) async {
@@ -1247,8 +1359,10 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   }
 
   void _addLog(String message) {
+    if (!mounted) return;
     setState(() {
       _logs.add('[${DateTime.now().toString().substring(11, 19)}] $message');
+      if (_logs.length > 1000) _logs.removeRange(0, _logs.length - 1000);
     });
     _scheduleLogScrollToBottom();
   }
