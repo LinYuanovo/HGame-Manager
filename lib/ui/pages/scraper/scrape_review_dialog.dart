@@ -23,7 +23,7 @@ Future<void> showScrapeReviewDialog({
   VoidCallback? onChanged,
 }) async {
   if (items.isEmpty) return;
-  await showDialog<void>(
+  await showAppDialog<void>(
     context: context,
     barrierDismissible: false,
     barrierColor: AppTheme.getDialogBarrierColor(context),
@@ -72,33 +72,6 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
       LayoutConstants.controlHeight +
       MediaQuery.textScalerOf(context).scale(GlassConstants.fontControl) -
       GlassConstants.fontControl;
-
-  ButtonStyle get _buttonStyle => ButtonStyle(
-        minimumSize: WidgetStatePropertyAll(Size(0, _controlHeight)),
-        padding: const WidgetStatePropertyAll(
-            EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium)),
-        textStyle: WidgetStatePropertyAll(Theme.of(context).textTheme.labelLarge),
-        shape: const WidgetStatePropertyAll(RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(
-                Radius.circular(GlassConstants.radiusMedium)))),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.standard,
-      );
-
-  ButtonStyle get _selectionButtonStyle => _buttonStyle.merge(
-        OutlinedButton.styleFrom(
-          foregroundColor: AppTheme.getPrimaryColor(context),
-          side: BorderSide(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3)),
-        ),
-      );
-
-  ButtonStyle get _iconButtonStyle => IconButton.styleFrom(
-        minimumSize: Size.square(_controlHeight),
-        padding: EdgeInsets.zero,
-        iconSize: GlassConstants.iconControl,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.standard,
-      );
 
   ScrapeReviewItem get _active => widget.items[_activeIndex];
   bool get _locked => _busy || _pickingFolder;
@@ -285,11 +258,10 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
                           style: TextStyle(
                             color: AppTheme.getTextPrimary(context),
                             fontSize: GlassConstants.fontHeading,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: AppTypography.bold,
                           )),
                     ),
                     IconButton(
-                      style: _iconButtonStyle,
                       tooltip: '关闭，稍后继续确认',
                       onPressed: _locked ? null : () => Navigator.pop(context),
                       icon: const Icon(Icons.close),
@@ -373,12 +345,10 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
                           fontSize: GlassConstants.fontBody,
                         )),
                     TextButton(
-                      style: _buttonStyle,
                       onPressed: _locked ? null : () => Navigator.pop(context),
                       child: const Text('稍后继续'),
                     ),
                     FilledButton.icon(
-                      style: _buttonStyle,
                       key: const ValueKey('save-reviewed-results'),
                       onPressed: _locked || _saveCount == 0 ? null : _save,
                       icon: const Icon(Icons.save_outlined,
@@ -407,7 +377,8 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
               fontSize: GlassConstants.fontBody,
             )),
         OutlinedButton(
-          style: _selectionButtonStyle,
+          style: AppButtonStyles.outline(
+              color: AppTheme.getPrimaryColor(context)),
           onPressed: _locked
               ? null
               : () => setState(() {
@@ -417,16 +388,13 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
           child: const Text('全选'),
         ),
         OutlinedButton(
-          style: _buttonStyle.merge(OutlinedButton.styleFrom(
-            foregroundColor: AppTheme.warningColor,
-            side: BorderSide(
-                color: AppTheme.warningColor.withValues(alpha: 0.3)),
-          )),
+          style: AppButtonStyles.outline(color: AppTheme.warningColor),
           onPressed: _locked ? null : () => setState(() => _selected.clear()),
           child: const Text('清空选择'),
         ),
         OutlinedButton(
-          style: _selectionButtonStyle,
+          style: AppButtonStyles.outline(
+              color: AppTheme.getPrimaryColor(context)),
           onPressed: _locked
               ? null
               : () => setState(() {
@@ -441,7 +409,8 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
           child: const Text('选择放弃和失败项'),
         ),
         OutlinedButton(
-          style: _selectionButtonStyle,
+          style: AppButtonStyles.outline(
+              color: AppTheme.getPrimaryColor(context)),
           onPressed: _locked ||
                   _selected.every((item) => item.applied || !item.canKeep)
               ? null
@@ -449,7 +418,8 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
           child: const Text('保留所选'),
         ),
         OutlinedButton(
-          style: _selectionButtonStyle,
+          style: AppButtonStyles.outline(
+              color: AppTheme.getPrimaryColor(context)),
           onPressed: _locked || _selected.every((item) => item.applied)
               ? null
               : () => _decide(_selected, ScrapeReviewDecision.discard),
@@ -519,7 +489,6 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
         Row(
           children: [
             IconButton(
-              style: _iconButtonStyle,
               tooltip: '上一项',
               onPressed: _locked || _activeIndex == 0
                   ? null
@@ -531,7 +500,6 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
                     '${_activeIndex + 1}/${widget.items.length} · ${item.status}',
                     textAlign: TextAlign.center)),
             IconButton(
-              style: _iconButtonStyle,
               tooltip: '下一项',
               onPressed: _locked || _activeIndex == widget.items.length - 1
                   ? null
@@ -597,7 +565,7 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
                         style: TextStyle(
                           color: AppTheme.getTextPrimary(context),
                           fontSize: GlassConstants.fontBody,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: AppTypography.semibold,
                         )),
                     const SizedBox(height: GlassConstants.spacingSmall),
                     SizedBox(
@@ -633,14 +601,12 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
           children: [
             if (!item.applied && item.decision != ScrapeReviewDecision.pending)
               TextButton(
-                style: _buttonStyle,
                 onPressed: _locked
                     ? null
                     : () => _decide([item], ScrapeReviewDecision.pending),
                 child: const Text('重新判断'),
               ),
             OutlinedButton(
-              style: _buttonStyle,
               key: const ValueKey('discard-review-item'),
               onPressed: _locked || item.applied || item.recoveryRequired
                   ? null
@@ -648,7 +614,6 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
               child: const Text('放弃此项'),
             ),
             FilledButton(
-              style: _buttonStyle,
               key: const ValueKey('keep-review-item'),
               onPressed: _locked ||
                       item.applied ||
@@ -728,14 +693,12 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          style: _iconButtonStyle,
           tooltip: '选择目标文件夹',
           onPressed: _locked ? null : _pickDestination,
           icon: const Icon(Icons.folder_open),
         ),
         const SizedBox(width: GlassConstants.spacingSmall),
         OutlinedButton(
-          style: _buttonStyle,
           key: const ValueKey('move-reviewed-games'),
           onPressed: _locked || _selected.isEmpty ? null : _move,
           child: Text('移动所选（${_selected.length}）'),

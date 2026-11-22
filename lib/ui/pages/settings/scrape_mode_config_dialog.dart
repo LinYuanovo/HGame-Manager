@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/scrape_mode_config.dart';
 import '../../../core/providers/providers.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/selection_surface.dart';
 
 class ScrapeModeConfigDialog extends ConsumerStatefulWidget {
   const ScrapeModeConfigDialog({super.key});
@@ -13,14 +14,14 @@ class ScrapeModeConfigDialog extends ConsumerStatefulWidget {
 
 class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
     with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+  late AppTabController _tabController;
 
   static const _tabLabels = ['快速刮削', '重新刮削', '刮削中心', '单个添加', '批量添加'];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: ScrapeMode.values.length, vsync: this);
+    _tabController = AppTabController(length: ScrapeMode.values.length, vsync: this);
     _tabController.addListener(_onTabChanged);
   }
 
@@ -52,6 +53,7 @@ class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
 
   @override
   Widget build(BuildContext context) {
+    _tabController.reducedMotion = AppMotion.reduced(context);
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
@@ -85,7 +87,7 @@ class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
             '刮削行为配置',
             style: TextStyle(
               fontSize: GlassConstants.fontHeading,
-              fontWeight: FontWeight.bold,
+              fontWeight: AppTypography.bold,
               color: AppTheme.getTextPrimary(context),
             ),
           ),
@@ -107,12 +109,14 @@ class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
         color: AppTheme.getBackgroundColor(context),
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
       ),
-      child: Row(
+      child: SelectionSurface(index: _tabController.index,
+        decoration: BoxDecoration(color: AppTheme.getPrimaryColor(context).withValues(alpha: .15), borderRadius: BorderRadius.circular(GlassConstants.radiusSmall)),
+        child: Row(
         children: List.generate(
           ScrapeMode.values.length,
           (index) => Expanded(child: _buildTabItem(index, _tabLabels[index])),
         ),
-      ),
+      )),
     );
   }
 
@@ -121,7 +125,8 @@ class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
     return _TabItemWidget(
       label: label,
       isSelected: isSelected,
-      onTap: () => _tabController.animateTo(index),
+      onTap: () => _tabController.animateTo(index,
+          duration: AppMotion.duration(context, AppMotion.medium)),
     );
   }
 
@@ -145,10 +150,6 @@ class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
           const SizedBox(width: GlassConstants.spacingCompact),
           ElevatedButton(
             onPressed: _saveAndClose,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.getPrimaryColor(context),
-              foregroundColor: AppTheme.getOnPrimaryColor(context),
-            ),
             child: const Text('保存'),
           ),
         ],
@@ -184,12 +185,10 @@ class _TabItemWidgetState extends State<_TabItemWidget> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: GlassConstants.animFast,
+          duration: AppMotion.duration(context, GlassConstants.animFast),
           padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingInline),
           decoration: BoxDecoration(
-            color: widget.isSelected
-                ? AppTheme.getPrimaryColor(context)
-                : _isHovered
+            color: _isHovered
                     ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.08)
                     : Colors.transparent,
             borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
@@ -198,8 +197,8 @@ class _TabItemWidgetState extends State<_TabItemWidget> {
           child: Text(
             widget.label,
             style: TextStyle(
-              color: widget.isSelected ? AppTheme.getOnPrimaryColor(context) : AppTheme.getTextSecondary(context),
-              fontWeight: widget.isSelected ? FontWeight.w500 : FontWeight.normal,
+              color: widget.isSelected ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context),
+              fontWeight: widget.isSelected ? AppTypography.medium : AppTypography.regular,
             ),
           ),
         ),

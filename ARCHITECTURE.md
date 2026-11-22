@@ -517,9 +517,9 @@ class GlassConstants {
   static const double blurLarge = 30.0;
 
   // 动画
-  static const Duration animFast = Duration(milliseconds: 200);
-  static const Duration animMedium = Duration(milliseconds: 300);
-  static const Duration animSlow = Duration(milliseconds: 400);
+  static const Duration animFast = AppMotion.fast;
+  static const Duration animMedium = AppMotion.medium;
+  static const Duration animSlow = AppMotion.slow;
 }
 ```
 

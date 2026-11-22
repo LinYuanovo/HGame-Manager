@@ -96,7 +96,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
         child: Column(
           children: [
             _buildHeader(),
-            Expanded(child: _loading ? const Center(child: CircularProgressIndicator()) : _buildList()),
+            Expanded(child: _loading ? const AppSkeleton(label: '正在加载页面配置') : _buildList()),
             _buildActions(),
           ],
         ),
@@ -115,7 +115,7 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
             '侧边栏页面管理',
             style: TextStyle(
               fontSize: GlassConstants.fontHeading,
-              fontWeight: FontWeight.bold,
+              fontWeight: AppTypography.bold,
               color: AppTheme.getTextPrimary(context),
             ),
           ),
@@ -252,10 +252,6 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
                 AppTheme.showGlassToast(context, message: '侧边栏配置已保存', icon: Icons.check_circle, iconColor: AppTheme.successColor);
               }
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.getPrimaryColor(context),
-              foregroundColor: AppTheme.getOnPrimaryColor(context),
-            ),
             child: const Text('保存'),
           ),
         ],

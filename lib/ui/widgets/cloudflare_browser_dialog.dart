@@ -140,7 +140,7 @@ Future<CloudflareBrowserResult?> showCloudflareBrowserDialog({
   _log.info('WebView', '[ExternalBrowser] starting url=' + url);
   final session = await _ExternalBrowserSession.start(url, headers);
   if (session == null || !context.mounted) return null;
-  final result = await showDialog<CloudflareBrowserResult>(
+  final result = await showAppDialog<CloudflareBrowserResult>(
     context: context,
     barrierDismissible: false,
     builder: (dialogContext) => Dialog(
@@ -444,7 +444,7 @@ class _ExternalBrowserDialogState extends State<_ExternalBrowserDialog> {
                 style: TextStyle(
                   color: AppTheme.getTextPrimary(context),
                   fontSize: GlassConstants.fontSection,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: AppTypography.bold,
                 )),
             const SizedBox(height: GlassConstants.spacingCompact),
             Text(
@@ -475,7 +475,7 @@ class _ExternalBrowserDialogState extends State<_ExternalBrowserDialog> {
                       ? const SizedBox(
                           width: 14,
                           height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: AppProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.check_circle_outline, size: GlassConstants.iconSmall),
                   label: Text(_reading ? '读取中' : '使用当前页面'),
@@ -785,7 +785,7 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
                     style: TextStyle(
                       color: AppTheme.getTextPrimary(context),
                       fontSize: GlassConstants.fontHeading,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: AppTypography.bold,
                     ),
                   ),
                 ),
@@ -880,18 +880,14 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
                       ? SizedBox(
                           width: 14,
                           height: 14,
-                          child: CircularProgressIndicator(
+                          child: AppProgressIndicator(
                             strokeWidth: 2,
                             color: AppTheme.getPrimaryColor(context),
                           ),
                         )
                       : const Icon(Icons.check_circle_outline, size: GlassConstants.iconSmall),
                   label: Text(_isReadingHtml ? '读取中' : '使用当前页面'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.getPrimaryColor(context)
-                        .withValues(alpha: 0.15),
-                    foregroundColor: AppTheme.getPrimaryColor(context),
-                  ),
+                  style: AppButtonStyles.tinted(context),
                 ),
               ],
             ),

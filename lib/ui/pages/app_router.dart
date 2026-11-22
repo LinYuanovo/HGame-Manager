@@ -1,4 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/providers/providers.dart';
+import '../../core/utils/app_settings.dart';
 import '../../core/services/app_logger.dart';
 import '../theme/app_theme.dart';
 import 'games/games_page.dart';
@@ -61,23 +65,45 @@ enum NavRoute {
   }
 }
 
+final visibleSidebarRoutesProvider = Provider<List<NavRoute>>((ref) {
+  ref.watch(sidebarRefreshProvider);
+  final raw = ref.watch(sharedPreferencesProvider).getString(AppSettings.sidebarConfigKey);
+  final defaults = NavRoute.values.where((route) => route != NavRoute.settings);
+  if (raw == null || raw.isEmpty) return defaults.toList();
+  try {
+    final entries = (jsonDecode(raw) as List).cast<Map<String, dynamic>>().toList()
+      ..sort((first, second) => ((first['order'] as int?) ?? 0).compareTo((second['order'] as int?) ?? 0));
+    final remaining = {for (final route in defaults) route.name: route};
+    final routes = <NavRoute>[];
+    for (final entry in entries) {
+      final route = remaining.remove(entry['routeName']);
+      if (route != null && entry['visible'] != false) routes.add(route);
+    }
+    return [...routes, ...remaining.values];
+  } catch (error) {
+    debugPrint('[Sidebar] 加载侧边栏配置失败: $error');
+    return defaults.toList();
+  }
+});
+
 class AppRouter extends StatefulWidget {
   final int selectedIndex;
+  final List<NavRoute> routeOrder;
 
-  const AppRouter({super.key, required this.selectedIndex});
+  const AppRouter({super.key, required this.selectedIndex, this.routeOrder = NavRoute.values});
 
   @override
   State<AppRouter> createState() => _AppRouterState();
 
-  static Widget getCurrentPage(int selectedIndex) {
-    return AppRouter(selectedIndex: selectedIndex);
+  static Widget getCurrentPage(int selectedIndex, {List<NavRoute> routeOrder = NavRoute.values}) {
+    return AppRouter(selectedIndex: selectedIndex, routeOrder: routeOrder);
   }
 
   static List<NavRoute> getAllRoutes() => NavRoute.values;
 }
 
 class _AppRouterState extends State<AppRouter> {
-  int _previousIndex = 0;
+  bool _isForward = true;
 
   @override
   void initState() {
@@ -89,6 +115,9 @@ class _AppRouterState extends State<AppRouter> {
   void didUpdateWidget(covariant AppRouter oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedIndex != widget.selectedIndex) {
+      final previous = widget.routeOrder.indexOf(NavRoute.fromIndex(oldWidget.selectedIndex));
+      final next = widget.routeOrder.indexOf(NavRoute.fromIndex(widget.selectedIndex));
+      _isForward = next >= previous;
       AppLogger.instance.info('Navigation', '切换页面: ${NavRoute.fromIndex(widget.selectedIndex).label}');
     }
   }
@@ -96,26 +125,8 @@ class _AppRouterState extends State<AppRouter> {
   @override
   Widget build(BuildContext context) {
     final page = NavRoute.fromIndex(widget.selectedIndex).buildPage();
-    final isForward = widget.selectedIndex >= _previousIndex;
-    _previousIndex = widget.selectedIndex;
-
-    return AnimatedSwitcher(
-      duration: GlassConstants.animMedium,
-      switchInCurve: GlassConstants.animCurve,
-      switchOutCurve: GlassConstants.animCurve,
-      transitionBuilder: (child, animation) {
-        final offsetAnimation = Tween<Offset>(
-          begin: Offset(isForward ? 0.03 : -0.03, 0),
-          end: Offset.zero,
-        ).animate(animation);
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(
-            position: offsetAnimation,
-            child: child,
-          ),
-        );
-      },
+    return AppContentSwitcher(
+      direction: _isForward ? 1 : -1,
       child: KeyedSubtree(
         key: ValueKey(widget.selectedIndex),
         child: page,

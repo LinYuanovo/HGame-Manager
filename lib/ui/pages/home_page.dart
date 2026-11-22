@@ -53,15 +53,16 @@ class _HomePageState extends ConsumerState<HomePage> {
       );
       return;
     }
-    final prefs = ref.read(sharedPreferencesProvider);
-    final userFont = prefs.getString('font_family') ?? '';
     showGlassDialog(
       context: context,
       child: BatchImportDialog(
+        onLocate: (id) {
+          ref.read(libraryLocationProvider.notifier).state = id;
+          ref.read(selectedNavIndexProvider.notifier).state = NavRoute.games.navIndex;
+        },
         onImportComplete: () {
           ref.invalidate(allGamesProvider);
         },
-        userFont: userFont,
         initialFolderPaths: result.folderPaths,
         presetKeywords: result.presetKeywords,
       ),
@@ -92,7 +93,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                         selectedIndex: selectedIndex,
                       ),
                       Expanded(
-                        child: AppRouter.getCurrentPage(selectedIndex),
+                        child: AppRouter.getCurrentPage(
+                          selectedIndex,
+                          routeOrder: ref.watch(visibleSidebarRoutesProvider),
+                        ),
                       ),
                     ],
                   ),
@@ -134,7 +138,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                               '松开以添加游戏文件夹 / exe',
                               style: TextStyle(
                                 fontSize: GlassConstants.fontBodyLarge,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: AppTypography.semibold,
                                 color: AppTheme.getTextPrimary(context),
                                 decoration: TextDecoration.none,
                               ),

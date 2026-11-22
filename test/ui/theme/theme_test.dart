@@ -16,13 +16,37 @@ void main() {
         FilledButton(onPressed: () {}, child: const Text('填充按钮')),
       ]))));
       for (final label in ['文本按钮', '描边按钮', '提升按钮', '填充按钮']) {
-        final style = DefaultTextStyle.of(tester.element(find.text(label))).style;
+        final text = find.text(label);
+        final style = DefaultTextStyle.of(tester.element(text)).style;
         expect(style.fontFamily, '自定义字体');
         expect(style.fontSize, GlassConstants.fontControl);
+        expect(
+            find.ancestor(of: text, matching: find.byType(AppControlScale)),
+            findsOneWidget);
       }
       expect(theme.popupMenuTheme.textStyle!.fontFamily, '自定义字体');
+      expect(theme.appBarTheme.titleTextStyle?.fontFamily, '自定义字体');
+      expect(theme.textTheme.labelLarge!.fontSize, GlassConstants.fontControl);
       expect(theme.textTheme.labelMedium!.fontSize, GlassConstants.fontSmall);
       expect(theme.textTheme.labelSmall!.fontSize, GlassConstants.fontCaption);
+    }
+  });
+
+  test('语义实色按钮前景与背景对比度至少为 4.5', () {
+    for (final color in [
+      AppTheme.errorColor,
+      AppTheme.successColor,
+      AppTheme.warningColor,
+      AppTheme.starColor,
+      AppTheme.secondaryColor,
+    ]) {
+      final style = AppButtonStyles.solid(color: color);
+      final background = color.computeLuminance();
+      final foreground = style.foregroundColor!.resolve({})!.computeLuminance();
+      final ratio = background > foreground
+          ? (background + .05) / (foreground + .05)
+          : (foreground + .05) / (background + .05);
+      expect(ratio, greaterThanOrEqualTo(4.5));
     }
   });
 

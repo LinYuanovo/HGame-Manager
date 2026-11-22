@@ -32,7 +32,7 @@ Future<AppUpdatePromptAction?> showAppUpdatePrompt(
               '发现新版本',
               style: textTheme.titleMedium?.copyWith(
                 color: AppTheme.getTextPrimary(context),
-                fontWeight: FontWeight.w600,
+                fontWeight: AppTypography.semibold,
               ),
             ),
             const SizedBox(height: GlassConstants.spacingInline),
@@ -41,7 +41,7 @@ Future<AppUpdatePromptAction?> showAppUpdatePrompt(
               '最新版本：v${result.latestEntry?.version ?? result.currentVersion}',
               style: textTheme.bodyMedium?.copyWith(
                 color: AppTheme.getTextSecondary(context),
-                height: 1.5,
+                height: AppTypography.bodyHeight,
               ),
             ),
             const SizedBox(height: GlassConstants.spacingMedium),
@@ -49,7 +49,7 @@ Future<AppUpdatePromptAction?> showAppUpdatePrompt(
               '更新日志',
               style: textTheme.titleSmall?.copyWith(
                 color: AppTheme.getTextPrimary(context),
-                fontWeight: FontWeight.w600,
+                fontWeight: AppTypography.semibold,
               ),
             ),
             const SizedBox(height: GlassConstants.spacingSmall),
@@ -114,7 +114,7 @@ Widget _buildChangelogEntry(BuildContext context, ChangelogEntry entry) {
               : 'v${entry.version} (${entry.date})',
           style: textTheme.bodySmall?.copyWith(
             color: primaryColor,
-            fontWeight: FontWeight.w600,
+            fontWeight: AppTypography.semibold,
           ),
         ),
         const SizedBox(height: GlassConstants.spacingSmall),
@@ -124,15 +124,15 @@ Widget _buildChangelogEntry(BuildContext context, ChangelogEntry entry) {
           styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
             p: textTheme.bodySmall?.copyWith(
               color: secondaryColor,
-              height: 1.5,
+              height: AppTypography.bodyHeight,
             ),
             h3: textTheme.titleSmall?.copyWith(
               color: primaryColor,
-              fontWeight: FontWeight.w600,
+              fontWeight: AppTypography.semibold,
             ),
             strong: textTheme.bodySmall?.copyWith(
               color: primaryColor,
-              fontWeight: FontWeight.w700,
+              fontWeight: AppTypography.bold,
             ),
             listBullet: textTheme.bodySmall?.copyWith(
               color: secondaryColor,
@@ -170,7 +170,7 @@ Future<bool?> showAppUpdateFallbackDialog({
               title,
               style: textTheme.titleMedium?.copyWith(
                 color: AppTheme.getTextPrimary(context),
-                fontWeight: FontWeight.w600,
+                fontWeight: AppTypography.semibold,
               ),
             ),
             const SizedBox(height: GlassConstants.spacingControl),
@@ -178,7 +178,7 @@ Future<bool?> showAppUpdateFallbackDialog({
               message,
               style: textTheme.bodyMedium?.copyWith(
                 color: AppTheme.getTextSecondary(context),
-                height: 1.5,
+                height: AppTypography.bodyHeight,
               ),
             ),
             const SizedBox(height: GlassConstants.spacingSpacious),
@@ -238,11 +238,11 @@ Future<void> showAppUpdateDownloadProgress(
                   '正在下载更新 v$version',
                   style: textTheme.titleMedium?.copyWith(
                     color: AppTheme.getTextPrimary(context),
-                    fontWeight: FontWeight.w600,
+                    fontWeight: AppTypography.semibold,
                   ),
                 ),
                 const SizedBox(height: GlassConstants.spacingComfortable),
-                LinearProgressIndicator(
+                AppLinearProgress(
                   value: fraction,
                   minHeight: 6,
                   borderRadius: BorderRadius.circular(GlassConstants.radiusIndicator),
@@ -287,7 +287,7 @@ Future<bool?> showAppUpdateResumeDialog(
               '上次更新未完成',
               style: textTheme.titleMedium?.copyWith(
                 color: AppTheme.getTextPrimary(context),
-                fontWeight: FontWeight.w600,
+                fontWeight: AppTypography.semibold,
               ),
             ),
             const SizedBox(height: GlassConstants.spacingControl),
@@ -296,7 +296,7 @@ Future<bool?> showAppUpdateResumeDialog(
               '是否继续安装？（无需重新下载）',
               style: textTheme.bodyMedium?.copyWith(
                 color: AppTheme.getTextSecondary(context),
-                height: 1.5,
+                height: AppTypography.bodyHeight,
               ),
             ),
             const SizedBox(height: GlassConstants.spacingSpacious),

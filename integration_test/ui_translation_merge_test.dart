@@ -35,13 +35,16 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('整合：五种流程保留原文和分类，浅深色切换及诊断导出', (tester) async {
+    expect(Platform.isWindows, isTrue);
+    final dataDirectory =
+        await Directory.systemTemp.createTemp('hgm_merge_review_data_');
+    AppPaths.overrideRootDirForTesting(dataDirectory.path);
     final dataRoot = await AppPaths.rootDir;
-    final normalized = path.normalize(dataRoot).replaceAll('\\', '/');
-    expect(normalized.contains('/build/windows/x64/runner/Debug/'), isTrue);
+    expect(path.normalize(dataRoot), path.normalize(dataDirectory.path));
     expect(await File(await AppPaths.databaseFile).exists(), isFalse,
-        reason: '验收必须使用独立且为空的构建数据目录');
+        reason: '验收必须使用隔离的临时数据库');
     expect(await Directory(dataRoot).list().isEmpty, isTrue,
-        reason: '验收数据目录必须为空，保留已有设置和其他文件');
+        reason: '验收数据目录必须为空');
     final temporary =
         await Directory.systemTemp.createTemp('hgm_merge_review_');
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -391,6 +394,7 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       await DatabaseHelper.close();
       await settings.flush();
+      AppSettings.invalidateCache();
       await logger.flush();
       await server.close(force: true);
       final resolvedTemporary = path.normalize(path.absolute(temporary.path));
@@ -398,13 +402,16 @@ void main() {
           !path.basename(resolvedTemporary).startsWith('hgm_merge_review_')) {
         throw StateError('临时目录超出验收范围');
       }
-      final expectedDataRoot = path.join(File(Platform.resolvedExecutable).parent.path, 'hgame_manager_data');
-      if (!path.equals(path.normalize(dataRoot), path.normalize(expectedDataRoot)) ||
-          !path.normalize(dataRoot).replaceAll('\\', '/').contains('/build/windows/x64/runner/Debug/')) {
+      final resolvedDataRoot = path.normalize(path.absolute(dataRoot));
+      if (!path.isWithin(
+              path.normalize(path.absolute(Directory.systemTemp.path)),
+              resolvedDataRoot) ||
+          !path.basename(resolvedDataRoot).startsWith('hgm_merge_review_data_')) {
         throw StateError('数据目录超出验收范围');
       }
+      AppPaths.overrideRootDirForTesting(null);
+      await dataDirectory.delete(recursive: true);
       await temporary.delete(recursive: true);
-      await Directory(dataRoot).delete(recursive: true);
     }
   });
 }

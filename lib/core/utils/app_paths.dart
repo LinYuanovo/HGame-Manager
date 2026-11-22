@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as path;
 
 /// Centralized path management for all app data.
@@ -6,6 +7,11 @@ import 'package:path/path.dart' as path;
 /// everything self-contained in the installation directory.
 class AppPaths {
   static String? _rootDir;
+
+  @visibleForTesting
+  static void overrideRootDirForTesting(String? rootDir) {
+    _rootDir = rootDir;
+  }
 
   /// Root data directory: <exe_dir>/hgame_manager_data/
   static Future<String> get rootDir async {

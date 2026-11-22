@@ -1,9 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'selection_surface.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../controllers/sidebar_controller.dart';
 import '../../core/providers/providers.dart';
-import '../../core/utils/app_settings.dart';
 import '../theme/app_theme.dart';
 import '../pages/app_router.dart';
 import '../pages/settings/settings_page.dart';
@@ -24,61 +23,7 @@ class SidebarWidget extends ConsumerStatefulWidget {
 }
 
 class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
-  List<NavRoute> _visibleRoutes = NavRoute.values.where((r) => r != NavRoute.settings).toList();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSidebarConfig();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-  }
-
-  Future<void> _loadSidebarConfig() async {
-    final prefs = await AppSettings.load();
-    final raw = prefs.getString(AppSettings.sidebarConfigKey);
-    if (raw == null || raw.isEmpty) {
-      return;
-    }
-
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final configs = list.map((m) => _SidebarEntry.fromJson(m as Map<String, dynamic>)).toList();
-      configs.sort((a, b) => a.order.compareTo(b.order));
-
-      final routeMap = {for (final r in NavRoute.values) r.name: r};
-      final visible = <NavRoute>[];
-      for (final cfg in configs) {
-        if (!cfg.visible) continue;
-        final route = routeMap[cfg.routeName];
-        if (route != null && route != NavRoute.settings) {
-          visible.add(route);
-        }
-      }
-
-      for (final r in NavRoute.values) {
-        if (r == NavRoute.settings) continue;
-        if (!visible.contains(r)) {
-          final cfg = configs.firstWhere(
-            (c) => c.routeName == r.name,
-            orElse: () => _SidebarEntry(routeName: r.name, visible: true, order: 999),
-          );
-          if (cfg.visible) visible.add(r);
-        }
-      }
-
-      if (mounted) {
-        setState(() {
-          _visibleRoutes = visible;
-        });
-      }
-    } catch (e) {
-      debugPrint('[Sidebar] 加载侧边栏配置失败: $e');
-    }
-  }
+  bool _isResizing = false;
 
   @override
   Widget build(BuildContext context) {
@@ -87,15 +32,23 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
     final playedCount = ref.watch(playedGamesProvider.select((a) => a.valueOrNull?.length));
     final clearedCount = ref.watch(clearedGamesProvider.select((a) => a.valueOrNull?.length));
 
-    ref.listen<int>(sidebarRefreshProvider, (prev, next) {
-      if (prev != null && prev != next) {
-        _loadSidebarConfig();
-      }
-    });
+    final routes = ref.watch(visibleSidebarRoutesProvider);
+    final slot = routes.indexOf(NavRoute.fromIndex(widget.selectedIndex));
+    final decoration = BoxDecoration(
+      borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+      gradient: LinearGradient(colors: [
+        AppTheme.getPrimaryColor(context).withValues(alpha: 0.2),
+        AppTheme.getSecondaryColor(context).withValues(alpha: 0.2),
+      ]),
+      border: Border.all(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.4)),
+    );
 
     return MouseRegion(
       cursor: SystemMouseCursors.resizeColumn,
       child: GestureDetector(
+        onHorizontalDragStart: (_) => setState(() => _isResizing = true),
+        onHorizontalDragEnd: (_) => setState(() => _isResizing = false),
+        onHorizontalDragCancel: () => setState(() => _isResizing = false),
         onHorizontalDragUpdate: (details) {
           widget.controller.updateWidth(details.delta.dx);
         },
@@ -103,7 +56,8 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
           listenable: widget.controller,
           builder: (context, _) {
             return AnimatedContainer(
-                  duration: GlassConstants.animMedium,
+                  duration: _isResizing ? Duration.zero
+                      : AppMotion.duration(context, GlassConstants.animMedium),
                   curve: GlassConstants.animCurve,
                   width: widget.controller.width,
                   decoration: BoxDecoration(
@@ -117,7 +71,10 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                    child: Column(
                     children: [
                       const SizedBox(height: GlassConstants.spacingMedium),
-                      ..._visibleRoutes.map((route) {
+                      Expanded(child: SingleChildScrollView(child: SelectionSurface(
+                        index: slot, decoration: decoration,
+                        insets: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingMicro),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: routes.map((route) {
                         int? count;
                         if (route == NavRoute.games) {
                           count = gameCount;
@@ -134,8 +91,8 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                           fontSize: fontSize,
                           ref: ref,
                         );
-                      }),
-                      const Spacer(),
+                      }).toList()),
+                      ))),
                       _buildToggleButton(fontSize: fontSize),
                       _buildNavItem(
                         context: context,
@@ -165,7 +122,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
           onTap: () => widget.controller.toggle(),
           child: AnimatedContainer(
-            duration: GlassConstants.animFast,
+            duration: AppMotion.duration(context, GlassConstants.animFast),
             curve: GlassConstants.animCurve,
             padding: EdgeInsets.symmetric(
               horizontal: widget.controller.isExpanded ? GlassConstants.spacingMedium : 0,
@@ -194,7 +151,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                       style: TextStyle(
                         color: AppTheme.getTextPrimary(context),
                         fontSize: fontSize,
-                        fontWeight: FontWeight.w400,
+                        fontWeight: AppTypography.regular,
                       ),
                     ),
                   ),
@@ -215,9 +172,14 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
     double fontSize = GlassConstants.fontControl,
     required WidgetRef ref,
   }) {
-    final isSelected = route.index == selectedIndex;
+    final isSelected = route.navIndex == selectedIndex;
 
-    return Padding(
+    return Semantics(
+      key: ValueKey(route),
+      button: true,
+      selected: route == NavRoute.settings ? null : isSelected,
+      label: widget.controller.isExpanded ? null : route.label,
+      child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingMicro),
       child: Material(
         color: Colors.transparent,
@@ -232,41 +194,24 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
             }
           },
           child: AnimatedContainer(
-            duration: GlassConstants.animFast,
+            duration: AppMotion.duration(context, GlassConstants.animFast),
             curve: GlassConstants.animCurve,
             padding: EdgeInsets.symmetric(
               horizontal: widget.controller.isExpanded ? GlassConstants.spacingMedium : 0,
               vertical: GlassConstants.spacingCompact,
-            ),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-              gradient: isSelected
-                  ? LinearGradient(
-                      colors: [
-                        AppTheme.getPrimaryColor(context).withValues(alpha: 0.2),
-                        AppTheme.getSecondaryColor(context).withValues(alpha: 0.2),
-                      ],
-                    )
-                  : null,
-              color: isSelected ? null : Colors.transparent,
-              border: Border.all(
-                color: isSelected
-                    ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.4)
-                    : Colors.transparent,
-              ),
             ),
             child: Row(
               mainAxisAlignment: widget.controller.isExpanded
                   ? MainAxisAlignment.start
                   : MainAxisAlignment.center,
               children: [
-                Icon(
+                AppSelectedMark(selected: isSelected, child: Icon(
                   isSelected ? route.selectedIcon : route.icon,
                   color: isSelected
                       ? AppTheme.getPrimaryColor(context)
                       : AppTheme.getTextPrimary(context),
                   size: GlassConstants.iconSection,
-                ),
+                )),
                 if (widget.controller.isExpanded) ...[
                   const SizedBox(width: GlassConstants.spacingCompact),
                   Flexible(
@@ -278,7 +223,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                             ? AppTheme.getPrimaryColor(context)
                             : AppTheme.getCardTitleColor(context),
                         fontSize: fontSize,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: isSelected ? AppTypography.semibold : AppTypography.regular,
                       ),
                     ),
                   ),
@@ -310,7 +255,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                                 : AppTheme.getTextPrimary(context),
                             fontSize: (fontSize * 0.78).clamp(
                                 GlassConstants.fontMicro, GlassConstants.fontControl),
-                            fontWeight: FontWeight.w600,
+                            fontWeight: AppTypography.semibold,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -322,22 +267,6 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _SidebarEntry {
-  final String routeName;
-  final bool visible;
-  final int order;
-
-  _SidebarEntry({required this.routeName, required this.visible, required this.order});
-
-  factory _SidebarEntry.fromJson(Map<String, dynamic> json) {
-    return _SidebarEntry(
-      routeName: json['routeName'] as String,
-      visible: json['visible'] as bool? ?? true,
-      order: json['order'] as int? ?? 0,
-    );
+    ));
   }
 }

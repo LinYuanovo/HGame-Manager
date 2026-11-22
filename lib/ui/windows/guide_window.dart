@@ -6,7 +6,7 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:window_manager/window_manager.dart' hide WindowCaptionButton;
 
 import '../../core/utils/app_settings.dart';
 import '../../core/services/app_logger.dart';
@@ -14,6 +14,8 @@ import '../../core/utils/app_version.dart';
 import '../../core/utils/guide_window_state.dart';
 import '../../core/utils/media_reference_parser.dart';
 import '../theme/app_theme.dart';
+import '../widgets/window_caption_button.dart';
+import '../widgets/picture_motion.dart';
 
 /// 攻略浮窗子窗口入口。
 ///
@@ -96,7 +98,7 @@ bool _isHarmlessWindowsNoise(String message) {
       );
 }
 
-class GuideWindowApp extends StatelessWidget {
+class GuideWindowApp extends StatefulWidget {
   final String windowId;
   final Map<String, dynamic> arguments;
   final AppSettings prefs;
@@ -109,19 +111,39 @@ class GuideWindowApp extends StatelessWidget {
   });
 
   @override
+  State<GuideWindowApp> createState() => _GuideWindowAppState();
+}
+
+class _GuideWindowAppState extends State<GuideWindowApp> {
+  late final _reduceMotion = ValueNotifier<bool>(
+      widget.prefs.getBool(AppSettings.reduceMotionKey) ?? false);
+
+  @override
+  void dispose() {
+    _reduceMotion.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final fontFamily = prefs.getString('font_family') ?? '';
-    final isDark = prefs.getString(AppSettings.themeModeKey) == 'dark';
-    return MaterialApp(
-      title: '攻略',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme(fontFamily: fontFamily.isEmpty ? null : fontFamily),
-      darkTheme: AppTheme.darkTheme(fontFamily: fontFamily.isEmpty ? null : fontFamily),
-      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
-      home: GuideWindowPage(
-        windowId: windowId,
-        arguments: arguments,
-        fontSize: prefs.getDouble('detail_font_size') ?? GlassConstants.fontControl,
+    final fontFamily = widget.prefs.getString('font_family') ?? '';
+    final isDark = widget.prefs.getString(AppSettings.themeModeKey) == 'dark';
+    return ValueListenableBuilder<bool>(
+      valueListenable: _reduceMotion,
+      builder: (context, reduceMotion, _) => MaterialApp(
+        title: '攻略',
+        builder: (context, child) => AppMotionVisibility(
+            reduceMotion: reduceMotion, child: child!),
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme(fontFamily: fontFamily.isEmpty ? null : fontFamily),
+        darkTheme: AppTheme.darkTheme(fontFamily: fontFamily.isEmpty ? null : fontFamily),
+        themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+        home: GuideWindowPage(
+          windowId: widget.windowId,
+          arguments: widget.arguments,
+          fontSize: widget.prefs.getDouble('detail_font_size') ?? GlassConstants.fontControl,
+          onReduceMotionChanged: (value) => _reduceMotion.value = value,
+        ),
       ),
     );
   }
@@ -131,12 +153,14 @@ class GuideWindowPage extends StatefulWidget {
   final String windowId;
   final Map<String, dynamic> arguments;
   final double fontSize;
+  final ValueChanged<bool>? onReduceMotionChanged;
 
   const GuideWindowPage({
     super.key,
     required this.windowId,
     required this.arguments,
     required this.fontSize,
+    this.onReduceMotionChanged,
   });
 
   @override
@@ -246,6 +270,10 @@ class _GuideWindowPageState extends State<GuideWindowPage>
         case 'togglePin':
           await _togglePin();
           return true;
+        case 'setReduceMotion':
+          final args = (call.arguments as Map?)?.cast<String, dynamic>();
+          widget.onReduceMotionChanged?.call(args?['enabled'] as bool? ?? false);
+          return true;
         case 'closeWindow':
           unawaited(Future<void>.delayed(Duration.zero, _handleClose));
           return true;
@@ -263,11 +291,7 @@ class _GuideWindowPageState extends State<GuideWindowPage>
     final position = _scrollController.position;
     final target =
         (_scrollController.offset + delta).clamp(0.0, position.maxScrollExtent);
-    _scrollController.animateTo(
-      target,
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
-    );
+    AppMotion.scrollTo(context, _scrollController, target);
   }
 
   Future<void> _togglePin() async {
@@ -578,37 +602,37 @@ class _GuideWindowPageState extends State<GuideWindowPage>
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: GlassConstants.fontBody,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: AppTypography.semibold,
                   color: AppTheme.getTextPrimary(context),
                 ),
               ),
             ),
-            _TitleBarButton(
+            WindowCaptionButton(
               icon: Icons.tune,
               iconSize: GlassConstants.iconInline,
               tooltip: '透明度 / 文字大小',
               isActive: _settingsOpen,
               onPressed: _toggleSettingsPanel,
             ),
-            _TitleBarButton(
+            WindowCaptionButton(
               icon: _alwaysOnTop ? Icons.push_pin : Icons.push_pin_outlined,
               iconSize: GlassConstants.iconInline,
               tooltip: _alwaysOnTop ? '取消置顶' : '置顶',
               isActive: _alwaysOnTop,
               onPressed: _togglePin,
             ),
-            _TitleBarButton(
+            WindowCaptionButton(
               icon: Icons.remove,
               tooltip: '最小化',
               onPressed: () => windowManager.minimize(),
             ),
-            _TitleBarButton(
+            WindowCaptionButton(
               icon: _isMaximized ? Icons.filter_none : Icons.crop_square,
               iconSize: GlassConstants.iconBadge,
               tooltip: _isMaximized ? '还原' : '最大化',
               onPressed: _toggleMaximize,
             ),
-            _TitleBarButton(
+            WindowCaptionButton(
               icon: Icons.close,
               tooltip: '关闭',
               isClose: true,
@@ -647,7 +671,7 @@ class _GuideWindowPageState extends State<GuideWindowPage>
           textBuffer.join('\n'),
           style: TextStyle(
             fontSize: _fontSize,
-            height: 1.7,
+            height: AppTypography.readingHeight,
             color: AppTheme.getTextPrimary(context),
           ),
         ),
@@ -683,11 +707,13 @@ class _GuideWindowPageState extends State<GuideWindowPage>
     final image = isRemote
         ? Image.network(
             imagePath,
+            frameBuilder: appImageFrameBuilder,
             fit: BoxFit.contain,
             errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           )
         : Image.file(
             File(imagePath),
+            frameBuilder: appImageFrameBuilder,
             fit: BoxFit.contain,
             errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           );
@@ -697,67 +723,67 @@ class _GuideWindowPageState extends State<GuideWindowPage>
         alignment: Alignment.centerLeft,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-          child: image,
-        ),
-      ),
-    );
-  }
-}
-
-class _TitleBarButton extends StatefulWidget {
-  final IconData icon;
-  final VoidCallback onPressed;
-  final String tooltip;
-  final bool isClose;
-  final bool isActive;
-  final double iconSize;
-
-  const _TitleBarButton({
-    required this.icon,
-    required this.onPressed,
-    required this.tooltip,
-    this.isClose = false,
-    this.isActive = false,
-    this.iconSize = GlassConstants.iconSmall,
-  });
-
-  @override
-  State<_TitleBarButton> createState() => _TitleBarButtonState();
-}
-
-class _TitleBarButtonState extends State<_TitleBarButton> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: widget.tooltip,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTap: widget.onPressed,
-          child: AnimatedContainer(
-            duration: GlassConstants.animFast,
-            width: 40,
-            height: 40,
-            color: _isHovered
-                ? (widget.isClose
-                    ? AppTheme.accentColor.withValues(alpha: 0.8)
-                    : AppTheme.getSurfaceColor(context).withValues(alpha: 0.15))
-                : Colors.transparent,
-            child: Icon(
-              widget.icon,
-              size: widget.iconSize,
-              color: _isHovered && widget.isClose
-                  ? AppTheme.lightForegroundColor
-                  : widget.isActive
-                      ? AppTheme.getPrimaryColor(context)
-                      : AppTheme.getTextSecondary(context),
-            ),
+          child: PictureOrigin(
+            origins: _pictures,
+            identity: imagePath,
+            child: image,
+            onOpen: (tag) {
+              final viewport = MediaQuery.sizeOf(context);
+              final sourceBounds =
+                  _pictures.visibleBounds(imagePath, preferred: tag);
+              final imageSize = _pictures.intrinsicImageSize(
+                      imagePath, preferred: tag) ??
+                  sourceBounds?.size;
+              final targetBounds = imageSize == null
+                  ? null
+                  : pictureTargetRect(
+                      viewport,
+                      imageSize,
+                      Size(560, viewport.height * 0.8),
+                    );
+              final transitionDuration =
+                  sourceBounds == null || targetBounds == null
+                      ? null
+                      : pictureFlightDuration(
+                          sourceBounds,
+                          targetBounds,
+                          minimum:
+                              AppMotion.duration(context, AppMotion.medium),
+                        );
+              final reverseTransitionDuration =
+                  sourceBounds == null || targetBounds == null
+                      ? null
+                      : pictureFlightDuration(
+                          sourceBounds,
+                          targetBounds,
+                          minimum: AppMotion.duration(context, AppMotion.fast),
+                        );
+              showPictureDialog<void>(
+                context,
+                (dialogContext) => Dialog(
+                  child: Stack(children: [
+                    Center(
+                        child: InteractiveViewer(
+                            child: pictureHero(dialogContext, tag, image))),
+                    Positioned(
+                      top: GlassConstants.spacingSmall,
+                      right: GlassConstants.spacingSmall,
+                      child: IconButton(
+                        tooltip: '关闭图片',
+                        onPressed: () => Navigator.pop(dialogContext),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ),
+                  ]),
+                ),
+                transitionDuration: transitionDuration,
+                reverseTransitionDuration: reverseTransitionDuration,
+              );
+            },
           ),
         ),
       ),
     );
   }
+  final _pictures = PictureOrigins();
 }

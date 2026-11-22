@@ -57,38 +57,24 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
     final position = controller.position;
     final maxScroll = position.maxScrollExtent;
     
-    if (maxScroll <= 0) {
-      setState(() {
-        _showTop = false;
-        _showBottom = false;
-      });
-      return;
-    }
-
     final currentScroll = controller.offset;
     const threshold = 100.0;
-
+    final top = maxScroll > 0 && currentScroll > threshold;
+    final bottom = maxScroll > 0 && currentScroll < maxScroll - threshold;
+    if (_showTop == top && _showBottom == bottom) return;
     setState(() {
-      _showTop = currentScroll > threshold;
-      _showBottom = currentScroll < maxScroll - threshold;
+      _showTop = top;
+      _showBottom = bottom;
     });
   }
 
   void _scrollToTop() {
-    widget.scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+    AppMotion.scrollTo(context, widget.scrollController, 0);
   }
 
   void _scrollToBottom() {
     final maxScroll = widget.scrollController.position.maxScrollExtent;
-    widget.scrollController.animateTo(
-      maxScroll,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+    AppMotion.scrollTo(context, widget.scrollController, maxScroll);
   }
 
   @override
@@ -108,15 +94,15 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
       top: 0,
       bottom: 0,
       child: Center(
-        child: Column(
+        child: AnimatedSize(duration: AppMotion.duration(context, AppMotion.fast), curve: AppMotion.curve, child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (_showTop)
-              _buildButton(
+              AppEntrance(key: const ValueKey('top'), child: _buildButton(
                 icon: Icons.keyboard_arrow_up,
                 onPressed: _scrollToTop,
                 tooltip: '滚动到顶部',
-              ),
+              )),
             const SizedBox(height: GlassConstants.spacingSmall),
             if (widget.onToggleGuide != null)
               _buildButton(
@@ -134,13 +120,13 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
             ],
             const SizedBox(height: GlassConstants.spacingSmall),
             if (_showBottom)
-              _buildButton(
+              AppEntrance(key: const ValueKey('bottom'), child: _buildButton(
                 icon: Icons.keyboard_arrow_down,
                 onPressed: _scrollToBottom,
                 tooltip: '滚动到底部',
-              ),
+              )),
           ],
-        ),
+        )),
       ),
     );
   }

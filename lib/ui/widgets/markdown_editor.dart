@@ -22,6 +22,39 @@ class MarkdownEditor extends StatefulWidget {
 
 class _MarkdownEditorState extends State<MarkdownEditor> {
   bool _isPreview = false;
+  final _editorFocus = FocusNode();
+  final _editorScroll = ScrollController();
+  final _previewScroll = ScrollController();
+  TextSelection? _editingSelection;
+
+  void _switchMode(bool preview) {
+    if (preview == _isPreview) return;
+    final from = preview ? _editorScroll : _previewScroll;
+    final to = preview ? _previewScroll : _editorScroll;
+    final ratio = from.hasClients && from.position.maxScrollExtent > 0
+        ? (from.offset / from.position.maxScrollExtent).clamp(0.0, 1.0) : 0.0;
+    if (preview) _editingSelection = widget.controller.selection;
+    setState(() => _isPreview = preview);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _isPreview != preview) return;
+      if (!preview) {
+        _editorFocus.requestFocus();
+        final selection = _editingSelection;
+        if (selection != null && selection.isValid && selection.end <= widget.controller.text.length) {
+          widget.controller.selection = selection;
+        }
+      }
+      if (to.hasClients) to.jumpTo(to.position.maxScrollExtent * ratio);
+    });
+  }
+
+  @override
+  void dispose() {
+    _editorFocus.dispose();
+    _editorScroll.dispose();
+    _previewScroll.dispose();
+    super.dispose();
+  }
 
   String _toPreview(String text) {
     var result = MediaReferenceParser.replaceImageLines(text, (imagePath) {
@@ -53,9 +86,9 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
     final end = sel.end >= 0 ? sel.end : text.length;
     final selected = text.substring(start, end);
     final replacement = '$prefix$selected$suffix';
-    ctrl.text = text.substring(0, start) + replacement + text.substring(end);
-    ctrl.selection = TextSelection.collapsed(
-        offset: start + prefix.length + selected.length);
+    ctrl.value = TextEditingValue(text: text.replaceRange(start, end, replacement),
+        selection: TextSelection(baseOffset: start + prefix.length, extentOffset: start + prefix.length + selected.length));
+    _editorFocus.requestFocus();
   }
 
   void _insertImage(String path) {
@@ -73,7 +106,10 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
         children: [
           _buildToolbar(),
           Expanded(
-            child: _isPreview ? _buildPreview() : _buildEditor(),
+            child: Stack(fit: StackFit.expand, children: [
+              Offstage(offstage: _isPreview, child: ExcludeFocus(excluding: _isPreview, child: _buildEditor())),
+              if (_isPreview) AppEntrance(child: _buildPreview()),
+            ]),
           ),
         ],
       ),
@@ -93,13 +129,13 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
             icon: Icons.edit,
             label: '编辑',
             active: !_isPreview,
-            onTap: () => setState(() => _isPreview = false),
+            onTap: () => _switchMode(false),
           ),
           _toggleButton(
             icon: Icons.preview,
             label: '预览',
             active: _isPreview,
-            onTap: () => setState(() => _isPreview = true),
+            onTap: () => _switchMode(true),
           ),
           const SizedBox(width: GlassConstants.spacingSmall),
           Container(
@@ -126,10 +162,12 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
     required bool active,
     required VoidCallback onTap,
   }) {
-    return InkWell(
+    return AppActionSurface(
       onTap: onTap,
       borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
-      child: Container(
+      child: AnimatedContainer(
+        duration: AppMotion.duration(context, AppMotion.fast),
+        curve: AppMotion.curve,
         padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingInline, vertical: GlassConstants.spacingTight),
         decoration: BoxDecoration(
           color: active
@@ -153,7 +191,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
                 color: active
                     ? AppTheme.getPrimaryColor(context)
                     : AppTheme.getTextSecondary(context),
-                fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: active ? AppTypography.semibold : AppTypography.regular,
               ),
             ),
           ],
@@ -165,7 +203,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
   Widget _formatButton(IconData icon, String tooltip, VoidCallback onPressed) {
     return Tooltip(
       message: tooltip,
-      child: InkWell(
+      child: AppActionSurface(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
         child: Padding(
@@ -179,7 +217,9 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
 
   Widget _imagePickerButton() {
     return PopupMenuButton<String>(
+      popUpAnimationStyle: AppMotion.overlayStyle(context),
       tooltip: '插入图片',
+      onCanceled: () => _editorFocus.requestFocus(),
       onSelected: _insertImage,
       itemBuilder: (_) => widget.imagePaths.map((p) {
         final name = p.split(RegExp(r'[/\\]')).last;
@@ -209,12 +249,16 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
 
   Widget _buildEditor() {
     return TextField(
+      contextMenuBuilder: buildAppEditableTextContextMenu,
+      focusNode: _editorFocus,
+      scrollController: _editorScroll,
       controller: widget.controller,
       maxLines: null,
       expands: true,
+      textAlignVertical: TextAlignVertical.top,
       style: TextStyle(
           fontSize: widget.fontSize,
-          height: 1.7,
+          height: AppTypography.readingHeight,
           color: AppTheme.getTextPrimary(context)),
       decoration: InputDecoration(
         border: InputBorder.none,
@@ -234,25 +278,26 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       );
     }
     return SingleChildScrollView(
+      controller: _previewScroll,
       padding: const EdgeInsets.all(GlassConstants.spacingMedium),
       child: MarkdownBody(
         data: preview,
         styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
           p: TextStyle(
               fontSize: widget.fontSize,
-              height: 1.7,
+              height: AppTypography.readingHeight,
               color: AppTheme.getTextPrimary(context)),
           h1: TextStyle(
               fontSize: GlassConstants.fontHeadline,
-              fontWeight: FontWeight.bold,
+              fontWeight: AppTypography.bold,
               color: AppTheme.getTextPrimary(context)),
           h2: TextStyle(
               fontSize: GlassConstants.fontMarkdownTitle,
-              fontWeight: FontWeight.bold,
+              fontWeight: AppTypography.bold,
               color: AppTheme.getTextPrimary(context)),
           h3: TextStyle(
               fontSize: GlassConstants.fontSubtitle,
-              fontWeight: FontWeight.w600,
+              fontWeight: AppTypography.semibold,
               color: AppTheme.getTextPrimary(context)),
           listBullet: TextStyle(
               fontSize: widget.fontSize,
@@ -268,16 +313,19 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
               final filePath = parsedUri.toFilePath();
               final file = File(filePath);
               if (file.existsSync()) {
-                return Image.file(file, fit: BoxFit.contain);
+                return Image.file(file, fit: BoxFit.contain,
+                    frameBuilder: appImageFrameBuilder);
               }
               debugPrint('[MarkdownPreview] File not found: $filePath');
             } else if (uriStr.startsWith('http://') ||
                 uriStr.startsWith('https://')) {
-              return Image.network(uriStr, fit: BoxFit.contain);
+              return Image.network(uriStr, fit: BoxFit.contain,
+                  frameBuilder: appImageFrameBuilder);
             } else {
               final file = File(uriStr);
               if (file.existsSync()) {
-                return Image.file(file, fit: BoxFit.contain);
+                return Image.file(file, fit: BoxFit.contain,
+                    frameBuilder: appImageFrameBuilder);
               }
             }
           } catch (e) {

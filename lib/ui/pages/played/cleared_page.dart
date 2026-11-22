@@ -20,6 +20,7 @@ class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAli
 
   bool _isScanning = false;
   String _scanProgress = '';
+  String? _scanResult;
   List<Game> _selectedGames = [];
 
   @override
@@ -33,10 +34,11 @@ class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAli
             _selectedGames.isNotEmpty ? '已选 ${_selectedGames.length} 项' : '通关',
             style: TextStyle(
                 fontSize: GlassConstants.fontHeading,
-                fontWeight: FontWeight.w600,
+                fontWeight: AppTypography.semibold,
                 color: AppTheme.getTextPrimary(context)),
           ),
         ),
+        if (_scanResult != null) Semantics(liveRegion: true, child: Text(_scanResult!, style: TextStyle(color: AppTheme.getTextSecondary(context)))),
         Expanded(
           child: gamesAsync.when(
             data: (games) {
@@ -67,8 +69,8 @@ class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAli
                 ),
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('加载失败: $e')),
+            loading: () => const GameListSkeleton(),
+            error: (error, _) => AppLoadError(message: '加载失败：$error', onRetry: () => ref.invalidate(clearedGamesProvider)),
           ),
         ),
       ],
@@ -78,6 +80,7 @@ class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAli
   Future<void> _scanSavePaths() async {
     setState(() {
       _isScanning = true;
+      _scanResult = null;
     });
 
     try {
@@ -97,6 +100,7 @@ class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAli
 
       int found = 0;
       int skipped = 0;
+      int discovered = 0;
       int total = gamesToScan.length;
 
       for (int i = 0; i < gamesToScan.length; i++) {
@@ -120,13 +124,15 @@ class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAli
         if (savePath != null) {
           await repo.updateSavePath(game.id!, savePath);
           found++;
+          discovered++;
         }
       }
 
       ref.invalidate(clearedGamesProvider);
 
       if (mounted) {
-        final newFound = found - skipped;
+        final newFound = discovered;
+        setState(() => _scanResult = '扫描完成：新增 $discovered，跳过 $skipped，共 $found/$total 个有存档');
         if (skipped > 0) {
           AppTheme.showGlassToast(context, message: '扫描完成: 新发现 $newFound 个，跳过 $skipped 个已有记录，共 $found/$total 个有存档');
         } else {
@@ -135,6 +141,7 @@ class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAli
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _scanResult = '扫描失败：$e');
         AppTheme.showGlassToast(context, message: '扫描失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
       }
     } finally {

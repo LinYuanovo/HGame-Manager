@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,7 +30,12 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
   late TextEditingController _searchController;
   GuideSource _selectedSource = GuideSource.pilipili;
   bool _isSearching = false;
+  bool _isLoadingContent = false;
+  Object? _activeResult;
+  int _contentGeneration = 0;
   List<dynamic> _results = [];
+
+  bool get _isBusy => _isSearching || _isLoadingContent;
 
   @override
   void initState() {
@@ -44,6 +50,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
   }
 
   Future<void> _search() async {
+    if (_isBusy) return;
     final keyword = _searchController.text.trim();
     if (keyword.isEmpty) return;
     setState(() {
@@ -81,6 +88,9 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
   }
 
   Future<void> _selectResult(dynamic result) async {
+    if (_isSearching || (_isLoadingContent && identical(result, _activeResult)) || ModalRoute.of(context)?.isCurrent == false) return;
+    final generation = ++_contentGeneration;
+    setState(() { _isLoadingContent = true; _activeResult = result; });
     String? content;
     try {
       if (result is PilipiliSearchResult) {
@@ -92,7 +102,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
 
         // 如果有多个walkthrough，让用户选择
         if (scrapeResult.hasWalkthroughs) {
-          if (!mounted) return;
+          if (!mounted || generation != _contentGeneration || ModalRoute.of(context)?.isCurrent == false) return;
           final selectedWalkthrough =
               await _showWalkthroughDialog(scrapeResult.walkthroughs);
           if (selectedWalkthrough == null) {
@@ -104,40 +114,43 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
             }
             return;
           }
-          if (!mounted) return;
+          if (!mounted || generation != _contentGeneration) return;
           content = await service.scrapeWalkthrough(selectedWalkthrough.url);
         } else {
           content = scrapeResult.content;
         }
       }
 
+      if (!mounted || generation != _contentGeneration || ModalRoute.of(context)?.isCurrent == false) return;
       // 下载图片并替换URL为本地路径
       if (content != null && content.isNotEmpty) {
-        content = await _downloadGuideImages(content);
+        content = await _downloadGuideImages(content, generation);
+      }
+
+      if (!mounted || generation != _contentGeneration || ModalRoute.of(context)?.isCurrent == false) return;
+      if (content != null) {
+        Navigator.of(context).pop(content);
+      } else {
+        AppTheme.showGlassToast(context,
+            message: '获取攻略内容失败',
+            icon: Icons.error_outline,
+            iconColor: AppTheme.errorColor);
       }
     } catch (e) {
       final errorMsg = e.toString().replaceFirst('Exception: ', '');
-      if (mounted) {
+      if (mounted && generation == _contentGeneration) {
         AppTheme.showGlassToast(context,
             message: errorMsg,
             icon: Icons.error_outline,
             iconColor: AppTheme.errorColor);
       }
-      return;
-    }
-
-    if (content != null && mounted) {
-      Navigator.of(context).pop(content);
-    } else if (mounted && content == null) {
-      AppTheme.showGlassToast(context,
-          message: '获取攻略内容失败',
-          icon: Icons.error_outline,
-          iconColor: AppTheme.errorColor);
+    } finally {
+      if (mounted && generation == _contentGeneration) setState(() => _isLoadingContent = false);
     }
   }
 
   /// 下载攻略中的图片并替换为本地路径
-  Future<String> _downloadGuideImages(String content) async {
+  Future<String> _downloadGuideImages(String content, int generation) async {
     // 提取所有图片URL - 支持 ![图片](url) 和 [图片:url] 两种格式
     final imagePattern = RegExp(r'!\[图片\]\(([^)]+)\)|\[图片:([^\]]+)\]');
     final matches = imagePattern.allMatches(content).toList();
@@ -165,12 +178,13 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
     final gamePath = widget.game.path;
     final imagesDir = await GameDataPaths.ensureImagesDir(gamePath);
 
-    // 下载图片并保存为 guide_xx.xx 格式
+    // 每次选择独立命名，旧请求的文件写入不会覆盖新攻略或已保存攻略。
+    final requestId = const Uuid().v4();
     final localPaths = <String>[];
-    final downloadId = const Uuid().v4();
     final client = await createProxyClientFromPrefs(domain: 'i0.hdslb.com');
     try {
       for (int i = 0; i < imageUrls.length; i++) {
+        if (!mounted || generation != _contentGeneration) return content;
         final url = imageUrls[i];
         try {
           final response = await client.get(
@@ -182,6 +196,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
             },
           ).timeout(const Duration(seconds: 30));
 
+          if (!mounted || generation != _contentGeneration) return content;
           if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
             // 从URL获取扩展名
             final uri = Uri.parse(url);
@@ -198,7 +213,8 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                 .contains(ext.toLowerCase())) {
               ext = '.jpg';
             }
-            final fileName = 'guide_${downloadId}_${i + 1}$ext';
+            final fileName =
+                'guide_${requestId}_${(i + 1).toString().padLeft(2, '0')}$ext';
             final filePath =
                 '${imagesDir.path}${Platform.pathSeparator}$fileName';
             if (kDebugMode)
@@ -259,10 +275,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                       color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconSection),
                   const SizedBox(width: GlassConstants.spacingInline),
                   Text('选择攻略',
-                      style: TextStyle(
-                          fontSize: GlassConstants.fontSection,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.getDetailTextPrimary(context))),
+                      style: AppTypography.dialogTitle(context)),
                 ],
               ),
               const SizedBox(height: GlassConstants.spacingSmall),
@@ -356,6 +369,23 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
               _buildHeader(),
               _buildSearchBar(),
               Divider(height: 1, color: AppTheme.getBorderColor(context)),
+              if (_isLoadingContent)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: GlassConstants.spacingLarge,
+                      vertical: GlassConstants.spacingSmall),
+                  child: Row(children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: AppProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: GlassConstants.spacingSmall),
+                    Text('正在获取攻略及图片…',
+                        style: TextStyle(
+                            color: AppTheme.getTextSecondary(context))),
+                  ]),
+                ),
               Expanded(child: _buildResults()),
             ],
           ),
@@ -374,10 +404,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
           const SizedBox(width: GlassConstants.spacingInline),
           Expanded(
             child: Text('搜索攻略',
-                style: TextStyle(
-                    fontSize: GlassConstants.fontSection,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.getDetailTextPrimary(context))),
+                style: AppTypography.dialogTitle(context)),
           ),
           IconButton(
               icon: const Icon(Icons.close, size: GlassConstants.iconControl),
@@ -407,7 +434,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                 child: Text('2DFan'),
               ),
             ],
-            onChanged: (v) =>
+            onChanged: _isBusy ? null : (v) =>
                 setState(() => _selectedSource = v ?? GuideSource.pilipili),
           ),
           const SizedBox(width: GlassConstants.spacingCompact),
@@ -415,6 +442,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
             child: SizedBox(
               height: 40,
               child: TextField(
+                readOnly: _isBusy,
                 controller: _searchController,
                 style: TextStyle(
                     fontSize: GlassConstants.fontControl,
@@ -450,17 +478,14 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
           SizedBox(
             height: 40,
             child: ElevatedButton.icon(
-              onPressed: _isSearching ? null : _search,
+              onPressed: _isBusy ? null : _search,
               icon: _isSearching
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2))
+                      child: AppProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.search, size: GlassConstants.iconAction),
               label: const Text('搜索'),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.getPrimaryColor(context),
-                  foregroundColor: AppTheme.getOnPrimaryColor(context)),
             ),
           ),
         ],
@@ -469,7 +494,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
   }
 
   Widget _buildResults() {
-    if (_isSearching) return const Center(child: CircularProgressIndicator());
+    if (_isSearching) return const AppSkeleton(label: '正在搜索攻略');
     if (_results.isEmpty)
       return Center(
           child: Text('无搜索结果',
@@ -491,7 +516,7 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
             borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
             child: InkWell(
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-              onTap: () => _selectResult(result),
+              onTap: _isSearching || (_isLoadingContent && identical(result, _activeResult)) ? null : () => _selectResult(result),
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingCompact),
@@ -533,7 +558,9 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                         ],
                       ),
                     ),
-                    Icon(Icons.arrow_forward_ios,
+                    if (_isLoadingContent && identical(result, _activeResult))
+                      const SizedBox.square(dimension: GlassConstants.iconCompact, child: AppProgressIndicator(strokeWidth: 2))
+                    else Icon(Icons.arrow_forward_ios,
                         size: GlassConstants.iconCompact, color: AppTheme.getTextSecondary(context)),
                   ],
                 ),

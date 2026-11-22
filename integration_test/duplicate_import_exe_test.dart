@@ -27,11 +27,14 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('重复导入：真实目录和 SQLite，45 个已有目录及混合导入', (tester) async {
+    expect(Platform.isWindows, isTrue);
+    final dataDirectory =
+        await Directory.systemTemp.createTemp('hgm_duplicate_data_');
+    AppPaths.overrideRootDirForTesting(dataDirectory.path);
     final dataRoot = await AppPaths.rootDir;
-    expect(path.normalize(dataRoot).replaceAll('\\', '/'),
-        contains('/build/windows/x64/runner/Debug/'));
+    expect(path.normalize(dataRoot), path.normalize(dataDirectory.path));
     expect(await Directory(dataRoot).list().isEmpty, isTrue,
-        reason: '验收仅使用独立工作树中空的 Debug 数据目录');
+        reason: '验收仅使用隔离的临时数据目录');
     final temporary =
         await Directory.systemTemp.createTemp('hgm_duplicate_native_');
     sqfliteFfiInit();
@@ -210,12 +213,14 @@ void main() {
           !path.basename(resolved).startsWith('hgm_duplicate_native_')) {
         throw StateError('临时目录超出验收范围');
       }
-      final expectedRoot = path.join(
-          File(Platform.resolvedExecutable).parent.path, 'hgame_manager_data');
-      if (!path.equals(
-          path.normalize(dataRoot), path.normalize(expectedRoot))) {
+      final resolvedDataRoot = path.normalize(path.absolute(dataRoot));
+      if (!path.isWithin(
+              path.normalize(path.absolute(Directory.systemTemp.path)),
+              resolvedDataRoot) ||
+          !path.basename(resolvedDataRoot).startsWith('hgm_duplicate_data_')) {
         throw StateError('数据目录超出验收范围');
       }
+      AppPaths.overrideRootDirForTesting(null);
       await temporary.delete(recursive: true);
       await Directory(dataRoot).delete(recursive: true);
     }

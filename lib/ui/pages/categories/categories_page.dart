@@ -5,6 +5,7 @@ import '../../../core/models/models.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/result_location.dart';
 import '../../widgets/app_dropdown.dart';
 import '../../widgets/tag_input_dialog.dart';
 import 'tag_games_page.dart';
@@ -18,7 +19,7 @@ class CategoriesPage extends ConsumerStatefulWidget {
 
 class _CategoriesPageState extends ConsumerState<CategoriesPage>
     with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+  late AppTabController _tabController;
   final _searchController = TextEditingController();
   bool _isMultiSelectMode = false;
   final Set<int> _selectedTagIds = {};
@@ -30,6 +31,9 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
   List<int> _dragOriginIds = [];
   final Map<String, GlobalKey> _gridKeys = {};
   final Map<int, GlobalKey> _cardKeys = {};
+  final _tagFocus = <int, FocusNode>{};
+  int? _returnedTag;
+  int _returnSequence = 0;
   final Map<int, Offset> _shiftStarts = {};
   final Map<int, Offset> _currentShift = {};
   int _shiftTick = 0;
@@ -37,7 +41,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = AppTabController(length: 2, vsync: this);
     _loadTagOrders();
   }
 
@@ -217,8 +221,8 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
     return TweenAnimationBuilder<Offset>(
       key: ValueKey('shift-${tag.id}-$_shiftTick'),
       tween: Tween(begin: shift, end: Offset.zero),
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
+      duration: AppMotion.duration(context, AppMotion.fast),
+      curve: AppMotion.curve,
       onEnd: () {
         _shiftStarts.remove(tag.id);
         _currentShift[tag.id!] = Offset.zero;
@@ -233,6 +237,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
 
   @override
   void dispose() {
+    for (final focus in _tagFocus.values) { focus.dispose(); }
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -246,7 +251,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           title: Text('分类',
               style: TextStyle(
                   fontSize: GlassConstants.fontHeading,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: AppTypography.semibold,
                   color: AppTheme.getTextPrimary(context))),
         ),
         GlassTabBar(
@@ -395,7 +400,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                       '已选择 ${_selectedTagIds.length} 项',
                       style: TextStyle(
                           fontSize: GlassConstants.fontTitle,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: AppTypography.medium,
                           color: AppTheme.getPrimaryColor(context)),
                     ),
                     const SizedBox(width: GlassConstants.spacingMedium),
@@ -474,18 +479,21 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           ],
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('加载失败: $e')),
+      loading: () => const AppSkeleton(
+          layout: SkeletonLayout.tags, showToolbar: true, label: '正在加载分类'),
+      error: (error, _) => AppLoadError(message: '加载失败：$error', onRetry: () => ref.invalidate(provider)),
     );
   }
 
   Widget _buildTagChip(Tag tag) {
     final isSelected = _selectedTagIds.contains(tag.id);
-    return GestureDetector(
+    final titleAnchor = tag.id == null || _isMultiSelectMode || _draggingTag != null ? null : (this, tag.id);
+    Widget card = GestureDetector(
       onSecondaryTapUp: _isMultiSelectMode
           ? null
           : (details) => _showTagContextMenu(tag, details.globalPosition),
       child: GlassCard(
+        focusNode: tag.id != null && _draggingTag == null ? _tagFocus.putIfAbsent(tag.id!, () => FocusNode()) : null,
         padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
         onTap: () {
           if (_isMultiSelectMode) {
@@ -500,10 +508,16 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
             if (tag.id != null) {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                    builder: (_) => TagGamesPage(
-                        tagId: tag.id!, tagName: tag.displayName ?? tag.name)),
+                TagGamesPage.route(
+                  context: context,
+                  tagId: tag.id!,
+                  tagName: tag.displayName ?? tag.name,
+                  titleAnchor: titleAnchor,
+                ),
               ).then((_) {
+                if (!mounted) return;
+                setState(() { _returnedTag = tag.id; _returnSequence++; });
+                _tagFocus[tag.id]?.requestFocus();
                 ref.invalidate(allTagsProvider);
                 ref.invalidate(allSeriesProvider);
               });
@@ -529,10 +543,9 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
               ),
               const SizedBox(width: GlassConstants.spacingSmall),
               Expanded(
-                child: Text(
-                  tag.displayName ?? tag.name,
-                  style: TextStyle(fontSize: GlassConstants.fontTitle, fontWeight: FontWeight.w500),
-                  overflow: TextOverflow.ellipsis,
+                child: TagRouteTitle(
+                  anchor: titleAnchor, name: tag.displayName ?? tag.name,
+                  style: TextStyle(fontSize: GlassConstants.fontTitle, fontWeight: AppTypography.medium),
                 ),
               ),
               if (tag.gameCount > 0)
@@ -552,12 +565,12 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
               const SizedBox(width: GlassConstants.spacingTiny),
               if (!_isMultiSelectMode)
                 IconButton(
-                  icon: Icon(
+                  icon: AppSelectedMark(selected: tag.isFavorite, child: Icon(
                       tag.isFavorite ? Icons.favorite : Icons.favorite_border,
                       size: GlassConstants.iconSmall,
                       color: tag.isFavorite
                           ? AppTheme.getFavoriteColor(context)
-                          : null),
+                          : null)),
                   onPressed: () async {
                     await ref
                         .read(tagRepositoryProvider)
@@ -572,6 +585,10 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
         ),
       ),
     );
+    if (tag.id != null && _draggingTag == null) {
+      if (_returnedTag == tag.id) card = ResultLocation(key: ValueKey((tag.id, _returnSequence)), child: card);
+    }
+    return card;
   }
 
   Future<void> _deleteSelectedTags() async {
@@ -586,10 +603,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('删除选中',
-                style: TextStyle(
-                    fontSize: GlassConstants.fontSection,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.getTextPrimary(context))),
+                style: AppTypography.dialogTitle(context)),
             const SizedBox(height: GlassConstants.spacingCompact),
             Text('确定要删除选中的 ${_selectedTagIds.length} 个标签/系列吗？',
                 style: TextStyle(color: AppTheme.getTextSecondary(context))),
@@ -604,8 +618,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                 const SizedBox(width: GlassConstants.spacingSmall),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.errorColor),
+                  style: AppButtonStyles.solid(color: AppTheme.errorColor),
                   child: const Text('删除'),
                 ),
               ],
@@ -710,10 +723,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(tag.type == Tag.typeCustom ? '修改标签' : '修改系列',
-                      style: TextStyle(
-                          fontSize: GlassConstants.fontSection,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.getTextPrimary(context))),
+                      style: AppTypography.dialogTitle(context)),
                   const SizedBox(height: GlassConstants.spacingMedium),
                   TextField(
                     controller: controller,
@@ -773,10 +783,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(tag.type == Tag.typeCustom ? '删除标签' : '删除系列',
-                  style: TextStyle(
-                      fontSize: GlassConstants.fontSection,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.getTextPrimary(context))),
+                  style: AppTypography.dialogTitle(context)),
               const SizedBox(height: GlassConstants.spacingCompact),
               Text('确定要删除"${tag.displayName ?? tag.name}"吗？',
                   style: TextStyle(color: AppTheme.getTextSecondary(context))),
@@ -796,8 +803,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                       ref.invalidate(favoriteTagsProvider);
                       Navigator.pop(context);
                     },
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.errorColor),
+                    style: AppButtonStyles.solid(color: AppTheme.errorColor),
                     child: const Text('删除'),
                   ),
                 ],

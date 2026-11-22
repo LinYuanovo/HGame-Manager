@@ -33,6 +33,7 @@ import '../../widgets/app_dropdown.dart';
 ///   [presetKeywords] 提供各目录的预设刮削关键词），跳过父目录选择流程。
 class BatchImportDialog extends ConsumerStatefulWidget {
   final VoidCallback onImportComplete;
+  final ValueChanged<int>? onLocate;
   final String userFont;
 
   /// 拖拽模式：直接传入游戏目录列表
@@ -44,7 +45,8 @@ class BatchImportDialog extends ConsumerStatefulWidget {
   const BatchImportDialog({
     super.key,
     required this.onImportComplete,
-    required this.userFont,
+    this.onLocate,
+    this.userFont = '',
     this.initialFolderPaths,
     this.presetKeywords,
   });
@@ -57,11 +59,13 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
   String? _parentPath;
   List<_BatchGameItem> _items = [];
   bool _scanning = false;
+  String? _scanError;
   bool _importing = false;
   bool _importDone = false;
   bool _reviewOpen = false;
   int _successCount = 0;
   int _failCount = 0;
+  bool _showFailures = false;
   int _skippedCount = 0;
 
   /// 是否为拖拽模式（直接传入游戏目录列表，跳过父目录选择）
@@ -109,7 +113,8 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
       await Future.wait(needDetect.map((item) => _detectKeyword(item)));
 
       if (mounted) setState(() => _items = items);
-    } catch (_) {
+    } catch (error) {
+      if (mounted) setState(() => _scanError = '读取游戏目录失败：$error');
     } finally {
       if (mounted) setState(() => _scanning = false);
     }
@@ -117,15 +122,20 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
 
   Future<void> _pickFolder() async {
     final result = await FilePicker.getDirectoryPath(dialogTitle: '选择游戏父目录');
-    if (result == null) return;
-    if (!mounted) return;
+    if (result == null || !mounted) return;
+    await _scanFolder(result);
+  }
+
+  Future<void> _scanFolder(String result) async {
     setState(() {
       _parentPath = result;
       _items = [];
       _scanning = true;
+      _scanError = null;
       _importDone = false;
       _successCount = 0;
       _failCount = 0;
+      _showFailures = false;
     });
     try {
       final parent = Directory(result);
@@ -147,7 +157,8 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
       await Future.wait(items.map((item) => _detectKeyword(item)));
 
       if (mounted) setState(() => _items = items);
-    } catch (_) {
+    } catch (error) {
+      if (mounted) setState(() => _scanError = '读取游戏目录失败：$error');
     } finally {
       if (mounted) setState(() => _scanning = false);
     }
@@ -356,6 +367,7 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
         AppLogger.instance
             .error('Import', '导入游戏失败: path=${item.folder.path}', e, stackTrace);
         item.status = '失败: $e';
+        item.failed = true;
         if (item.source != _BatchScrapeSource.none) {
           _storeReviewItem(
             item,
@@ -433,6 +445,12 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
           widget.onImportComplete();
         },
       );
+      final repository = container.read(gameRepositoryProvider);
+      for (final item in _items) {
+        if (item.reviewItem?.applied == true) {
+          item.gameId = (await repository.getGameByPath(item.currentPath))?.id;
+        }
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -459,7 +477,13 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
       item.translationNotices
         ..clear()
         ..addAll(review.notices);
+      item.failed = review.fetchError != null || review.applyError != null;
     }
+    _failCount = _items
+        .where((item) =>
+            item.selected && (item.failed || _failedScrapeItems.contains(item)))
+        .length;
+    if (_failCount == 0) _showFailures = false;
   }
 
   Future<Game> _readOriginalGame(GameRepository repo, String folderPath) async {
@@ -510,6 +534,7 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
     // 重命名/移动整理逻辑统一走共享层，保持各入口行为一致
     final organized = await ScrapeApplyService.organizeFolder(
         initialGame, ScrapeMode.batchAdd, repo, configs);
+    item.gameId = organized.id;
     item.status = '导入完成';
     if (mounted) setState(() {});
     debugPrint('[BatchImport] 整理完成: ${organized.path}');
@@ -765,27 +790,6 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
         fontFamily: widget.userFont.isNotEmpty ? widget.userFont : Theme.of(context).textTheme.labelLarge!.fontFamily,
       );
 
-  ButtonStyle get _controlButtonStyle => ButtonStyle(
-        minimumSize: WidgetStatePropertyAll(Size(0, _controlHeight)),
-        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(
-            horizontal: GlassConstants.spacingMedium,
-            vertical: GlassConstants.spacingInline)),
-        textStyle: WidgetStatePropertyAll(_controlTextStyle),
-        shape: WidgetStatePropertyAll(RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(GlassConstants.radiusMedium))),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.standard,
-      );
-
-  ButtonStyle get _primaryButtonStyle => _controlButtonStyle.merge(
-        ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.getPrimaryColor(context),
-          foregroundColor: AppTheme.getOnPrimaryColor(context),
-          disabledBackgroundColor:
-              AppTheme.getPrimaryColor(context).withValues(alpha: 0.4),
-        ),
-      );
-
   Widget _gameName(_BatchGameItem item) => Tooltip(
         message: item.currentPath,
         child: Text(path.basename(item.currentPath),
@@ -962,7 +966,7 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
                   ClipRRect(
                     borderRadius:
                         BorderRadius.circular(GlassConstants.radiusIndicator),
-                    child: LinearProgressIndicator(
+                    child: AppLinearProgress(
                       key:
                           ValueKey('batch-status-progress-${item.folder.path}'),
                       value: item.progress,
@@ -1013,6 +1017,13 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
     final hasWarnings = _failCount > 0 ||
         pendingReviews > 0 ||
         _reviewItems.any((item) => item.applyError != null);
+    final selectedItems = _items.where((item) => item.selected).toList();
+    final resultItems = _importing || _importDone ? selectedItems : _items;
+    final visibleItems = _showFailures
+        ? resultItems
+            .where((item) => item.failed || _failedScrapeItems.contains(item))
+            .toList()
+        : resultItems;
     return PopScope(
       canPop: !_importing,
       child: CallbackShortcuts(
@@ -1037,10 +1048,7 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
                       _isDragMode && widget.initialFolderPaths!.length == 1
                           ? '添加游戏'
                           : '批量添加游戏',
-                      style: TextStyle(
-                          fontSize: GlassConstants.fontSection,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.getTextPrimary(context))),
+                      style: AppTypography.dialogTitle(context)),
                   const SizedBox(height: GlassConstants.spacingMedium),
                   if (_isDragMode)
                     // 拖拽模式：文件夹列表由调用方传入，仅展示数量，不提供浏览按钮
@@ -1114,7 +1122,6 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
                           icon: const Icon(Icons.folder_open,
                               size: GlassConstants.iconSmall),
                           label: const Text('浏览'),
-                          style: _primaryButtonStyle,
                         ),
                       ],
                     ),
@@ -1127,8 +1134,23 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
                   ),
                   const SizedBox(height: GlassConstants.spacingSmall),
                   if (_scanning)
-                    const Expanded(
-                      child: Center(child: CircularProgressIndicator()),
+                    const Expanded(child: AppSkeleton(label: '正在扫描文件夹'))
+                  else if (_scanError != null)
+                    Expanded(
+                      child: AppLoadError(
+                        message: _scanError!,
+                        onRetry: () {
+                          if (_isDragMode) {
+                            setState(() {
+                              _scanning = true;
+                              _scanError = null;
+                            });
+                            _initFromDraggedFolders();
+                          } else if (_parentPath != null) {
+                            _scanFolder(_parentPath!);
+                          }
+                        },
+                      ),
                     )
                   else if (_items.isEmpty)
                     Expanded(
@@ -1155,7 +1177,6 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
                         const SizedBox(width: GlassConstants.spacingSmall),
                         TextButton(
                           key: const ValueKey('batch-import-select-all'),
-                          style: _controlButtonStyle,
                           onPressed: _importing || _importDone
                               ? null
                               : () {
@@ -1189,15 +1210,9 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
                                   .withValues(alpha: 0.2)),
                         ),
                         child: ListView.builder(
-                          itemCount: _importing || _importDone
-                              ? _items.where((i) => i.selected).length
-                              : _items.length,
+                          itemCount: visibleItems.length,
                           itemBuilder: (context, index) {
-                            final item = _importing || _importDone
-                                ? _items
-                                    .where((i) => i.selected)
-                                    .toList()[index]
-                                : _items[index];
+                            final item = visibleItems[index];
                             if (_importDone &&
                                 !_importing &&
                                 _failedScrapeItems.contains(item)) {
@@ -1225,7 +1240,23 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
                               );
                             }
                             if (_importing || _importDone) {
-                              return _statusItem(item);
+                              return Row(
+                                children: [
+                                  Expanded(child: _statusItem(item)),
+                                  if (_importDone &&
+                                      item.gameId != null &&
+                                      widget.onLocate != null)
+                                    IconButton(
+                                      tooltip: '在游戏库中查看',
+                                      icon: const Icon(Icons.my_location),
+                                      onPressed: () {
+                                        widget.onImportComplete();
+                                        widget.onLocate!(item.gameId!);
+                                        Navigator.of(context).pop();
+                                      },
+                                    ),
+                                ],
+                              );
                             }
                             return _editableItem(item);
                           },
@@ -1269,7 +1300,7 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
                                   : '本地导入 $_successCount 个，跳过 $_skippedCount 个，刮削已保存 $savedReviews 个，待确认 $pendingReviews 个，抓取失败 $_failCount 个',
                               style: TextStyle(
                                 fontSize: GlassConstants.fontControl,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: AppTypography.medium,
                                 color: hasWarnings
                                     ? AppTheme.warningColor
                                     : AppTheme.successColor,
@@ -1288,10 +1319,20 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
                         spacing: GlassConstants.spacingSmall,
                         runSpacing: GlassConstants.spacingSmall,
                         children: [
+                          if (_failCount > 0)
+                            TextButton.icon(
+                              onPressed: () => setState(
+                                  () => _showFailures = !_showFailures),
+                              icon: Icon(_showFailures
+                                  ? Icons.list_alt
+                                  : Icons.filter_alt_outlined),
+                              label: Text(_showFailures
+                                  ? '查看全部结果'
+                                  : '查看 $_failCount 项失败'),
+                            ),
                           if (_failedScrapeItems.isNotEmpty)
                             TextButton.icon(
                               key: const ValueKey('retry-failed-batch-scrapes'),
-                              style: _controlButtonStyle,
                               onPressed: _importing || _reviewOpen
                                   ? null
                                   : _retryFailedImports,
@@ -1304,7 +1345,6 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
                             TextButton.icon(
                               key: const ValueKey(
                                   'batch-confirm-scrape-results'),
-                              style: _controlButtonStyle,
                               onPressed: _importing || _reviewOpen
                                   ? null
                                   : _confirmScrapeResults,
@@ -1321,7 +1361,6 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
                                     Navigator.of(context).pop();
                                     widget.onImportComplete();
                                   },
-                            style: _primaryButtonStyle,
                             child: const Text('完成'),
                           ),
                         ],
@@ -1346,7 +1385,6 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
                       children: [
                         TextButton(
                           key: const ValueKey('batch-import-cancel'),
-                          style: _controlButtonStyle,
                           onPressed: _importing
                               ? null
                               : () => Navigator.of(context).pop(),
@@ -1360,12 +1398,11 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
                                   !_items.any((i) => i.selected)
                               ? null
                               : _startImport,
-                          style: _primaryButtonStyle,
                           child: _importing
                               ? SizedBox(
                                   width: GlassConstants.iconSmall,
                                   height: GlassConstants.iconSmall,
-                                  child: CircularProgressIndicator(
+                                  child: AppProgressIndicator(
                                       strokeWidth: GlassConstants.spacingMicro,
                                       color: AppTheme.getTextColorOnPrimary(
                                           context)))
@@ -1392,6 +1429,8 @@ class _BatchGameItem {
   String keyword;
   _BatchScrapeSource source;
   String status;
+  int? gameId;
+  bool failed = false;
   final List<String> translationNotices = [];
   ScrapeReviewItem? reviewItem;
   double progress;

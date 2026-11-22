@@ -28,6 +28,7 @@ class TagInputDialog extends StatefulWidget {
 class _TagInputDialogState extends State<TagInputDialog> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
+  String? _duplicate;
   late final List<Tag> _selected = List.of(widget.selectedTags);
 
   bool _contains(Tag tag) => _selected.any((item) =>
@@ -44,7 +45,12 @@ class _TagInputDialogState extends State<TagInputDialog> {
               tag.displayName?.toLowerCase() == name.toLowerCase())
           .firstOrNull;
       final tag = existing ?? Tag(name: name, type: widget.newTagType);
-      if (!_contains(tag)) _selected.add(tag);
+      if (_contains(tag)) {
+        _duplicate = '已添加「${tag.displayName ?? tag.name}」';
+      } else {
+        _selected.add(tag);
+        _duplicate = null;
+      }
     }
     _controller.clear();
     _focusNode.requestFocus();
@@ -87,10 +93,7 @@ class _TagInputDialogState extends State<TagInputDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(widget.title,
-                style: TextStyle(
-                    fontSize: GlassConstants.fontSection,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.getTextPrimary(context))),
+                style: AppTypography.dialogTitle(context)),
             const SizedBox(height: GlassConstants.spacingCompact),
             Flexible(
                 child: SingleChildScrollView(
@@ -109,7 +112,9 @@ class _TagInputDialogState extends State<TagInputDialog> {
                       runSpacing: GlassConstants.spacingTight,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: _selected
-                          .map((tag) => InputChip(
+                          .map((tag) => AppEntrance(
+                                key: ObjectKey(tag),
+                                child: InputChip(
                                 label: Text(tag.displayName ?? tag.name,
                                     style: labelStyle),
                                 padding: chipPadding,
@@ -122,7 +127,7 @@ class _TagInputDialogState extends State<TagInputDialog> {
                                 visualDensity: VisualDensity.standard,
                                 onDeleted: () =>
                                     setState(() => _selected.remove(tag)),
-                              ))
+                              )))
                           .toList()),
                   const SizedBox(height: GlassConstants.spacingCompact),
                 ],
@@ -135,7 +140,7 @@ class _TagInputDialogState extends State<TagInputDialog> {
                     autofocus: true,
                     style: labelStyle,
                     textAlignVertical: TextAlignVertical.center,
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) => setState(() => _duplicate = null),
                     onSubmitted: (_) => _addInput(),
                     decoration: InputDecoration(
                       isDense: true,
@@ -148,16 +153,13 @@ class _TagInputDialogState extends State<TagInputDialog> {
                       labelText:
                           widget.newTagType == Tag.typeSeries ? '系列名称' : '标签名称',
                       hintText: widget.hintText,
+                      helperText: _duplicate,
                       suffixIconConstraints: BoxConstraints.tightFor(
                           width: controlHeight, height: controlHeight),
                       suffixIcon: IconButton(
                           key: const ValueKey('tag-add-input'),
                           tooltip: '添加标签',
                           padding: EdgeInsets.zero,
-                          style: IconButton.styleFrom(
-                              minimumSize: Size(controlHeight, controlHeight),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              visualDensity: VisualDensity.standard),
                           icon: const Icon(Icons.add,
                               size: GlassConstants.iconAction),
                           onPressed: _addInput),
@@ -207,27 +209,11 @@ class _TagInputDialogState extends State<TagInputDialog> {
             Row(mainAxisAlignment: MainAxisAlignment.end, children: [
               TextButton(
                   key: const ValueKey('tag-cancel'),
-                  style: TextButton.styleFrom(
-                      minimumSize: Size(controlHeight, controlHeight),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: GlassConstants.spacingLarge),
-                      textStyle:
-                          Theme.of(context).textTheme.labelLarge,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.standard),
                   onPressed: () => Navigator.pop(context),
                   child: const Text('取消')),
               const SizedBox(width: GlassConstants.spacingSmall),
               ElevatedButton(
                   key: const ValueKey('tag-complete'),
-                  style: ElevatedButton.styleFrom(
-                      minimumSize: Size(controlHeight, controlHeight),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: GlassConstants.spacingLarge),
-                      textStyle:
-                          Theme.of(context).textTheme.labelLarge,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.standard),
                   onPressed: () {
                     _addInput();
                     Navigator.pop(context, List<Tag>.of(_selected));

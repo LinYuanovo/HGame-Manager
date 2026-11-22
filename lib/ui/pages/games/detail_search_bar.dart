@@ -30,15 +30,40 @@ class DetailSearchBar extends StatefulWidget {
 
 class _DetailSearchBarState extends State<DetailSearchBar> {
   final FocusNode _focusNode = FocusNode();
+  late TextEditingValue _lastValue;
+
+  void _onEditingChanged() {
+    final value = widget.controller.value;
+    final previous = _lastValue;
+    _lastValue = value;
+    if (value.composing.isValid && !value.composing.isCollapsed) return;
+    if (value.text != previous.text ||
+        (previous.composing.isValid && !previous.composing.isCollapsed)) {
+      widget.onSearch(value.text);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    _lastValue = widget.controller.value;
+    widget.controller.addListener(_onEditingChanged);
     _focusNode.requestFocus();
   }
 
   @override
+  void didUpdateWidget(DetailSearchBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onEditingChanged);
+      _lastValue = widget.controller.value;
+      widget.controller.addListener(_onEditingChanged);
+    }
+  }
+
+  @override
   void dispose() {
+    widget.controller.removeListener(_onEditingChanged);
     _focusNode.dispose();
     super.dispose();
   }
@@ -59,6 +84,7 @@ class _DetailSearchBarState extends State<DetailSearchBar> {
           const SizedBox(width: GlassConstants.spacingSmall),
           Expanded(
             child: TextField(
+              contextMenuBuilder: buildAppEditableTextContextMenu,
               controller: widget.controller,
               focusNode: _focusNode,
               style: TextStyle(fontSize: GlassConstants.fontControl, color: AppTheme.getTextPrimary(context)),
@@ -68,7 +94,6 @@ class _DetailSearchBarState extends State<DetailSearchBar> {
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingSmall),
               ),
-              onChanged: widget.onSearch,
             ),
           ),
           if (widget.matches.isNotEmpty)

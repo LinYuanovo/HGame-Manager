@@ -18,6 +18,9 @@ void main() {
           r'EdgeInsets\.(?:all|symmetric|only|fromLTRB)\([^()]*?(?<![\w.])[1-9]\d*(?:\.\d+)?\b[^()]*?\)'),
       '短间隔': RegExp(
           r'SizedBox\((?:width|height):\s*(?:[1-9]|[1-3]\d|40)(?:\.0)?\s*\)'),
+      '页面按钮样式': RegExp(r'\b\w+Button\s*\.\s*styleFrom\s*\(|\bButtonStyle\s*\('),
+      '页面字重或行高': RegExp(r'\bFontWeight\.|\bheight:\s*1\.\d+\b'),
+      '页面控件字体': RegExp(r'\btextStyle:\s*(?:const\s+)?TextStyle\s*\('),
       '按钮与控件字体覆盖': RegExp(
           r'textStyle:\s*(?:const\s+)?(?:WidgetStatePropertyAll\s*\(\s*)?(?:const\s+)?TextStyle\s*\('),
     };

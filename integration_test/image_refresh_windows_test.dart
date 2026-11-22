@@ -35,7 +35,8 @@ class _ImageRepository extends GameRepository {
       game = updated;
 
   @override
-  Future<void> setGameImages(int gameId, List<GameImage> images) async {
+  Future<void> setGameImages(int gameId, List<GameImage> images,
+      {int? coverIndex}) async {
     game = game.copyWith(
       images: images
           .map((image) => GameImage(
@@ -45,6 +46,7 @@ class _ImageRepository extends GameRepository {
                 sortOrder: image.sortOrder,
               ))
           .toList(),
+      coverIndex: coverIndex ?? game.coverIndex,
     );
   }
 }

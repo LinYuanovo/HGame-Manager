@@ -1072,6 +1072,8 @@ final searchGamesProvider =
 final selectedNavIndexProvider =
     StateProvider<int>((ref) => 1); // Default to games page
 
+final libraryLocationProvider = StateProvider<int?>((ref) => null);
+
 final viewModeProvider = StateProvider<ViewMode>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
   final index = prefs.getInt('view_mode') ?? 0;
@@ -1336,6 +1338,11 @@ final noImageModeProvider = StateProvider<bool>((ref) {
 final coverMemorySavingProvider = StateProvider<bool>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
   return prefs.getBool(AppSettings.coverMemorySavingKey) ?? false;
+});
+
+final reduceMotionProvider = StateProvider<bool>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return prefs.getBool(AppSettings.reduceMotionKey) ?? false;
 });
 
 final sidebarRefreshProvider = StateProvider<int>((ref) => 0);

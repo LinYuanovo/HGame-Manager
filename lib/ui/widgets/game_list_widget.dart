@@ -18,11 +18,17 @@ import '../theme/app_theme.dart';
 import '../pages/games/game_detail_page.dart';
 import '../../../core/services/play_time_tracker.dart';
 import '../pages/games/save_management_dialog.dart';
+import '../pages/settings/settings_page.dart';
 import '../../../core/utils/app_settings.dart';
 import '../../../core/utils/cleared_game_path_utils.dart';
 import '../../../core/utils/game_data_paths.dart';
 import 'multi_select_controller.dart';
 import 'folder_move_progress_dialog.dart';
+import 'picture_motion.dart';
+import 'result_location.dart';
+import 'rating_input.dart';
+import 'layout_reflow.dart';
+export 'game_list_skeleton.dart';
 
 enum PaginationMode { paginated, infiniteScroll }
 
@@ -44,10 +50,12 @@ class GameListWidget extends ConsumerStatefulWidget {
   final VoidCallback? onScanSavePaths;
   final String scanProgress;
   final int? routeIndex;
+  final ({int gameId, int sequence})? locationRequest;
 
   const GameListWidget({
     super.key,
     required this.games,
+    this.locationRequest,
     this.appBarTitle,
     this.appBarActions,
     this.onGameTap,
@@ -69,7 +77,6 @@ class GameListWidget extends ConsumerStatefulWidget {
 }
 
 class _GameListWidgetState extends ConsumerState<GameListWidget> {
-  final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   final MultiSelectController<Game> _multiSelectController =
       MultiSelectController<Game>();
@@ -85,6 +92,21 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   int _listItemsPerPage = 5; // 列表视图每页显示数量
   Timer? _searchDebounce;
   int _coverRevision = 0;
+  final Set<String> _enteredGames = {};
+  Game? _lastOpenedGame;
+  final _coverOrigins = PictureOrigins();
+  final _locationScroll = ScrollController();
+  int? _locatedId;
+  int _locationSequence = 0;
+  final _leaving = <int>{};
+  final _favoriteWrites = <int>{};
+  final _rowErrors = <int, String>{};
+  final _gameFocus = <Object, FocusNode>{};
+  int _reflowRevision = 0;
+  final _updatedIds = <int, int>{};
+  int _dataRevision = 0;
+  int? _posterAnchorIndex;
+  bool _detailOpen = false;
 
   int get _itemsPerPage {
     if (_viewMode == ViewMode.list) return _listItemsPerPage;
@@ -165,7 +187,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
     _multiSelectController.addListener(_onSelectionChanged);
     _loadSettings();
     if (widget.routeIndex != null) {
@@ -180,7 +201,26 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   @override
   void didUpdateWidget(covariant GameListWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.locationRequest != null && widget.locationRequest != oldWidget.locationRequest) {
+      final request = widget.locationRequest!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.locationRequest == request) _locateGame(request.gameId);
+      });
+    }
+    final previousGames = {for (final game in oldWidget.games) game.id: game};
+    for (final game in widget.games) {
+      final previous = previousGames[game.id];
+      if (game.id != null && previous != null && (previous.isCleared != game.isCleared ||
+          previous.rating != game.rating || previous.review != game.review || previous.playCount != game.playCount || previous.savePath != game.savePath)) {
+        _updatedIds[game.id!] = ++_dataRevision;
+      }
+    }
+    if (oldWidget.games.length != widget.games.length) _reflowRevision++;
+    _leaving.removeWhere((id) => !widget.games.any((game) => game.id == id));
     if (!identical(oldWidget.games, widget.games)) _backupChecks.clear();
+    if (!identical(oldWidget.games, widget.games)) WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _multiSelectController.reconcile(widget.games, (game) => game.id ?? game.path);
+    });
   }
 
   String get _sortModeKey {
@@ -296,7 +336,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    for (final focus in _gameFocus.values) { focus.dispose(); }
+    _coverOrigins.cancelFlight(restore: false);
+    _locationScroll.dispose();
     _searchController.dispose();
     _pageJumpController.dispose();
     _columnCountController.dispose();
@@ -306,14 +348,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     super.dispose();
   }
 
-  void _onScroll() {
-    if (_paginationMode == PaginationMode.infiniteScroll &&
-        _scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 200) {
+  bool _onScroll(ScrollUpdateNotification notification) {
+    if (notification.depth == 0 && _paginationMode == PaginationMode.infiniteScroll &&
+        notification.metrics.extentAfter <= 200 && _infiniteScrollCount < widget.games.length) {
       setState(() {
         _infiniteScrollCount += _itemsPerPage;
       });
     }
+    return false;
   }
 
   List<Game> _sortGames(List<Game> games) {
@@ -404,6 +446,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final requested = widget.routeIndex == 1 ? ref.watch(libraryLocationProvider) : null;
+    if (requested != null && widget.games.any((game) => game.id == requested)) WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ref.read(libraryLocationProvider) != requested) return;
+      ref.read(libraryLocationProvider.notifier).state = null;
+      _locateGame(requested);
+    });
     ref.listen<bool>(coverMemorySavingProvider, (previous, current) {
       if (previous == null || previous == current) return;
       for (final game in widget.games) {
@@ -465,12 +513,19 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             // Toolbar row
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingCompact),
-              child: Row(
-                children: [
-                  if (widget.showSearchBar) ...[
-                    Expanded(
-                      flex: 3,
-                      child: Stack(
+              child: LayoutBuilder(
+                builder: (context, constraints) => Wrap(
+                  spacing: GlassConstants.spacingCompact,
+                  runSpacing: GlassConstants.spacingSmall,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (widget.showSearchBar)
+                      SizedBox(
+                        width: constraints.maxWidth <
+                                LayoutConstants.gameListToolbarCompactWidth
+                            ? constraints.maxWidth
+                            : constraints.maxWidth * 0.35,
+                        child: Stack(
                         alignment: Alignment.centerRight,
                         children: [
                           GlassSearchBar(
@@ -507,31 +562,19 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                             ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: GlassConstants.spacingMedium),
+                      ),
+                    _buildViewModeToggle(sortedGames, displayedGames),
+                    _buildPosterColumnCountInput(),
+                    _buildSortDropdown(),
+                    _buildSortDirectionToggle(),
+                    _buildPaginationModeToggle(),
+                    _buildListItemsPerPageInput(),
+                    _buildMultiSelectToggle(sortedGames),
+                    if (widget.onScanSavePaths != null ||
+                        widget.scanProgress.isNotEmpty)
+                      _buildScanSaveButton(),
                   ],
-                  _buildViewModeToggle(),
-                  const SizedBox(width: GlassConstants.spacingCompact),
-                  _buildPosterColumnCountInput(),
-                  if (_viewMode == ViewMode.poster) const SizedBox(width: GlassConstants.spacingCompact),
-                  _buildSortDropdown(),
-                  const SizedBox(width: GlassConstants.spacingTiny),
-                  _buildSortDirectionToggle(),
-                  const SizedBox(width: GlassConstants.spacingCompact),
-                  _buildPaginationModeToggle(),
-                  const SizedBox(width: GlassConstants.spacingCompact),
-                  _buildListItemsPerPageInput(),
-                  if (_viewMode == ViewMode.list &&
-                      _paginationMode == PaginationMode.paginated)
-                    const SizedBox(width: GlassConstants.spacingCompact),
-                  _buildMultiSelectToggle(sortedGames),
-                  // 扫描存档按钮（始终显示，如果有回调）
-                  if (widget.onScanSavePaths != null ||
-                      widget.scanProgress.isNotEmpty) ...[
-                    const SizedBox(width: GlassConstants.spacingTiny),
-                    _buildScanSaveButton(),
-                  ],
-                ],
+                ),
               ),
             ),
             // 多选操作栏
@@ -548,24 +591,51 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     );
   }
 
-  Widget _buildViewModeToggle() {
+  Widget _buildViewModeToggle(List<Game> sortedGames, List<Game> displayedGames) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final mode in [ViewMode.list, ViewMode.poster])
           Tooltip(
             message: mode == ViewMode.list ? '列表视图' : '海报视图',
-            child: GestureDetector(
+            child: AppActionSurface(
               onTap: () {
-                setState(() {
-                  _viewMode = mode;
-                  _savedPage = -1;
-                });
-                _updateCurrentPage(0);
+                if (_viewMode == mode) return;
+                final firstIndex = _currentPage * _itemsPerPage;
+                final activeGame = displayedGames.where((game) => game.id == _locatedId).firstOrNull ?? _lastOpenedGame;
+                var offset = displayedGames.indexWhere(_multiSelectController.isSelected);
+                if (offset < 0 && activeGame != null) {
+                  offset = displayedGames.indexWhere((game) => activeGame.id != null
+                      ? game.id == activeGame.id
+                      : game.path == activeGame.path);
+                }
+                final anchor = sortedGames.isEmpty ? 0 :
+                    (firstIndex + (offset < 0 ? 0 : offset)).clamp(0, sortedGames.length - 1);
+                final savedIndex = _savedPage < 0 ? null : _savedPage * _itemsPerPage;
+                if (sortedGames.isNotEmpty) {
+                  final game = sortedGames[anchor];
+                  if (game.images.isNotEmpty) {
+                    final cover = game.images[game.coverIndex.clamp(0, game.images.length - 1)].imagePath;
+                    _coverOrigins.moveAcrossLayout(context, (game.id ?? game.path, cover), Image.file(File(cover), fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink()));
+                  }
+                }
+                _viewMode = mode;
+                _posterAnchorIndex = mode == ViewMode.poster && _paginationMode == PaginationMode.paginated ? anchor : null;
+                if (savedIndex != null) _savedPage = savedIndex ~/ _itemsPerPage;
+                _updateCurrentPage(_paginationMode == PaginationMode.paginated ? anchor ~/ _itemsPerPage : 0);
+                if (_paginationMode == PaginationMode.infiniteScroll && sortedGames.isNotEmpty) {
+                  final id = sortedGames[anchor].id;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && _viewMode == mode && id != null) _locateGame(id);
+                  });
+                }
                 _saveSetting('game_list_view_mode',
                     mode == ViewMode.poster ? 'poster' : 'list');
               },
-              child: Container(
+              child: AnimatedContainer(
+                duration: AppMotion.duration(context, AppMotion.fast),
+                curve: AppMotion.curve,
                 padding: const EdgeInsets.all(GlassConstants.spacingSmall),
                 decoration: BoxDecoration(
                   color: _viewMode == mode
@@ -603,7 +673,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       children: [
         Tooltip(
           message: '减少每行数量',
-          child: GestureDetector(
+          child: AppActionSurface(
             onTap: () {
               final current = int.tryParse(_columnCountController.text) ?? 3;
               if (current > 2) _updateColumnCount(current - 1);
@@ -631,7 +701,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             style: TextStyle(
                 fontSize: GlassConstants.fontBody,
                 color: AppTheme.getTextPrimary(context),
-                fontWeight: FontWeight.w600),
+                fontWeight: AppTypography.semibold),
             decoration: InputDecoration(
               contentPadding: EdgeInsets.zero,
               filled: true,
@@ -666,7 +736,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         const SizedBox(width: GlassConstants.spacingTiny),
         Tooltip(
           message: '增加每行数量',
-          child: GestureDetector(
+          child: AppActionSurface(
             onTap: () {
               final current = int.tryParse(_columnCountController.text) ?? 3;
               if (current < 8) _updateColumnCount(current + 1);
@@ -715,7 +785,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       children: [
         Tooltip(
           message: '减少每页数量',
-          child: GestureDetector(
+          child: AppActionSurface(
             onTap: () {
               if (_listItemsPerPage > 3)
                 _updateListItemsPerPage(_listItemsPerPage - 1);
@@ -742,13 +812,13 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             style: TextStyle(
                 fontSize: GlassConstants.fontBody,
                 color: AppTheme.getTextPrimary(context),
-                fontWeight: FontWeight.w600),
+                fontWeight: AppTypography.semibold),
           ),
         ),
         const SizedBox(width: GlassConstants.spacingTiny),
         Tooltip(
           message: '增加每页数量',
-          child: GestureDetector(
+          child: AppActionSurface(
             onTap: () {
               if (_listItemsPerPage < 20)
                 _updateListItemsPerPage(_listItemsPerPage + 1);
@@ -992,8 +1062,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               SizedBox(
                 width: 14,
                 height: 14,
-                child: CircularProgressIndicator(
-                    strokeWidth: GlassConstants.spacingMicro, color: AppTheme.getPrimaryColor(context)),
+                child: AppProgressIndicator(
+                    strokeWidth: 2, color: AppTheme.getPrimaryColor(context)),
               ),
               const SizedBox(width: GlassConstants.spacingTight),
               Text(widget.scanProgress,
@@ -1072,7 +1142,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             '已选择 ${_multiSelectController.selectedCount} 项',
             style: TextStyle(
                 fontSize: GlassConstants.fontTitle,
-                fontWeight: FontWeight.w500,
+                fontWeight: AppTypography.medium,
                 color: AppTheme.getPrimaryColor(context)),
           ),
         ],
@@ -1108,7 +1178,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             child: Text('${_currentPage + 1} / $totalPages',
                 style: TextStyle(
                     fontSize: GlassConstants.fontBody,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: AppTypography.medium,
                     color: AppTheme.getPrimaryColor(context))),
           ),
           const SizedBox(width: GlassConstants.spacingSmall),
@@ -1169,7 +1239,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   Widget _buildPageButton(IconData icon, VoidCallback? onPressed) {
-    return GestureDetector(
+    return AppActionSurface(
       onTap: onPressed,
       child: Container(
         padding: const EdgeInsets.all(GlassConstants.spacingTight),
@@ -1210,16 +1280,99 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     color: AppTheme.getTextSecondary(context)
                         .withValues(alpha: 0.4),
                     fontSize: GlassConstants.fontBody)),
+            TextButton(onPressed: () => showSettingsDialog(context, ref, targetItem: '游戏库设置'), child: const Text('打开游戏库设置')),
           ],
         ),
       );
     }
 
-    switch (_viewMode) {
-      case ViewMode.list:
-        return _buildListView(displayedGames);
-      case ViewMode.poster:
-        return _buildPosterView(displayedGames);
+    return AppMotionValue(
+      key: ValueKey((_viewMode, _currentPage)), begin: 0, target: 1,
+      duration: AppMotion.fast,
+      builder: (context, value, child) => Transform.translate(
+          offset: Offset(0, (1 - value) * 4), child: child),
+      child: NotificationListener<ScrollUpdateNotification>(
+        onNotification: _onScroll,
+        child: _viewMode == ViewMode.list ? _buildListView(displayedGames) : _buildPosterView(displayedGames),
+      ),
+    );
+  }
+
+  void _locateGame(int id) {
+    final sorted = _getFilteredAndSortedGames();
+    final index = sorted.indexWhere((game) => game.id == id);
+    if (index < 0) {
+      AppTheme.showGlassToast(context, message: '该游戏不在当前筛选结果中');
+      return;
+    }
+    final paginated = _paginationMode == PaginationMode.paginated;
+    setState(() {
+      _locatedId = id;
+      _locationSequence++;
+      if (!paginated && _infiniteScrollCount <= index) _infiniteScrollCount = index + _itemsPerPage;
+    });
+    if (paginated) _updateCurrentPage(index ~/ _itemsPerPage);
+    final sequence = _locationSequence;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && sequence == _locationSequence) {
+        seekListIndex(_locationScroll, paginated ? index % _itemsPerPage : index,
+            stride: _viewMode == ViewMode.list ? 2 : 1, isCurrent: () => mounted && sequence == _locationSequence);
+      }
+    });
+  }
+
+  Widget _gameFeedback(Game game, Widget child) {
+    child = Focus(focusNode: _gameFocus.putIfAbsent(game.id ?? game.path, () => FocusNode()),
+      onKeyEvent: (node, event) {
+        if (node.hasPrimaryFocus && event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
+          if (_multiSelectController.isMultiSelectMode) {
+            if (HardwareKeyboard.instance.isShiftPressed) {
+              _multiSelectController.selectRange(game, _getFilteredAndSortedGames());
+            } else {
+              _multiSelectController.toggleSelection(game);
+            }
+          } else {
+            _showGameDetail(game);
+          }
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      }, child: child);
+    final error = _rowErrors[game.id];
+    if (error != null) child = Stack(children: [child, Positioned(left: 0, right: 0, bottom: 0,
+        child: Material(color: AppTheme.getSurfaceColor(context), child: Text(error, style: const TextStyle(color: AppTheme.errorColor))))]);
+    if (game.id != null && game.id == _locatedId) child = ResultLocation(key: ValueKey(_locationSequence), child: child);
+    else if (_updatedIds[game.id] case final revision?) child = ResultLocation(key: ValueKey((game.id, revision)), reveal: false, child: child);
+    if (widget.routeIndex != 3) return child;
+    return AppMotionValue(target: _leaving.contains(game.id) ? 0 : 1, duration: AppMotion.fast,
+        builder: (context, value, content) => ClipRect(child: Align(heightFactor: value, child: Opacity(opacity: value, child: content))), child: child);
+  }
+
+  Future<void> _toggleGameFavorite(Game game) async {
+    final id = game.id;
+    if (id == null || !_favoriteWrites.add(id)) return;
+    try {
+      await ref.read(gameRepositoryProvider).updateFavoriteStatus(id, !game.isFavorite);
+      if (!mounted) return;
+      _rowErrors.remove(id);
+      if (widget.routeIndex == 3 && game.isFavorite) {
+        setState(() => _leaving.add(id));
+        await Future<void>.delayed(AppMotion.duration(context, AppMotion.fast));
+        if (!mounted) return;
+        final original = _getFilteredAndSortedGames();
+        final oldIndex = original.indexWhere((item) => item.id == id);
+        final games = original.where((item) => !_leaving.contains(item.id)).toList();
+        if (games.isNotEmpty) {
+          final next = games[oldIndex.clamp(0, games.length - 1)];
+          _gameFocus[next.id ?? next.path]?.requestFocus();
+        }
+      }
+      _refreshGames();
+      _refreshFavorites();
+    } catch (error) {
+      if (mounted) setState(() => _rowErrors[id] = '收藏更新失败：$error');
+    } finally {
+      _favoriteWrites.remove(id);
     }
   }
 
@@ -1228,16 +1381,26 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final coverWidth = (constraints.maxWidth * 0.2).clamp(100.0, 200.0);
       final coverHeight = coverWidth * 9 / 16;
       return ListView.separated(
-        controller: _scrollController,
+        key: PageStorageKey(('games', widget.routeIndex, _viewMode, _currentPage)),
+        controller: _locationScroll,
+        findChildIndexCallback: (key) {
+          final index = games.indexWhere((game) => ValueKey(game.id ?? game.path) == key);
+          return index < 0 ? null : index * 2;
+        },
+        primary: false,
         padding: const EdgeInsets.all(GlassConstants.spacingMedium),
         itemCount: games.length,
         separatorBuilder: (_, __) => Divider(
             height: 1,
             color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
-        itemBuilder: (_, index) => StaggeredItem(
+        itemBuilder: (context, index) => LayoutReflow(
+          key: ValueKey(games[index].id ?? games[index].path), revision: _reflowRevision,
+          child: StaggeredItem(
           index: index,
-          child: _buildListItem(games[index], coverWidth, coverHeight),
-        ),
+          animate: _enteredGames.add(games[index].path) &&
+              Scrollable.of(context).position.pixels == 0,
+          child: _gameFeedback(games[index], _buildListItem(games[index], coverWidth, coverHeight)),
+        )),
       );
     });
   }
@@ -1294,7 +1457,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        _buildGameCover(game, fit: BoxFit.cover),
+                        _buildGameCover(game,
+                            fit: BoxFit.cover,
+                            borderRadius: BorderRadius.circular(
+                                GlassConstants.radiusSmall)),
                         if (isBackupOnly)
                           Positioned(
                             top: 4,
@@ -1323,7 +1489,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                       fontSize: GlassConstants.fontControl,
                                       color: AppTheme.lightForegroundColor
                                           .withValues(alpha: 0.7),
-                                      fontWeight: FontWeight.w500,
+                                      fontWeight: AppTypography.medium,
                                     ),
                                   ),
                                 ],
@@ -1353,7 +1519,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                       style: TextStyle(
                                           fontSize: GlassConstants.fontControl,
                                           color: AppTheme.lightForegroundColor,
-                                          fontWeight: FontWeight.w600)),
+                                          fontWeight: AppTypography.semibold)),
                                 ],
                               ),
                             ),
@@ -1386,7 +1552,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                       fontSize: GlassConstants.fontControl,
                                       color: AppTheme.getOnPrimaryColor(context)
                                           .withValues(alpha: 0.7),
-                                      fontWeight: FontWeight.w500,
+                                      fontWeight: AppTypography.medium,
                                     ),
                                   ),
                                 ],
@@ -1404,7 +1570,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                     children: [
                       Text(game.title ?? '未命名',
                           style: TextStyle(
-                              fontWeight: FontWeight.w600,
+                              fontWeight: AppTypography.semibold,
                               fontSize: GlassConstants.fontSection,
                               color: AppTheme.getCardTitleColor(context)),
                           maxLines: 1,
@@ -1482,12 +1648,28 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       final rows =
           (constraints.maxHeight / (itemHeight + 16)).floor().clamp(1, 10);
       final newItemsPerPage = (rows * crossAxisCount).clamp(1, 50);
+      final anchor = _posterAnchorIndex ?? _currentPage * _posterItemsPerPage;
+      _posterAnchorIndex = null;
       if (newItemsPerPage != _posterItemsPerPage) {
+        final savedIndex = _savedPage < 0 ? null : _savedPage * _posterItemsPerPage;
         _posterItemsPerPage = newItemsPerPage;
+        if (_paginationMode == PaginationMode.paginated) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || _viewMode != ViewMode.poster || _paginationMode != PaginationMode.paginated || _posterItemsPerPage != newItemsPerPage) return;
+            if (savedIndex != null) _savedPage = savedIndex ~/ newItemsPerPage;
+            _updateCurrentPage(anchor ~/ newItemsPerPage);
+          });
+        }
       }
 
       return GridView.builder(
-        controller: _scrollController,
+        key: PageStorageKey(('games', widget.routeIndex, _viewMode, _currentPage)),
+        controller: _locationScroll,
+        findChildIndexCallback: (key) {
+          final index = games.indexWhere((game) => ValueKey(game.id ?? game.path) == key);
+          return index < 0 ? null : index;
+        },
+        primary: false,
         padding: const EdgeInsets.all(GlassConstants.spacingMedium),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: crossAxisCount,
@@ -1496,10 +1678,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           childAspectRatio: aspectRatio,
         ),
         itemCount: games.length,
-        itemBuilder: (_, index) => StaggeredItem(
+        itemBuilder: (context, index) => LayoutReflow(
+          key: ValueKey(games[index].id ?? games[index].path), revision: _reflowRevision,
+          child: StaggeredItem(
           index: index,
-          child: _buildPosterItem(games[index]),
-        ),
+          animate: _enteredGames.add(games[index].path) &&
+              Scrollable.of(context).position.pixels == 0,
+          child: _gameFeedback(games[index], _buildPosterItem(games[index])),
+        )),
       );
     });
   }
@@ -1564,7 +1750,11 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      _buildGameCover(game, fit: BoxFit.cover),
+                      _buildGameCover(game,
+                          fit: BoxFit.cover,
+                          borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(
+                                  GlassConstants.radiusLarge))),
                       if (isBackupOnly)
                         Positioned(
                           top: 8,
@@ -1597,7 +1787,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                     color:
                                         AppTheme.lightForegroundColor
                                             .withValues(alpha: 0.7),
-                                    fontWeight: FontWeight.w500,
+                                    fontWeight: AppTypography.medium,
                                   ),
                                 ),
                               ],
@@ -1630,7 +1820,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                     style: TextStyle(
                                         fontSize: GlassConstants.fontControl,
                                         color: AppTheme.lightForegroundColor,
-                                        fontWeight: FontWeight.w600)),
+                                        fontWeight: AppTypography.semibold)),
                               ],
                             ),
                           ),
@@ -1668,7 +1858,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                                     color:
                                         AppTheme.getOnPrimaryColor(context)
                                             .withValues(alpha: 0.7),
-                                    fontWeight: FontWeight.w500,
+                                    fontWeight: AppTypography.medium,
                                   ),
                                 ),
                               ],
@@ -1679,13 +1869,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                         top: 8,
                         right: 8,
                         child: GestureDetector(
-                          onTap: () async {
-                            final repo = ref.read(gameRepositoryProvider);
-                            await repo.updateFavoriteStatus(
-                                game.id!, !game.isFavorite);
-                            _refreshGames();
-                            _refreshFavorites();
-                          },
+                          onTap: () => _toggleGameFavorite(game),
                           child: Container(
                             padding: const EdgeInsets.all(GlassConstants.spacingTight),
                             decoration: BoxDecoration(
@@ -1761,8 +1945,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: GlassConstants.fontTitle,
-                          fontWeight: FontWeight.w600,
-                          height: 1.3,
+                          fontWeight: AppTypography.semibold,
+                          height: AppTypography.labelHeight,
                           color: AppTheme.getCardTitleColor(context)),
                     ),
                   ],
@@ -1776,7 +1960,10 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   Widget _buildGameCover(Game game,
-      {double? width, double? height, BoxFit fit = BoxFit.cover}) {
+      {double? width,
+      double? height,
+      BoxFit fit = BoxFit.cover,
+      BorderRadius borderRadius = BorderRadius.zero}) {
     final noImageMode = ref.watch(noImageModeProvider);
     if (noImageMode) {
       return SizedBox.expand(
@@ -1807,14 +1994,19 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       source = FileImage(File(coverPath));
     }
     final cacheWidth = ref.watch(coverMemorySavingProvider) ? 768 : null;
-    return Image(
+    return PictureOrigin(
+      origins: _coverOrigins,
+      identity: (game.id ?? game.path, coverPath),
+      borderRadius: borderRadius,
+      child: Image(
       key: ValueKey((coverPath, game.images[coverIndex].id, _coverRevision, cacheWidth)),
       image: ResizeImage.resizeIfNeeded(cacheWidth, null, source),
       width: width,
       height: height,
       fit: fit,
+      frameBuilder: appImageFrameBuilder,
       errorBuilder: (_, __, ___) => _buildCoverPlaceholder(width, height),
-    );
+    ));
   }
 
   Widget _buildCoverPlaceholder(double? width, double? height) {
@@ -1832,19 +2024,14 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
   Widget _buildFavoriteButton(Game game) {
     return GestureDetector(
-      onTap: () async {
-        final repo = ref.read(gameRepositoryProvider);
-        await repo.updateFavoriteStatus(game.id!, !game.isFavorite);
-        _refreshGames();
-        _refreshFavorites();
-      },
-      child: Icon(
+      onTap: () => _toggleGameFavorite(game),
+      child: AppSelectedMark(selected: game.isFavorite, child: Icon(
         game.isFavorite ? Icons.favorite : Icons.favorite_border,
         size: GlassConstants.iconMedium,
         color: game.isFavorite
             ? AppTheme.getFavoriteColor(context)
             : AppTheme.getTextSecondary(context).withValues(alpha: 0.4),
-      ),
+      )),
     );
   }
 
@@ -1972,23 +2159,68 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   void _showGameDetail(Game game) {
+    if (_detailOpen) return;
+    _coverOrigins.cancelFlight();
+    _lastOpenedGame = game;
     if (widget.onGameTap != null) {
       widget.onGameTap!(game);
       return;
     }
-    showDialog<Tag>(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) => GameDetailDialog(
+    _detailOpen = true;
+    final coverPath = game.images.isEmpty ? null : game.images[game.coverIndex.clamp(0, game.images.length - 1)].imagePath;
+    final coverIdentity = (game.id ?? game.path, coverPath);
+    final sourceBounds =
+        coverPath == null ? null : _coverOrigins.visibleBounds(coverIdentity);
+    final screenSize = MediaQuery.sizeOf(context);
+    final targetBounds = Rect.fromLTWH(
+      screenSize.width * 0.05 + GlassConstants.spacingComfortable,
+      screenSize.height * 0.05 +
+          GlassConstants.spacingMedium * 2 +
+          GlassConstants.iconSection +
+          1 +
+          GlassConstants.spacingComfortable,
+      320 - GlassConstants.spacingComfortable * 2,
+      200,
+    );
+    final transitionDuration = sourceBounds == null
+        ? null
+        : pictureFlightDuration(
+            sourceBounds,
+            targetBounds,
+            minimum: AppMotion.duration(context, AppMotion.medium),
+          );
+    final reverseTransitionDuration = sourceBounds == null
+        ? null
+        : pictureFlightDuration(
+            sourceBounds,
+            targetBounds,
+            minimum: AppMotion.duration(context, AppMotion.fast),
+          );
+    showPictureDialog<Tag>(
+      context,
+      (dialogContext) => GameDetailDialog(
         game: game,
+        onContextMenu: (menuContext, position, onEdit) => _showContextMenu(
+          menuContext,
+          position,
+          game,
+          onEdit: onEdit,
+        ),
+        coverOrigin: () => _coverOrigins.visible(coverIdentity),
+        openingCover: coverPath,
         onTagTap: (tag) => Navigator.of(dialogContext).pop(tag),
       ),
+      transitionDuration: transitionDuration,
+      reverseTransitionDuration: reverseTransitionDuration,
     ).then((tag) async {
+      _detailOpen = false;
       await Future.wait(game.images.expand((image) {
         final original = FileImage(File(image.imagePath));
         return [original.evict(), ResizeImage(original, width: 768).evict()];
       }));
       if (!mounted) return;
+      _gameFocus[game.id ?? game.path]?.requestFocus();
+      setState(() { _locatedId = game.id; _locationSequence++; });
       setState(() => _coverRevision++);
       // 关闭详情页后刷新列表
       _refreshGames();
@@ -2017,7 +2249,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     return _getMenuConfig().enabledItems.map((i) => i.id).toList();
   }
 
-  void _showContextMenu(BuildContext context, Offset position, Game game) async {
+  void _showContextMenu(BuildContext context, Offset position, Game game,
+      {VoidCallback? onEdit}) async {
     final isBackupOnly = await _isBackupOnly(game);
     if (!context.mounted) return;
     final isMultiSelect = _multiSelectController.isMultiSelectMode;
@@ -2027,6 +2260,18 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
 
     // 定义所有可能的菜单项
     final allItems = <String, PopupMenuItem<String>>{};
+
+    if (onEdit != null) {
+      allItems['edit'] = PopupMenuItem(
+          value: 'edit',
+          child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.edit_outlined,
+                  size: GlassConstants.iconAction,
+                  color: AppTheme.getPrimaryColor(context)),
+              title: const Text('进入编辑模式')));
+    }
 
     allItems['open_folder'] = PopupMenuItem(
         value: 'open_folder',
@@ -2170,6 +2415,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     final filteredItems = <PopupMenuEntry<String>>[];
     bool hasDangerItem = false;
 
+    if (onEdit != null) filteredItems.add(allItems['edit']!);
+
     for (final id in menuOrder) {
       if (allItems.containsKey(id)) {
         // 在危险项之前添加分隔线
@@ -2197,6 +2444,9 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
               : [game];
 
       switch (value) {
+        case 'edit':
+          onEdit?.call();
+          break;
         case 'open_folder':
           for (final g in targets) {
             await Process.run('explorer.exe', [g.path]);
@@ -2242,7 +2492,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           _showMoveToSeriesDialog(targets);
           break;
         case 'cover':
-          final selected = await showDialog<int>(
+          final selected = await showAppDialog<int>(
             context: context,
             builder: (ctx) => _CoverPickerDialog(game: game),
           );
@@ -2253,7 +2503,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           break;
         case 'open_save':
           if (game.savePath != null && game.savePath!.isNotEmpty) {
-            showDialog(
+            showAppDialog(
               context: context,
               builder: (ctx) => SaveManagementDialog(game: game),
             );
@@ -2271,10 +2521,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('删除记录',
-                        style: TextStyle(
-                            fontSize: GlassConstants.fontSection,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.getTextPrimary(context))),
+                        style: AppTypography.dialogTitle(context)),
                     const SizedBox(height: GlassConstants.spacingCompact),
                     Text(
                         targets.length > 1
@@ -2292,8 +2539,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                         const SizedBox(width: GlassConstants.spacingSmall),
                         ElevatedButton(
                           onPressed: () => Navigator.pop(context, true),
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.warningOrange),
+                          style: AppButtonStyles.solid(color: AppTheme.warningOrange),
                           child: const Text('确认'),
                         ),
                       ],
@@ -2331,10 +2577,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('删除本地文件夹',
-                        style: TextStyle(
-                            fontSize: GlassConstants.fontSection,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.getTextPrimary(context))),
+                        style: AppTypography.dialogTitle(context)),
                     const SizedBox(height: GlassConstants.spacingCompact),
                     Text(deleteDescription,
                         style: TextStyle(
@@ -2349,8 +2592,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                         const SizedBox(width: GlassConstants.spacingSmall),
                         ElevatedButton(
                           onPressed: () => Navigator.pop(context, true),
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.errorColor),
+                          style: AppButtonStyles.solid(color: AppTheme.errorColor),
                           child: const Text('删除文件夹'),
                         ),
                       ],
@@ -2416,7 +2658,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   }
 
   void _showReviewDialog(Game game) {
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (dialogContext) => _ReviewDialog(
         game: game,
@@ -2484,10 +2726,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('标记已通关',
-                  style: TextStyle(
-                      fontSize: GlassConstants.fontSection,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.getTextPrimary(context))),
+                  style: AppTypography.dialogTitle(context)),
               const SizedBox(height: GlassConstants.spacingCompact),
               Text('确定要将"$gameName"标记为已通关吗？\n\n$actionDescription',
                   style: TextStyle(color: AppTheme.getTextSecondary(context))),
@@ -2501,8 +2740,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context, true),
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.getStarColor(context)),
+                    style: AppButtonStyles.solid(color: AppTheme.getStarColor(context)),
                     child: const Text('确认'),
                   ),
                 ],
@@ -2743,10 +2981,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('确认移动文件夹',
-                  style: TextStyle(
-                      fontSize: GlassConstants.fontSection,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.getTextPrimary(context))),
+                  style: AppTypography.dialogTitle(context)),
               const SizedBox(height: GlassConstants.spacingMedium),
               Text('原路径: ${game.path}',
                   style: TextStyle(
@@ -2756,7 +2991,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   style: TextStyle(
                       color: AppTheme.getTextPrimary(context),
                       fontSize: GlassConstants.fontBody,
-                      fontWeight: FontWeight.w500)),
+                      fontWeight: AppTypography.medium)),
               const SizedBox(height: GlassConstants.spacingComfortable),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -2768,10 +3003,6 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context, true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.getPrimaryColor(context),
-                      foregroundColor: AppTheme.getTextColorOnPrimary(context),
-                    ),
                     child: const Text('确认移动'),
                   ),
                 ],
@@ -2883,11 +3114,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
             children: [
               Text(
                 '取消标记已通关',
-                style: TextStyle(
-                  fontSize: GlassConstants.fontSection,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.getTextPrimary(context),
-                ),
+                style: AppTypography.dialogTitle(context),
               ),
               const SizedBox(height: GlassConstants.spacingCompact),
               Text(
@@ -2905,11 +3132,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
                   const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context, true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isBackupOnly
-                          ? AppTheme.errorColor
-                          : AppTheme.getTextSecondary(context),
-                    ),
+                    style: AppButtonStyles.solid(color: isBackupOnly ? AppTheme.errorColor : AppTheme.getTextSecondary(context)),
                     child: const Text('确认'),
                   ),
                 ],
@@ -3060,7 +3283,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
         ? (firstGame.title ?? '未命名游戏')
         : '已选择 ${games.length} 个游戏';
 
-    final result = await showDialog<List<int>>(
+    final result = await showAppDialog<List<int>>(
       context: context,
       builder: (ctx) => _MoveToSeriesDialog(
         customTags: customTags,
@@ -3168,10 +3391,7 @@ class _CoverPickerDialog extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('选择封面图片',
-                style: TextStyle(
-                    fontSize: GlassConstants.fontSection,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.getTextPrimary(context))),
+                style: AppTypography.dialogTitle(context)),
             const SizedBox(height: GlassConstants.spacingMedium),
             Text('当前封面: 第 ${game.coverIndex + 1} 张 / 共 ${game.images.length} 张',
                 style: TextStyle(
@@ -3212,6 +3432,7 @@ class _CoverPickerDialog extends StatelessWidget {
                                   children: [
                                     Image.file(
                                       File(game.images[i].imagePath!),
+                                      frameBuilder: appImageFrameBuilder,
                                       fit: BoxFit.contain,
                                       errorBuilder: (_, __, ___) => Container(
                                         color:
@@ -3319,13 +3540,6 @@ class _ReviewDialogState extends State<_ReviewDialog> {
     super.dispose();
   }
 
-  double _calcRatingFromX(double x, double totalWidth) {
-    final starWidth = totalWidth / 5;
-    final rawRating = (x / starWidth);
-    final clamped = rawRating.clamp(0.0, 5.0);
-    return (clamped * 2).round() / 2; // round to nearest 0.5
-  }
-
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -3342,11 +3556,7 @@ class _ReviewDialogState extends State<_ReviewDialog> {
           children: [
             Text(
               widget.game.title ?? '未命名游戏',
-              style: TextStyle(
-                fontSize: GlassConstants.fontSection,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.getTextPrimary(context),
-              ),
+              style: AppTypography.dialogTitle(context),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -3355,55 +3565,11 @@ class _ReviewDialogState extends State<_ReviewDialog> {
               '评分',
               style: TextStyle(
                   fontSize: GlassConstants.fontControl,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: AppTypography.semibold,
                   color: AppTheme.getTextPrimary(context)),
             ),
             const SizedBox(height: GlassConstants.spacingSmall),
-            Builder(
-              builder: (context) {
-                const starSize = 32.0;
-                const starGap = GlassConstants.spacingTiny;
-                const starAreaWidth = 5 * (starSize + starGap) - starGap;
-                return Listener(
-                  onPointerDown: (event) {
-                    final newRating =
-                        _calcRatingFromX(event.localPosition.dx, starAreaWidth);
-                    if (newRating != _rating)
-                      setState(() => _rating = newRating);
-                  },
-                  onPointerMove: (event) {
-                    final newRating =
-                        _calcRatingFromX(event.localPosition.dx, starAreaWidth);
-                    if (newRating != _rating)
-                      setState(() => _rating = newRating);
-                  },
-                  child: Row(
-                    children: List.generate(5, (index) {
-                      final starValue = index + 1;
-                      IconData icon;
-                      if (_rating >= starValue) {
-                        icon = Icons.star;
-                      } else if (_rating >= starValue - 0.5) {
-                        icon = Icons.star_half;
-                      } else {
-                        icon = Icons.star_border;
-                      }
-                      return Padding(
-                        padding: const EdgeInsets.only(right: starGap),
-                        child: Icon(
-                          icon,
-                          size: starSize,
-                          color: icon == Icons.star_border
-                              ? AppTheme.getTextSecondary(context)
-                                  .withValues(alpha: 0.4)
-                              : AppTheme.getStarColor(context),
-                        ),
-                      );
-                    }),
-                  ),
-                );
-              },
-            ),
+            RatingInput(value: _rating, onChanged: (value) => setState(() => _rating = value)),
             if (_rating > 0)
               Padding(
                 padding: const EdgeInsets.only(top: GlassConstants.spacingTiny),
@@ -3420,12 +3586,13 @@ class _ReviewDialogState extends State<_ReviewDialog> {
               '评论',
               style: TextStyle(
                   fontSize: GlassConstants.fontControl,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: AppTypography.semibold,
                   color: AppTheme.getTextPrimary(context)),
             ),
             const SizedBox(height: GlassConstants.spacingSmall),
             TextField(
               controller: _reviewController,
+              autofocus: true,
               maxLines: 5,
               style: TextStyle(
                   fontSize: GlassConstants.fontControl, color: AppTheme.getTextPrimary(context)),
@@ -3469,12 +3636,6 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                     widget.onSave(_rating, _reviewController.text);
                     Navigator.of(context).pop();
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.getPrimaryColor(context),
-                    foregroundColor: AppTheme.getTextColorOnPrimary(context),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(GlassConstants.radiusSmall)),
-                  ),
                   child: const Text('保存'),
                 ),
               ],
@@ -3526,10 +3687,7 @@ class _MoveToSeriesDialogState extends State<_MoveToSeriesDialog> {
           children: [
             Text(
               '移入自定义系列',
-              style: TextStyle(
-                  fontSize: GlassConstants.fontSection,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.getTextPrimary(context)),
+              style: AppTypography.dialogTitle(context),
             ),
             const SizedBox(height: GlassConstants.spacingSmall),
             Text(
@@ -3589,8 +3747,8 @@ class _MoveToSeriesDialogState extends State<_MoveToSeriesDialog> {
                                     ? AppTheme.getPrimaryColor(context)
                                     : AppTheme.getTextPrimary(context),
                                 fontWeight: isSelected
-                                    ? FontWeight.w500
-                                    : FontWeight.normal,
+                                    ? AppTypography.medium
+                                    : AppTypography.regular,
                               ),
                             ),
                           ],
@@ -3613,10 +3771,6 @@ class _MoveToSeriesDialogState extends State<_MoveToSeriesDialog> {
                 ElevatedButton(
                   onPressed: () =>
                       Navigator.pop(context, _selectedIds.toList()),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.getPrimaryColor(context),
-                    foregroundColor: AppTheme.getTextColorOnPrimary(context),
-                  ),
                   child: const Text('确定'),
                 ),
               ],

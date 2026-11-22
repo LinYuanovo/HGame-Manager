@@ -45,8 +45,13 @@ class _GamesPageState extends ConsumerState<GamesPage>
     return Column(
       children: [
         GlassAppBar(
-          title: const Text('游戏库',
-              style: TextStyle(fontSize: GlassConstants.fontSection, fontWeight: FontWeight.w600)),
+          title: Text(
+            '游戏库',
+            style: TextStyle(
+                fontSize: GlassConstants.fontHeading,
+                fontWeight: AppTypography.semibold,
+                color: AppTheme.getTextPrimary(context)),
+          ),
           actions: [
             IconButton(
               icon: Icon(Icons.add_circle_outline,
@@ -76,7 +81,7 @@ class _GamesPageState extends ConsumerState<GamesPage>
                           SizedBox(
                             width: 14,
                             height: 14,
-                            child: CircularProgressIndicator(
+                            child: AppProgressIndicator(
                               strokeWidth: 2,
                               color: AppTheme.getPrimaryColor(context),
                             ),
@@ -89,7 +94,7 @@ class _GamesPageState extends ConsumerState<GamesPage>
                             style: TextStyle(
                               fontSize: GlassConstants.fontBody,
                               color: AppTheme.getPrimaryColor(context),
-                              fontWeight: FontWeight.w500,
+                              fontWeight: AppTypography.medium,
                             ),
                           ),
                         ],
@@ -221,8 +226,8 @@ class _GamesPageState extends ConsumerState<GamesPage>
                 });
               },
             ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('加载失败: $e')),
+            loading: () => const GameListSkeleton(),
+            error: (error, _) => AppLoadError(message: '加载失败：$error', onRetry: () => ref.invalidate(allGamesProvider)),
           ),
         ),
       ],
@@ -256,15 +261,13 @@ class _GamesPageState extends ConsumerState<GamesPage>
   }
 
   void _showAddGameDialog() {
-    final prefs = ref.read(sharedPreferencesProvider);
-    final userFont = prefs.getString('font_family') ?? '';
     showGlassDialog(
       context: context,
       child: BatchImportDialog(
+        onLocate: (id) => ref.read(libraryLocationProvider.notifier).state = id,
         onImportComplete: () {
           ref.invalidate(allGamesProvider);
         },
-        userFont: userFont,
       ),
     );
   }
@@ -273,8 +276,9 @@ class _GamesPageState extends ConsumerState<GamesPage>
     showGlassDialog(
       context: context,
       child: _CloudImportDialog(
-        onImportComplete: () {
+        onImportComplete: (id) {
           ref.invalidate(allGamesProvider);
+          ref.read(libraryLocationProvider.notifier).state = id;
         },
       ),
     );
@@ -284,7 +288,7 @@ class _GamesPageState extends ConsumerState<GamesPage>
 enum ImportSource { none, dlsite, steam }
 
 class _CloudImportDialog extends ConsumerStatefulWidget {
-  final VoidCallback onImportComplete;
+  final ValueChanged<int?> onImportComplete;
 
   const _CloudImportDialog({required this.onImportComplete});
 
@@ -297,8 +301,11 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
   DlsiteService get _dlsiteService => ref.read(dlsiteServiceProvider);
   final _steamService = SteamService();
   final _idController = TextEditingController();
+  final _queryFocus = FocusNode();
   String? _folderPath;
   bool _isLoading = false;
+  int _searchGeneration = 0;
+  bool _searching = false;
   String _statusText = '';
   final List<String> _translationNotices = [];
   List<dynamic> _searchResults = [];
@@ -308,6 +315,7 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
   @override
   void dispose() {
     _idController.dispose();
+    _queryFocus.dispose();
     super.dispose();
   }
 
@@ -346,6 +354,8 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
   }
 
   Future<void> _searchGame() async {
+    if (_isLoading && !_searching) return;
+    final generation = ++_searchGeneration;
     if (_folderPath == null) {
       AppTheme.showGlassToast(
         context,
@@ -364,6 +374,8 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
     setState(() {
       _isLoading = true;
       _statusText = '正在搜索...';
+      _searching = true;
+      _showSearchResults = true;
       _searchResults = [];
       _selectedResult = null;
     });
@@ -371,16 +383,16 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
     try {
       if (await _skipExistingFolder(ref.read(gameRepositoryProvider))) return;
       if (_source == ImportSource.dlsite) {
-        await _searchDlsite();
+        await _searchDlsite(generation);
       } else {
-        await _searchSteam();
+        await _searchSteam(generation);
       }
     } catch (e, stackTrace) {
       AppLogger.instance.error('Import', '操作失败', e, stackTrace);
-      if (mounted) setState(() => _statusText = '搜索失败: $e');
+      if (mounted && generation == _searchGeneration) setState(() => _statusText = '搜索失败: $e');
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
+      if (mounted && generation == _searchGeneration) {
+        setState(() { _isLoading = false; _searching = false; });
       }
     }
   }
@@ -473,7 +485,7 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
 
       if (mounted) {
         Navigator.of(context).pop();
-        widget.onImportComplete();
+        widget.onImportComplete(savedGame?.id);
         AppTheme.showGlassToast(
           context,
           message: '游戏导入成功',
@@ -493,7 +505,7 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
     }
   }
 
-  Future<void> _searchDlsite() async {
+  Future<void> _searchDlsite(int generation) async {
     List<DlsiteSearchResult> results;
     final inputText = _idController.text.trim();
     if (inputText.isNotEmpty) {
@@ -513,7 +525,7 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
       results = await _dlsiteService.searchWithFallback(_folderPath!);
     }
 
-    if (!mounted) return;
+    if (!mounted || generation != _searchGeneration) return;
     setState(() {
       _searchResults = results;
       _showSearchResults = true;
@@ -525,7 +537,7 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
     });
   }
 
-  Future<void> _searchSteam() async {
+  Future<void> _searchSteam(int generation) async {
     List<SteamSearchResult> results;
     final rawInput = _idController.text.trim();
     if (rawInput.isNotEmpty) {
@@ -539,7 +551,7 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
       results = await _steamService.searchWithFallback(_folderPath!);
     }
 
-    if (!mounted) return;
+    if (!mounted || generation != _searchGeneration) return;
     setState(() {
       _searchResults = results;
       _showSearchResults = true;
@@ -615,7 +627,7 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
 
     setState(() => _statusText = '正在下载图片...');
     _translationNotices.clear();
-    await ScrapeApplyService.applyScrapeResult(
+    final importedGame = await ScrapeApplyService.applyScrapeResult(
       game: Game(path: _folderPath!),
       gameInfo: gameInfo,
       mode: ScrapeMode.singleAdd,
@@ -629,7 +641,7 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
 
     if (mounted) {
       Navigator.of(context).pop();
-      widget.onImportComplete();
+      widget.onImportComplete(importedGame.id);
       AppTheme.showGlassToast(
         context,
         message: [
@@ -730,7 +742,7 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
 
     if (mounted) {
       Navigator.of(context).pop();
-      widget.onImportComplete();
+      widget.onImportComplete(gameId);
       AppTheme.showGlassToast(
         context,
         message: [
@@ -798,11 +810,7 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
           children: [
             Text(
               '添加单个游戏',
-              style: TextStyle(
-                fontSize: GlassConstants.fontSection,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.getTextPrimary(context),
-              ),
+              style: AppTypography.dialogTitle(context),
             ),
             const SizedBox(height: GlassConstants.spacingMedium),
 
@@ -857,10 +865,6 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
                   onPressed: _isLoading ? null : _pickFolder,
                   icon: const Icon(Icons.folder_open, size: GlassConstants.iconSmall),
                   label: const Text('浏览'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.getPrimaryColor(context),
-                    foregroundColor: AppTheme.getOnPrimaryColor(context),
-                  ),
                 ),
               ],
             ),
@@ -873,6 +877,8 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
                   Expanded(
                     child: TextField(
                       controller: _idController,
+                      focusNode: _queryFocus,
+                      onSubmitted: (_) => _searchGame(),
                       decoration: InputDecoration(
                         hintText: _source == ImportSource.dlsite
                             ? '输入DLsite ID (如 RJ123456)，留空则自动按游戏名称搜索'
@@ -892,13 +898,9 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
                   ),
                   const SizedBox(width: GlassConstants.spacingSmall),
                   ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _searchGame,
+                    onPressed: _isLoading && !_searching ? null : _searchGame,
                     icon: const Icon(Icons.search, size: GlassConstants.iconSmall),
                     label: const Text('搜索'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.getPrimaryColor(context),
-                      foregroundColor: AppTheme.getOnPrimaryColor(context),
-                    ),
                   ),
                 ],
               ),
@@ -922,12 +924,14 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
               ),
 
             // Search results
-            if (_showSearchResults && _searchResults.isNotEmpty) ...[
+            if (_isLoading && _showSearchResults && _searchResults.isEmpty)
+              Expanded(child: AppSkeleton(label: _statusText))
+            else if (_showSearchResults && _searchResults.isNotEmpty) ...[
               Text(
                 '选择游戏:',
                 style: TextStyle(
                     fontSize: GlassConstants.fontBody,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: AppTypography.medium,
                     color: AppTheme.getTextPrimary(context)),
               ),
               const SizedBox(height: GlassConstants.spacingSmall),
@@ -969,17 +973,11 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
                     onPressed: (_isLoading || _folderPath == null)
                         ? null
                         : _importNone,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.getPrimaryColor(context),
-                      foregroundColor: AppTheme.getOnPrimaryColor(context),
-                      disabledBackgroundColor:
-                          AppTheme.getPrimaryColor(context).withValues(alpha: 0.4),
-                    ),
                     child: _isLoading
                         ? SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(
+                            child: AppProgressIndicator(
                               strokeWidth: 2,
                               color: AppTheme.getTextColorOnPrimary(context),
                             ),
@@ -991,17 +989,11 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
                     onPressed: (_isLoading || _selectedResult == null)
                         ? null
                         : _import,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.getPrimaryColor(context),
-                      foregroundColor: AppTheme.getOnPrimaryColor(context),
-                      disabledBackgroundColor:
-                          AppTheme.getPrimaryColor(context).withValues(alpha: 0.4),
-                    ),
                     child: _isLoading
                         ? SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(
+                            child: AppProgressIndicator(
                               strokeWidth: 2,
                               color: AppTheme.getTextColorOnPrimary(context),
                             ),
@@ -1019,11 +1011,15 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
   Widget _buildSourceChip(ImportSource source, String label) {
     final isSelected = _source == source;
     return GestureDetector(
-      onTap: _isLoading
+      onTap: _isLoading && !_searching
           ? null
           : () {
               setState(() {
                 _source = source;
+                _searchGeneration++;
+                _isLoading = false;
+                _searching = false;
+                _queryFocus.requestFocus();
                 _searchResults = [];
                 _selectedResult = null;
                 _showSearchResults = false;
@@ -1048,7 +1044,7 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
           label,
           style: TextStyle(
             fontSize: GlassConstants.fontBody,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            fontWeight: isSelected ? AppTypography.semibold : AppTypography.regular,
             color: isSelected
                 ? AppTheme.getPrimaryColor(context)
                 : AppTheme.getTextSecondary(context),
@@ -1074,12 +1070,10 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
               imageUrl:
                   'https://img.dlsite.jp/resize/images2/work/doujin/${result.id.substring(0, result.id.length - 4)}0000/${result.id}_img_main_240x240.jpg',
               fit: BoxFit.cover,
-              placeholder: (context, url) => const Center(
-                child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2)),
-              ),
+              placeholder: (context, url) => const AppSkeleton(
+                  layout: SkeletonLayout.image, label: '正在加载封面'),
+              fadeInDuration: AppMotion.duration(context, AppMotion.fast),
+              fadeOutDuration: AppMotion.duration(context, AppMotion.fast),
               errorWidget: (context, url, error) => Icon(Icons.gamepad,
                   color: AppTheme.getTextSecondary(context)),
             ),
@@ -1089,7 +1083,7 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
           result.name ?? result.id,
           style: TextStyle(
             fontSize: GlassConstants.fontBody,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontWeight: isSelected ? AppTypography.bold : AppTypography.regular,
             color: isSelected
                 ? AppTheme.getPrimaryColor(context)
                 : AppTheme.getTextPrimary(context),
@@ -1104,7 +1098,8 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
         ),
         selected: isSelected,
         selectedTileColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
-        onTap: () => setState(() => _selectedResult = result),
+        trailing: _isLoading && !_searching && isSelected ? const SizedBox.square(dimension: GlassConstants.iconSmall, child: AppProgressIndicator(strokeWidth: 2)) : null,
+        onTap: _isLoading ? null : () => setState(() => _selectedResult = result),
       );
     } else if (_source == ImportSource.steam && result is SteamSearchResult) {
       return ListTile(
@@ -1121,12 +1116,10 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
                 ? CachedNetworkImage(
                     imageUrl: result.tinyImage!,
                     fit: BoxFit.cover,
-                    placeholder: (context, url) => const Center(
-                      child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2)),
-                    ),
+                    placeholder: (context, url) => const AppSkeleton(
+                        layout: SkeletonLayout.image, label: '正在加载封面'),
+                    fadeInDuration: AppMotion.duration(context, AppMotion.fast),
+                    fadeOutDuration: AppMotion.duration(context, AppMotion.fast),
                     errorWidget: (context, url, error) => Icon(Icons.gamepad,
                         color: AppTheme.getTextSecondary(context)),
                   )
@@ -1138,7 +1131,7 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
           result.name ?? result.id,
           style: TextStyle(
             fontSize: GlassConstants.fontBody,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontWeight: isSelected ? AppTypography.bold : AppTypography.regular,
             color: isSelected
                 ? AppTheme.getPrimaryColor(context)
                 : AppTheme.getTextPrimary(context),
@@ -1153,7 +1146,8 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
         ),
         selected: isSelected,
         selectedTileColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
-        onTap: () => setState(() => _selectedResult = result),
+        trailing: _isLoading && !_searching && isSelected ? const SizedBox.square(dimension: GlassConstants.iconSmall, child: AppProgressIndicator(strokeWidth: 2)) : null,
+        onTap: _isLoading ? null : () => setState(() => _selectedResult = result),
       );
     }
     return const SizedBox.shrink();

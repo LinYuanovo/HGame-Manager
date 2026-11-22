@@ -965,7 +965,7 @@ class GameRepository implements PlayTimeRepository {
     );
   }
 
-  Future<void> setGameImages(int gameId, List<GameImage> images) async {
+  Future<void> setGameImages(int gameId, List<GameImage> images, {int? coverIndex}) async {
     final db = await _db;
     await db.transaction((txn) async {
       await txn
@@ -977,6 +977,7 @@ class GameRepository implements PlayTimeRepository {
           'sort_order': i,
         });
       }
+      if (coverIndex != null) await txn.update('games', {'cover_index': images.isEmpty ? 0 : coverIndex.clamp(0, images.length - 1)}, where: 'id = ?', whereArgs: [gameId]);
     });
   }
 

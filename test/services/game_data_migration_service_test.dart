@@ -321,7 +321,7 @@ class _FakeGameRepository extends GameRepository {
   Future<List<GameImage>> getGameImages(int gameId) async => images;
 
   @override
-  Future<void> setGameImages(int gameId, List<GameImage> images) async {
+  Future<void> setGameImages(int gameId, List<GameImage> images, {int? coverIndex}) async {
     this.images = images;
   }
 

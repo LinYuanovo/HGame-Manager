@@ -1,8 +1,10 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
 import '../../core/models/models.dart';
+import 'app_motion.dart';
+export 'app_motion.dart';
+export '../widgets/app_loading.dart';
 
 // ===== 统一常量 =====
 class LayoutConstants {
@@ -24,6 +26,7 @@ class LayoutConstants {
   // 表单控件与批量导入布局
   static const double controlHeight = 44;
   static const double formCompactWidth = 640;
+  static const double gameListToolbarCompactWidth = 1000;
   static const double batchImportDialogWidth = 860;
   static const double batchImportDialogHeight = 600;
   static const double batchImportSourceWidth = 104;
@@ -36,6 +39,8 @@ class LayoutConstants {
   static const double defaultWindowWidth = 1400;
   static const double defaultWindowHeight = 900;
   static const double titleBarHeight = 40;
+  static const double panelControlWidth = 200;
+  static const double panelControlHeight = 52;
   static const double sidebarWidth = 220;
   static const double minSidebarWidth = 70;
   static const double maxSidebarWidth = 280;
@@ -112,12 +117,12 @@ class GlassConstants {
   static const double blurLarge = 30.0;
 
   // 动画时长
-  static const Duration animFast = Duration(milliseconds: 200);
-  static const Duration animMedium = Duration(milliseconds: 300);
-  static const Duration animSlow = Duration(milliseconds: 400);
+  static const Duration animFast = AppMotion.fast;
+  static const Duration animMedium = AppMotion.medium;
+  static const Duration animSlow = AppMotion.slow;
 
   // 动画曲线
-  static const Curve animCurve = Curves.easeInOut;
+  static const Curve animCurve = AppMotion.curve;
 
   // 间距
   static const double spacingSmall = 8.0;
@@ -125,12 +130,119 @@ class GlassConstants {
   static const double spacingLarge = 24.0;
   static const double spacingXLarge = 32.0;
 
-  // 缩放
-  static const double hoverScale = 1.02;
-  static const double pressScale = 0.97;
-
   // 对话框
   static const double dialogWidth = 600.0;
+}
+
+abstract final class AppTypography {
+  static const family = 'Microsoft YaHei';
+  static const bundledFamily = 'MapleMonoNL-NF-CN';
+  static const regular = FontWeight.w400;
+  static const medium = FontWeight.w500;
+  static const semibold = FontWeight.w600;
+  static const bold = FontWeight.w700;
+  static const labelHeight = 1.3;
+  static const compactHeight = 1.4;
+  static const bodyHeight = 1.5;
+  static const readingHeight = 1.7;
+  static const spaciousHeight = 1.8;
+  static const buttonLabel = TextStyle(
+    fontSize: GlassConstants.fontControl,
+    fontWeight: medium,
+  );
+  static const bundledPreview = TextStyle(fontFamily: bundledFamily);
+
+  static TextStyle dialogTitle(BuildContext context) => TextStyle(
+        fontSize: GlassConstants.fontSection,
+        fontWeight: bold,
+        color: AppTheme.getTextPrimary(context),
+      );
+
+  static TextStyle preview(String family, double size, Color color) => TextStyle(
+        fontFamily: family.isEmpty ? AppTypography.family : family,
+        fontSize: size,
+        color: color,
+      );
+}
+
+abstract final class AppButtonStyles {
+  static const _compactPadding = EdgeInsets.symmetric(
+    horizontal: GlassConstants.spacingCompact,
+    vertical: GlassConstants.spacingTiny,
+  );
+
+  static ButtonStyle solid({required Color color, bool compact = false}) =>
+      ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: color.computeLuminance() > 0.179 ? Colors.black : Colors.white,
+        padding: compact ? _compactPadding : null,
+      );
+
+  static ButtonStyle tinted(BuildContext context, {Color? color, bool compact = false}) {
+    final accent = color ?? AppTheme.getPrimaryColor(context);
+    final ink = Theme.of(context).brightness == Brightness.light
+        ? Color.alphaBlend(Colors.black.withValues(alpha: 0.35), accent)
+        : Color.alphaBlend(Colors.white.withValues(alpha: 0.30), accent);
+    return ElevatedButton.styleFrom(
+      foregroundColor: ink,
+      backgroundColor: accent.withValues(alpha: 0.12),
+      padding: compact ? _compactPadding : null,
+      side: BorderSide(color: accent.withValues(alpha: 0.3)),
+    );
+  }
+
+  static ButtonStyle outline({Color? color, bool compact = false}) =>
+      OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: color == null ? null : BorderSide(color: color),
+        padding: compact ? _compactPadding : null,
+        minimumSize: compact ? Size.zero : null,
+        tapTargetSize: compact ? MaterialTapTargetSize.shrinkWrap : null,
+      );
+
+  static ButtonStyle get compact => ElevatedButton.styleFrom(padding: _compactPadding);
+
+  static ButtonStyle muted(BuildContext context) =>
+      TextButton.styleFrom(foregroundColor: AppTheme.getTextSecondary(context));
+
+  static ButtonStyle iconTint(BuildContext context) => IconButton.styleFrom(
+        foregroundColor: AppTheme.getPrimaryColor(context),
+        backgroundColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.12),
+      );
+
+  static ButtonStyle caption(BuildContext context, {required bool close, required bool active}) {
+    bool highlighted(Set<WidgetState> states) =>
+        states.contains(WidgetState.hovered) || states.contains(WidgetState.focused);
+    return ButtonStyle(
+      shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+      padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+      backgroundColor: WidgetStateProperty.resolveWith((states) =>
+          close && highlighted(states) ? AppTheme.errorColor : null),
+      foregroundColor: WidgetStateProperty.resolveWith((states) =>
+          close && highlighted(states) ? Colors.black : active
+              ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context)),
+    );
+  }
+}
+
+class AppMiniIconButton extends StatelessWidget {
+  const AppMiniIconButton({super.key, required this.icon, required this.tooltip, required this.color, required this.onTap});
+
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: tooltip,
+    onPressed: onTap,
+    color: color,
+    iconSize: GlassConstants.iconSmall,
+    constraints: const BoxConstraints.tightFor(width: GlassConstants.iconLarge, height: GlassConstants.iconLarge),
+    padding: const EdgeInsets.all(GlassConstants.spacingTiny),
+    icon: Icon(icon),
+  );
 }
 
 class AppTheme {
@@ -264,10 +376,13 @@ class AppTheme {
   };
 
   static ThemeData lightTheme({String? fontFamily}) {
-    final effectiveFontFamily = fontFamily ?? 'Microsoft YaHei';
+    final effectiveFontFamily = fontFamily ?? AppTypography.family;
     return ThemeData(
       fontFamily: effectiveFontFamily,
       brightness: Brightness.light,
+      pageTransitionsTheme: const PageTransitionsTheme(builders: {
+        TargetPlatform.windows: AppPageTransitionsBuilder(),
+      }),
       primaryColor: primaryColor,
       scaffoldBackgroundColor: backgroundColor,
       colorScheme: ColorScheme.fromSwatch(
@@ -288,14 +403,15 @@ class AppTheme {
         ),
         shadowColor: Colors.black.withValues(alpha: 0.05),
       ),
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
         titleTextStyle: TextStyle(
+          fontFamily: effectiveFontFamily,
           color: textPrimary,
           fontSize: GlassConstants.fontHeading,
-          fontWeight: FontWeight.w600,
+          fontWeight: AppTypography.semibold,
         ),
         iconTheme: IconThemeData(
           color: textSecondary,
@@ -306,38 +422,38 @@ class AppTheme {
         size: GlassConstants.iconMedium,
       ),
       textTheme: TextTheme(
-        labelLarge: const TextStyle(fontSize: GlassConstants.fontControl, fontWeight: FontWeight.w500),
+        labelLarge: AppTypography.buttonLabel,
         labelMedium: const TextStyle(fontSize: GlassConstants.fontSmall, fontWeight: FontWeight.w500),
         labelSmall: const TextStyle(fontSize: GlassConstants.fontCaption, fontWeight: FontWeight.w500),
         headlineLarge: TextStyle(
           color: textPrimary,
           fontSize: GlassConstants.fontHero,
-          fontWeight: FontWeight.bold,
+          fontWeight: AppTypography.bold,
         ),
         headlineMedium: TextStyle(
           color: textPrimary,
           fontSize: GlassConstants.fontDetailTitle,
-          fontWeight: FontWeight.w600,
+          fontWeight: AppTypography.semibold,
         ),
         headlineSmall: TextStyle(
           color: textPrimary,
           fontSize: GlassConstants.fontHeadline,
-          fontWeight: FontWeight.w600,
+          fontWeight: AppTypography.semibold,
         ),
         titleLarge: TextStyle(
           color: textPrimary,
           fontSize: GlassConstants.fontHeading,
-          fontWeight: FontWeight.w500,
+          fontWeight: AppTypography.medium,
         ),
         titleMedium: TextStyle(
           color: textPrimary,
           fontSize: GlassConstants.fontSection,
-          fontWeight: FontWeight.w500,
+          fontWeight: AppTypography.medium,
         ),
         titleSmall: TextStyle(
           color: textSecondary,
           fontSize: GlassConstants.fontTitle,
-          fontWeight: FontWeight.w400,
+          fontWeight: AppTypography.regular,
         ),
         bodyLarge: TextStyle(
           color: textPrimary,
@@ -352,9 +468,18 @@ class AppTheme {
           fontSize: GlassConstants.fontBody,
         ),
       ).apply(fontFamily: effectiveFontFamily),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          foregroundBuilder: AppMotion.buttonFace,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+        ),
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor.withValues(alpha: 0.7),
+          foregroundBuilder: AppMotion.buttonFace,
+          backgroundColor: primaryColor,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingCompact),
           shape: RoundedRectangleBorder(
@@ -366,7 +491,7 @@ class AppTheme {
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
           foregroundColor: textSecondary.withValues(alpha: 0.7),
-        ),
+        ).copyWith(foregroundBuilder: AppMotion.buttonFace),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
@@ -387,12 +512,14 @@ class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: primaryColor.withValues(alpha: 0.7),
+          foregroundBuilder: AppMotion.buttonFace,
+          foregroundColor: primaryColor,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: primaryColor.withValues(alpha: 0.7),
+          foregroundBuilder: AppMotion.buttonFace,
+          foregroundColor: primaryColor,
           side: BorderSide(color: primaryColor.withValues(alpha: 0.7)),
         ),
       ),
@@ -433,20 +560,23 @@ class AppTheme {
         shadowColor: Colors.black26,
         elevation: 12,
         textStyle: TextStyle(
+          fontFamily: effectiveFontFamily,
           color: textPrimary,
           fontSize: GlassConstants.fontControl,
-          fontWeight: FontWeight.w500,
-          fontFamily: effectiveFontFamily,
+          fontWeight: AppTypography.medium,
         ),
       ),
     );
   }
 
   static ThemeData darkTheme({String? fontFamily}) {
-    final effectiveFontFamily = fontFamily ?? 'Microsoft YaHei';
+    final effectiveFontFamily = fontFamily ?? AppTypography.family;
     return ThemeData(
       fontFamily: effectiveFontFamily,
       brightness: Brightness.dark,
+      pageTransitionsTheme: const PageTransitionsTheme(builders: {
+        TargetPlatform.windows: AppPageTransitionsBuilder(),
+      }),
       primaryColor: darkPrimaryColor,
       scaffoldBackgroundColor: darkBackgroundColor,
       colorScheme: ColorScheme.fromSwatch(
@@ -468,14 +598,15 @@ class AppTheme {
         ),
         shadowColor: Colors.transparent,
       ),
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
         titleTextStyle: TextStyle(
+          fontFamily: effectiveFontFamily,
           color: darkTextPrimary,
           fontSize: GlassConstants.fontHeading,
-          fontWeight: FontWeight.w600,
+          fontWeight: AppTypography.semibold,
         ),
         iconTheme: IconThemeData(
           color: darkTextSecondary,
@@ -486,30 +617,39 @@ class AppTheme {
         size: GlassConstants.iconMedium,
       ),
       textTheme: TextTheme(
-        labelLarge: const TextStyle(fontSize: GlassConstants.fontControl, fontWeight: FontWeight.w500),
+        labelLarge: AppTypography.buttonLabel,
         labelMedium: const TextStyle(fontSize: GlassConstants.fontSmall, fontWeight: FontWeight.w500),
         labelSmall: const TextStyle(fontSize: GlassConstants.fontCaption, fontWeight: FontWeight.w500),
         headlineLarge: TextStyle(
-            color: darkTextPrimary, fontSize: GlassConstants.fontHero, fontWeight: FontWeight.bold),
+            color: darkTextPrimary, fontSize: GlassConstants.fontHero, fontWeight: AppTypography.bold),
         headlineMedium: TextStyle(
-            color: darkTextPrimary, fontSize: GlassConstants.fontDetailTitle, fontWeight: FontWeight.w600),
+            color: darkTextPrimary, fontSize: GlassConstants.fontDetailTitle, fontWeight: AppTypography.semibold),
         headlineSmall: TextStyle(
-            color: darkTextPrimary, fontSize: GlassConstants.fontHeadline, fontWeight: FontWeight.w600),
+            color: darkTextPrimary, fontSize: GlassConstants.fontHeadline, fontWeight: AppTypography.semibold),
         titleLarge: TextStyle(
-            color: darkTextPrimary, fontSize: GlassConstants.fontHeading, fontWeight: FontWeight.w500),
+            color: darkTextPrimary, fontSize: GlassConstants.fontHeading, fontWeight: AppTypography.medium),
         titleMedium: TextStyle(
-            color: darkTextPrimary, fontSize: GlassConstants.fontSection, fontWeight: FontWeight.w500),
+            color: darkTextPrimary, fontSize: GlassConstants.fontSection, fontWeight: AppTypography.medium),
         titleSmall: TextStyle(
             color: darkTextSecondary,
             fontSize: GlassConstants.fontTitle,
-            fontWeight: FontWeight.w400),
+            fontWeight: AppTypography.regular),
         bodyLarge: TextStyle(color: darkTextPrimary, fontSize: GlassConstants.fontSection),
         bodyMedium: TextStyle(color: darkTextSecondary, fontSize: GlassConstants.fontBodyLarge),
         bodySmall: TextStyle(color: darkTextSecondary, fontSize: GlassConstants.fontBody),
       ).apply(fontFamily: effectiveFontFamily),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: darkPrimaryColor,
+          foregroundColor: darkBackgroundColor,
+          foregroundBuilder: AppMotion.buttonFace,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+        ),
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: darkPrimaryColor.withValues(alpha: 0.8),
+          foregroundBuilder: AppMotion.buttonFace,
+          backgroundColor: darkPrimaryColor,
           foregroundColor: darkBackgroundColor,
           padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingCompact),
           shape: RoundedRectangleBorder(
@@ -521,7 +661,7 @@ class AppTheme {
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
           foregroundColor: darkTextSecondary,
-        ),
+        ).copyWith(foregroundBuilder: AppMotion.buttonFace),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
@@ -542,11 +682,13 @@ class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
+          foregroundBuilder: AppMotion.buttonFace,
           foregroundColor: darkPrimaryColor,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
+          foregroundBuilder: AppMotion.buttonFace,
           foregroundColor: darkPrimaryColor,
           side: BorderSide(color: darkPrimaryColor),
         ),
@@ -588,10 +730,10 @@ class AppTheme {
         shadowColor: Colors.transparent,
         elevation: 0,
         textStyle: TextStyle(
+          fontFamily: effectiveFontFamily,
           color: darkTextPrimary,
           fontSize: GlassConstants.fontControl,
-          fontWeight: FontWeight.w500,
-          fontFamily: effectiveFontFamily,
+          fontWeight: AppTypography.medium,
         ),
       ),
     );
@@ -645,7 +787,7 @@ class AppTheme {
                   style: TextStyle(
                     color: color ?? AppTheme.getPrimaryColor(context),
                     fontSize: GlassConstants.fontControl,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: AppTypography.medium,
                   ),
                 ),
               ),
@@ -673,6 +815,7 @@ class AppTheme {
   }) {
     return showMenu<T>(
       context: context,
+      popUpAnimationStyle: AppMotion.overlayStyle(context),
       position: position,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
@@ -714,7 +857,7 @@ class AppTheme {
         left: 0,
         right: 0,
         child: IgnorePointer(
-          child: Material(
+          child: AppEntrance(child: Material(
             color: Colors.transparent,
             child: Center(
               child: ClipRRect(
@@ -763,7 +906,7 @@ class AppTheme {
                 ),
               ),
             ),
-          ),
+          )),
         ),
       ),
     );
@@ -1059,6 +1202,7 @@ class GlassCard extends StatefulWidget {
   final bool enableHoverEffect;
   final bool enableBorderBreathing;
   final VoidCallback? onTap;
+  final FocusNode? focusNode;
 
   const GlassCard({
     super.key,
@@ -1070,6 +1214,7 @@ class GlassCard extends StatefulWidget {
     this.enableHoverEffect = true,
     this.enableBorderBreathing = false,
     this.onTap,
+    this.focusNode,
   });
 
   @override
@@ -1077,15 +1222,16 @@ class GlassCard extends StatefulWidget {
 }
 
 class _GlassCardState extends State<GlassCard>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AppDisplayTicks {
   bool _isHovered = false;
+  bool _isFocused = false;
   bool _isPressed = false;
   AnimationController? _borderController;
   Animation<double>? _borderAnimation;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     _setupBorderAnimation();
   }
 
@@ -1099,15 +1245,18 @@ class _GlassCardState extends State<GlassCard>
 
   void _setupBorderAnimation() {
     _borderController?.removeListener(_onBorderTick);
-    if (widget.enableBorderBreathing) {
-      _borderController?.dispose();
-      _borderController = AnimationController(
+    if (widget.enableBorderBreathing &&
+        !AppMotion.reduced(context) && TickerMode.valuesOf(context).enabled) {
+      _borderController ??= AnimationController(
         duration: const Duration(seconds: 3),
         vsync: this,
-      )..repeat(reverse: true);
-      _borderAnimation = Tween<double>(begin: 0.15, end: 0.35).animate(
-        CurvedAnimation(parent: _borderController!, curve: Curves.easeInOut),
       );
+      if (!_borderController!.isAnimating) {
+        _borderController!.repeat(reverse: true);
+      }
+      _borderAnimation = Tween<double>(begin: 0.15, end: 0.35)
+          .chain(CurveTween(curve: Curves.easeInOut))
+          .animate(_borderController!);
       _borderController!.addListener(_onBorderTick);
     } else {
       _borderController?.stop();
@@ -1129,7 +1278,12 @@ class _GlassCardState extends State<GlassCard>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return MouseRegion(
+    return FocusableActionDetector(
+      focusNode: widget.focusNode,
+      enabled: widget.onTap != null,
+      onShowFocusHighlight: (focused) => setState(() => _isFocused = focused),
+      actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) { widget.onTap?.call(); return null; })},
+      child: Semantics(button: widget.onTap != null, child: MouseRegion(
       onEnter: widget.enableHoverEffect
           ? (_) => setState(() => _isHovered = true)
           : null,
@@ -1148,14 +1302,11 @@ class _GlassCardState extends State<GlassCard>
             : null,
         onTapCancel: () => setState(() => _isPressed = false),
         onTap: widget.onTap,
-        child: AnimatedScale(
-          scale: _isPressed
-              ? GlassConstants.pressScale
-              : (_isHovered ? GlassConstants.hoverScale : 1.0),
-          duration: GlassConstants.animFast,
-          curve: GlassConstants.animCurve,
+        child: AppControlScale(
+          pressed: _isPressed && widget.onTap != null,
+          hovered: _isHovered && widget.enableHoverEffect,
           child: AnimatedContainer(
-            duration: GlassConstants.animFast,
+            duration: AppMotion.duration(context, GlassConstants.animFast),
             curve: GlassConstants.animCurve,
             margin: widget.margin,
             padding: widget.padding,
@@ -1170,7 +1321,7 @@ class _GlassCardState extends State<GlassCard>
                           : Colors.white.withValues(alpha: 0.65))),
               borderRadius: BorderRadius.circular(widget.borderRadius),
               border: Border.all(
-                color: _isHovered
+                color: _isHovered || _isFocused
                     ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.25)
                     : widget.enableBorderBreathing
                         ? AppTheme.getPrimaryColor(context)
@@ -1205,7 +1356,7 @@ class _GlassCardState extends State<GlassCard>
           ),
         ),
       ),
-    );
+    )));
   }
 }
 
@@ -1237,13 +1388,13 @@ class BreathingBorder extends StatefulWidget {
 }
 
 class _BreathingBorderState extends State<BreathingBorder>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AppDisplayTicks {
   AnimationController? _controller;
   Animation<double>? _animation;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     _setupAnimation();
   }
 
@@ -1259,18 +1410,18 @@ class _BreathingBorderState extends State<BreathingBorder>
   }
 
   void _setupAnimation() {
-    if (widget.isBreathing) {
-      _controller?.dispose();
-      _controller = AnimationController(
+    if (widget.isBreathing &&
+        !AppMotion.reduced(context) && TickerMode.valuesOf(context).enabled) {
+      _controller ??= AnimationController(
         duration: widget.duration,
         vsync: this,
-      )..repeat(reverse: true);
+      );
+      _controller!.duration = widget.duration;
+      if (!_controller!.isAnimating) _controller!.repeat(reverse: true);
       _animation = Tween<double>(
         begin: widget.minOpacity,
         end: widget.maxOpacity,
-      ).animate(
-        CurvedAnimation(parent: _controller!, curve: Curves.easeInOut),
-      );
+      ).chain(CurveTween(curve: Curves.easeInOut)).animate(_controller!);
     } else {
       _controller?.stop();
       _animation = null;
@@ -1338,6 +1489,7 @@ class _GlassButtonState extends State<GlassButton> {
 
   @override
   Widget build(BuildContext context) {
+    final enabled = widget.isEnabled && widget.onPressed != null;
     return MouseRegion(
       onEnter:
           widget.isEnabled ? (_) => setState(() => _isHovered = true) : null,
@@ -1355,8 +1507,10 @@ class _GlassButtonState extends State<GlassButton> {
         onTapCancel:
             widget.isEnabled ? () => setState(() => _isPressed = false) : null,
         onTap: widget.isEnabled ? widget.onPressed : null,
-        child: AnimatedContainer(
-          duration: GlassConstants.animFast,
+        child: AppControlScale(
+          pressed: _isPressed, hovered: _isHovered, enabled: enabled,
+          child: AnimatedContainer(
+          duration: AppMotion.duration(context, GlassConstants.animFast),
           curve: GlassConstants.animCurve,
           padding: widget.padding,
           decoration: BoxDecoration(
@@ -1398,6 +1552,7 @@ class _GlassButtonState extends State<GlassButton> {
             ],
           ),
           child: widget.child,
+          ),
         ),
       ),
     );
@@ -1517,8 +1672,7 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
       child: Row(
         children: [
           if (leading != null) leading!,
-          title,
-          const Spacer(),
+          Expanded(child: Align(alignment: Alignment.centerLeft, child: title)),
           if (actions != null) ...actions!,
         ],
       ),
@@ -1537,7 +1691,7 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 // ===== 搜索栏 =====
-class GlassSearchBar extends StatelessWidget {
+class GlassSearchBar extends StatefulWidget {
   final TextEditingController? controller;
   final String? hintText;
   final ValueChanged<String>? onChanged;
@@ -1552,19 +1706,34 @@ class GlassSearchBar extends StatelessWidget {
   });
 
   @override
+  State<GlassSearchBar> createState() => _GlassSearchBarState();
+}
+
+class _GlassSearchBarState extends State<GlassSearchBar> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
+    return Focus(
+      canRequestFocus: false,
+      onFocusChange: (focused) => setState(() => _focused = focused),
+      child: _buildSearchBar(context),
+    );
+  }
+
+  Widget _buildSearchBar(BuildContext context) {
     return GlassContainer(
-      margin: margin ?? EdgeInsets.zero,
-      borderRadius: 24,
+      margin: widget.margin ?? EdgeInsets.zero,
+      borderRadius: GlassConstants.radiusXLarge,
       blur: GlassConstants.blurSmall,
       color: Theme.of(context).brightness == Brightness.dark
           ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5)
           : Colors.white.withValues(alpha: 0.5),
       padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium),
       border: Border.all(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? AppTheme.darkGlassBorderWhite.withValues(alpha: 0.4)
-            : Colors.white.withValues(alpha: 0.4),
+        color: _focused
+            ? AppTheme.getPrimaryColor(context)
+            : AppTheme.getBorderLightColor(context).withValues(alpha: 0.4),
         width: 1,
       ),
       boxShadow: [
@@ -1577,12 +1746,13 @@ class GlassSearchBar extends StatelessWidget {
       child: SizedBox(
         height: 40,
         child: TextField(
-          controller: controller,
-          onChanged: onChanged,
+          controller: widget.controller,
+          onChanged: widget.onChanged,
           style:
               TextStyle(color: AppTheme.getTextPrimary(context), fontSize: GlassConstants.fontControl),
           decoration: InputDecoration(
-            hintText: hintText ?? '搜索...',
+            hintText: widget.hintText ?? '搜索...',
+            filled: false,
             hintStyle: TextStyle(
               color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
               fontSize: GlassConstants.fontControl,
@@ -1593,6 +1763,11 @@ class GlassSearchBar extends StatelessWidget {
               size: GlassConstants.iconControl,
             ),
             border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            errorBorder: InputBorder.none,
+            focusedErrorBorder: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingInline),
           ),
         ),
@@ -1622,7 +1797,7 @@ class GlassChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: GlassConstants.animFast,
+        duration: AppMotion.duration(context, GlassConstants.animFast),
         curve: GlassConstants.animCurve,
         padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingControl, vertical: GlassConstants.spacingSmall),
         decoration: BoxDecoration(
@@ -1652,7 +1827,7 @@ class GlassChip extends StatelessWidget {
           style: TextStyle(
             color: isSelected ? chipColor : AppTheme.getTextSecondary(context),
             fontSize: GlassConstants.fontBody,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            fontWeight: isSelected ? AppTypography.semibold : AppTypography.regular,
           ),
         ),
       ),
@@ -1661,70 +1836,26 @@ class GlassChip extends StatelessWidget {
 }
 
 // ===== 交错动画列表项 =====
-class StaggeredItem extends StatefulWidget {
+class StaggeredItem extends StatelessWidget {
   final Widget child;
   final int index;
   final Duration baseDelay;
+  final bool animate;
 
   const StaggeredItem({
     super.key,
     required this.child,
     required this.index,
-    this.baseDelay = const Duration(milliseconds: 50),
+    this.baseDelay = const Duration(milliseconds: 30),
+    this.animate = true,
   });
 
   @override
-  State<StaggeredItem> createState() => _StaggeredItemState();
-}
-
-class _StaggeredItemState extends State<StaggeredItem>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 200),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.03),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-    final delay = Duration(milliseconds: 30 * (widget.index % 10));
-    Future.delayed(delay, () {
-      if (mounted) _controller.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Opacity(
-          opacity: _fadeAnimation.value,
-          child: SlideTransition(
-            position: _slideAnimation,
-            child: child,
-          ),
-        );
-      },
-      child: widget.child,
+    return AppEntrance(
+      animate: animate && index < 6,
+      delay: baseDelay * index.clamp(0, 4),
+      child: child,
     );
   }
 }
@@ -1773,7 +1904,7 @@ class _CopyToastContent extends StatefulWidget {
 }
 
 class _CopyToastContentState extends State<_CopyToastContent>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AppDisplayTicks {
   late AnimationController _controller;
   late Animation<double> _opacityAnimation;
 
@@ -1790,6 +1921,7 @@ class _CopyToastContentState extends State<_CopyToastContent>
     // Display for 1.5 seconds, then fade out
     Future.delayed(const Duration(seconds: 1, milliseconds: 500), () {
       if (mounted) {
+        _controller.duration = AppMotion.duration(context, AppMotion.fast);
         _controller.forward().then((_) {
           widget.onRemove();
         });
@@ -1854,7 +1986,7 @@ class _CopyToastContentState extends State<_CopyToastContent>
                 style:  TextStyle(
                   color: AppTheme.getPrimaryColor(context),
                   fontSize: GlassConstants.fontControl,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: AppTypography.medium,
                 ),
               ),
             ),
@@ -1873,7 +2005,7 @@ IconData getViewModeIcon(ViewMode mode) => switch (mode) {
 
 // ===== 玻璃拟态 TabBar =====
 class GlassTabBar extends StatelessWidget implements PreferredSizeWidget {
-  final TabController controller;
+  final AppTabController controller;
   final List<Widget> tabs;
 
   const GlassTabBar({
@@ -1887,6 +2019,7 @@ class GlassTabBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    controller.reducedMotion = AppMotion.reduced(context);
     return ClipRRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(
@@ -1913,12 +2046,12 @@ class GlassTabBar extends StatelessWidget implements PreferredSizeWidget {
             labelColor: AppTheme.getPrimaryColor(context),
             unselectedLabelColor: AppTheme.getTextSecondary(context),
             labelStyle: const TextStyle(
-              fontWeight: FontWeight.w600,
+              fontWeight: AppTypography.semibold,
               fontSize: GlassConstants.fontControl,
               height: 1.0,
             ),
             unselectedLabelStyle: const TextStyle(
-              fontWeight: FontWeight.w400,
+              fontWeight: AppTypography.regular,
               fontSize: GlassConstants.fontControl,
               height: 1.0,
             ),
@@ -1940,12 +2073,29 @@ class GlassTabBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 // ===== 玻璃拟态对话框 =====
+Future<T?> showAppDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool barrierDismissible = true,
+  Color? barrierColor,
+}) {
+  final navigator = Navigator.of(context, rootNavigator: true);
+  final animationStyle = AppMotion.overlayStyle(context);
+  return navigator.push<T>(_SpringDialogRoute<T>(
+    context: context,
+    builder: builder,
+    barrierDismissible: barrierDismissible,
+    barrierColor: barrierColor,
+    animationStyle: animationStyle,
+  ));
+}
+
 Future<T?> showGlassDialog<T>({
   required BuildContext context,
   required Widget child,
   bool barrierDismissible = true,
 }) {
-  return showDialog<T>(
+  return showAppDialog<T>(
     context: context,
     barrierDismissible: barrierDismissible,
     barrierColor: AppTheme.getDialogBarrierColor(context),
@@ -2012,8 +2162,139 @@ Future<T?> showGlassDialog<T>({
   );
 }
 
+Widget buildAppTextSelectionToolbar(
+  BuildContext context,
+  TextSelectionToolbarAnchors anchors,
+  List<ContextMenuButtonItem> buttonItems,
+) {
+  final items = buttonItems.where((item) => _textSelectionLabel(item).isNotEmpty);
+  if (items.isEmpty) return const SizedBox.shrink();
+
+  return TextSelectionToolbar(
+    anchorAbove: anchors.primaryAnchor,
+    anchorBelow: anchors.secondaryAnchor ?? anchors.primaryAnchor,
+    toolbarBuilder: (context, child) => GlassContainer(
+      borderRadius: GlassConstants.radiusLarge,
+      enableBlur: false,
+      color: Theme.of(context).brightness == Brightness.dark
+          ? AppTheme.darkSurfaceColor.withValues(alpha: 0.95)
+          : Colors.white.withValues(alpha: 0.95),
+      padding: EdgeInsets.zero,
+      child: child,
+    ),
+    children: [
+      ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 112, maxWidth: 280),
+        child: IntrinsicWidth(
+          stepWidth: 56,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final item in items)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    _textSelectionIcon(item.type),
+                    size: GlassConstants.iconAction,
+                    color: item.type == ContextMenuButtonType.delete
+                        ? AppTheme.errorColor
+                        : AppTheme.getPrimaryColor(context),
+                  ),
+                  title: Text(
+                    _textSelectionLabel(item),
+                    style: item.type == ContextMenuButtonType.delete
+                        ? const TextStyle(color: AppTheme.errorColor)
+                        : null,
+                  ),
+                  onTap: item.onPressed == null
+                      ? null
+                      : () {
+                          item.onPressed!();
+                          ContextMenuController.removeAny();
+                        },
+                ),
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+Widget buildAppEditableTextContextMenu(
+        BuildContext context, EditableTextState state) =>
+    buildAppTextSelectionToolbar(
+        context, state.contextMenuAnchors, state.contextMenuButtonItems);
+
+Widget buildAppSelectableTextContextMenu(
+        BuildContext context, SelectableRegionState state) =>
+    buildAppTextSelectionToolbar(
+        context, state.contextMenuAnchors, state.contextMenuButtonItems);
+
+String _textSelectionLabel(ContextMenuButtonItem item) => switch (item.type) {
+      ContextMenuButtonType.cut => '剪切',
+      ContextMenuButtonType.copy => '复制',
+      ContextMenuButtonType.paste => '粘贴',
+      ContextMenuButtonType.selectAll => '全选',
+      ContextMenuButtonType.delete => '删除',
+      ContextMenuButtonType.lookUp => '查找',
+      ContextMenuButtonType.searchWeb => '网页搜索',
+      ContextMenuButtonType.share => '分享',
+      ContextMenuButtonType.liveTextInput => '识别文字',
+      ContextMenuButtonType.custom => item.label ?? '',
+    };
+
+IconData _textSelectionIcon(ContextMenuButtonType type) => switch (type) {
+      ContextMenuButtonType.cut => Icons.content_cut,
+      ContextMenuButtonType.copy => Icons.content_copy,
+      ContextMenuButtonType.paste => Icons.content_paste,
+      ContextMenuButtonType.selectAll => Icons.select_all,
+      ContextMenuButtonType.delete => Icons.delete_outline,
+      ContextMenuButtonType.lookUp => Icons.search,
+      ContextMenuButtonType.searchWeb => Icons.public,
+      ContextMenuButtonType.share => Icons.share,
+      ContextMenuButtonType.liveTextInput => Icons.text_fields,
+      ContextMenuButtonType.custom => Icons.more_horiz,
+    };
+
 class _DismissDialogIntent extends Intent {
   const _DismissDialogIntent();
+}
+
+class _SpringDialogRoute<T> extends DialogRoute<T> {
+  _SpringDialogRoute({
+    required BuildContext context,
+    required WidgetBuilder builder,
+    required bool barrierDismissible,
+    required Color? barrierColor,
+    required AnimationStyle animationStyle,
+  })  : _reverseDuration = animationStyle.reverseDuration,
+        super(
+          context: context,
+          builder: builder,
+          themes: InheritedTheme.capture(
+              from: context,
+              to: Navigator.of(context, rootNavigator: true).context),
+          barrierDismissible: barrierDismissible,
+          barrierColor: barrierColor,
+          animationStyle: animationStyle,
+        );
+
+  final Duration? _reverseDuration;
+
+  @override
+  Duration get reverseTransitionDuration =>
+      _reverseDuration ?? super.reverseTransitionDuration;
+
+  @override
+  Widget buildTransitions(BuildContext context, Animation<double> animation,
+      Animation<double> secondaryAnimation, Widget child) =>
+      AppDialogTransition(
+        animation: animation,
+        child: child,
+      );
 }
 
 // ===== 空状态占位组件 =====
@@ -2037,16 +2318,16 @@ class EmptyStateWidget extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon,
+          AppEntrance(child: Icon(icon,
               size: GlassConstants.iconEmptyState,
-              color: AppTheme.getTextSecondary(context).withValues(alpha: 0.4)),
+              color: AppTheme.getTextSecondary(context).withValues(alpha: 0.4))),
           const SizedBox(height: GlassConstants.spacingMedium),
           Text(
             message,
             style: TextStyle(
               color: AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
               fontSize: GlassConstants.fontTitle,
-              fontWeight: FontWeight.w500,
+              fontWeight: AppTypography.medium,
             ),
           ),
           if (subMessage != null) ...[
