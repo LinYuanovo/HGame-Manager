@@ -18,5 +18,8 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Flutter Pub Get
+        run: flutter pub get
+
       - name: Check Dart formatting
         run: dart format --output=none --set-exit-if-changed lib test integration_test
