@@ -137,19 +137,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     unawaited(Clipboard.setData(ClipboardData(text: text)));
   }
 
-  KeyEventResult _handleDetailCopyKey(FocusNode node, KeyEvent event) {
-    if (!_isEditing &&
-        !_isSearchOpen &&
-        event is KeyDownEvent &&
-        event.logicalKey == LogicalKeyboardKey.keyC &&
-        (HardwareKeyboard.instance.isControlPressed ||
-            HardwareKeyboard.instance.isMetaPressed) &&
-        _selectedDetailText != null) {
-      unawaited(Clipboard.setData(ClipboardData(text: _selectedDetailText!)));
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
-  }
+  Widget _buildDetailSelectableTextContextMenu(
+          BuildContext context, EditableTextState state) =>
+      buildAppEditableTextContextMenu(
+        context,
+        state,
+        onCopy: _copyDetailSelection,
+      );
 
   String? _introHtml;
   bool _isDlsiteUserOnly = false;
@@ -1860,6 +1854,15 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   bool _handleKeyDown(KeyEvent event) {
     if (!mounted || ModalRoute.of(context)?.isCurrent != true) return false;
     if (event is KeyDownEvent) {
+      if (!_isEditing &&
+          !_isSearchOpen &&
+          event.logicalKey == LogicalKeyboardKey.keyC &&
+          (HardwareKeyboard.instance.isControlPressed ||
+              HardwareKeyboard.instance.isMetaPressed) &&
+          _selectedDetailText != null) {
+        _copyDetailSelection();
+        return true;
+      }
       if (event.logicalKey == LogicalKeyboardKey.keyF &&
           (HardwareKeyboard.instance.isControlPressed ||
               HardwareKeyboard.instance.isMetaPressed)) {
@@ -2180,17 +2183,15 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     final images = _currentGame.images;
     return Stack(
       children: [
-        Focus(
-          onKeyEvent: _handleDetailCopyKey,
-          child: SelectionArea(
-            onSelectionChanged: _updateDetailSelection,
-            contextMenuBuilder: (context, state) =>
-                buildAppSelectableTextContextMenu(
-              context,
-              state,
-              onCopy: _copyDetailSelection,
-            ),
-            child: SingleChildScrollView(
+        SelectionArea(
+          onSelectionChanged: _updateDetailSelection,
+          contextMenuBuilder: (context, state) =>
+              buildAppSelectableTextContextMenu(
+            context,
+            state,
+            onCopy: _copyDetailSelection,
+          ),
+          child: SingleChildScrollView(
             key: _contentPanelKey,
             controller: _contentScrollController,
             padding: const EdgeInsets.all(GlassConstants.spacingDialog),
@@ -2223,7 +2224,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 else
                   SelectableText(
                     _displayGame.title ?? '未命名游戏',
-                    contextMenuBuilder: buildAppEditableTextContextMenu,
+                    contextMenuBuilder:
+                        _buildDetailSelectableTextContextMenu,
                     style: TextStyle(
                         fontSize: GlassConstants.fontDetailTitle,
                         fontWeight: AppTypography.bold,
@@ -2484,7 +2486,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                   ],
                 ],
               ],
-            ),
             ),
           ),
         ),
@@ -3087,7 +3088,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     }
     if (blocks.isEmpty) {
       return SelectableText('暂无信息',
-          contextMenuBuilder: buildAppEditableTextContextMenu,
+          contextMenuBuilder: _buildDetailSelectableTextContextMenu,
           style: TextStyle(
               fontSize: fontSize,
               color: AppTheme.getDetailTextPrimary(context)));
@@ -3139,7 +3140,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         }
         return SelectableText.rich(
           TextSpan(children: spans),
-          contextMenuBuilder: buildAppEditableTextContextMenu,
+          contextMenuBuilder: _buildDetailSelectableTextContextMenu,
           style: TextStyle(
               fontSize: fontSize, height: AppTypography.spaciousHeight),
         );
@@ -3361,7 +3362,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     }
     return SelectableText.rich(
       TextSpan(children: spans),
-      contextMenuBuilder: buildAppEditableTextContextMenu,
+      contextMenuBuilder: _buildDetailSelectableTextContextMenu,
       style: TextStyle(fontSize: fontSize, height: AppTypography.spaciousHeight),
     );
   }

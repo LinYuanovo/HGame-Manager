@@ -2244,9 +2244,11 @@ Widget buildAppTextSelectionToolbar(
 }
 
 Widget buildAppEditableTextContextMenu(
-        BuildContext context, EditableTextState state) =>
+        BuildContext context, EditableTextState state,
+        {VoidCallback? onCopy}) =>
     buildAppTextSelectionToolbar(
-        context, state.contextMenuAnchors, state.contextMenuButtonItems);
+        context, state.contextMenuAnchors, state.contextMenuButtonItems,
+        onCopy: onCopy);
 
 Widget buildAppSelectableTextContextMenu(
         BuildContext context, SelectableRegionState state,
