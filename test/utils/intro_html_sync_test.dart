@@ -113,8 +113,7 @@ void main() {
         '仅靠火力无法生存。\n百度下载：https://pan.baidu.com/s/1abc\n结尾提示行';
 
     test('整段重写时新文本必须写入，不能被静默丢弃', () {
-      final result =
-          syncIntroToHtml(intro, '全新简介第一行\n全新简介第二行', html);
+      final result = syncIntroToHtml(intro, '全新简介第一行\n全新简介第二行', html);
 
       expect(result, contains('全新简介第一行'));
       expect(result, contains('全新简介第二行'));
@@ -137,8 +136,8 @@ void main() {
     });
 
     test('删行后折叠多余 <br>，不留空行', () {
-      final result = syncIntroToHtml(
-          intro, intro.replaceFirst('仅靠火力无法生存。\n', ''), html);
+      final result =
+          syncIntroToHtml(intro, intro.replaceFirst('仅靠火力无法生存。\n', ''), html);
 
       expect(result, isNot(contains('仅靠火力无法生存。')));
       expect(result, contains('每次行动都需要不同的策略。<br>百度下载'));

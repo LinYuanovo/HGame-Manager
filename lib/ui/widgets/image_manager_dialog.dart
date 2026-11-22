@@ -87,7 +87,8 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
     try {
       final sourceUrl = widget.game.sourceUrl ?? '';
       final headers = sourceUrl.isNotEmpty
-          ? scopeScrapeImageHeaders(url, await buildScrapeImageHeaders(sourceUrl))
+          ? scopeScrapeImageHeaders(
+              url, await buildScrapeImageHeaders(sourceUrl))
           : <String, String>{};
       final imagePath = await _imageService.downloadImageFromUrlToGameDir(
         url,
@@ -113,7 +114,9 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
   }
 
   Future<void> _deleteImage(int index) async {
-    final cover = _images.isEmpty ? null : _images[_coverIndex.clamp(0, _images.length - 1)].imagePath;
+    final cover = _images.isEmpty
+        ? null
+        : _images[_coverIndex.clamp(0, _images.length - 1)].imagePath;
     setState(() {
       _images = List<GameImage>.from(_images)..removeAt(index);
       _coverIndex = _images.indexWhere((image) => image.imagePath == cover);
@@ -122,8 +125,15 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
   }
 
   void _reorderImages(List<GameImage> newOrder) {
-    final cover = _images.isEmpty ? null : _images[_coverIndex.clamp(0, _images.length - 1)].imagePath;
-    setState(() { _images = newOrder; _coverIndex = newOrder.indexWhere((image) => image.imagePath == cover).clamp(0, newOrder.length - 1); });
+    final cover = _images.isEmpty
+        ? null
+        : _images[_coverIndex.clamp(0, _images.length - 1)].imagePath;
+    setState(() {
+      _images = newOrder;
+      _coverIndex = newOrder
+          .indexWhere((image) => image.imagePath == cover)
+          .clamp(0, newOrder.length - 1);
+    });
   }
 
   Future<void> _saveChanges() async {
@@ -135,8 +145,11 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
       await repo.setGameImages(gameId, _images, coverIndex: _coverIndex);
       for (final image in widget.game.images) {
         if (!_images.any((retained) => retained.imagePath == image.imagePath) &&
-            GameDataPaths.isManagedImagePath(widget.game.path, image.imagePath)) {
-          try { await _imageService.deleteImageFile(image.imagePath); } catch (_) {}
+            GameDataPaths.isManagedImagePath(
+                widget.game.path, image.imagePath)) {
+          try {
+            await _imageService.deleteImageFile(image.imagePath);
+          } catch (_) {}
         }
       }
 
@@ -182,7 +195,8 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
             Row(
               children: [
                 Icon(Icons.photo_library,
-                    color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconMedium),
+                    color: AppTheme.getPrimaryColor(context),
+                    size: GlassConstants.iconMedium),
                 const SizedBox(width: GlassConstants.spacingCompact),
                 Expanded(
                   child: Text(
@@ -203,7 +217,8 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _isLoading ? null : _addLocalImage,
-                    icon: const Icon(Icons.folder_open, size: GlassConstants.iconAction),
+                    icon: const Icon(Icons.folder_open,
+                        size: GlassConstants.iconAction),
                     label: const Text('本地图片'),
                   ),
                 ),
@@ -211,7 +226,8 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _isLoading ? null : _addImageFromUrl,
-                    icon: const Icon(Icons.link, size: GlassConstants.iconAction),
+                    icon:
+                        const Icon(Icons.link, size: GlassConstants.iconAction),
                     label: const Text('URL图片'),
                   ),
                 ),
@@ -222,13 +238,16 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
               height: 20,
               child: Row(children: [
                 if (_isLoading) ...[
-                  const SizedBox(width: 16, height: 16,
+                  const SizedBox(
+                      width: 16,
+                      height: 16,
                       child: AppProgressIndicator(strokeWidth: 2)),
                   const SizedBox(width: GlassConstants.spacingSmall),
                 ],
                 Text(
                   _isLoading ? '正在处理图片…' : '拖动图片调整顺序，点击图片设为封面',
-                  style: TextStyle(fontSize: GlassConstants.fontSmall,
+                  style: TextStyle(
+                      fontSize: GlassConstants.fontSmall,
                       color: AppTheme.getTextSecondary(context)),
                 ),
               ]),
@@ -237,23 +256,24 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
             Expanded(
               child: _isLoading && _images.isEmpty
                   ? const AppSkeleton(
-                      layout: SkeletonLayout.posters, columns: 4,
+                      layout: SkeletonLayout.posters,
+                      columns: 4,
                       label: '正在处理图片')
                   : ExcludeFocus(
-                    excluding: _isLoading,
-                    child: AbsorbPointer(
-                      absorbing: _isLoading,
-                      child: DraggableImageGrid(
-                      images: _images,
-                      coverIndex: _coverIndex,
-                      onReorder: _reorderImages,
-                      onDelete: _deleteImage,
-                      onTap: (index) {
-                        setState(() => _coverIndex = index);
-                      },
+                      excluding: _isLoading,
+                      child: AbsorbPointer(
+                        absorbing: _isLoading,
+                        child: DraggableImageGrid(
+                          images: _images,
+                          coverIndex: _coverIndex,
+                          onReorder: _reorderImages,
+                          onDelete: _deleteImage,
+                          onTap: (index) {
+                            setState(() => _coverIndex = index);
+                          },
+                        ),
                       ),
                     ),
-                  ),
             ),
             const SizedBox(height: GlassConstants.spacingMedium),
             Row(

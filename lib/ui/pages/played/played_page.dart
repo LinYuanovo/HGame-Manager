@@ -35,12 +35,27 @@ class _PlayedPageState extends ConsumerState<PlayedPage>
     return Column(
       children: [
         GlassAppBar(
-          actions: [IconButton(tooltip: '定位最近游玩的游戏', icon: const Icon(Icons.my_location),
-            onPressed: gamesAsync.valueOrNull?.any((game) => game.id != null && game.lastPlayedTime != null) == true ? () {
-              final recent = gamesAsync.valueOrNull!.where((game) => game.id != null && game.lastPlayedTime != null).toList()
-                ..sort((first, second) => second.lastPlayedTime!.compareTo(first.lastPlayedTime!));
-              setState(() => _locationRequest = (gameId: recent.first.id!, sequence: ++_locationSequence));
-            } : null)],
+          actions: [
+            IconButton(
+                tooltip: '定位最近游玩的游戏',
+                icon: const Icon(Icons.my_location),
+                onPressed: gamesAsync.valueOrNull?.any((game) =>
+                            game.id != null && game.lastPlayedTime != null) ==
+                        true
+                    ? () {
+                        final recent = gamesAsync.valueOrNull!
+                            .where((game) =>
+                                game.id != null && game.lastPlayedTime != null)
+                            .toList()
+                          ..sort((first, second) => second.lastPlayedTime!
+                              .compareTo(first.lastPlayedTime!));
+                        setState(() => _locationRequest = (
+                              gameId: recent.first.id!,
+                              sequence: ++_locationSequence
+                            ));
+                      }
+                    : null)
+          ],
           title: Text(
             _selectedGames.isNotEmpty ? '已选 ${_selectedGames.length} 项' : '已玩',
             style: TextStyle(
@@ -49,7 +64,11 @@ class _PlayedPageState extends ConsumerState<PlayedPage>
                 color: AppTheme.getTextPrimary(context)),
           ),
         ),
-        if (_scanResult != null) Semantics(liveRegion: true, child: Text(_scanResult!, style: TextStyle(color: AppTheme.getTextSecondary(context)))),
+        if (_scanResult != null)
+          Semantics(
+              liveRegion: true,
+              child: Text(_scanResult!,
+                  style: TextStyle(color: AppTheme.getTextSecondary(context)))),
         Expanded(
           child: gamesAsync.when(
             data: (games) {
@@ -81,7 +100,9 @@ class _PlayedPageState extends ConsumerState<PlayedPage>
               );
             },
             loading: () => const GameListSkeleton(),
-            error: (error, _) => AppLoadError(message: '加载失败：$error', onRetry: () => ref.invalidate(playedGamesProvider)),
+            error: (error, _) => AppLoadError(
+                message: '加载失败：$error',
+                onRetry: () => ref.invalidate(playedGamesProvider)),
           ),
         ),
       ],
@@ -145,7 +166,8 @@ class _PlayedPageState extends ConsumerState<PlayedPage>
 
       if (mounted) {
         final newFound = discovered;
-        setState(() => _scanResult = '扫描完成：新增 $discovered，跳过 $skipped，共 $found/$total 个有存档');
+        setState(() => _scanResult =
+            '扫描完成：新增 $discovered，跳过 $skipped，共 $found/$total 个有存档');
         if (skipped > 0) {
           AppTheme.showGlassToast(context,
               message:

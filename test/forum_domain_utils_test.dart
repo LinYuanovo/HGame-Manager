@@ -97,7 +97,8 @@ void main() {
 
     test('非 URL 输入返回 null', () {
       expect(
-        ForumDomainUtils.rewriteWithCustomDomain('not a url', {'acgying': 'acgyyg.cc'}),
+        ForumDomainUtils.rewriteWithCustomDomain(
+            'not a url', {'acgying': 'acgyyg.cc'}),
         isNull,
       );
     });
@@ -105,19 +106,19 @@ void main() {
 
   group('ForumDomainUtils.hostMatchesBrand', () {
     test('主域名首标签等于或包含品牌关键词', () {
-      expect(ForumDomainUtils.hostMatchesBrand('acgyyg.ru', ['acgyyg']), isTrue);
       expect(
-          ForumDomainUtils.hostMatchesBrand('www.acgyyg.cc', ['acgyyg']), isTrue);
-      expect(
-          ForumDomainUtils.hostMatchesBrand('acgyyg123.me', ['acgyyg']), isTrue);
+          ForumDomainUtils.hostMatchesBrand('acgyyg.ru', ['acgyyg']), isTrue);
+      expect(ForumDomainUtils.hostMatchesBrand('www.acgyyg.cc', ['acgyyg']),
+          isTrue);
+      expect(ForumDomainUtils.hostMatchesBrand('acgyyg123.me', ['acgyyg']),
+          isTrue);
     });
 
     test('品牌只出现在子域名或非首标签时不匹配', () {
-      expect(
-          ForumDomainUtils.hostMatchesBrand('acgyyg.evil.com', ['acgyyg']),
+      expect(ForumDomainUtils.hostMatchesBrand('acgyyg.evil.com', ['acgyyg']),
           isFalse);
-      expect(
-          ForumDomainUtils.hostMatchesBrand('example.com', ['acgyyg']), isFalse);
+      expect(ForumDomainUtils.hostMatchesBrand('example.com', ['acgyyg']),
+          isFalse);
     });
   });
 }

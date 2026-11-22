@@ -480,7 +480,8 @@ final clearedGamesProvider = FutureProvider<List<Game>>((ref) async {
 
     return result.values.toList();
   } catch (e, stackTrace) {
-    AppLogger.instance.error('Providers', 'ERROR Loading Cleared Games', e, stackTrace);
+    AppLogger.instance
+        .error('Providers', 'ERROR Loading Cleared Games', e, stackTrace);
     rethrow;
   }
 });
@@ -999,7 +1000,8 @@ final playedGamesProvider = FutureProvider<List<Game>>((ref) async {
     final repository = ref.watch(gameRepositoryProvider);
     return await repository.getPlayedGames();
   } catch (e, stackTrace) {
-    AppLogger.instance.error('Providers', 'ERROR Loading Played Games', e, stackTrace);
+    AppLogger.instance
+        .error('Providers', 'ERROR Loading Played Games', e, stackTrace);
     rethrow;
   }
 });
@@ -1010,7 +1012,8 @@ final favoriteGamesProvider = FutureProvider<List<Game>>((ref) async {
     final games = await repository.getFavoriteGames();
     return games;
   } catch (e, stackTrace) {
-    AppLogger.instance.error('Providers', 'ERROR Loading Favorite Games', e, stackTrace);
+    AppLogger.instance
+        .error('Providers', 'ERROR Loading Favorite Games', e, stackTrace);
     rethrow;
   }
 });
@@ -1030,7 +1033,8 @@ final allSeriesProvider = FutureProvider<List<Tag>>((ref) async {
     final repository = ref.watch(tagRepositoryProvider);
     return await repository.getSeriesTags();
   } catch (e, stackTrace) {
-    AppLogger.instance.error('Providers', 'ERROR Loading Series', e, stackTrace);
+    AppLogger.instance
+        .error('Providers', 'ERROR Loading Series', e, stackTrace);
     rethrow;
   }
 });
@@ -1040,7 +1044,8 @@ final favoriteTagsProvider = FutureProvider<List<Tag>>((ref) async {
     final repository = ref.watch(tagRepositoryProvider);
     return await repository.getFavoriteTags();
   } catch (e, stackTrace) {
-    AppLogger.instance.error('Providers', 'ERROR Loading Favorite Tags', e, stackTrace);
+    AppLogger.instance
+        .error('Providers', 'ERROR Loading Favorite Tags', e, stackTrace);
     rethrow;
   }
 });
@@ -1051,7 +1056,8 @@ final gamesByTagProvider =
     final repository = ref.watch(gameRepositoryProvider);
     return await repository.getGamesByTag(tagId);
   } catch (e, stackTrace) {
-    AppLogger.instance.error('Providers', 'ERROR Loading Games By Tag', e, stackTrace);
+    AppLogger.instance
+        .error('Providers', 'ERROR Loading Games By Tag', e, stackTrace);
     rethrow;
   }
 });

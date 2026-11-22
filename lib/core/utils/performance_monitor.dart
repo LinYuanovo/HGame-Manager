@@ -27,13 +27,17 @@ class _PerformanceMonitorState extends State<PerformanceMonitor> {
 
     _rebuildCounts[widgetName] = (_rebuildCounts[widgetName] ?? 0) + 1;
 
-    if (_rebuildCounts[widgetName]! > 10 && !_highFrequencyWidgets.contains(widgetName)) {
+    if (_rebuildCounts[widgetName]! > 10 &&
+        !_highFrequencyWidgets.contains(widgetName)) {
       _highFrequencyWidgets.add(widgetName);
-      debugPrint('⚠️ HIGH FREQUENCY REBUILD DETECTED: $widgetName (${_rebuildCounts[widgetName]} times)');
+      debugPrint(
+          '⚠️ HIGH FREQUENCY REBUILD DETECTED: $widgetName (${_rebuildCounts[widgetName]} times)');
     }
 
-    if (_rebuildCounts[widgetName]! % 50 == 0 && _rebuildCounts[widgetName]! > 0) {
-      debugPrint('📊 Widget: $widgetName - Total Rebuilds: ${_rebuildCounts[widgetName]}');
+    if (_rebuildCounts[widgetName]! % 50 == 0 &&
+        _rebuildCounts[widgetName]! > 0) {
+      debugPrint(
+          '📊 Widget: $widgetName - Total Rebuilds: ${_rebuildCounts[widgetName]}');
     }
   }
 

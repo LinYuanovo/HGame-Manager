@@ -240,7 +240,8 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
             ),
             const SizedBox(height: GlassConstants.spacingInline),
             ClipRRect(
-              borderRadius: BorderRadius.circular(GlassConstants.radiusIndicator),
+              borderRadius:
+                  BorderRadius.circular(GlassConstants.radiusIndicator),
               child: AppLinearProgress(
                 value: hasTotal ? progress.fraction : null,
                 minHeight: 6,
@@ -257,13 +258,15 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
                     '${_formatBytes(progress.bytesTotal)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: GlassConstants.fontSmall, color: secondary),
+                    style: TextStyle(
+                        fontSize: GlassConstants.fontSmall, color: secondary),
                   ),
                 ),
                 const SizedBox(width: GlassConstants.spacingCompact),
                 Text(
                   '文件 ${progress.filesDone}/${progress.filesTotal}',
-                  style: TextStyle(fontSize: GlassConstants.fontSmall, color: secondary),
+                  style: TextStyle(
+                      fontSize: GlassConstants.fontSmall, color: secondary),
                 ),
               ],
             ),
@@ -410,12 +413,17 @@ class _FolderMoveProgressDialogState extends State<_FolderMoveProgressDialog> {
             padding: const EdgeInsets.only(bottom: GlassConstants.spacingTight),
             child: Text(
               detail,
-              style: TextStyle(fontSize: GlassConstants.fontBody, color: secondary, height: AppTypography.compactHeight),
+              style: TextStyle(
+                  fontSize: GlassConstants.fontBody,
+                  color: secondary,
+                  height: AppTypography.compactHeight),
             ),
           ),
         if (warning != null)
           Padding(
-            padding: const EdgeInsets.only(top: GlassConstants.spacingTiny, bottom: GlassConstants.spacingTight),
+            padding: const EdgeInsets.only(
+                top: GlassConstants.spacingTiny,
+                bottom: GlassConstants.spacingTight),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

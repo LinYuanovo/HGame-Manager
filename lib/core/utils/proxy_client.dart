@@ -512,15 +512,16 @@ Map<String, String> scopeScrapeImageHeaders(
     String imageUrl, Map<String, String> headers) {
   final result = Map<String, String>.from(headers);
   final sourceHost = Uri.tryParse(headers['Referer'] ?? '')?.host ?? '';
-  if (_matchesCredentialHost(sourceHost.replaceFirst(RegExp(r'\.$'), ''),
-      'dlsite.com')) {
+  if (_matchesCredentialHost(
+      sourceHost.replaceFirst(RegExp(r'\.$'), ''), 'dlsite.com')) {
     final target = Uri.tryParse(imageUrl);
     final host = target?.host.replaceFirst(RegExp(r'\.$'), '') ?? '';
     if (target?.scheme != 'https' ||
         !['dlsite.com', 'dlsite.jp']
             .any((domain) => _matchesCredentialHost(host, domain))) {
       result.removeWhere((key, _) =>
-          key.toLowerCase() == 'cookie' || key.toLowerCase() == 'authorization');
+          key.toLowerCase() == 'cookie' ||
+          key.toLowerCase() == 'authorization');
     }
   }
   return result;
@@ -578,14 +579,19 @@ Future<http.Response> httpGetWithRetry(
         }
       }
 
-      AppLogger.instance.info('HTTP', 'GET $url status=${response.statusCode}, attempt=${attempt + 1}, elapsedMs=${elapsed.elapsedMilliseconds}');
+      AppLogger.instance.info('HTTP',
+          'GET $url status=${response.statusCode}, attempt=${attempt + 1}, elapsedMs=${elapsed.elapsedMilliseconds}');
       return response;
     }
     return await httpClient
         .get(url, headers: headers)
         .timeout(const Duration(seconds: 30));
   } catch (error, stackTrace) {
-    AppLogger.instance.error('HTTP', 'GET $url 失败: elapsedMs=${elapsed.elapsedMilliseconds}', error, stackTrace);
+    AppLogger.instance.error(
+        'HTTP',
+        'GET $url 失败: elapsedMs=${elapsed.elapsedMilliseconds}',
+        error,
+        stackTrace);
     rethrow;
   } finally {
     if (client == null) {

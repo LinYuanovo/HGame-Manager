@@ -158,7 +158,8 @@ abstract final class AppTypography {
         color: AppTheme.getTextPrimary(context),
       );
 
-  static TextStyle preview(String family, double size, Color color) => TextStyle(
+  static TextStyle preview(String family, double size, Color color) =>
+      TextStyle(
         fontFamily: family.isEmpty ? AppTypography.family : family,
         fontSize: size,
         color: color,
@@ -174,11 +175,13 @@ abstract final class AppButtonStyles {
   static ButtonStyle solid({required Color color, bool compact = false}) =>
       ElevatedButton.styleFrom(
         backgroundColor: color,
-        foregroundColor: color.computeLuminance() > 0.179 ? Colors.black : Colors.white,
+        foregroundColor:
+            color.computeLuminance() > 0.179 ? Colors.black : Colors.white,
         padding: compact ? _compactPadding : null,
       );
 
-  static ButtonStyle tinted(BuildContext context, {Color? color, bool compact = false}) {
+  static ButtonStyle tinted(BuildContext context,
+      {Color? color, bool compact = false}) {
     final accent = color ?? AppTheme.getPrimaryColor(context);
     final ink = Theme.of(context).brightness == Brightness.light
         ? Color.alphaBlend(Colors.black.withValues(alpha: 0.35), accent)
@@ -200,33 +203,45 @@ abstract final class AppButtonStyles {
         tapTargetSize: compact ? MaterialTapTargetSize.shrinkWrap : null,
       );
 
-  static ButtonStyle get compact => ElevatedButton.styleFrom(padding: _compactPadding);
+  static ButtonStyle get compact =>
+      ElevatedButton.styleFrom(padding: _compactPadding);
 
   static ButtonStyle muted(BuildContext context) =>
       TextButton.styleFrom(foregroundColor: AppTheme.getTextSecondary(context));
 
   static ButtonStyle iconTint(BuildContext context) => IconButton.styleFrom(
         foregroundColor: AppTheme.getPrimaryColor(context),
-        backgroundColor: AppTheme.getPrimaryColor(context).withValues(alpha: 0.12),
+        backgroundColor:
+            AppTheme.getPrimaryColor(context).withValues(alpha: 0.12),
       );
 
-  static ButtonStyle caption(BuildContext context, {required bool close, required bool active}) {
+  static ButtonStyle caption(BuildContext context,
+      {required bool close, required bool active}) {
     bool highlighted(Set<WidgetState> states) =>
-        states.contains(WidgetState.hovered) || states.contains(WidgetState.focused);
+        states.contains(WidgetState.hovered) ||
+        states.contains(WidgetState.focused);
     return ButtonStyle(
       shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
       padding: const WidgetStatePropertyAll(EdgeInsets.zero),
       backgroundColor: WidgetStateProperty.resolveWith((states) =>
           close && highlighted(states) ? AppTheme.errorColor : null),
-      foregroundColor: WidgetStateProperty.resolveWith((states) =>
-          close && highlighted(states) ? Colors.black : active
-              ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context)),
+      foregroundColor: WidgetStateProperty.resolveWith(
+          (states) => close && highlighted(states)
+              ? Colors.black
+              : active
+                  ? AppTheme.getPrimaryColor(context)
+                  : AppTheme.getTextSecondary(context)),
     );
   }
 }
 
 class AppMiniIconButton extends StatelessWidget {
-  const AppMiniIconButton({super.key, required this.icon, required this.tooltip, required this.color, required this.onTap});
+  const AppMiniIconButton(
+      {super.key,
+      required this.icon,
+      required this.tooltip,
+      required this.color,
+      required this.onTap});
 
   final IconData icon;
   final String tooltip;
@@ -235,14 +250,15 @@ class AppMiniIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => IconButton(
-    tooltip: tooltip,
-    onPressed: onTap,
-    color: color,
-    iconSize: GlassConstants.iconSmall,
-    constraints: const BoxConstraints.tightFor(width: GlassConstants.iconLarge, height: GlassConstants.iconLarge),
-    padding: const EdgeInsets.all(GlassConstants.spacingTiny),
-    icon: Icon(icon),
-  );
+        tooltip: tooltip,
+        onPressed: onTap,
+        color: color,
+        iconSize: GlassConstants.iconSmall,
+        constraints: const BoxConstraints.tightFor(
+            width: GlassConstants.iconLarge, height: GlassConstants.iconLarge),
+        padding: const EdgeInsets.all(GlassConstants.spacingTiny),
+        icon: Icon(icon),
+      );
 }
 
 class AppTheme {
@@ -370,7 +386,8 @@ class AppTheme {
     return Container(
       color: getInputFillColor(context),
       child: Center(
-        child: Icon(Icons.broken_image, color: getTextSecondary(context), size: GlassConstants.iconLarge),
+        child: Icon(Icons.broken_image,
+            color: getTextSecondary(context), size: GlassConstants.iconLarge),
       ),
     );
   };
@@ -423,8 +440,10 @@ class AppTheme {
       ),
       textTheme: TextTheme(
         labelLarge: AppTypography.buttonLabel,
-        labelMedium: const TextStyle(fontSize: GlassConstants.fontSmall, fontWeight: FontWeight.w500),
-        labelSmall: const TextStyle(fontSize: GlassConstants.fontCaption, fontWeight: FontWeight.w500),
+        labelMedium: const TextStyle(
+            fontSize: GlassConstants.fontSmall, fontWeight: FontWeight.w500),
+        labelSmall: const TextStyle(
+            fontSize: GlassConstants.fontCaption, fontWeight: FontWeight.w500),
         headlineLarge: TextStyle(
           color: textPrimary,
           fontSize: GlassConstants.fontHero,
@@ -473,7 +492,8 @@ class AppTheme {
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
           foregroundBuilder: AppMotion.buttonFace,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -481,7 +501,9 @@ class AppTheme {
           foregroundBuilder: AppMotion.buttonFace,
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingCompact),
+          padding: const EdgeInsets.symmetric(
+              horizontal: GlassConstants.spacingLarge,
+              vertical: GlassConstants.spacingCompact),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
           ),
@@ -543,8 +565,9 @@ class AppTheme {
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
           borderSide: const BorderSide(color: primaryColor, width: 1.5),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingControl),
+        contentPadding: const EdgeInsets.symmetric(
+            horizontal: GlassConstants.spacingMedium,
+            vertical: GlassConstants.spacingControl),
       ),
       scrollbarTheme: ScrollbarThemeData(
         thumbColor: WidgetStateProperty.all(Colors.grey.withValues(alpha: 0.3)),
@@ -618,32 +641,48 @@ class AppTheme {
       ),
       textTheme: TextTheme(
         labelLarge: AppTypography.buttonLabel,
-        labelMedium: const TextStyle(fontSize: GlassConstants.fontSmall, fontWeight: FontWeight.w500),
-        labelSmall: const TextStyle(fontSize: GlassConstants.fontCaption, fontWeight: FontWeight.w500),
+        labelMedium: const TextStyle(
+            fontSize: GlassConstants.fontSmall, fontWeight: FontWeight.w500),
+        labelSmall: const TextStyle(
+            fontSize: GlassConstants.fontCaption, fontWeight: FontWeight.w500),
         headlineLarge: TextStyle(
-            color: darkTextPrimary, fontSize: GlassConstants.fontHero, fontWeight: AppTypography.bold),
+            color: darkTextPrimary,
+            fontSize: GlassConstants.fontHero,
+            fontWeight: AppTypography.bold),
         headlineMedium: TextStyle(
-            color: darkTextPrimary, fontSize: GlassConstants.fontDetailTitle, fontWeight: AppTypography.semibold),
+            color: darkTextPrimary,
+            fontSize: GlassConstants.fontDetailTitle,
+            fontWeight: AppTypography.semibold),
         headlineSmall: TextStyle(
-            color: darkTextPrimary, fontSize: GlassConstants.fontHeadline, fontWeight: AppTypography.semibold),
+            color: darkTextPrimary,
+            fontSize: GlassConstants.fontHeadline,
+            fontWeight: AppTypography.semibold),
         titleLarge: TextStyle(
-            color: darkTextPrimary, fontSize: GlassConstants.fontHeading, fontWeight: AppTypography.medium),
+            color: darkTextPrimary,
+            fontSize: GlassConstants.fontHeading,
+            fontWeight: AppTypography.medium),
         titleMedium: TextStyle(
-            color: darkTextPrimary, fontSize: GlassConstants.fontSection, fontWeight: AppTypography.medium),
+            color: darkTextPrimary,
+            fontSize: GlassConstants.fontSection,
+            fontWeight: AppTypography.medium),
         titleSmall: TextStyle(
             color: darkTextSecondary,
             fontSize: GlassConstants.fontTitle,
             fontWeight: AppTypography.regular),
-        bodyLarge: TextStyle(color: darkTextPrimary, fontSize: GlassConstants.fontSection),
-        bodyMedium: TextStyle(color: darkTextSecondary, fontSize: GlassConstants.fontBodyLarge),
-        bodySmall: TextStyle(color: darkTextSecondary, fontSize: GlassConstants.fontBody),
+        bodyLarge: TextStyle(
+            color: darkTextPrimary, fontSize: GlassConstants.fontSection),
+        bodyMedium: TextStyle(
+            color: darkTextSecondary, fontSize: GlassConstants.fontBodyLarge),
+        bodySmall: TextStyle(
+            color: darkTextSecondary, fontSize: GlassConstants.fontBody),
       ).apply(fontFamily: effectiveFontFamily),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: darkPrimaryColor,
           foregroundColor: darkBackgroundColor,
           foregroundBuilder: AppMotion.buttonFace,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium)),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -651,7 +690,9 @@ class AppTheme {
           foregroundBuilder: AppMotion.buttonFace,
           backgroundColor: darkPrimaryColor,
           foregroundColor: darkBackgroundColor,
-          padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingCompact),
+          padding: const EdgeInsets.symmetric(
+              horizontal: GlassConstants.spacingLarge,
+              vertical: GlassConstants.spacingCompact),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
           ),
@@ -713,8 +754,9 @@ class AppTheme {
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
           borderSide: BorderSide(color: darkPrimaryColor, width: 1.5),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingControl),
+        contentPadding: const EdgeInsets.symmetric(
+            horizontal: GlassConstants.spacingMedium,
+            vertical: GlassConstants.spacingControl),
       ),
       scrollbarTheme: ScrollbarThemeData(
         thumbColor: WidgetStateProperty.all(Colors.grey.withValues(alpha: 0.4)),
@@ -744,18 +786,22 @@ class AppTheme {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Container(
-          padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingSmall),
+          padding: const EdgeInsets.symmetric(
+              horizontal: GlassConstants.spacingMedium,
+              vertical: GlassConstants.spacingSmall),
           decoration: BoxDecoration(
             color: Theme.of(context).brightness == Brightness.dark
                 ? AppTheme.darkSurfaceColor.withValues(alpha: 0.92)
                 : Colors.white.withValues(alpha: 0.92),
             borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
             border: Border.all(
-              color: (color ?? AppTheme.getPrimaryColor(context)).withValues(alpha: 0.15),
+              color: (color ?? AppTheme.getPrimaryColor(context))
+                  .withValues(alpha: 0.15),
             ),
             boxShadow: [
               BoxShadow(
-                color: (color ?? AppTheme.getPrimaryColor(context)).withValues(alpha: 0.12),
+                color: (color ?? AppTheme.getPrimaryColor(context))
+                    .withValues(alpha: 0.12),
                 blurRadius: 16,
                 spreadRadius: 2,
                 offset: const Offset(0, 4),
@@ -864,7 +910,8 @@ class AppTheme {
         left: 0,
         right: 0,
         child: IgnorePointer(
-          child: AppEntrance(child: Material(
+          child: AppEntrance(
+              child: Material(
             color: Colors.transparent,
             child: Center(
               child: ClipRRect(
@@ -874,7 +921,8 @@ class AppTheme {
                   context: context,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingCompact),
+                        horizontal: GlassConstants.spacingComfortable,
+                        vertical: GlassConstants.spacingCompact),
                     decoration: BoxDecoration(
                       color: Theme.of(context).brightness == Brightness.dark
                           ? AppTheme.darkSurfaceColor.withValues(alpha: 0.85)
@@ -897,7 +945,8 @@ class AppTheme {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(icon, size: GlassConstants.iconAction, color: iconColor),
+                        Icon(icon,
+                            size: GlassConstants.iconAction, color: iconColor),
                         const SizedBox(width: GlassConstants.spacingSmall),
                         Flexible(
                           child: Text(message,
@@ -1253,7 +1302,8 @@ class _GlassCardState extends State<GlassCard>
   void _setupBorderAnimation() {
     _borderController?.removeListener(_onBorderTick);
     if (widget.enableBorderBreathing &&
-        !AppMotion.reduced(context) && TickerMode.valuesOf(context).enabled) {
+        !AppMotion.reduced(context) &&
+        TickerMode.valuesOf(context).enabled) {
       _borderController ??= AnimationController(
         duration: const Duration(seconds: 3),
         vsync: this,
@@ -1286,84 +1336,97 @@ class _GlassCardState extends State<GlassCard>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return FocusableActionDetector(
-      focusNode: widget.focusNode,
-      enabled: widget.onTap != null,
-      onShowFocusHighlight: (focused) => setState(() => _isFocused = focused),
-      actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) { widget.onTap?.call(); return null; })},
-      child: Semantics(button: widget.onTap != null, child: MouseRegion(
-      onEnter: widget.enableHoverEffect
-          ? (_) => setState(() => _isHovered = true)
-          : null,
-      onExit: widget.enableHoverEffect
-          ? (_) => setState(() {
-                _isHovered = false;
-                _isPressed = false;
-              })
-          : null,
-      child: GestureDetector(
-        onTapDown: widget.onTap != null
-            ? (_) => setState(() => _isPressed = true)
-            : null,
-        onTapUp: widget.onTap != null
-            ? (_) => setState(() => _isPressed = false)
-            : null,
-        onTapCancel: () => setState(() => _isPressed = false),
-        onTap: widget.onTap,
-        child: AppControlScale(
-          pressed: _isPressed && widget.onTap != null,
-          hovered: _isHovered && widget.enableHoverEffect,
-          child: AnimatedContainer(
-            duration: AppMotion.duration(context, GlassConstants.animFast),
-            curve: GlassConstants.animCurve,
-            margin: widget.margin,
-            padding: widget.padding,
-            decoration: BoxDecoration(
-              color: widget.color ??
-                  (isDark
-                      ? (_isHovered
-                          ? AppTheme.darkSurfaceColor.withValues(alpha: 0.88)
-                          : AppTheme.darkSurfaceColor.withValues(alpha: 0.65))
-                      : (_isHovered
-                          ? Colors.white.withValues(alpha: 0.88)
-                          : Colors.white.withValues(alpha: 0.65))),
-              borderRadius: BorderRadius.circular(widget.borderRadius),
-              border: Border.all(
-                color: _isHovered || _isFocused
-                    ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.25)
-                    : widget.enableBorderBreathing
-                        ? AppTheme.getPrimaryColor(context)
-                            .withValues(alpha: _borderAnimation?.value ?? 0.35)
-                        : (isDark
-                            ? AppTheme.darkGlassBorderWhite
-                                .withValues(alpha: 0.35)
-                            : Colors.white.withValues(alpha: 0.35)),
-                width: 1,
+        focusNode: widget.focusNode,
+        enabled: widget.onTap != null,
+        onShowFocusHighlight: (focused) => setState(() => _isFocused = focused),
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
+            widget.onTap?.call();
+            return null;
+          })
+        },
+        child: Semantics(
+            button: widget.onTap != null,
+            child: MouseRegion(
+              onEnter: widget.enableHoverEffect
+                  ? (_) => setState(() => _isHovered = true)
+                  : null,
+              onExit: widget.enableHoverEffect
+                  ? (_) => setState(() {
+                        _isHovered = false;
+                        _isPressed = false;
+                      })
+                  : null,
+              child: GestureDetector(
+                onTapDown: widget.onTap != null
+                    ? (_) => setState(() => _isPressed = true)
+                    : null,
+                onTapUp: widget.onTap != null
+                    ? (_) => setState(() => _isPressed = false)
+                    : null,
+                onTapCancel: () => setState(() => _isPressed = false),
+                onTap: widget.onTap,
+                child: AppControlScale(
+                  pressed: _isPressed && widget.onTap != null,
+                  hovered: _isHovered && widget.enableHoverEffect,
+                  child: AnimatedContainer(
+                    duration:
+                        AppMotion.duration(context, GlassConstants.animFast),
+                    curve: GlassConstants.animCurve,
+                    margin: widget.margin,
+                    padding: widget.padding,
+                    decoration: BoxDecoration(
+                      color: widget.color ??
+                          (isDark
+                              ? (_isHovered
+                                  ? AppTheme.darkSurfaceColor
+                                      .withValues(alpha: 0.88)
+                                  : AppTheme.darkSurfaceColor
+                                      .withValues(alpha: 0.65))
+                              : (_isHovered
+                                  ? Colors.white.withValues(alpha: 0.88)
+                                  : Colors.white.withValues(alpha: 0.65))),
+                      borderRadius: BorderRadius.circular(widget.borderRadius),
+                      border: Border.all(
+                        color: _isHovered || _isFocused
+                            ? AppTheme.getPrimaryColor(context)
+                                .withValues(alpha: 0.25)
+                            : widget.enableBorderBreathing
+                                ? AppTheme.getPrimaryColor(context).withValues(
+                                    alpha: _borderAnimation?.value ?? 0.35)
+                                : (isDark
+                                    ? AppTheme.darkGlassBorderWhite
+                                        .withValues(alpha: 0.35)
+                                    : Colors.white.withValues(alpha: 0.35)),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _isHovered
+                              ? AppTheme.getPrimaryColor(context)
+                                  .withValues(alpha: 0.12)
+                              : Colors.black
+                                  .withValues(alpha: isDark ? 0.2 : 0.05),
+                          blurRadius: _isHovered ? 28 : 16,
+                          spreadRadius: _isHovered ? 2 : 1,
+                          offset: Offset(0, _isHovered ? 6 : 4),
+                        ),
+                        BoxShadow(
+                          color: (_isHovered
+                                  ? AppTheme.getSecondaryColor(context)
+                                  : AppTheme.getPrimaryColor(context))
+                              .withValues(alpha: _isHovered ? 0.06 : 0.03),
+                          blurRadius: _isHovered ? 50 : 40,
+                          spreadRadius: 0,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: widget.child,
+                  ),
+                ),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: _isHovered
-                      ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.12)
-                      : Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-                  blurRadius: _isHovered ? 28 : 16,
-                  spreadRadius: _isHovered ? 2 : 1,
-                  offset: Offset(0, _isHovered ? 6 : 4),
-                ),
-                BoxShadow(
-                  color: (_isHovered
-                          ? AppTheme.getSecondaryColor(context)
-                          : AppTheme.getPrimaryColor(context))
-                      .withValues(alpha: _isHovered ? 0.06 : 0.03),
-                  blurRadius: _isHovered ? 50 : 40,
-                  spreadRadius: 0,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: widget.child,
-          ),
-        ),
-      ),
-    )));
+            )));
   }
 }
 
@@ -1418,7 +1481,8 @@ class _BreathingBorderState extends State<BreathingBorder>
 
   void _setupAnimation() {
     if (widget.isBreathing &&
-        !AppMotion.reduced(context) && TickerMode.valuesOf(context).enabled) {
+        !AppMotion.reduced(context) &&
+        TickerMode.valuesOf(context).enabled) {
       _controller ??= AnimationController(
         duration: widget.duration,
         vsync: this,
@@ -1479,7 +1543,9 @@ class GlassButton extends StatefulWidget {
     super.key,
     required this.child,
     this.onPressed,
-    this.padding = const EdgeInsets.symmetric(horizontal: GlassConstants.spacingComfortable, vertical: GlassConstants.spacingCompact),
+    this.padding = const EdgeInsets.symmetric(
+        horizontal: GlassConstants.spacingComfortable,
+        vertical: GlassConstants.spacingCompact),
     this.borderRadius = GlassConstants.radiusMedium,
     this.color,
     this.gradient,
@@ -1515,50 +1581,55 @@ class _GlassButtonState extends State<GlassButton> {
             widget.isEnabled ? () => setState(() => _isPressed = false) : null,
         onTap: widget.isEnabled ? widget.onPressed : null,
         child: AppControlScale(
-          pressed: _isPressed, hovered: _isHovered, enabled: enabled,
+          pressed: _isPressed,
+          hovered: _isHovered,
+          enabled: enabled,
           child: AnimatedContainer(
-          duration: AppMotion.duration(context, GlassConstants.animFast),
-          curve: GlassConstants.animCurve,
-          padding: widget.padding,
-          decoration: BoxDecoration(
-            color: widget.gradient == null
-                ? (widget.color ??
-                    (Theme.of(context).brightness == Brightness.dark
-                        ? AppTheme.darkSurfaceColor.withValues(
-                            alpha: _isPressed
-                                ? 0.5
-                                : _isHovered
-                                    ? 0.6
-                                    : 0.4)
-                        : Colors.white.withValues(
-                            alpha: _isPressed
-                                ? 0.5
-                                : _isHovered
-                                    ? 0.6
-                                    : 0.4)))
-                : null,
-            gradient: widget.gradient,
-            borderRadius: BorderRadius.circular(widget.borderRadius),
-            border: Border.all(
+            duration: AppMotion.duration(context, GlassConstants.animFast),
+            curve: GlassConstants.animCurve,
+            padding: widget.padding,
+            decoration: BoxDecoration(
               color: widget.gradient == null
-                  ? (Theme.of(context).brightness == Brightness.dark
-                      ? AppTheme.darkGlassBorderWhite
-                          .withValues(alpha: _isHovered ? 0.4 : 0.2)
-                      : Colors.white.withValues(alpha: _isHovered ? 0.4 : 0.2))
-                  : Colors.transparent,
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: (_isHovered ? AppTheme.getPrimaryColor(context) : Colors.black)
-                    .withValues(alpha: 0.1),
-                blurRadius: _isHovered ? 15 : 8,
-                spreadRadius: 0,
-                offset: const Offset(0, 2),
+                  ? (widget.color ??
+                      (Theme.of(context).brightness == Brightness.dark
+                          ? AppTheme.darkSurfaceColor.withValues(
+                              alpha: _isPressed
+                                  ? 0.5
+                                  : _isHovered
+                                      ? 0.6
+                                      : 0.4)
+                          : Colors.white.withValues(
+                              alpha: _isPressed
+                                  ? 0.5
+                                  : _isHovered
+                                      ? 0.6
+                                      : 0.4)))
+                  : null,
+              gradient: widget.gradient,
+              borderRadius: BorderRadius.circular(widget.borderRadius),
+              border: Border.all(
+                color: widget.gradient == null
+                    ? (Theme.of(context).brightness == Brightness.dark
+                        ? AppTheme.darkGlassBorderWhite
+                            .withValues(alpha: _isHovered ? 0.4 : 0.2)
+                        : Colors.white
+                            .withValues(alpha: _isHovered ? 0.4 : 0.2))
+                    : Colors.transparent,
+                width: 1,
               ),
-            ],
-          ),
-          child: widget.child,
+              boxShadow: [
+                BoxShadow(
+                  color: (_isHovered
+                          ? AppTheme.getPrimaryColor(context)
+                          : Colors.black)
+                      .withValues(alpha: 0.1),
+                  blurRadius: _isHovered ? 15 : 8,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: widget.child,
           ),
         ),
       ),
@@ -1665,7 +1736,8 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final appBar = Container(
       height: preferredSize.height,
-      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium),
+      padding:
+          const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium),
       decoration: BoxDecoration(
         color: isDark
             ? AppTheme.darkSurfaceColor.withValues(alpha: 0.7)
@@ -1738,7 +1810,8 @@ class _GlassSearchBarState extends State<GlassSearchBar> {
       color: Theme.of(context).brightness == Brightness.dark
           ? AppTheme.darkSurfaceColor.withValues(alpha: 0.5)
           : Colors.white.withValues(alpha: 0.5),
-      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium),
+      padding:
+          const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium),
       border: Border.all(
         color: _focused
             ? AppTheme.getPrimaryColor(context)
@@ -1757,8 +1830,9 @@ class _GlassSearchBarState extends State<GlassSearchBar> {
         child: TextField(
           controller: widget.controller,
           onChanged: widget.onChanged,
-          style:
-              TextStyle(color: AppTheme.getTextPrimary(context), fontSize: GlassConstants.fontControl),
+          style: TextStyle(
+              color: AppTheme.getTextPrimary(context),
+              fontSize: GlassConstants.fontControl),
           decoration: InputDecoration(
             hintText: widget.hintText ?? '搜索...',
             filled: false,
@@ -1777,7 +1851,8 @@ class _GlassSearchBarState extends State<GlassSearchBar> {
             disabledBorder: InputBorder.none,
             errorBorder: InputBorder.none,
             focusedErrorBorder: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingInline),
+            contentPadding: const EdgeInsets.symmetric(
+                vertical: GlassConstants.spacingInline),
           ),
         ),
       ),
@@ -1808,7 +1883,9 @@ class GlassChip extends StatelessWidget {
       child: AnimatedContainer(
         duration: AppMotion.duration(context, GlassConstants.animFast),
         curve: GlassConstants.animCurve,
-        padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingControl, vertical: GlassConstants.spacingSmall),
+        padding: const EdgeInsets.symmetric(
+            horizontal: GlassConstants.spacingControl,
+            vertical: GlassConstants.spacingSmall),
         decoration: BoxDecoration(
           color: isSelected
               ? chipColor.withValues(alpha: 0.2)
@@ -1836,7 +1913,8 @@ class GlassChip extends StatelessWidget {
           style: TextStyle(
             color: isSelected ? chipColor : AppTheme.getTextSecondary(context),
             fontSize: GlassConstants.fontBody,
-            fontWeight: isSelected ? AppTypography.semibold : AppTypography.regular,
+            fontWeight:
+                isSelected ? AppTypography.semibold : AppTypography.regular,
           ),
         ),
       ),
@@ -1982,7 +2060,7 @@ class _CopyToastContentState extends State<_CopyToastContent>
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-             Icon(
+            Icon(
               Icons.check_circle_rounded,
               color: AppTheme.getPrimaryColor(context),
               size: GlassConstants.iconAction,
@@ -1992,7 +2070,7 @@ class _CopyToastContentState extends State<_CopyToastContent>
               child: Text(
                 widget.text,
                 overflow: TextOverflow.ellipsis,
-                style:  TextStyle(
+                style: TextStyle(
                   color: AppTheme.getPrimaryColor(context),
                   fontSize: GlassConstants.fontControl,
                   fontWeight: AppTypography.medium,
@@ -2069,8 +2147,9 @@ class GlassTabBar extends StatelessWidget implements PreferredSizeWidget {
               color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
             ),
-            indicatorPadding:
-                const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingTight),
+            indicatorPadding: const EdgeInsets.symmetric(
+                horizontal: GlassConstants.spacingTight,
+                vertical: GlassConstants.spacingTight),
             dividerColor: Colors.transparent,
             splashBorderRadius:
                 BorderRadius.circular(GlassConstants.radiusSmall),
@@ -2154,7 +2233,8 @@ Future<T?> showGlassDialog<T>({
                         offset: const Offset(0, 8),
                       ),
                       BoxShadow(
-                        color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.05),
+                        color: AppTheme.getPrimaryColor(context)
+                            .withValues(alpha: 0.05),
                         blurRadius: 50,
                         offset: const Offset(0, 16),
                       ),
@@ -2190,8 +2270,8 @@ Widget buildAppTextSelectionToolbar(
     right: mediaPadding.right + screenPadding,
     bottom: mediaPadding.bottom + screenPadding,
   );
-  final items = availableItems
-      .map((item) => item.type == ContextMenuButtonType.copy && onCopy != null
+  final items = availableItems.map((item) =>
+      item.type == ContextMenuButtonType.copy && onCopy != null
           ? item.copyWith(onPressed: onCopy)
           : item);
 
@@ -2225,8 +2305,8 @@ Widget buildAppTextSelectionToolbar(
                     ),
                     leading: Icon(_textSelectionIcon(item.type),
                         size: GlassConstants.iconAction),
-                    title: Text(_textSelectionLabel(item),
-                        style: style.textStyle),
+                    title:
+                        Text(_textSelectionLabel(item), style: style.textStyle),
                     onTap: item.onPressed == null
                         ? null
                         : () {
@@ -2314,7 +2394,7 @@ class _SpringDialogRoute<T> extends DialogRoute<T> {
 
   @override
   Widget buildTransitions(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation, Widget child) =>
+          Animation<double> secondaryAnimation, Widget child) =>
       AppDialogTransition(
         animation: animation,
         child: child,
@@ -2342,9 +2422,11 @@ class EmptyStateWidget extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          AppEntrance(child: Icon(icon,
-              size: GlassConstants.iconEmptyState,
-              color: AppTheme.getTextSecondary(context).withValues(alpha: 0.4))),
+          AppEntrance(
+              child: Icon(icon,
+                  size: GlassConstants.iconEmptyState,
+                  color: AppTheme.getTextSecondary(context)
+                      .withValues(alpha: 0.4))),
           const SizedBox(height: GlassConstants.spacingMedium),
           Text(
             message,

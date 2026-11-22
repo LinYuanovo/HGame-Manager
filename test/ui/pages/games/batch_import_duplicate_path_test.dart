@@ -70,7 +70,8 @@ void main() {
       ..failingPath = r'C:\Library\Broken';
     await showImport(
         tester, repo, [r'C:\Library\Broken', r'C:\Library\Existing'], false);
-    final dropdowns = find.byWidgetPredicate((widget) => widget is DropdownButton);
+    final dropdowns =
+        find.byWidgetPredicate((widget) => widget is DropdownButton);
     for (var index = 0; index < dropdowns.evaluate().length; index++) {
       await tester.tap(dropdowns.at(index));
       await tester.pumpAndSettle();

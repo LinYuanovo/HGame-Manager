@@ -22,11 +22,15 @@ void main() {
   testWidgets('工具列表读取失败后可以重试，成功后移除错误提示', (tester) async {
     var attempts = 0;
     await tester.pumpWidget(ProviderScope(
-      overrides: [allToolsProvider.overrideWith((ref) async {
-        if (++attempts == 1) throw StateError('首次读取失败');
-        return [];
-      })],
-      child: MaterialApp(theme: AppTheme.lightTheme(), home: const Scaffold(body: ToolsPage())),
+      overrides: [
+        allToolsProvider.overrideWith((ref) async {
+          if (++attempts == 1) throw StateError('首次读取失败');
+          return [];
+        })
+      ],
+      child: MaterialApp(
+          theme: AppTheme.lightTheme(),
+          home: const Scaffold(body: ToolsPage())),
     ));
     await tester.pumpAndSettle();
     expect(find.textContaining('首次读取失败'), findsOneWidget);
@@ -387,7 +391,9 @@ class _DelayedImages extends Fake implements GameRepository {
   final saved = Completer<void>();
 
   @override
-  Future<void> setGameImages(int gameId, List<GameImage> images, {int? coverIndex}) => saved.future;
+  Future<void> setGameImages(int gameId, List<GameImage> images,
+          {int? coverIndex}) =>
+      saved.future;
 }
 
 class _EmptyBackups extends Fake implements BackupService {

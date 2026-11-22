@@ -28,7 +28,9 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
     if (raw != null && raw.isNotEmpty) {
       try {
         final List<dynamic> list = jsonDecode(raw);
-        _rules = list.map((m) => RenameRule.fromJson(m as Map<String, dynamic>)).toList();
+        _rules = list
+            .map((m) => RenameRule.fromJson(m as Map<String, dynamic>))
+            .toList();
         _loading = false;
         if (mounted) setState(() {});
         return;
@@ -104,7 +106,10 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
           children: [
             _buildHeader(),
             _buildPreview(),
-            Expanded(child: _loading ? const AppSkeleton(label: '正在加载重命名规则') : _buildList()),
+            Expanded(
+                child: _loading
+                    ? const AppSkeleton(label: '正在加载重命名规则')
+                    : _buildList()),
             _buildActions(),
           ],
         ),
@@ -117,7 +122,9 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
       padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: Row(
         children: [
-          Icon(Icons.drive_file_rename_outline, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconMedium),
+          Icon(Icons.drive_file_rename_outline,
+              color: AppTheme.getPrimaryColor(context),
+              size: GlassConstants.iconMedium),
           const SizedBox(width: GlassConstants.spacingCompact),
           Text(
             '重命名规则管理',
@@ -139,21 +146,29 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
 
   Widget _buildPreview() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge),
+      margin:
+          const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge),
       padding: const EdgeInsets.all(GlassConstants.spacingCompact),
       decoration: BoxDecoration(
         color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
-        border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.5)),
+        border: Border.all(
+            color: AppTheme.getBorderColor(context).withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('预览效果：', style: TextStyle(fontSize: GlassConstants.fontSmall, color: AppTheme.getTextSecondary(context))),
+          Text('预览效果：',
+              style: TextStyle(
+                  fontSize: GlassConstants.fontSmall,
+                  color: AppTheme.getTextSecondary(context))),
           const SizedBox(height: GlassConstants.spacingTiny),
           Text(
             _previewName(),
-            style: TextStyle(fontSize: GlassConstants.fontControl, fontWeight: AppTypography.medium, color: AppTheme.getTextPrimary(context)),
+            style: TextStyle(
+                fontSize: GlassConstants.fontControl,
+                fontWeight: AppTypography.medium,
+                color: AppTheme.getTextPrimary(context)),
           ),
         ],
       ),
@@ -162,7 +177,9 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
 
   Widget _buildList() {
     return ReorderableListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingMedium),
+      padding: const EdgeInsets.symmetric(
+          horizontal: GlassConstants.spacingLarge,
+          vertical: GlassConstants.spacingMedium),
       itemCount: _rules.length,
       onReorder: (oldIndex, newIndex) {
         setState(() {
@@ -182,7 +199,8 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
               borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
+                  color:
+                      AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -225,7 +243,9 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
                   index: index,
                   child: MouseRegion(
                     cursor: SystemMouseCursors.grab,
-                    child: Icon(Icons.drag_handle, size: GlassConstants.iconControl, color: AppTheme.getTextSecondary(context)),
+                    child: Icon(Icons.drag_handle,
+                        size: GlassConstants.iconControl,
+                        color: AppTheme.getTextSecondary(context)),
                   ),
                 ),
                 const SizedBox(width: GlassConstants.spacingCompact),
@@ -235,7 +255,8 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
                     fontSize: GlassConstants.fontBodyLarge,
                     color: rule.enabled
                         ? AppTheme.getTextPrimary(context)
-                        : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
+                        : AppTheme.getTextSecondary(context)
+                            .withValues(alpha: 0.5),
                   ),
                 ),
               ],
@@ -249,10 +270,16 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
                   child: TextField(
                     controller: TextEditingController(text: rule.wrapBefore),
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: GlassConstants.fontControl, color: AppTheme.getTextPrimary(context)),
+                    style: TextStyle(
+                        fontSize: GlassConstants.fontControl,
+                        color: AppTheme.getTextPrimary(context)),
                     decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTiny, vertical: GlassConstants.spacingSmall),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusTiny)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: GlassConstants.spacingTiny,
+                          vertical: GlassConstants.spacingSmall),
+                      border: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(GlassConstants.radiusTiny)),
                       hintText: '前',
                       isDense: true,
                     ),
@@ -269,10 +296,16 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
                   child: TextField(
                     controller: TextEditingController(text: rule.wrapAfter),
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: GlassConstants.fontControl, color: AppTheme.getTextPrimary(context)),
+                    style: TextStyle(
+                        fontSize: GlassConstants.fontControl,
+                        color: AppTheme.getTextPrimary(context)),
                     decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTiny, vertical: GlassConstants.spacingSmall),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(GlassConstants.radiusTiny)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: GlassConstants.spacingTiny,
+                          vertical: GlassConstants.spacingSmall),
+                      border: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(GlassConstants.radiusTiny)),
                       hintText: '后',
                       isDense: true,
                     ),
@@ -290,7 +323,8 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
                   onChanged: isTitle
                       ? null
                       : (v) {
-                          setState(() => _rules[index] = rule.copyWith(enabled: v));
+                          setState(
+                              () => _rules[index] = rule.copyWith(enabled: v));
                         },
                   activeThumbColor: AppTheme.getPrimaryColor(context),
                 ),
@@ -310,7 +344,8 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
         children: [
           TextButton(
             onPressed: _resetToDefaults,
-            child: Text('恢复默认', style: TextStyle(color: AppTheme.getTextSecondary(context))),
+            child: Text('恢复默认',
+                style: TextStyle(color: AppTheme.getTextSecondary(context))),
           ),
           const SizedBox(width: GlassConstants.spacingCompact),
           ElevatedButton(
@@ -318,7 +353,10 @@ class _RenameManagerDialogState extends State<RenameManagerDialog> {
               await _saveConfig();
               if (mounted) {
                 Navigator.pop(context, true);
-                AppTheme.showGlassToast(context, message: '重命名规则已保存', icon: Icons.check_circle, iconColor: AppTheme.successColor);
+                AppTheme.showGlassToast(context,
+                    message: '重命名规则已保存',
+                    icon: Icons.check_circle,
+                    iconColor: AppTheme.successColor);
               }
             },
             child: const Text('保存'),

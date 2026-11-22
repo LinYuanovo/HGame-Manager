@@ -27,14 +27,17 @@ void main() {
     final doc = html_parser.parse(fxFile.readAsStringSync());
 
     // 绝对路径: 标题
-    final titleEl = XPathEvaluator.query(doc, '/html/body//span[@id="thread_subject"]');
+    final titleEl =
+        XPathEvaluator.query(doc, '/html/body//span[@id="thread_subject"]');
     check('绝对路径标题 span#thread_subject', titleEl != null);
     if (titleEl != null) {
-      output.writeln('    → ${titleEl.text.trim().substring(0, titleEl.text.trim().length.clamp(0, 50))}');
+      output.writeln(
+          '    → ${titleEl.text.trim().substring(0, titleEl.text.trim().length.clamp(0, 50))}');
     }
 
     // text() 查询
-    final titleText = XPathEvaluator.queryText(doc, '//span[@id="thread_subject"]/text()');
+    final titleText =
+        XPathEvaluator.queryText(doc, '//span[@id="thread_subject"]/text()');
     check('text() 查询标题', titleText != null && titleText.isNotEmpty);
     if (titleText != null) {
       output.writeln('    → $titleText');
@@ -52,11 +55,14 @@ void main() {
     check('签名区域 div.sign', sign != null);
 
     // 图片提取（注意：飞雪ACG的图片可能使用 zoomfile/file 属性而非 src）
-    final images = XPathEvaluator.queryAllAttributes(doc, '//td[@class="t_f"]//img/@src');
-    output.writeln('  ℹ 图片 src 属性: 找到 ${images.length} 张 (此页面图片可能使用 zoomfile/file 属性)');
+    final images =
+        XPathEvaluator.queryAllAttributes(doc, '//td[@class="t_f"]//img/@src');
+    output.writeln(
+        '  ℹ 图片 src 属性: 找到 ${images.length} 张 (此页面图片可能使用 zoomfile/file 属性)');
 
     // 类型选项表
-    final typeTable = XPathEvaluator.query(doc, '//div[@class="typeoption"]//table');
+    final typeTable =
+        XPathEvaluator.query(doc, '//div[@class="typeoption"]//table');
     check('类型选项表', typeTable != null);
 
     // 标签（注意：此页面的 .ptg 内容由 JS 动态生成，静态 HTML 中可能不存在）
@@ -75,7 +81,8 @@ void main() {
     final titleEl = XPathEvaluator.query(doc, '//h3[@class="post-title"]');
     check('标题 h3.post-title', titleEl != null);
     if (titleEl != null) {
-      output.writeln('    → ${titleEl.text.trim().substring(0, titleEl.text.trim().length.clamp(0, 50))}');
+      output.writeln(
+          '    → ${titleEl.text.trim().substring(0, titleEl.text.trim().length.clamp(0, 50))}');
     }
 
     final content = XPathEvaluator.query(doc, '//div[@class="post-content"]');
@@ -85,7 +92,8 @@ void main() {
     }
 
     // 图片
-    final images = XPathEvaluator.queryAllAttributes(doc, '//div[@class="post-content"]//img/@src');
+    final images = XPathEvaluator.queryAllAttributes(
+        doc, '//div[@class="post-content"]//img/@src');
     check('图片 src 属性', images.isNotEmpty);
     output.writeln('    → 找到 ${images.length} 张图片');
   } else {
@@ -98,13 +106,15 @@ void main() {
   if (vikFile.existsSync()) {
     final doc = html_parser.parse(vikFile.readAsStringSync());
 
-    final ogTitle = XPathEvaluator.queryAttribute(doc, '//meta[@property="og:title"]/@content');
+    final ogTitle = XPathEvaluator.queryAttribute(
+        doc, '//meta[@property="og:title"]/@content');
     check('og:title 属性', ogTitle != null && ogTitle.isNotEmpty);
     if (ogTitle != null) {
       output.writeln('    → $ogTitle');
     }
 
-    final ogDesc = XPathEvaluator.queryAttribute(doc, '//meta[@property="og:description"]/@content');
+    final ogDesc = XPathEvaluator.queryAttribute(
+        doc, '//meta[@property="og:description"]/@content');
     check('og:description 属性', ogDesc != null);
   } else {
     output.writeln('  ⚠ 微咔ACG.htm 不存在，跳过');
@@ -112,16 +122,22 @@ void main() {
 
   // Test 4: XPath 解析器语法测试
   output.writeln('\n--- XPath 语法解析测试 ---');
-  final testHtml = '<html><body><div id="main"><p class="intro">Hello</p><p class="content">World</p></div></body></html>';
+  final testHtml =
+      '<html><body><div id="main"><p class="intro">Hello</p><p class="content">World</p></div></body></html>';
   final testDoc = html_parser.parse(testHtml);
 
   check('基本标签查询 html', XPathEvaluator.query(testDoc, '/html') != null);
   check('绝对路径 /html/body', XPathEvaluator.query(testDoc, '/html/body') != null);
-  check('属性匹配 div[@id="main"]', XPathEvaluator.query(testDoc, '//div[@id="main"]') != null);
+  check('属性匹配 div[@id="main"]',
+      XPathEvaluator.query(testDoc, '//div[@id="main"]') != null);
   check('索引 p[1]', XPathEvaluator.query(testDoc, '//p[1]') != null);
-  check('text() 查询', XPathEvaluator.queryText(testDoc, '//p[@class="intro"]/text()') == 'Hello');
+  check(
+      'text() 查询',
+      XPathEvaluator.queryText(testDoc, '//p[@class="intro"]/text()') ==
+          'Hello');
   check('所有 p 标签', XPathEvaluator.queryAll(testDoc, '//p').length == 2);
-  check('不存在的元素返回 null', XPathEvaluator.query(testDoc, '//span[@id="none"]') == null);
+  check('不存在的元素返回 null',
+      XPathEvaluator.query(testDoc, '//span[@id="none"]') == null);
   check('空 xpath 返回空', XPathEvaluator.queryAll(testDoc, '').isEmpty);
 
   // Summary

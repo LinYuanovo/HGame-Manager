@@ -96,8 +96,7 @@ void main() {
           .insert('tags', {'id': 8, 'name': '已有标签', 'type': Tag.typeCustom});
       await db.insert('game_tag_relation', {'game_id': 7, 'tag_id': 8});
 
-      await expectLater(
-          repo.insertGame(Game(path: '游戏目录', title: '候选游戏')),
+      await expectLater(repo.insertGame(Game(path: '游戏目录', title: '候选游戏')),
           throwsA(isA<GameAlreadyExistsException>()));
 
       expect((await db.query('games')).single['id'], 7);

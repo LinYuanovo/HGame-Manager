@@ -4,7 +4,8 @@ import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 // 锁定的 sqflite_common 2.5.8 在 COMMIT 失败时关闭 Dart 事务但保留 SQLite 事务。
 // ignore: implementation_imports, depend_on_referenced_packages
-import 'package:sqflite_common/src/transaction.dart' show SqfliteTransactionMixin;
+import 'package:sqflite_common/src/transaction.dart'
+    show SqfliteTransactionMixin;
 import '../database/database_helper.dart';
 import '../models/models.dart';
 import 'play_time_repository.dart';
@@ -112,11 +113,11 @@ class GameRepository implements PlayTimeRepository {
     }
 
     return Future.wait(games.map((game) => _applyBackupImageFallback(
-      game.copyWith(
-        tags: tagsByGameId[game.id] ?? [],
-        images: imagesByGameId[game.id] ?? [],
-      ),
-    )));
+          game.copyWith(
+            tags: tagsByGameId[game.id] ?? [],
+            images: imagesByGameId[game.id] ?? [],
+          ),
+        )));
   }
 
   Future<String?> _findBackupPath(String gamePath, String? gameTitle) async {
@@ -481,19 +482,20 @@ class GameRepository implements PlayTimeRepository {
   }
 
   static Map<String, Object?> _scrapedFields(Game game) => {
-    'title': game.title,
-    'version': game.version,
-    'intro': game.intro,
-    'features': game.features,
-    'changelog': game.changelog,
-    'download_url': game.downloadUrl,
-    'source_url': game.sourceUrl,
-    'maker': game.maker,
-    'maker_url': game.makerUrl,
-  };
+        'title': game.title,
+        'version': game.version,
+        'intro': game.intro,
+        'features': game.features,
+        'changelog': game.changelog,
+        'download_url': game.downloadUrl,
+        'source_url': game.sourceUrl,
+        'maker': game.maker,
+        'maker_url': game.makerUrl,
+      };
 
   /// 网络处理期间游玩状态仍会更新，刮削仅写入自身负责的元数据字段。
-  Future<void> updateScrapedFields(Game game, {DatabaseExecutor? executor}) async {
+  Future<void> updateScrapedFields(Game game,
+      {DatabaseExecutor? executor}) async {
     final db = executor ?? await _db;
     final changed = await db.update('games', _scrapedFields(game),
         where: 'id = ? AND path = ?', whereArgs: [game.id, game.path]);
@@ -506,12 +508,16 @@ class GameRepository implements PlayTimeRepository {
     if (game.id == null) throw StateError('编辑标签需要已入库的游戏');
     final db = await _db;
     await _transactionWithCommitRollback(db, (txn) async {
-      final changed = await txn.update('games', {
-        ..._scrapedFields(game),
-        'guide': game.guide,
-        'game_launcher': game.gameLauncher,
-        'launcher_locked': game.launcherLocked ? 1 : 0,
-      }, where: 'id = ? AND path = ?', whereArgs: [game.id, game.path]);
+      final changed = await txn.update(
+          'games',
+          {
+            ..._scrapedFields(game),
+            'guide': game.guide,
+            'game_launcher': game.gameLauncher,
+            'launcher_locked': game.launcherLocked ? 1 : 0,
+          },
+          where: 'id = ? AND path = ?',
+          whereArgs: [game.id, game.path]);
       if (changed != 1) throw StateError('游戏记录或路径已变化，请刷新后重试');
       await txn.delete('game_tag_relation',
           where: 'game_id = ?', whereArgs: [game.id]);
@@ -584,7 +590,8 @@ class GameRepository implements PlayTimeRepository {
           where: 'id = ?', whereArgs: [gameId], limit: 1);
       if (rows.isEmpty) throw StateError('游戏记录已不存在');
       final game = Game.fromMap(rows.single);
-      if (GamePathUtils.comparisonKey(game.path) != GamePathUtils.comparisonKey(oldPath)) {
+      if (GamePathUtils.comparisonKey(game.path) !=
+          GamePathUtils.comparisonKey(oldPath)) {
         throw StateError('游戏路径已变更，请刷新后重试');
       }
 
@@ -598,18 +605,24 @@ class GameRepository implements PlayTimeRepository {
           PathReferenceRewriter.relocateLocalPath(value, oldPath, newPath);
 
       final replacements = {oldPath: newPath};
-      await txn.update('games', {
-        'path': newPath,
-        'intro': PathReferenceRewriter.replace(game.intro, replacements),
-        'features': PathReferenceRewriter.replace(game.features, replacements),
-        'changelog': PathReferenceRewriter.replace(game.changelog, replacements),
-        'guide': PathReferenceRewriter.replace(game.guide, replacements),
-        'game_launcher': movedPath(game.gameLauncher),
-        'save_path': movedPath(game.savePath),
-        'cleared_backup_path': movedPath(game.clearedBackupPath),
-      }, where: 'id = ?', whereArgs: [gameId]);
-      final images = await txn.query('game_images',
-          where: 'game_id = ?', whereArgs: [gameId]);
+      await txn.update(
+          'games',
+          {
+            'path': newPath,
+            'intro': PathReferenceRewriter.replace(game.intro, replacements),
+            'features':
+                PathReferenceRewriter.replace(game.features, replacements),
+            'changelog':
+                PathReferenceRewriter.replace(game.changelog, replacements),
+            'guide': PathReferenceRewriter.replace(game.guide, replacements),
+            'game_launcher': movedPath(game.gameLauncher),
+            'save_path': movedPath(game.savePath),
+            'cleared_backup_path': movedPath(game.clearedBackupPath),
+          },
+          where: 'id = ?',
+          whereArgs: [gameId]);
+      final images = await txn
+          .query('game_images', where: 'game_id = ?', whereArgs: [gameId]);
       for (final image in images) {
         final previous = image['image_path'] as String;
         final updated = movedPath(previous);
@@ -639,31 +652,40 @@ class GameRepository implements PlayTimeRepository {
           final gameId = row['id'];
           await txn.delete('game_tag_relation',
               where: 'game_id = ?', whereArgs: [gameId]);
-          await txn.delete('game_images',
-              where: 'game_id = ?', whereArgs: [gameId]);
+          await txn
+              .delete('game_images', where: 'game_id = ?', whereArgs: [gameId]);
           await txn.delete('games', where: 'id = ?', whereArgs: [gameId]);
         }
         return;
       }
       if (original.id == null) throw StateError('恢复快照需要原游戏 ID');
-      final changed = await txn.update('games', metadataOnly ? _scrapedFields(original) : {
-        ...original.toMap(),
-        'cleared_backup_path': original.clearedBackupPath,
-        'review': original.review,
-        'save_path': original.savePath,
-        'maker': original.maker,
-        'maker_url': original.makerUrl,
-        'guide': original.guide,
-      }, where: 'id = ?', whereArgs: [original.id]);
+      final changed = await txn.update(
+          'games',
+          metadataOnly
+              ? _scrapedFields(original)
+              : {
+                  ...original.toMap(),
+                  'cleared_backup_path': original.clearedBackupPath,
+                  'review': original.review,
+                  'save_path': original.savePath,
+                  'maker': original.maker,
+                  'maker_url': original.makerUrl,
+                  'guide': original.guide,
+                },
+          where: 'id = ?',
+          whereArgs: [original.id]);
       if (changed != 1) throw StateError('原游戏记录已不存在，无法恢复刮削快照');
       await txn.delete('game_tag_relation',
           where: 'game_id = ?', whereArgs: [original.id]);
       for (final tag in original.tags) {
         if (tag.id == null) throw StateError('原标签缺少 ID，无法恢复刮削快照');
-        await txn.insert('game_tag_relation', {
-          'game_id': original.id,
-          'tag_id': tag.id,
-        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+        await txn.insert(
+            'game_tag_relation',
+            {
+              'game_id': original.id,
+              'tag_id': tag.id,
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore);
       }
       await txn.delete('game_images',
           where: 'game_id = ?', whereArgs: [original.id]);
@@ -965,7 +987,8 @@ class GameRepository implements PlayTimeRepository {
     );
   }
 
-  Future<void> setGameImages(int gameId, List<GameImage> images, {int? coverIndex}) async {
+  Future<void> setGameImages(int gameId, List<GameImage> images,
+      {int? coverIndex}) async {
     final db = await _db;
     await db.transaction((txn) async {
       await txn
@@ -977,7 +1000,15 @@ class GameRepository implements PlayTimeRepository {
           'sort_order': i,
         });
       }
-      if (coverIndex != null) await txn.update('games', {'cover_index': images.isEmpty ? 0 : coverIndex.clamp(0, images.length - 1)}, where: 'id = ?', whereArgs: [gameId]);
+      if (coverIndex != null)
+        await txn.update(
+            'games',
+            {
+              'cover_index':
+                  images.isEmpty ? 0 : coverIndex.clamp(0, images.length - 1)
+            },
+            where: 'id = ?',
+            whereArgs: [gameId]);
     });
   }
 

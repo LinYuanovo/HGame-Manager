@@ -91,8 +91,8 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
       _stopRecording();
       return true;
     }
-    final isModifier = HotKeyModifier.values
-        .any((m) => m.physicalKeys.contains(key));
+    final isModifier =
+        HotKeyModifier.values.any((m) => m.physicalKeys.contains(key));
     if (isModifier) {
       // 修饰键按下仅更新展示，不完成录制
       setState(() => _heldModifiers = _currentlyHeldModifiers());
@@ -142,7 +142,10 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
     }
     final service = _service;
     final previous = _hotkeys[storageKey]!;
-    setState(() { _saving = true; _errors.remove(storageKey); });
+    setState(() {
+      _saving = true;
+      _errors.remove(storageKey);
+    });
     try {
       await service.saveHotkey(storageKey, hotKey);
       final error = await service.registerHotkeys();
@@ -171,7 +174,8 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
       if (!mounted) return;
       setState(() {
         _errors.clear();
-        if (error != null) _errors[GuideWindowService.hotkeyToggleKey] = '注册失败：$error';
+        if (error != null)
+          _errors[GuideWindowService.hotkeyToggleKey] = '注册失败：$error';
         final defaults = GuideWindowService.defaultHotkeys();
         for (final action in _actions) {
           _hotkeys[action.key] = defaults[action.key]!;
@@ -185,7 +189,8 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
       );
     } catch (error) {
       if (mounted) {
-        setState(() => _errors[GuideWindowService.hotkeyToggleKey] = '恢复默认快捷键失败：$error');
+        setState(() =>
+            _errors[GuideWindowService.hotkeyToggleKey] = '恢复默认快捷键失败：$error');
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -208,13 +213,14 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
           children: [
             _buildHeader(),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: GlassConstants.spacingLarge),
               child: Text(
                 '快捷键为全局热键，游戏中也可使用。点击「修改」后，按住修饰键（Ctrl 等）再按目标键完成组合，Esc 取消。',
                 style: TextStyle(
                   fontSize: GlassConstants.fontSmall,
-                  color: AppTheme.getTextSecondary(context)
-                      .withValues(alpha: 0.7),
+                  color:
+                      AppTheme.getTextSecondary(context).withValues(alpha: 0.7),
                 ),
               ),
             ),
@@ -233,7 +239,8 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
       child: Row(
         children: [
           Icon(Icons.keyboard_outlined,
-              color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconMedium),
+              color: AppTheme.getPrimaryColor(context),
+              size: GlassConstants.iconMedium),
           const SizedBox(width: GlassConstants.spacingCompact),
           Text(
             '攻略浮窗快捷键',
@@ -245,8 +252,7 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
           ),
           const Spacer(),
           IconButton(
-            icon:
-                Icon(Icons.close, color: AppTheme.getTextSecondary(context)),
+            icon: Icon(Icons.close, color: AppTheme.getTextSecondary(context)),
             onPressed: () => Navigator.pop(context),
           ),
         ],
@@ -254,41 +260,50 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
     );
   }
 
-  Widget _buildHotkeyRow(
-      ({String key, String label}) action) {
+  Widget _buildHotkeyRow(({String key, String label}) action) {
     final hotkey = _hotkeys[action.key]!;
     final isRecording = _recordingKey == action.key;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingSmall),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(
-        children: [
-          SizedBox(
-            width: 110,
-            child: Text(
-              action.label,
-              style: TextStyle(
-                fontSize: GlassConstants.fontControl,
-                color: AppTheme.getTextPrimary(context),
+      padding: const EdgeInsets.symmetric(
+          horizontal: GlassConstants.spacingLarge,
+          vertical: GlassConstants.spacingSmall),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(
+          children: [
+            SizedBox(
+              width: 110,
+              child: Text(
+                action.label,
+                style: TextStyle(
+                  fontSize: GlassConstants.fontControl,
+                  color: AppTheme.getTextPrimary(context),
+                ),
               ),
             ),
-          ),
-          Expanded(
-            child: isRecording
-                ? _buildRecordingIndicator()
-                : HotKeyVirtualView(hotKey: hotkey),
-          ),
-          const SizedBox(width: GlassConstants.spacingSmall),
-          TextButton(
-            onPressed: _saving ? null : () =>
-                isRecording ? _stopRecording() : _startRecording(action.key),
-            child: Text(
-              isRecording ? '取消' : '修改',
-              style: TextStyle(color: AppTheme.getPrimaryColor(context)),
+            Expanded(
+              child: isRecording
+                  ? _buildRecordingIndicator()
+                  : HotKeyVirtualView(hotKey: hotkey),
             ),
-          ),
-        ],
-      ), if (_errors[action.key] case final error?) Semantics(liveRegion: true,
-        child: Text(error, style: const TextStyle(color: AppTheme.errorColor))),
+            const SizedBox(width: GlassConstants.spacingSmall),
+            TextButton(
+              onPressed: _saving
+                  ? null
+                  : () => isRecording
+                      ? _stopRecording()
+                      : _startRecording(action.key),
+              child: Text(
+                isRecording ? '取消' : '修改',
+                style: TextStyle(color: AppTheme.getPrimaryColor(context)),
+              ),
+            ),
+          ],
+        ),
+        if (_errors[action.key] case final error?)
+          Semantics(
+              liveRegion: true,
+              child: Text(error,
+                  style: const TextStyle(color: AppTheme.errorColor))),
       ]),
     );
   }
@@ -317,7 +332,9 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
 
   Widget _buildKeyChip(String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTrim, vertical: GlassConstants.spacingFine),
+      padding: const EdgeInsets.symmetric(
+          horizontal: GlassConstants.spacingTrim,
+          vertical: GlassConstants.spacingFine),
       decoration: BoxDecoration(
         color: Theme.of(context).canvasColor,
         border: Border.all(color: Theme.of(context).dividerColor),
@@ -342,8 +359,7 @@ class _GuideHotkeyDialogState extends ConsumerState<GuideHotkeyDialog> {
           TextButton(
             onPressed: _saving ? null : _resetToDefaults,
             child: Text('恢复默认',
-                style:
-                    TextStyle(color: AppTheme.getTextSecondary(context))),
+                style: TextStyle(color: AppTheme.getTextSecondary(context))),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context),

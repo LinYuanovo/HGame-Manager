@@ -73,7 +73,8 @@ class GuideWindowService {
       _windowsChangedSub = onWindowsChanged.listen((_) => _syncWindowId());
       await registerHotkeys();
     } catch (e, stackTrace) {
-      AppLogger.instance.error('GuideWindow', '[GuideWindow] initialize error: $e', e, stackTrace);
+      AppLogger.instance.error(
+          'GuideWindow', '[GuideWindow] initialize error: $e', e, stackTrace);
     }
   }
 
@@ -208,7 +209,8 @@ class GuideWindowService {
       );
       _windowId = controller.windowId;
     } catch (e, stackTrace) {
-      AppLogger.instance.error('GuideWindow', '[GuideWindow] create window error: $e', e, stackTrace);
+      AppLogger.instance.error('GuideWindow',
+          '[GuideWindow] create window error: $e', e, stackTrace);
       _windowId = null;
     }
   }
@@ -280,7 +282,8 @@ class GuideWindowService {
         keyDownHandler: (_) => scroll(scrollStep),
       );
     } catch (e, stackTrace) {
-      AppLogger.instance.error('GuideWindow', '[GuideWindow] register hotkeys error: $e', e, stackTrace);
+      AppLogger.instance.error('GuideWindow',
+          '[GuideWindow] register hotkeys error: $e', e, stackTrace);
       return e.toString();
     }
     return null;

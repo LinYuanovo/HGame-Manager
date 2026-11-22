@@ -21,12 +21,73 @@ class PilipiliSearchResult {
 }
 
 class PilipiliService {
-  static const _userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  static const _userAgent =
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
   static const _mixinKeyEncTab = [
-    46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
-    33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55, 40,
-    61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11,
-    36, 20, 34, 44, 52
+    46,
+    47,
+    18,
+    2,
+    53,
+    8,
+    23,
+    32,
+    15,
+    50,
+    10,
+    31,
+    58,
+    3,
+    45,
+    35,
+    27,
+    43,
+    5,
+    49,
+    33,
+    9,
+    42,
+    19,
+    29,
+    28,
+    14,
+    39,
+    12,
+    38,
+    41,
+    13,
+    37,
+    48,
+    7,
+    16,
+    24,
+    55,
+    40,
+    61,
+    26,
+    17,
+    0,
+    1,
+    60,
+    51,
+    30,
+    4,
+    22,
+    25,
+    54,
+    21,
+    56,
+    59,
+    6,
+    63,
+    57,
+    62,
+    11,
+    36,
+    20,
+    34,
+    44,
+    52
   ];
 
   Future<String> _getCookie() async {
@@ -38,14 +99,17 @@ class PilipiliService {
     return _mixinKeyEncTab.map((i) => orig[i]).join('').substring(0, 32);
   }
 
-  Map<String, String> _encWbi(Map<String, dynamic> params, String imgKey, String subKey) {
+  Map<String, String> _encWbi(
+      Map<String, dynamic> params, String imgKey, String subKey) {
     final mixinKey = _getMixinKey(imgKey + subKey);
     final currTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     params['wts'] = currTime.toString();
     // Ensure all values are strings
     final stringParams = params.map((k, v) => MapEntry(k, v.toString()));
-    final sortedParams = Map.fromEntries(stringParams.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
-    final filteredParams = sortedParams.map((k, v) => MapEntry(k, v.replaceAll(RegExp(r"!'()*"), '')));
+    final sortedParams = Map.fromEntries(
+        stringParams.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
+    final filteredParams = sortedParams
+        .map((k, v) => MapEntry(k, v.replaceAll(RegExp(r"!'()*"), '')));
     final query = Uri(queryParameters: filteredParams).query;
     final wbiSign = md5.convert(utf8.encode(query + mixinKey)).toString();
     filteredParams['w_rid'] = wbiSign;
@@ -87,7 +151,8 @@ class PilipiliService {
     }
   }
 
-  Future<List<PilipiliSearchResult>> searchArticles(String keyword, {int page = 1}) async {
+  Future<List<PilipiliSearchResult>> searchArticles(String keyword,
+      {int page = 1}) async {
     final wbiKeys = await _getWbiKeys();
     final cookie = await _getCookie();
     final params = {
@@ -96,8 +161,10 @@ class PilipiliService {
       'page': page.toString(),
       'order': 'totalrank',
     };
-    final signedParams = _encWbi(params, wbiKeys['imgKey']!, wbiKeys['subKey']!);
-    final uri = Uri.https('api.bilibili.com', '/x/web-interface/wbi/search/type', signedParams);
+    final signedParams =
+        _encWbi(params, wbiKeys['imgKey']!, wbiKeys['subKey']!);
+    final uri = Uri.https(
+        'api.bilibili.com', '/x/web-interface/wbi/search/type', signedParams);
     final client = await createProxyClientFromPrefs(domain: 'api.bilibili.com');
     try {
       final response = await client.get(
@@ -110,19 +177,23 @@ class PilipiliService {
       final json = jsonDecode(response.body);
       final code = json['code'] as int;
       if (code != 0) {
-        final errorMsg = _getErrorMessage(code, json['message'] as String? ?? '');
+        final errorMsg =
+            _getErrorMessage(code, json['message'] as String? ?? '');
         if (kDebugMode) debugPrint('[Pilipili] 搜索失败: code=$code, $errorMsg');
         throw Exception(errorMsg);
       }
       final articles = json['data']['result'] as List<dynamic>? ?? [];
       if (kDebugMode) debugPrint('[Pilipili] 搜索到 ${articles.length} 篇文章');
-      return articles.map((a) => PilipiliSearchResult(
-        title: (a['title'] as String).replaceAll(RegExp(r'<[^>]+>'), ''),
-        articleId: a['id'] as int,
-        author: a['author'] as String? ?? '',
-        viewCount: a['view'] as int? ?? 0,
-        summary: a['desc'] as String? ?? '',
-      )).toList();
+      return articles
+          .map((a) => PilipiliSearchResult(
+                title:
+                    (a['title'] as String).replaceAll(RegExp(r'<[^>]+>'), ''),
+                articleId: a['id'] as int,
+                author: a['author'] as String? ?? '',
+                viewCount: a['view'] as int? ?? 0,
+                summary: a['desc'] as String? ?? '',
+              ))
+          .toList();
     } finally {
       client.close();
     }
@@ -136,7 +207,8 @@ class PilipiliService {
       'id': articleId.toString(),
       'gaia_source': 'main_web',
     };
-    final signedParams = _encWbi(params, wbiKeys['imgKey']!, wbiKeys['subKey']!);
+    final signedParams =
+        _encWbi(params, wbiKeys['imgKey']!, wbiKeys['subKey']!);
     final uri = Uri.https('api.bilibili.com', '/x/article/view', signedParams);
     final client = await createProxyClientFromPrefs(domain: 'api.bilibili.com');
     try {
@@ -146,14 +218,17 @@ class PilipiliService {
       ).timeout(const Duration(seconds: 15));
       if (kDebugMode) debugPrint('[Pilipili] 文章API响应: ${response.statusCode}');
       if (response.statusCode != 200) {
-        if (kDebugMode) debugPrint('[Pilipili] 文章请求失败: HTTP ${response.statusCode}');
+        if (kDebugMode)
+          debugPrint('[Pilipili] 文章请求失败: HTTP ${response.statusCode}');
         throw Exception('HTTP ${response.statusCode}');
       }
       final json = jsonDecode(response.body);
       final code = json['code'] as int;
-      if (kDebugMode) debugPrint('[Pilipili] 文章API code: $code, message: ${json['message']}');
+      if (kDebugMode)
+        debugPrint('[Pilipili] 文章API code: $code, message: ${json['message']}');
       if (code != 0) {
-        final errorMsg = _getErrorMessage(code, json['message'] as String? ?? '');
+        final errorMsg =
+            _getErrorMessage(code, json['message'] as String? ?? '');
         if (kDebugMode) debugPrint('[Pilipili] 文章API错误: $errorMsg');
         throw Exception(errorMsg);
       }
@@ -164,7 +239,8 @@ class PilipiliService {
       }
       final contentType = data['type'] as int? ?? 0;
       final content = data['content'] as String? ?? '';
-      if (kDebugMode) debugPrint('[Pilipili] 文章类型: $contentType, 内容长度: ${content.length}');
+      if (kDebugMode)
+        debugPrint('[Pilipili] 文章类型: $contentType, 内容长度: ${content.length}');
       if (content.isEmpty) {
         if (kDebugMode) debugPrint('[Pilipili] 文章内容为空');
         return null;
@@ -191,7 +267,9 @@ class PilipiliService {
     var text = html;
     // 处理 figure > img 结构（支持多种src属性）
     text = text.replaceAllMapped(
-      RegExp(r'<figure[^>]*>.*?<img[^>]*(?:data-original|data-src|src)="([^"]+)"[^>]*/?>.*?</figure>', dotAll: true),
+      RegExp(
+          r'<figure[^>]*>.*?<img[^>]*(?:data-original|data-src|src)="([^"]+)"[^>]*/?>.*?</figure>',
+          dotAll: true),
       (m) {
         var url = m[1] ?? '';
         if (url.startsWith('//')) url = 'https:$url';
@@ -207,13 +285,20 @@ class PilipiliService {
         return '\n![图片]($url)\n';
       },
     );
-    text = text.replaceAllMapped(RegExp(r'<h1[^>]*>(.*?)</h1>'), (m) => '\n# ${m[1]}\n');
-    text = text.replaceAllMapped(RegExp(r'<h2[^>]*>(.*?)</h2>'), (m) => '\n## ${m[1]}\n');
-    text = text.replaceAllMapped(RegExp(r'<h3[^>]*>(.*?)</h3>'), (m) => '\n### ${m[1]}\n');
-    text = text.replaceAllMapped(RegExp(r'<strong[^>]*>(.*?)</strong>'), (m) => '**${m[1]}**');
-    text = text.replaceAllMapped(RegExp(r'<b[^>]*>(.*?)</b>'), (m) => '**${m[1]}**');
-    text = text.replaceAllMapped(RegExp(r'<em[^>]*>(.*?)</em>'), (m) => '*${m[1]}*');
-    text = text.replaceAllMapped(RegExp(r'<li[^>]*>(.*?)</li>'), (m) => '- ${m[1]}\n');
+    text = text.replaceAllMapped(
+        RegExp(r'<h1[^>]*>(.*?)</h1>'), (m) => '\n# ${m[1]}\n');
+    text = text.replaceAllMapped(
+        RegExp(r'<h2[^>]*>(.*?)</h2>'), (m) => '\n## ${m[1]}\n');
+    text = text.replaceAllMapped(
+        RegExp(r'<h3[^>]*>(.*?)</h3>'), (m) => '\n### ${m[1]}\n');
+    text = text.replaceAllMapped(
+        RegExp(r'<strong[^>]*>(.*?)</strong>'), (m) => '**${m[1]}**');
+    text = text.replaceAllMapped(
+        RegExp(r'<b[^>]*>(.*?)</b>'), (m) => '**${m[1]}**');
+    text = text.replaceAllMapped(
+        RegExp(r'<em[^>]*>(.*?)</em>'), (m) => '*${m[1]}*');
+    text = text.replaceAllMapped(
+        RegExp(r'<li[^>]*>(.*?)</li>'), (m) => '- ${m[1]}\n');
     text = text.replaceAll(RegExp(r'<br\s*/?>'), '\n');
     text = text.replaceAll(RegExp(r'<p[^>]*>'), '\n');
     text = text.replaceAll(RegExp(r'</p>'), '\n');
@@ -233,7 +318,8 @@ class PilipiliService {
 
       // 处理 paragraphs 格式（opus.content.paragraphs）
       if (delta.containsKey('paragraphs')) {
-        return _paragraphsToMarkdown(delta['paragraphs'] as List<dynamic>? ?? []);
+        return _paragraphsToMarkdown(
+            delta['paragraphs'] as List<dynamic>? ?? []);
       }
 
       // 处理 ops 格式（Quill Delta）

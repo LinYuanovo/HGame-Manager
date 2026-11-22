@@ -14,7 +14,8 @@ class ClearedPage extends ConsumerStatefulWidget {
   ConsumerState<ClearedPage> createState() => _ClearedPageState();
 }
 
-class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAliveClientMixin {
+class _ClearedPageState extends ConsumerState<ClearedPage>
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
@@ -38,7 +39,11 @@ class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAli
                 color: AppTheme.getTextPrimary(context)),
           ),
         ),
-        if (_scanResult != null) Semantics(liveRegion: true, child: Text(_scanResult!, style: TextStyle(color: AppTheme.getTextSecondary(context)))),
+        if (_scanResult != null)
+          Semantics(
+              liveRegion: true,
+              child: Text(_scanResult!,
+                  style: TextStyle(color: AppTheme.getTextSecondary(context)))),
         Expanded(
           child: gamesAsync.when(
             data: (games) {
@@ -70,7 +75,9 @@ class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAli
               );
             },
             loading: () => const GameListSkeleton(),
-            error: (error, _) => AppLoadError(message: '加载失败：$error', onRetry: () => ref.invalidate(clearedGamesProvider)),
+            error: (error, _) => AppLoadError(
+                message: '加载失败：$error',
+                onRetry: () => ref.invalidate(clearedGamesProvider)),
           ),
         ),
       ],
@@ -93,9 +100,9 @@ class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAli
       } else {
         final allPlayed = await repo.getPlayedGames();
         final sep = Platform.pathSeparator;
-        gamesToScan = allPlayed.where((g) =>
-          g.path.contains('${sep}Cleared$sep')
-        ).toList();
+        gamesToScan = allPlayed
+            .where((g) => g.path.contains('${sep}Cleared$sep'))
+            .toList();
       }
 
       int found = 0;
@@ -115,12 +122,14 @@ class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAli
           continue;
         }
 
-        if (game.path.contains('${Platform.pathSeparator}Backup${Platform.pathSeparator}')) {
+        if (game.path.contains(
+            '${Platform.pathSeparator}Backup${Platform.pathSeparator}')) {
           skipped++;
           continue;
         }
 
-        final savePath = await saveService.scanWithConfidence(game.path, game.title);
+        final savePath =
+            await saveService.scanWithConfidence(game.path, game.title);
         if (savePath != null) {
           await repo.updateSavePath(game.id!, savePath);
           found++;
@@ -132,17 +141,24 @@ class _ClearedPageState extends ConsumerState<ClearedPage> with AutomaticKeepAli
 
       if (mounted) {
         final newFound = discovered;
-        setState(() => _scanResult = '扫描完成：新增 $discovered，跳过 $skipped，共 $found/$total 个有存档');
+        setState(() => _scanResult =
+            '扫描完成：新增 $discovered，跳过 $skipped，共 $found/$total 个有存档');
         if (skipped > 0) {
-          AppTheme.showGlassToast(context, message: '扫描完成: 新发现 $newFound 个，跳过 $skipped 个已有记录，共 $found/$total 个有存档');
+          AppTheme.showGlassToast(context,
+              message:
+                  '扫描完成: 新发现 $newFound 个，跳过 $skipped 个已有记录，共 $found/$total 个有存档');
         } else {
-          AppTheme.showGlassToast(context, message: '扫描完成: 找到 $found/$total 个存档位置');
+          AppTheme.showGlassToast(context,
+              message: '扫描完成: 找到 $found/$total 个存档位置');
         }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _scanResult = '扫描失败：$e');
-        AppTheme.showGlassToast(context, message: '扫描失败: $e', icon: Icons.error_outline, iconColor: AppTheme.errorColor);
+        AppTheme.showGlassToast(context,
+            message: '扫描失败: $e',
+            icon: Icons.error_outline,
+            iconColor: AppTheme.errorColor);
       }
     } finally {
       if (mounted) {

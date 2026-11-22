@@ -20,8 +20,9 @@ class DlsiteParser extends SiteParser {
         '\u30e6\u30fc\u30b6\u30fc\u9650\u5b9a'
         '\u30b3\u30f3\u30c6\u30f3\u30c4\u3067\u3059\u3002';
     final isUserOnly = document.querySelector('section.p-restricted') != null ||
-        document.querySelectorAll('.error_message').any(
-            (element) => element.text.trim() == userOnlyText);
+        document
+            .querySelectorAll('.error_message')
+            .any((element) => element.text.trim() == userOnlyText);
 
     final titleEl = document.querySelector('#work_name');
     final product = _findProduct(document, url, titleEl?.text.trim());
@@ -64,10 +65,10 @@ class DlsiteParser extends SiteParser {
     final descriptionParts = isUserOnly
         ? <Element>[]
         : legacyDescription != null &&
-            (legacyDescription.text.trim().isNotEmpty ||
-                legacyDescription.querySelector('img') != null)
-        ? [legacyDescription]
-        : document.querySelectorAll('.c-productContent');
+                (legacyDescription.text.trim().isNotEmpty ||
+                    legacyDescription.querySelector('img') != null)
+            ? [legacyDescription]
+            : document.querySelectorAll('.c-productContent');
     if (descriptionParts.isNotEmpty) {
       final descEl = Element.tag('div');
       for (final part in descriptionParts) {

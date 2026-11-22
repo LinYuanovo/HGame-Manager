@@ -14,34 +14,37 @@ class ScrapeModeConfig {
   final bool renameFolder;
   final bool moveToSorted;
 
-  const ScrapeModeConfig({this.renameFolder = false, this.moveToSorted = false});
+  const ScrapeModeConfig(
+      {this.renameFolder = false, this.moveToSorted = false});
 
   ScrapeModeConfig copyWith({bool? renameFolder, bool? moveToSorted}) =>
-    ScrapeModeConfig(
-      renameFolder: renameFolder ?? this.renameFolder,
-      moveToSorted: moveToSorted ?? this.moveToSorted,
-    );
+      ScrapeModeConfig(
+        renameFolder: renameFolder ?? this.renameFolder,
+        moveToSorted: moveToSorted ?? this.moveToSorted,
+      );
 
-  Map<String, dynamic> toMap() => {'renameFolder': renameFolder, 'moveToSorted': moveToSorted};
+  Map<String, dynamic> toMap() =>
+      {'renameFolder': renameFolder, 'moveToSorted': moveToSorted};
 
   factory ScrapeModeConfig.fromMap(Map<String, dynamic> map) =>
-    ScrapeModeConfig(
-      renameFolder: map['renameFolder'] as bool? ?? false,
-      moveToSorted: map['moveToSorted'] as bool? ?? false,
-    );
+      ScrapeModeConfig(
+        renameFolder: map['renameFolder'] as bool? ?? false,
+        moveToSorted: map['moveToSorted'] as bool? ?? false,
+      );
 }
 
 class ScrapeModeConfigs {
   final Map<ScrapeMode, ScrapeModeConfig> configs;
   const ScrapeModeConfigs({required this.configs});
 
-  ScrapeModeConfig getConfig(ScrapeMode mode) => configs[mode] ?? const ScrapeModeConfig();
+  ScrapeModeConfig getConfig(ScrapeMode mode) =>
+      configs[mode] ?? const ScrapeModeConfig();
   bool shouldRename(ScrapeMode mode) => getConfig(mode).renameFolder;
   bool shouldMove(ScrapeMode mode) => getConfig(mode).moveToSorted;
 
   Map<String, dynamic> toMap() => {
-    for (final entry in configs.entries) entry.key.key: entry.value.toMap(),
-  };
+        for (final entry in configs.entries) entry.key.key: entry.value.toMap(),
+      };
 
   factory ScrapeModeConfigs.fromMap(Map<String, dynamic> map) {
     final configs = <ScrapeMode, ScrapeModeConfig>{};
@@ -55,6 +58,8 @@ class ScrapeModeConfigs {
   }
 
   factory ScrapeModeConfigs.defaults() => ScrapeModeConfigs(
-    configs: {for (final mode in ScrapeMode.values) mode: const ScrapeModeConfig()},
-  );
+        configs: {
+          for (final mode in ScrapeMode.values) mode: const ScrapeModeConfig()
+        },
+      );
 }

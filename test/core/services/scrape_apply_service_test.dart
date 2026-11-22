@@ -149,7 +149,8 @@ void main() {
         description: 'Restricted summary',
         descriptionHtml: '<p>Restricted summary</p>',
         isDlsiteUserOnly: true,
-        sourceUrl: 'https://www.dlsite.com/maniax/work/=/product_id/RJ100001.html',
+        sourceUrl:
+            'https://www.dlsite.com/maniax/work/=/product_id/RJ100001.html',
       );
       final previous = <String, dynamic>{
         'title': 'Previous title',
@@ -166,8 +167,10 @@ void main() {
       expect(json['intro'], 'Saved description');
       expect(json['intro_html'], '<p>Saved description</p>');
       expect(previous['title'], 'Previous title');
-      expect(ScrapeApplyService.mergeGameInfo(
-          Game(path: 'fixture', intro: 'Saved description'), info).intro,
+      expect(
+          ScrapeApplyService.mergeGameInfo(
+                  Game(path: 'fixture', intro: 'Saved description'), info)
+              .intro,
           'Saved description');
     });
 
@@ -191,12 +194,12 @@ void main() {
         descriptionHtml: '<p>Current description</p>',
         sourceUrl: 'https://www.dlsite.com/',
       );
-      final json = ScrapeApplyService.buildMetadataJson(info,
-          previousMetadata: {
-            GameInfo.dlsiteRestrictionKey: 'user_only',
-            'intro': 'Saved description',
-            'intro_html': '<p>Saved description</p>',
-          });
+      final json =
+          ScrapeApplyService.buildMetadataJson(info, previousMetadata: {
+        GameInfo.dlsiteRestrictionKey: 'user_only',
+        'intro': 'Saved description',
+        'intro_html': '<p>Saved description</p>',
+      });
       expect(json.containsKey(GameInfo.dlsiteRestrictionKey), isFalse);
       expect(json['intro'], 'Current description');
       expect(json['intro_html'], '<p>Current description</p>');
@@ -218,8 +221,8 @@ void main() {
     });
 
     test('不传覆盖时保留 gameInfo 原值', () {
-      final info = GameInfo(title: '标题', description: '原简介',
-          sourceUrl: 'https://example.com/1');
+      final info = GameInfo(
+          title: '标题', description: '原简介', sourceUrl: 'https://example.com/1');
       final json = ScrapeApplyService.buildMetadataJson(info);
       expect(json['intro'], '原简介');
       expect(json.containsKey('intro_html'), isFalse);
@@ -235,9 +238,13 @@ void main() {
     });
 
     test('isScrapedMetadata 仅在 scraped_at 非空字符串时为真', () {
-      expect(ScrapeApplyService.isScrapedMetadata({'scraped_at': '2026-10-06T12:30:00.000'}), isTrue);
+      expect(
+          ScrapeApplyService.isScrapedMetadata(
+              {'scraped_at': '2026-10-06T12:30:00.000'}),
+          isTrue);
       expect(ScrapeApplyService.isScrapedMetadata({'scraped_at': ''}), isFalse);
-      expect(ScrapeApplyService.isScrapedMetadata({'scraped_at': null}), isFalse);
+      expect(
+          ScrapeApplyService.isScrapedMetadata({'scraped_at': null}), isFalse);
       expect(ScrapeApplyService.isScrapedMetadata({'title': '标题'}), isFalse);
       expect(ScrapeApplyService.isScrapedMetadata(null), isFalse);
     });
@@ -249,8 +256,8 @@ void main() {
         expect(await ScrapeApplyService.isGameScraped(gamePath), isFalse);
 
         await GameDataPaths.ensureDataDir(gamePath);
-        await GameDataPaths.metadataFile(gamePath).writeAsString(
-            jsonEncode({'title': '未刮削'}), flush: true);
+        await GameDataPaths.metadataFile(gamePath)
+            .writeAsString(jsonEncode({'title': '未刮削'}), flush: true);
         expect(await ScrapeApplyService.isGameScraped(gamePath), isFalse);
 
         await GameDataPaths.metadataFile(gamePath).writeAsString(

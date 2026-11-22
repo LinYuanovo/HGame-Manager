@@ -36,26 +36,30 @@ http.Response _llmResponse(List<String> texts) => http.Response(
 void main() {
   test('连接测试仅测试当前服务并使用自定义 Prompt，正式翻译超时不变', () async {
     final hosts = <String>[];
-    final service = MetadataTranslationService(clientFactory: () async => MockClient((request) async {
-      hosts.add(request.url.host);
-      final body = jsonDecode(request.body);
-      expect(body['messages'][0]['content'], startsWith('自然翻译\n\n'));
-      return _llmResponse(['连接正常']);
-    }));
-    final config = MetadataTranslationConfig.fromMap({..._llm.toMap(), 'prompt': '自然翻译'});
+    final service = MetadataTranslationService(
+        clientFactory: () async => MockClient((request) async {
+              hosts.add(request.url.host);
+              final body = jsonDecode(request.body);
+              expect(body['messages'][0]['content'], startsWith('自然翻译\n\n'));
+              return _llmResponse(['连接正常']);
+            }));
+    final config =
+        MetadataTranslationConfig.fromMap({..._llm.toMap(), 'prompt': '自然翻译'});
     expect(await service.testConnection(config), '连接正常');
     expect(hosts, ['llm.example.test']);
-    expect(MetadataTranslationService.connectionTestTimeout, const Duration(seconds: 20));
+    expect(MetadataTranslationService.connectionTestTimeout,
+        const Duration(seconds: 20));
     expect(service.requestTimeout, const Duration(seconds: 45));
     expect(service.providerTimeout, const Duration(minutes: 3));
   });
 
   test('LLM 连接测试失败直接报告，不使用其他服务冒充连接成功', () async {
     var requests = 0;
-    final service = MetadataTranslationService(clientFactory: () async => MockClient((request) async {
-      requests++;
-      return http.Response('Unavailable', 503);
-    }));
+    final service = MetadataTranslationService(
+        clientFactory: () async => MockClient((request) async {
+              requests++;
+              return http.Response('Unavailable', 503);
+            }));
     await expectLater(service.testConnection(_llm), throwsStateError);
     expect(requests, 1);
   });
@@ -63,8 +67,12 @@ void main() {
   testWidgets('创建客户端也计入 20 秒总时限，迟到客户端立即关闭', (tester) async {
     final pending = Completer<http.Client>();
     Object? error;
-    final service = MetadataTranslationService(clientFactory: () => pending.future);
-    final test = service.testConnection(_llm).then<void>((_) {}, onError: (Object value) { error = value; });
+    final service =
+        MetadataTranslationService(clientFactory: () => pending.future);
+    final test = service.testConnection(_llm).then<void>((_) {},
+        onError: (Object value) {
+      error = value;
+    });
     await tester.pump(const Duration(seconds: 20));
     await test;
     expect(error, isA<TimeoutException>());

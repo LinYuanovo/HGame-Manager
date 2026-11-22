@@ -104,12 +104,15 @@ void main() {
     final captureKey = GlobalKey();
     Future<void> capture(String name) async {
       if (evidencePath.isEmpty) return;
-      final boundary = captureKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+      final boundary = captureKey.currentContext!.findRenderObject()
+          as RenderRepaintBoundary;
       final image = await boundary.toImage();
       final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-      await File(path.join(evidencePath, '$name.png')).writeAsBytes(bytes!.buffer.asUint8List());
+      await File(path.join(evidencePath, '$name.png'))
+          .writeAsBytes(bytes!.buffer.asUint8List());
       image.dispose();
     }
+
     Game? displayGame;
     try {
       for (final mode in ScrapeMode.values) {
@@ -201,21 +204,26 @@ void main() {
           key: captureKey,
           child: MaterialApp(
             theme: theme,
-            home: Scaffold(body: SingleChildScrollView(child: MetadataTranslationSettings(
-                config: config,
-                onChanged: (_) {},
+            home: Scaffold(
+                body: SingleChildScrollView(
+                    child: MetadataTranslationSettings(
+              config: config,
+              onChanged: (_) {},
             ))),
           ),
         ));
         await tester.pumpAndSettle();
-        final prompt = find.byWidgetPredicate((widget) => widget is TextField &&
+        final prompt = find.byWidgetPredicate((widget) =>
+            widget is TextField &&
             widget.decoration?.labelText == '翻译 Prompt（留空使用默认）');
         await tester.ensureVisible(prompt);
         await tester.pumpAndSettle();
         expect(tester.widget<TextField>(prompt).controller!.text, isEmpty);
-        expect(find.text(MetadataTranslationConfig.defaultPrompt), findsOneWidget);
+        expect(
+            find.text(MetadataTranslationConfig.defaultPrompt), findsOneWidget);
         await capture('prompt-${brightness.name}');
-        expect(find.byKey(const ValueKey('metadata-translation-test')), findsOneWidget);
+        expect(find.byKey(const ValueKey('metadata-translation-test')),
+            findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pumpAndSettle();
@@ -335,7 +343,8 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
-      final cleared = (await repo.getGameById(selectedGame.id!))!.copyWith(isCleared: true);
+      final cleared =
+          (await repo.getGameById(selectedGame.id!))!.copyWith(isCleared: true);
       await repo.updateGame(cleared);
       final backupService = ClearedMetadataBackupService();
       final backupFile = await backupService.save(cleared);
@@ -349,12 +358,16 @@ void main() {
           child: ProviderScope(
             overrides: [sharedPreferencesProvider.overrideWithValue(settings)],
             child: MaterialApp(
-              theme: brightness == Brightness.light ? AppTheme.lightTheme() : AppTheme.darkTheme(),
+              theme: brightness == Brightness.light
+                  ? AppTheme.lightTheme()
+                  : AppTheme.darkTheme(),
               home: Scaffold(body: GameDetailDialog(game: cleared)),
             ),
           ),
         ));
-        for (var attempt = 0; attempt < 100 && find.text('查看原文').evaluate().isEmpty; attempt++) {
+        for (var attempt = 0;
+            attempt < 100 && find.text('查看原文').evaluate().isEmpty;
+            attempt++) {
           await tester.pump(const Duration(milliseconds: 50));
         }
         expect(find.text('查看原文'), findsOneWidget);
@@ -368,7 +381,10 @@ void main() {
         await tester.pumpAndSettle();
       }
       expect(requests, 5);
-      expect(systemPrompts.every((prompt) => prompt.startsWith(MetadataTranslationConfig.defaultPrompt)), isTrue);
+      expect(
+          systemPrompts.every((prompt) =>
+              prompt.startsWith(MetadataTranslationConfig.defaultPrompt)),
+          isTrue);
       expect(await backupFile.exists(), isTrue);
       logger.info('MergeReview',
           'token=sample-token https://example.test/path?api_key=sample-key');
@@ -398,7 +414,9 @@ void main() {
       await logger.flush();
       await server.close(force: true);
       final resolvedTemporary = path.normalize(path.absolute(temporary.path));
-      if (!path.isWithin(path.normalize(path.absolute(Directory.systemTemp.path)), resolvedTemporary) ||
+      if (!path.isWithin(
+              path.normalize(path.absolute(Directory.systemTemp.path)),
+              resolvedTemporary) ||
           !path.basename(resolvedTemporary).startsWith('hgm_merge_review_')) {
         throw StateError('临时目录超出验收范围');
       }
@@ -406,7 +424,9 @@ void main() {
       if (!path.isWithin(
               path.normalize(path.absolute(Directory.systemTemp.path)),
               resolvedDataRoot) ||
-          !path.basename(resolvedDataRoot).startsWith('hgm_merge_review_data_')) {
+          !path
+              .basename(resolvedDataRoot)
+              .startsWith('hgm_merge_review_data_')) {
         throw StateError('数据目录超出验收范围');
       }
       AppPaths.overrideRootDirForTesting(null);

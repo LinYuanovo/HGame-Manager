@@ -257,9 +257,8 @@ Map<String, String> splitSections(String fullText) {
 
   for (var i = 0; i < positions.length; i++) {
     final contentStart = positions[i].pos + positions[i].marker.length;
-    final contentEnd = i + 1 < positions.length
-        ? positions[i + 1].pos
-        : fullText.length;
+    final contentEnd =
+        i + 1 < positions.length ? positions[i + 1].pos : fullText.length;
     final content = fullText.substring(contentStart, contentEnd).trim();
     if (content.isNotEmpty) {
       final name = positions[i].marker.replaceAll('：', '');

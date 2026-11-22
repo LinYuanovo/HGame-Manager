@@ -129,9 +129,8 @@ void main() {
     }) async {
       await show(SettingsDialogContent(targetItem: targetItem));
       final promptFinder = find.textContaining(prompt).first;
-      final row = find
-          .ancestor(of: promptFinder, matching: find.byType(Row))
-          .first;
+      final row =
+          find.ancestor(of: promptFinder, matching: find.byType(Row)).first;
       final actionFinder = find.descendant(of: row, matching: action);
       expect(actionFinder, findsOneWidget);
       expect(tester.getTopLeft(promptFinder).dx,
@@ -226,30 +225,23 @@ void main() {
     await screenshot('settings-located');
     await show(const SettingsDialogContent(targetItem: '诊断日志'));
     final diagnosticsText = find.textContaining('遇到问题后导出诊断包');
-    final exportDiagnostics =
-        find.widgetWithText(ElevatedButton, '导出诊断包');
-    final diagnosticsRow = find
-        .ancestor(of: diagnosticsText, matching: find.byType(Row))
-        .first;
-    expect(
-        find.descendant(
-            of: diagnosticsRow, matching: exportDiagnostics),
+    final exportDiagnostics = find.widgetWithText(ElevatedButton, '导出诊断包');
+    final diagnosticsRow =
+        find.ancestor(of: diagnosticsText, matching: find.byType(Row)).first;
+    expect(find.descendant(of: diagnosticsRow, matching: exportDiagnostics),
         findsOneWidget);
-    expect(
-        (tester.widget<Row>(diagnosticsRow).children[1] as SizedBox).width,
+    expect((tester.widget<Row>(diagnosticsRow).children[1] as SizedBox).width,
         GlassConstants.spacingLarge);
     expect(tester.getTopLeft(diagnosticsText).dx,
         lessThan(tester.getTopLeft(exportDiagnostics).dx));
     await screenshot('diagnostics-layout');
     await show(const SettingsDialogContent(targetItem: '封面画质'));
-    expect(
-        tester.widget<SelectionSurface>(find.byType(SelectionSurface)).index,
+    expect(tester.widget<SelectionSurface>(find.byType(SelectionSurface)).index,
         0);
     expect(find.text('节省封面内存'), findsOneWidget);
 
     await show(const SettingsDialogContent(targetItem: '忽略文件夹'));
-    final folderButtons =
-        find.widgetWithText(OutlinedButton, '选择文件夹');
+    final folderButtons = find.widgetWithText(OutlinedButton, '选择文件夹');
     expect(folderButtons, findsNWidgets(2));
     for (var index = 0; index < 2; index++) {
       expect(tester.getSize(folderButtons.at(index)).height,
@@ -266,13 +258,14 @@ void main() {
       action: find.widgetWithText(OutlinedButton, '导入 TTF 字体'),
     );
     expect(
-        tester.getSize(find.widgetWithText(OutlinedButton, '导入 TTF 字体'))
-            .height,
+        tester.getSize(find.widgetWithText(OutlinedButton, '导入 TTF 字体')).height,
         standardOutlinedButtonHeight);
 
-    await settings.setString('xpath_parsers', jsonEncode([
-      {'domain': 'example.test', 'name': '示例站点', 'title': '//h1'},
-    ]));
+    await settings.setString(
+        'xpath_parsers',
+        jsonEncode([
+          {'domain': 'example.test', 'name': '示例站点', 'title': '//h1'},
+        ]));
     await verifyPromptActionRow(
       targetItem: '自定义解析器',
       prompt: '当内置解析器无法覆盖新站点时',

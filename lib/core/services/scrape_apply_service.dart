@@ -162,7 +162,12 @@ class ScrapeApplyService {
     return json;
   }
 
-  static const _descriptionKeys = ['intro', 'intro_html', 'features', 'changelog'];
+  static const _descriptionKeys = [
+    'intro',
+    'intro_html',
+    'features',
+    'changelog'
+  ];
 
   static Map<String, String> buildNumberedUrlMapping(
       List<String> imageUrls, List<String> localImages) {
@@ -273,8 +278,10 @@ class ScrapeApplyService {
       onProgress: onProgress,
     );
 
-    if (requireAllImages && imageUrls.any((url) => !urlToTmp.containsKey(url))) {
-      throw StateError('图片下载不完整（${urlToTmp.length}/${imageUrls.toSet().length}），已取消保存，请重试');
+    if (requireAllImages &&
+        imageUrls.any((url) => !urlToTmp.containsKey(url))) {
+      throw StateError(
+          '图片下载不完整（${urlToTmp.length}/${imageUrls.toSet().length}），已取消保存，请重试');
     }
 
     final urlToLocal = <String, String>{};
@@ -361,7 +368,8 @@ class ScrapeApplyService {
 
     final reloaded = await repo.getGameById(game.id!);
     if (reloaded != null) {
-      await fixImageUrlsInMetadata(reloaded, repo, requirePersistence: requireAllImages);
+      await fixImageUrlsInMetadata(reloaded, repo,
+          requirePersistence: requireAllImages);
     }
     return urlToLocal;
   }
@@ -383,8 +391,10 @@ class ScrapeApplyService {
         final original = MetadataTranslationService.originalFrom(metadata);
         if (original != null) {
           tags = [
-            if (game.maker != null) Tag(name: game.maker!, type: Tag.typeCustom),
-            for (final name in (original['tags'] as List? ?? []).whereType<String>())
+            if (game.maker != null)
+              Tag(name: game.maker!, type: Tag.typeCustom),
+            for (final name
+                in (original['tags'] as List? ?? []).whereType<String>())
               Tag(name: name, type: Tag.typeCustom),
             if (original['series'] is String)
               Tag(name: original['series'] as String, type: Tag.typeSeries),
@@ -408,8 +418,8 @@ class ScrapeApplyService {
     }
 
     final result = await GameMoveService(gameRepository: repo)
-        .moveGameFolderCrossDrive(gameId: game.id!, oldPath: game.path,
-            newPath: targetDir.path);
+        .moveGameFolderCrossDrive(
+            gameId: game.id!, oldPath: game.path, newPath: targetDir.path);
     if (result.warning != null) onLog?.call(result.warning!);
     final current = await repo.getStoredGameByPath(targetDir.path) ??
         game.copyWith(path: targetDir.path);
@@ -494,8 +504,8 @@ class ScrapeApplyService {
       if (gameInfo.isDlsiteUserOnly) {
         final metadataFile = GameDataPaths.metadataFile(game.path);
         if (await metadataFile.exists()) {
-          previousMetadata =
-              jsonDecode(await metadataFile.readAsString()) as Map<String, dynamic>;
+          previousMetadata = jsonDecode(await metadataFile.readAsString())
+              as Map<String, dynamic>;
         }
         final dlsite = DlsiteService();
         final nextSource = sourceUrl ?? gameInfo.sourceUrl;
@@ -526,20 +536,24 @@ class ScrapeApplyService {
           (previousMetadata == null
               ? game
               : gameWithMetadata(game, previousMetadata));
-      final imageReplacements = gameInfo.isDlsiteUserOnly &&
-              gameInfo.screenshots.isNotEmpty
-          ? await _preserveDescriptionImages(baseGame, previousMetadata)
-          : <String, String>{};
+      final imageReplacements =
+          gameInfo.isDlsiteUserOnly && gameInfo.screenshots.isNotEmpty
+              ? await _preserveDescriptionImages(baseGame, previousMetadata)
+              : <String, String>{};
       if (previousMetadata != null && imageReplacements.isNotEmpty) {
         previousMetadata = jsonDecode(_replacePreservedImageReferences(
-            jsonEncode(previousMetadata), imageReplacements)!) as Map<String, dynamic>;
+                jsonEncode(previousMetadata), imageReplacements)!)
+            as Map<String, dynamic>;
       }
       var merged = mergeGameInfo(baseGame, gameInfo, sourceUrl: sourceUrl);
       if (imageReplacements.isNotEmpty) {
         merged = merged.copyWith(
-          intro: _replacePreservedImageReferences(merged.intro, imageReplacements),
-          features: _replacePreservedImageReferences(merged.features, imageReplacements),
-          changelog: _replacePreservedImageReferences(merged.changelog, imageReplacements),
+          intro:
+              _replacePreservedImageReferences(merged.intro, imageReplacements),
+          features: _replacePreservedImageReferences(
+              merged.features, imageReplacements),
+          changelog: _replacePreservedImageReferences(
+              merged.changelog, imageReplacements),
         );
       }
       int gameId;
@@ -607,7 +621,8 @@ class ScrapeApplyService {
           current = current.copyWith(intro: intro);
           await repo.updateScrapedFields(current);
           final metadataFile = GameDataPaths.metadataFile(current.path);
-          final metadata = jsonDecode(await metadataFile.readAsString()) as Map<String, dynamic>;
+          final metadata = jsonDecode(await metadataFile.readAsString())
+              as Map<String, dynamic>;
           metadata['intro'] = intro;
           await metadataFile.writeAsString(jsonEncode(metadata), flush: true);
         }
@@ -620,11 +635,13 @@ class ScrapeApplyService {
           onNotice: onTranslationNotice,
           refreshRestrictedPublicFields: gameInfo.isDlsiteUserOnly,
         );
-      } else if (MetadataTranslationConfig.fromSettings(await AppSettings.load())
+      } else if (MetadataTranslationConfig.fromSettings(
+              await AppSettings.load())
           .enabled) {
         onTranslationNotice?.call('无法保存本次刮削元数据，已跳过翻译');
       }
-      final guide = _replacePreservedImageReferences(current.guide, imageReplacements);
+      final guide =
+          _replacePreservedImageReferences(current.guide, imageReplacements);
       if (guide != current.guide) {
         await repo.updateGuide(gameId, guide);
         current = current.copyWith(guide: guide);
@@ -645,8 +662,8 @@ class ScrapeApplyService {
         }
         try {
           if (recordsChanged) {
-            await repo.restoreScrapeSnapshot(gamePath: game.path,
-                original: original, metadataOnly: true);
+            await repo.restoreScrapeSnapshot(
+                gamePath: game.path, original: original, metadataOnly: true);
           }
         } catch (restoreError) {
           restoreFailures.add(restoreError);
@@ -711,7 +728,8 @@ class ScrapeApplyService {
             metadata, original, config, onNotice)
         : await MetadataTranslationService()
             .translate(metadata, config, onNotice: onNotice);
-    if (MetadataTranslationService.originalFrom(translated) == null) return game;
+    if (MetadataTranslationService.originalFrom(translated) == null)
+      return game;
 
     final tempFile = File('${metadataFile.path}.translation.tmp');
     final metadataChanged = !identical(translated, metadata);
@@ -795,8 +813,8 @@ class ScrapeApplyService {
   }) async {
     await repo.clearGameTags(gameId, executor: executor);
     if (gameInfo.maker != null && gameInfo.maker!.isNotEmpty) {
-      final makerTagId = await tagRepo.insertOrGetTag(
-          gameInfo.maker!, Tag.typeCustom, executor: executor);
+      final makerTagId = await tagRepo
+          .insertOrGetTag(gameInfo.maker!, Tag.typeCustom, executor: executor);
       await repo.addTagToGame(gameId, makerTagId, executor: executor);
     }
     for (final tagName in gameInfo.tags) {
@@ -806,7 +824,8 @@ class ScrapeApplyService {
     }
     if (gameInfo.category != null) {
       final tagId = await tagRepo.insertOrGetTag(
-          gameInfo.category!, Tag.typeSeries, executor: executor);
+          gameInfo.category!, Tag.typeSeries,
+          executor: executor);
       await repo.addTagToGame(gameId, tagId, executor: executor);
     }
     final gameTagNames = [
@@ -827,8 +846,8 @@ class ScrapeApplyService {
     }
   }
 
-  static Future<void> fixImageUrlsInMetadata(
-      Game game, GameRepository repo, {bool requirePersistence = false}) async {
+  static Future<void> fixImageUrlsInMetadata(Game game, GameRepository repo,
+      {bool requirePersistence = false}) async {
     try {
       final metadataFile = await GameDataPaths.existingMetadataFile(game.path);
       if (!await metadataFile.exists()) return;

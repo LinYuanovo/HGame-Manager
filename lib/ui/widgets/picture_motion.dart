@@ -214,9 +214,7 @@ class _PictureOriginState extends State<PictureOrigin> {
 
   @override
   Widget build(BuildContext context) {
-    final child = pictureHero(
-        context,
-        this,
+    final child = pictureHero(context, this,
         _hidden ? Opacity(opacity: 0, child: widget.child) : widget.child,
         borderRadius: widget.borderRadius);
     return widget.onOpen == null
@@ -344,14 +342,14 @@ class _PictureFlightState extends State<_PictureFlight> {
                 widget.image,
                 Rect.lerp(widget.start.$1, widget.end.$1, progress)!,
                 Rect.lerp(widget.start.$2, widget.end.$2, progress)!,
-                BorderRadius.lerp(widget.startRadius, widget.endRadius,
-                    progress)!));
+                BorderRadius.lerp(
+                    widget.startRadius, widget.endRadius, progress)!));
       });
 }
 
 class _PictureFlightPainter extends CustomPainter {
-  _PictureFlightPainter(this.image, this.source, this.destination,
-      this.borderRadius);
+  _PictureFlightPainter(
+      this.image, this.source, this.destination, this.borderRadius);
   final ui.Image image;
   final Rect source, destination;
   final BorderRadius borderRadius;

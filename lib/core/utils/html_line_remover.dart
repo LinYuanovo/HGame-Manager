@@ -13,10 +13,38 @@ class HtmlLineRemover {
   HtmlLineRemover._();
 
   static const Set<String> _blockLikeTags = {
-    'div', 'p', 'ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tr', 'td', 'th',
-    'section', 'article', 'aside', 'blockquote', 'pre', 'figure', 'figcaption',
-    'header', 'footer', 'main', 'form', 'fieldset', 'dl', 'dt', 'dd',
-    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'div',
+    'p',
+    'ul',
+    'ol',
+    'li',
+    'table',
+    'thead',
+    'tbody',
+    'tr',
+    'td',
+    'th',
+    'section',
+    'article',
+    'aside',
+    'blockquote',
+    'pre',
+    'figure',
+    'figcaption',
+    'header',
+    'footer',
+    'main',
+    'form',
+    'fieldset',
+    'dl',
+    'dt',
+    'dd',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
   };
 
   /// 从 [html] 中删除命中的行，返回处理后的 HTML；未删除任何内容时返回 null。
@@ -54,9 +82,7 @@ class HtmlLineRemover {
     required String Function(String lineText)? normalizeLabel,
     required bool Function(String lineText)? triggersLabelCleanup,
   }) {
-    final segments = <List<dom.Node>>[
-      []
-    ];
+    final segments = <List<dom.Node>>[[]];
     // terminators[i] 为结束第 i 行的 <br>（最后一行没有）
     final terminators = <dom.Element?>[null];
     for (final node in element.nodes.toList()) {
@@ -79,8 +105,8 @@ class HtmlLineRemover {
       final segment = segments[i];
       if (segment.isEmpty) continue;
 
-      final hasBlockChild = segment.any((n) =>
-          n is dom.Element && _blockLikeTags.contains(n.localName));
+      final hasBlockChild = segment
+          .any((n) => n is dom.Element && _blockLikeTags.contains(n.localName));
       if (hasBlockChild) {
         for (final n in segment) {
           if (n is! dom.Element) continue;

@@ -48,7 +48,8 @@ V1.3
   // 测试单个正则
   print('=== 测试单个正则 ===');
 
-  final regex1 = RegExp(r'本帖最后由\s*\S+\s*于\s*\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2}\s*编辑');
+  final regex1 =
+      RegExp(r'本帖最后由\s*\S+\s*于\s*\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2}\s*编辑');
   print('正则1 (本帖最后由...编辑): ${regex1.hasMatch(testContent)}');
   if (regex1.hasMatch(testContent)) {
     print('  匹配: ${regex1.firstMatch(testContent)!.group(0)}');

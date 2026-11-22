@@ -24,7 +24,11 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
 
   void _locate(int? id, {String? error}) {
     if (!mounted || id == null) return;
-    setState(() { _located = id; _launchError = error; _revision++; });
+    setState(() {
+      _located = id;
+      _launchError = error;
+      _revision++;
+    });
   }
 
   @override
@@ -32,6 +36,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
     _scroll.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     final toolsAsync = ref.watch(allToolsProvider);
@@ -53,7 +58,9 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
               },
               loading: () => const AppSkeleton(
                   layout: SkeletonLayout.tools, label: '正在加载工具'),
-              error: (error, _) => AppLoadError(message: '加载失败：$error', onRetry: () => ref.invalidate(allToolsProvider)),
+              error: (error, _) => AppLoadError(
+                  message: '加载失败：$error',
+                  onRetry: () => ref.invalidate(allToolsProvider)),
             ),
           ),
         ],
@@ -64,7 +71,9 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.build, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconHeading),
+        Icon(Icons.build,
+            color: AppTheme.getPrimaryColor(context),
+            size: GlassConstants.iconHeading),
         const SizedBox(width: GlassConstants.spacingCompact),
         Text(
           '工具',
@@ -89,16 +98,23 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.build_circle_outlined, size: GlassConstants.iconEmptyState, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.2)),
+          Icon(Icons.build_circle_outlined,
+              size: GlassConstants.iconEmptyState,
+              color: AppTheme.getTextPrimary(context).withValues(alpha: 0.2)),
           const SizedBox(height: GlassConstants.spacingMedium),
           Text(
             '还没有工具',
-            style: TextStyle(fontSize: GlassConstants.fontTitle, color: AppTheme.getTextPrimary(context).withValues(alpha: 0.5)),
+            style: TextStyle(
+                fontSize: GlassConstants.fontTitle,
+                color: AppTheme.getTextPrimary(context).withValues(alpha: 0.5)),
           ),
           const SizedBox(height: GlassConstants.spacingSmall),
           Text(
             '点击右上角"导入工具"添加文件',
-            style: TextStyle(fontSize: GlassConstants.fontBody, color: AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
+            style: TextStyle(
+                fontSize: GlassConstants.fontBody,
+                color:
+                    AppTheme.getTextSecondary(context).withValues(alpha: 0.5)),
           ),
         ],
       ),
@@ -109,7 +125,9 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
     final target = tools.indexWhere((tool) => tool.id == _located);
     if (target >= 0 && _seekRevision != _revision) {
       _seekRevision = _revision;
-      WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) seekListIndex(_scroll, target); });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) seekListIndex(_scroll, target);
+      });
     }
     return GridView.builder(
       controller: _scroll,
@@ -123,8 +141,23 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
       itemBuilder: (context, index) {
         final tool = tools[index];
         final card = _buildToolCard(tool);
-        return StaggeredItem(key: ValueKey(tool.id ?? tool.path), index: index,
-          child: index == target ? ResultLocation(key: ValueKey(_revision), child: _launchError == null ? card : Column(children: [Expanded(child: card), Text(_launchError!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppTheme.errorColor))])) : card);
+        return StaggeredItem(
+            key: ValueKey(tool.id ?? tool.path),
+            index: index,
+            child: index == target
+                ? ResultLocation(
+                    key: ValueKey(_revision),
+                    child: _launchError == null
+                        ? card
+                        : Column(children: [
+                            Expanded(child: card),
+                            Text(_launchError!,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style:
+                                    const TextStyle(color: AppTheme.errorColor))
+                          ]))
+                : card);
       },
     );
   }
@@ -133,18 +166,22 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
 
   Widget _buildToolCard(Tool tool) {
     final fileName = tool.path.split(RegExp(r'[/\\]')).last;
-    final ext = fileName.contains('.') ? '.${fileName.split('.').last.toLowerCase()}' : '';
+    final ext = fileName.contains('.')
+        ? '.${fileName.split('.').last.toLowerCase()}'
+        : '';
     final iconData = _getFileIcon(ext);
     final iconColor = _getFileIconColor(ext);
 
     return GestureDetector(
       onDoubleTap: () => _launchTool(tool),
-      onSecondaryTapUp: (details) => _showContextMenu(details.globalPosition, tool),
+      onSecondaryTapUp: (details) =>
+          _showContextMenu(details.globalPosition, tool),
       child: Container(
         decoration: BoxDecoration(
           color: AppTheme.getSurfaceColor(context),
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-          border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
+          border: Border.all(
+              color: AppTheme.getBorderColor(context).withValues(alpha: 0.3)),
           boxShadow: [
             BoxShadow(
               color: AppTheme.getShadowColor(context),
@@ -159,7 +196,8 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
           child: AppActionSurface(
             borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
             onDoubleTap: () => _launchTool(tool),
-            onSecondaryTapUp: (details) => _showContextMenu(details.globalPosition, tool),
+            onSecondaryTapUp: (details) =>
+                _showContextMenu(details.globalPosition, tool),
             child: Padding(
               padding: const EdgeInsets.all(GlassConstants.spacingCompact),
               child: Column(
@@ -167,7 +205,8 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
                 children: [
                   Expanded(
                     child: Center(
-                      child: Icon(iconData, size: GlassConstants.iconBrand, color: iconColor),
+                      child: Icon(iconData,
+                          size: GlassConstants.iconBrand, color: iconColor),
                     ),
                   ),
                   const SizedBox(height: GlassConstants.spacingSmall),
@@ -201,10 +240,14 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
     final file = result.files.first;
     if (file.path == null) return;
 
-    final existingTool = await ref.read(toolRepositoryProvider).getToolByPath(file.path!);
+    final existingTool =
+        await ref.read(toolRepositoryProvider).getToolByPath(file.path!);
     if (existingTool != null) {
       if (mounted) {
-        AppTheme.showGlassToast(context, message: '该工具已存在', icon: Icons.warning_amber, iconColor: AppTheme.warningColor);
+        AppTheme.showGlassToast(context,
+            message: '该工具已存在',
+            icon: Icons.warning_amber,
+            iconColor: AppTheme.warningColor);
       }
       return;
     }
@@ -220,7 +263,8 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
     final identity = tool.id ?? tool.path;
     if (!_launching.add(identity)) return;
     try {
-      await Process.run(tool.path, [], workingDirectory: Directory(tool.path).parent.path);
+      await Process.run(tool.path, [],
+          workingDirectory: Directory(tool.path).parent.path);
     } catch (e, stackTrace) {
       AppLogger.instance.error('Tools', '操作失败', e, stackTrace);
       if (mounted) {
@@ -235,7 +279,8 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
     showMenu(
       context: context,
       popUpAnimationStyle: AppMotion.overlayStyle(context),
-      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx + 1, position.dy + 1),
+      position: RelativeRect.fromLTRB(
+          position.dx, position.dy, position.dx + 1, position.dy + 1),
       items: [
         PopupMenuItem(
           child: const Row(
@@ -270,7 +315,8 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
         PopupMenuItem(
           child: const Row(
             children: [
-              Icon(Icons.delete_outline, size: GlassConstants.iconAction, color: AppTheme.errorColor),
+              Icon(Icons.delete_outline,
+                  size: GlassConstants.iconAction, color: AppTheme.errorColor),
               SizedBox(width: GlassConstants.spacingSmall),
               Text('删除', style: TextStyle(color: AppTheme.errorColor)),
             ],
@@ -333,7 +379,9 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
     );
 
     if (newName != null && newName.isNotEmpty && newName != tool.name) {
-      await ref.read(toolRepositoryProvider).updateTool(tool.copyWith(name: newName));
+      await ref
+          .read(toolRepositoryProvider)
+          .updateTool(tool.copyWith(name: newName));
       if (!mounted) return;
       _locate(tool.id);
       ref.invalidate(allToolsProvider);
@@ -345,11 +393,15 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
       dialogTitle: '选择新的工具文件',
       type: FileType.any,
     );
-    if (result == null || result.files.isEmpty || result.files.first.path == null) return;
+    if (result == null ||
+        result.files.isEmpty ||
+        result.files.first.path == null) return;
 
     final newPath = result.files.first.path!;
     final newName = result.files.first.name;
-    await ref.read(toolRepositoryProvider).updateTool(tool.copyWith(path: newPath, name: newName));
+    await ref
+        .read(toolRepositoryProvider)
+        .updateTool(tool.copyWith(path: newPath, name: newName));
     if (!mounted) return;
     _locate(tool.id);
     ref.invalidate(allToolsProvider);

@@ -89,8 +89,7 @@ class ImageService {
   Future<String> copyImageToGameDir(String sourcePath, String gamePath) async {
     final imageDir = await GameDataPaths.ensureImagesDir(gamePath);
     final extension = sourcePath.split('.').last;
-    final fileName =
-        '${await _nextManualImageStem(imageDir)}.$extension';
+    final fileName = '${await _nextManualImageStem(imageDir)}.$extension';
     final destPath = path.join(imageDir.path, fileName);
 
     await File(sourcePath).copy(destPath);

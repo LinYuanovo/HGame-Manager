@@ -8,7 +8,11 @@ import '../../widgets/game_list_widget.dart';
 const double _sidebarHalfWidth = LayoutConstants.sidebarWidth / 2;
 
 class TagRouteTitle extends StatelessWidget {
-  const TagRouteTitle({super.key, required this.anchor, required this.name, required this.style});
+  const TagRouteTitle(
+      {super.key,
+      required this.anchor,
+      required this.name,
+      required this.style});
 
   final Object? anchor;
   final String name;
@@ -16,7 +20,8 @@ class TagRouteTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = Text(name, style: style, maxLines: 1, overflow: TextOverflow.ellipsis);
+    final title =
+        Text(name, style: style, maxLines: 1, overflow: TextOverflow.ellipsis);
     if (anchor == null || AppMotion.reduced(context)) return title;
     return Hero(
       tag: anchor!,
@@ -71,7 +76,11 @@ class TagGamesPage extends ConsumerStatefulWidget {
   final String tagName;
   final Object? titleAnchor;
 
-  const TagGamesPage({super.key, required this.tagId, required this.tagName, this.titleAnchor});
+  const TagGamesPage(
+      {super.key,
+      required this.tagId,
+      required this.tagName,
+      this.titleAnchor});
 
   static Route<void> route({
     required BuildContext context,
@@ -154,15 +163,19 @@ class _TagGamesPageState extends ConsumerState<TagGamesPage> {
                     children: [
                       IconButton(
                         icon: Icon(Icons.arrow_back,
-                            size: GlassConstants.iconControl, color: AppTheme.getTextSecondary(context)),
+                            size: GlassConstants.iconControl,
+                            color: AppTheme.getTextSecondary(context)),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: GlassConstants.spacingSmall),
-                      Flexible(child: TagRouteTitle(name: widget.tagName, anchor: widget.titleAnchor,
-                          style: TextStyle(
-                              fontSize: GlassConstants.fontSection,
-                              fontWeight: AppTypography.semibold,
-                              color: AppTheme.getTextPrimary(context)))),
+                      Flexible(
+                          child: TagRouteTitle(
+                              name: widget.tagName,
+                              anchor: widget.titleAnchor,
+                              style: TextStyle(
+                                  fontSize: GlassConstants.fontSection,
+                                  fontWeight: AppTypography.semibold,
+                                  color: AppTheme.getTextPrimary(context)))),
                     ],
                   ),
                 ),
@@ -170,43 +183,50 @@ class _TagGamesPageState extends ConsumerState<TagGamesPage> {
                   child: Material(
                     color: Colors.transparent,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: _sidebarHalfWidth),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: _sidebarHalfWidth),
                       child: gamesAsync.when(
-                      data: (games) {
-                        if (games.isEmpty) {
-                          return Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.label_off_outlined,
-                                    size: GlassConstants.iconEmptyState,
-                                    color: AppTheme.getTextSecondary(context).withValues(alpha: 0.3)),
-                                const SizedBox(height: GlassConstants.spacingMedium),
-                                Text('该标签下暂无游戏',
-                                    style: TextStyle(
-                                        color:
-                                            AppTheme.getTextSecondary(context).withValues(alpha: 0.6),
-                                        fontSize: GlassConstants.fontTitle)),
-                              ],
-                            ),
-                          );
-                        }
-                        return GameListWidget(
-                          games: games,
-                          showPlayTimeSort: true,
-                          onTagTap: (tag) {
-                            Navigator.of(context).pushReplacement(
-                              TagGamesPage.route(
-                                  context: context,
-                                  tagId: tag.id!,
-                                  tagName: tag.name),
+                        data: (games) {
+                          if (games.isEmpty) {
+                            return Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.label_off_outlined,
+                                      size: GlassConstants.iconEmptyState,
+                                      color: AppTheme.getTextSecondary(context)
+                                          .withValues(alpha: 0.3)),
+                                  const SizedBox(
+                                      height: GlassConstants.spacingMedium),
+                                  Text('该标签下暂无游戏',
+                                      style: TextStyle(
+                                          color:
+                                              AppTheme.getTextSecondary(context)
+                                                  .withValues(alpha: 0.6),
+                                          fontSize: GlassConstants.fontTitle)),
+                                ],
+                              ),
                             );
-                          },
-                        );
-                      },
-                      loading: () => const GameListSkeleton(),
-                      error: (error, _) => AppLoadError(message: '加载失败：$error', onRetry: () => ref.invalidate(gamesByTagProvider(widget.tagId))),
-                    ),
+                          }
+                          return GameListWidget(
+                            games: games,
+                            showPlayTimeSort: true,
+                            onTagTap: (tag) {
+                              Navigator.of(context).pushReplacement(
+                                TagGamesPage.route(
+                                    context: context,
+                                    tagId: tag.id!,
+                                    tagName: tag.name),
+                              );
+                            },
+                          );
+                        },
+                        loading: () => const GameListSkeleton(),
+                        error: (error, _) => AppLoadError(
+                            message: '加载失败：$error',
+                            onRetry: () => ref
+                                .invalidate(gamesByTagProvider(widget.tagId))),
+                      ),
                     ),
                   ),
                 ),

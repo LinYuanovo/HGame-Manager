@@ -50,13 +50,13 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
 
   void _updateButtons() {
     if (!mounted) return;
-    
+
     final controller = widget.scrollController;
     if (!controller.hasClients) return;
 
     final position = controller.position;
     final maxScroll = position.maxScrollExtent;
-    
+
     final currentScroll = controller.offset;
     const threshold = 100.0;
     final top = maxScroll > 0 && currentScroll > threshold;
@@ -79,9 +79,8 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
 
   @override
   Widget build(BuildContext context) {
-    final showFloatButton = widget.showGuide &&
-        widget.hasGuide &&
-        widget.onOpenGuideWindow != null;
+    final showFloatButton =
+        widget.showGuide && widget.hasGuide && widget.onOpenGuideWindow != null;
     if (!_showTop &&
         !_showBottom &&
         widget.onToggleGuide == null &&
@@ -94,39 +93,47 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
       top: 0,
       bottom: 0,
       child: Center(
-        child: AnimatedSize(duration: AppMotion.duration(context, AppMotion.fast), curve: AppMotion.curve, child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_showTop)
-              AppEntrance(key: const ValueKey('top'), child: _buildButton(
-                icon: Icons.keyboard_arrow_up,
-                onPressed: _scrollToTop,
-                tooltip: '滚动到顶部',
-              )),
-            const SizedBox(height: GlassConstants.spacingSmall),
-            if (widget.onToggleGuide != null)
-              _buildButton(
-                icon: widget.showGuide ? Icons.menu_book : Icons.description,
-                onPressed: widget.onToggleGuide!,
-                tooltip: widget.showGuide ? '切换到简介' : '切换到攻略',
-              ),
-            if (showFloatButton) ...[
-              const SizedBox(height: GlassConstants.spacingSmall),
-              _buildButton(
-                icon: Icons.picture_in_picture_alt_outlined,
-                onPressed: widget.onOpenGuideWindow!,
-                tooltip: '浮窗显示攻略',
-              ),
-            ],
-            const SizedBox(height: GlassConstants.spacingSmall),
-            if (_showBottom)
-              AppEntrance(key: const ValueKey('bottom'), child: _buildButton(
-                icon: Icons.keyboard_arrow_down,
-                onPressed: _scrollToBottom,
-                tooltip: '滚动到底部',
-              )),
-          ],
-        )),
+        child: AnimatedSize(
+            duration: AppMotion.duration(context, AppMotion.fast),
+            curve: AppMotion.curve,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_showTop)
+                  AppEntrance(
+                      key: const ValueKey('top'),
+                      child: _buildButton(
+                        icon: Icons.keyboard_arrow_up,
+                        onPressed: _scrollToTop,
+                        tooltip: '滚动到顶部',
+                      )),
+                const SizedBox(height: GlassConstants.spacingSmall),
+                if (widget.onToggleGuide != null)
+                  _buildButton(
+                    icon:
+                        widget.showGuide ? Icons.menu_book : Icons.description,
+                    onPressed: widget.onToggleGuide!,
+                    tooltip: widget.showGuide ? '切换到简介' : '切换到攻略',
+                  ),
+                if (showFloatButton) ...[
+                  const SizedBox(height: GlassConstants.spacingSmall),
+                  _buildButton(
+                    icon: Icons.picture_in_picture_alt_outlined,
+                    onPressed: widget.onOpenGuideWindow!,
+                    tooltip: '浮窗显示攻略',
+                  ),
+                ],
+                const SizedBox(height: GlassConstants.spacingSmall),
+                if (_showBottom)
+                  AppEntrance(
+                      key: const ValueKey('bottom'),
+                      child: _buildButton(
+                        icon: Icons.keyboard_arrow_down,
+                        onPressed: _scrollToBottom,
+                        tooltip: '滚动到底部',
+                      )),
+              ],
+            )),
       ),
     );
   }
@@ -161,7 +168,7 @@ class _DetailScrollButtonsState extends State<DetailScrollButtons> {
             color: AppTheme.getPrimaryColor(context),
           ),
         ),
-    ),
+      ),
     );
   }
 }

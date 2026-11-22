@@ -1,11 +1,11 @@
 /// 重命名规则配置
 class RenameRule {
-  final String id;           // 规则ID（如 'game_id', 'maker', 'series', 'title', 'version'）
-  final String name;         // 显示名称
-  final bool enabled;        // 是否启用
-  final int order;           // 排序顺序
-  final String wrapBefore;   // 前包裹符号（如 '['）
-  final String wrapAfter;    // 后包裹符号（如 ']'）
+  final String id; // 规则ID（如 'game_id', 'maker', 'series', 'title', 'version'）
+  final String name; // 显示名称
+  final bool enabled; // 是否启用
+  final int order; // 排序顺序
+  final String wrapBefore; // 前包裹符号（如 '['）
+  final String wrapAfter; // 后包裹符号（如 ']'）
 
   const RenameRule({
     required this.id,
@@ -19,9 +19,20 @@ class RenameRule {
   /// 默认规则列表
   static List<RenameRule> defaultRules() {
     return [
-      const RenameRule(id: 'game_id', name: '游戏ID', order: 0, wrapBefore: '[', wrapAfter: ']'),
-      const RenameRule(id: 'maker', name: '游戏厂商', order: 1, wrapBefore: '[', wrapAfter: ']'),
-      const RenameRule(id: 'series', name: '系列标签', order: 2, wrapBefore: '[', wrapAfter: ']'),
+      const RenameRule(
+          id: 'game_id',
+          name: '游戏ID',
+          order: 0,
+          wrapBefore: '[',
+          wrapAfter: ']'),
+      const RenameRule(
+          id: 'maker', name: '游戏厂商', order: 1, wrapBefore: '[', wrapAfter: ']'),
+      const RenameRule(
+          id: 'series',
+          name: '系列标签',
+          order: 2,
+          wrapBefore: '[',
+          wrapAfter: ']'),
       const RenameRule(id: 'title', name: '游戏标题', order: 3, enabled: true),
       const RenameRule(id: 'version', name: '游戏版本', order: 4, enabled: true),
     ];
@@ -39,13 +50,13 @@ class RenameRule {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'enabled': enabled,
-    'order': order,
-    'wrapBefore': wrapBefore,
-    'wrapAfter': wrapAfter,
-  };
+        'id': id,
+        'name': name,
+        'enabled': enabled,
+        'order': order,
+        'wrapBefore': wrapBefore,
+        'wrapAfter': wrapAfter,
+      };
 
   RenameRule copyWith({
     String? id,

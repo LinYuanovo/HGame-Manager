@@ -75,7 +75,8 @@ class GuideWindowState {
         state.y = null;
       }
     } catch (e, stackTrace) {
-      AppLogger.instance.error('GuideWindow', '读取窗口状态失败: ${e.runtimeType}', null, stackTrace);
+      AppLogger.instance
+          .error('GuideWindow', '读取窗口状态失败: ${e.runtimeType}', null, stackTrace);
     }
     return state;
   }

@@ -28,9 +28,12 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
   @override
   Widget build(BuildContext context) {
     final fontSize = ref.watch(fontSizeProvider);
-    final gameCount = ref.watch(allGamesProvider.select((a) => a.valueOrNull?.length));
-    final playedCount = ref.watch(playedGamesProvider.select((a) => a.valueOrNull?.length));
-    final clearedCount = ref.watch(clearedGamesProvider.select((a) => a.valueOrNull?.length));
+    final gameCount =
+        ref.watch(allGamesProvider.select((a) => a.valueOrNull?.length));
+    final playedCount =
+        ref.watch(playedGamesProvider.select((a) => a.valueOrNull?.length));
+    final clearedCount =
+        ref.watch(clearedGamesProvider.select((a) => a.valueOrNull?.length));
 
     final routes = ref.watch(visibleSidebarRoutesProvider);
     final slot = routes.indexOf(NavRoute.fromIndex(widget.selectedIndex));
@@ -40,7 +43,8 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
         AppTheme.getPrimaryColor(context).withValues(alpha: 0.2),
         AppTheme.getSecondaryColor(context).withValues(alpha: 0.2),
       ]),
-      border: Border.all(color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.4)),
+      border: Border.all(
+          color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.4)),
     );
 
     return MouseRegion(
@@ -56,56 +60,66 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
           listenable: widget.controller,
           builder: (context, _) {
             return AnimatedContainer(
-                  duration: _isResizing ? Duration.zero
-                      : AppMotion.duration(context, GlassConstants.animMedium),
-                  curve: GlassConstants.animCurve,
-                  width: widget.controller.width,
-                  decoration: BoxDecoration(
-                    color: AppTheme.getSurfaceColor(context).withValues(alpha: 0.85),
-                    border: Border(
-                      right: BorderSide(
-                        color: AppTheme.getBorderColor(context).withValues(alpha: 0.3),
-                      ),
-                    ),
+              duration: _isResizing
+                  ? Duration.zero
+                  : AppMotion.duration(context, GlassConstants.animMedium),
+              curve: GlassConstants.animCurve,
+              width: widget.controller.width,
+              decoration: BoxDecoration(
+                color:
+                    AppTheme.getSurfaceColor(context).withValues(alpha: 0.85),
+                border: Border(
+                  right: BorderSide(
+                    color:
+                        AppTheme.getBorderColor(context).withValues(alpha: 0.3),
                   ),
-                   child: Column(
-                    children: [
-                      const SizedBox(height: GlassConstants.spacingMedium),
-                      Expanded(child: SingleChildScrollView(child: SelectionSurface(
-                        index: slot, decoration: decoration,
-                        insets: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingMicro),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: routes.map((route) {
-                        int? count;
-                        if (route == NavRoute.games) {
-                          count = gameCount;
-                        } else if (route == NavRoute.played) {
-                          count = playedCount;
-                        } else if (route == NavRoute.cleared) {
-                          count = clearedCount;
-                        }
-                        return _buildNavItem(
-                          context: context,
-                          route: route,
-                          selectedIndex: widget.selectedIndex,
-                          count: count,
-                          fontSize: fontSize,
-                          ref: ref,
-                        );
-                      }).toList()),
-                      ))),
-                      _buildToggleButton(fontSize: fontSize),
-                      _buildNavItem(
-                        context: context,
-                        route: NavRoute.settings,
-                        selectedIndex: widget.selectedIndex,
-                        count: null,
-                        fontSize: fontSize,
-                        ref: ref,
-                      ),
-                      const SizedBox(height: GlassConstants.spacingMedium),
-                    ],
+                ),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: GlassConstants.spacingMedium),
+                  Expanded(
+                      child: SingleChildScrollView(
+                          child: SelectionSurface(
+                    index: slot,
+                    decoration: decoration,
+                    insets: const EdgeInsets.symmetric(
+                        horizontal: GlassConstants.spacingSmall,
+                        vertical: GlassConstants.spacingMicro),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: routes.map((route) {
+                          int? count;
+                          if (route == NavRoute.games) {
+                            count = gameCount;
+                          } else if (route == NavRoute.played) {
+                            count = playedCount;
+                          } else if (route == NavRoute.cleared) {
+                            count = clearedCount;
+                          }
+                          return _buildNavItem(
+                            context: context,
+                            route: route,
+                            selectedIndex: widget.selectedIndex,
+                            count: count,
+                            fontSize: fontSize,
+                            ref: ref,
+                          );
+                        }).toList()),
+                  ))),
+                  _buildToggleButton(fontSize: fontSize),
+                  _buildNavItem(
+                    context: context,
+                    route: NavRoute.settings,
+                    selectedIndex: widget.selectedIndex,
+                    count: null,
+                    fontSize: fontSize,
+                    ref: ref,
                   ),
-                );
+                  const SizedBox(height: GlassConstants.spacingMedium),
+                ],
+              ),
+            );
           },
         ),
       ),
@@ -114,7 +128,9 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
 
   Widget _buildToggleButton({double fontSize = GlassConstants.fontControl}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingMicro),
+      padding: const EdgeInsets.symmetric(
+          horizontal: GlassConstants.spacingSmall,
+          vertical: GlassConstants.spacingMicro),
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -125,7 +141,9 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
             duration: AppMotion.duration(context, GlassConstants.animFast),
             curve: GlassConstants.animCurve,
             padding: EdgeInsets.symmetric(
-              horizontal: widget.controller.isExpanded ? GlassConstants.spacingMedium : 0,
+              horizontal: widget.controller.isExpanded
+                  ? GlassConstants.spacingMedium
+                  : 0,
               vertical: GlassConstants.spacingCompact,
             ),
             decoration: BoxDecoration(
@@ -175,98 +193,115 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
     final isSelected = route.navIndex == selectedIndex;
 
     return Semantics(
-      key: ValueKey(route),
-      button: true,
-      selected: route == NavRoute.settings ? null : isSelected,
-      label: widget.controller.isExpanded ? null : route.label,
-      child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingMicro),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-          onTap: () {
-            if (route == NavRoute.settings) {
-              showSettingsDialog(context, ref);
-            } else {
-              ref.read(selectedNavIndexProvider.notifier).state = route.navIndex;
-            }
-          },
-          child: AnimatedContainer(
-            duration: AppMotion.duration(context, GlassConstants.animFast),
-            curve: GlassConstants.animCurve,
-            padding: EdgeInsets.symmetric(
-              horizontal: widget.controller.isExpanded ? GlassConstants.spacingMedium : 0,
-              vertical: GlassConstants.spacingCompact,
-            ),
-            child: Row(
-              mainAxisAlignment: widget.controller.isExpanded
-                  ? MainAxisAlignment.start
-                  : MainAxisAlignment.center,
-              children: [
-                AppSelectedMark(selected: isSelected, child: Icon(
-                  isSelected ? route.selectedIcon : route.icon,
-                  color: isSelected
-                      ? AppTheme.getPrimaryColor(context)
-                      : AppTheme.getTextPrimary(context),
-                  size: GlassConstants.iconSection,
-                )),
-                if (widget.controller.isExpanded) ...[
-                  const SizedBox(width: GlassConstants.spacingCompact),
-                  Flexible(
-                    child: Text(
-                      route.label,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: isSelected
-                            ? AppTheme.getPrimaryColor(context)
-                            : AppTheme.getCardTitleColor(context),
-                        fontSize: fontSize,
-                        fontWeight: isSelected ? AppTypography.semibold : AppTypography.regular,
-                      ),
-                    ),
-                  ),
-                  if (count != null && count > 0)
-                    Flexible(
-                      child: Container(
-                        margin: const EdgeInsets.only(left: GlassConstants.spacingSmall),
-                        padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingMicro),
-                        decoration: BoxDecoration(
-                          gradient: isSelected
-                              ? LinearGradient(
-                                  colors: [
-                                    AppTheme.getPrimaryColor(context).withValues(alpha: 0.9),
-                                    AppTheme.getSecondaryColor(context).withValues(alpha: 0.9),
-                                  ],
-                                )
-                              : null,
+        key: ValueKey(route),
+        button: true,
+        selected: route == NavRoute.settings ? null : isSelected,
+        label: widget.controller.isExpanded ? null : route.label,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: GlassConstants.spacingSmall,
+              vertical: GlassConstants.spacingMicro),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
+              onTap: () {
+                if (route == NavRoute.settings) {
+                  showSettingsDialog(context, ref);
+                } else {
+                  ref.read(selectedNavIndexProvider.notifier).state =
+                      route.navIndex;
+                }
+              },
+              child: AnimatedContainer(
+                duration: AppMotion.duration(context, GlassConstants.animFast),
+                curve: GlassConstants.animCurve,
+                padding: EdgeInsets.symmetric(
+                  horizontal: widget.controller.isExpanded
+                      ? GlassConstants.spacingMedium
+                      : 0,
+                  vertical: GlassConstants.spacingCompact,
+                ),
+                child: Row(
+                  mainAxisAlignment: widget.controller.isExpanded
+                      ? MainAxisAlignment.start
+                      : MainAxisAlignment.center,
+                  children: [
+                    AppSelectedMark(
+                        selected: isSelected,
+                        child: Icon(
+                          isSelected ? route.selectedIcon : route.icon,
                           color: isSelected
-                              ? null
-                              : AppTheme.getTextSecondary(context).withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(GlassConstants.radiusControl),
-                        ),
-                        constraints: const BoxConstraints(minHeight: 18),
+                              ? AppTheme.getPrimaryColor(context)
+                              : AppTheme.getTextPrimary(context),
+                          size: GlassConstants.iconSection,
+                        )),
+                    if (widget.controller.isExpanded) ...[
+                      const SizedBox(width: GlassConstants.spacingCompact),
+                      Flexible(
                         child: Text(
-                          '$count',
+                          route.label,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: isSelected
-                                ? AppTheme.getOnPrimaryColor(context)
-                                : AppTheme.getTextPrimary(context),
-                            fontSize: (fontSize * 0.78).clamp(
-                                GlassConstants.fontMicro, GlassConstants.fontControl),
-                            fontWeight: AppTypography.semibold,
+                                ? AppTheme.getPrimaryColor(context)
+                                : AppTheme.getCardTitleColor(context),
+                            fontSize: fontSize,
+                            fontWeight: isSelected
+                                ? AppTypography.semibold
+                                : AppTypography.regular,
                           ),
-                          textAlign: TextAlign.center,
                         ),
                       ),
-                    ),
-                ],
-              ],
+                      if (count != null && count > 0)
+                        Flexible(
+                          child: Container(
+                            margin: const EdgeInsets.only(
+                                left: GlassConstants.spacingSmall),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: GlassConstants.spacingTight,
+                                vertical: GlassConstants.spacingMicro),
+                            decoration: BoxDecoration(
+                              gradient: isSelected
+                                  ? LinearGradient(
+                                      colors: [
+                                        AppTheme.getPrimaryColor(context)
+                                            .withValues(alpha: 0.9),
+                                        AppTheme.getSecondaryColor(context)
+                                            .withValues(alpha: 0.9),
+                                      ],
+                                    )
+                                  : null,
+                              color: isSelected
+                                  ? null
+                                  : AppTheme.getTextSecondary(context)
+                                      .withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(
+                                  GlassConstants.radiusControl),
+                            ),
+                            constraints: const BoxConstraints(minHeight: 18),
+                            child: Text(
+                              '$count',
+                              style: TextStyle(
+                                color: isSelected
+                                    ? AppTheme.getOnPrimaryColor(context)
+                                    : AppTheme.getTextPrimary(context),
+                                fontSize: (fontSize * 0.78).clamp(
+                                    GlassConstants.fontMicro,
+                                    GlassConstants.fontControl),
+                                fontWeight: AppTypography.semibold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
-      ),
-    ));
+        ));
   }
 }

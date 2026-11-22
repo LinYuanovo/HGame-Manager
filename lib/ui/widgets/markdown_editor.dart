@@ -32,7 +32,8 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
     final from = preview ? _editorScroll : _previewScroll;
     final to = preview ? _previewScroll : _editorScroll;
     final ratio = from.hasClients && from.position.maxScrollExtent > 0
-        ? (from.offset / from.position.maxScrollExtent).clamp(0.0, 1.0) : 0.0;
+        ? (from.offset / from.position.maxScrollExtent).clamp(0.0, 1.0)
+        : 0.0;
     if (preview) _editingSelection = widget.controller.selection;
     setState(() => _isPreview = preview);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -40,7 +41,9 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       if (!preview) {
         _editorFocus.requestFocus();
         final selection = _editingSelection;
-        if (selection != null && selection.isValid && selection.end <= widget.controller.text.length) {
+        if (selection != null &&
+            selection.isValid &&
+            selection.end <= widget.controller.text.length) {
           widget.controller.selection = selection;
         }
       }
@@ -86,8 +89,11 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
     final end = sel.end >= 0 ? sel.end : text.length;
     final selected = text.substring(start, end);
     final replacement = '$prefix$selected$suffix';
-    ctrl.value = TextEditingValue(text: text.replaceRange(start, end, replacement),
-        selection: TextSelection(baseOffset: start + prefix.length, extentOffset: start + prefix.length + selected.length));
+    ctrl.value = TextEditingValue(
+        text: text.replaceRange(start, end, replacement),
+        selection: TextSelection(
+            baseOffset: start + prefix.length,
+            extentOffset: start + prefix.length + selected.length));
     _editorFocus.requestFocus();
   }
 
@@ -107,7 +113,10 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
           _buildToolbar(),
           Expanded(
             child: Stack(fit: StackFit.expand, children: [
-              Offstage(offstage: _isPreview, child: ExcludeFocus(excluding: _isPreview, child: _buildEditor())),
+              Offstage(
+                  offstage: _isPreview,
+                  child: ExcludeFocus(
+                      excluding: _isPreview, child: _buildEditor())),
               if (_isPreview) AppEntrance(child: _buildPreview()),
             ]),
           ),
@@ -118,10 +127,13 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
 
   Widget _buildToolbar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingTiny),
+      padding: const EdgeInsets.symmetric(
+          horizontal: GlassConstants.spacingSmall,
+          vertical: GlassConstants.spacingTiny),
       decoration: BoxDecoration(
         color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.06),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(GlassConstants.radiusSmall)),
+        borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(GlassConstants.radiusSmall)),
       ),
       child: Row(
         children: [
@@ -168,7 +180,9 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       child: AnimatedContainer(
         duration: AppMotion.duration(context, AppMotion.fast),
         curve: AppMotion.curve,
-        padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingInline, vertical: GlassConstants.spacingTight),
+        padding: const EdgeInsets.symmetric(
+            horizontal: GlassConstants.spacingInline,
+            vertical: GlassConstants.spacingTight),
         decoration: BoxDecoration(
           color: active
               ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15)
@@ -191,7 +205,8 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
                 color: active
                     ? AppTheme.getPrimaryColor(context)
                     : AppTheme.getTextSecondary(context),
-                fontWeight: active ? AppTypography.semibold : AppTypography.regular,
+                fontWeight:
+                    active ? AppTypography.semibold : AppTypography.regular,
               ),
             ),
           ],
@@ -208,8 +223,9 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
         borderRadius: BorderRadius.circular(GlassConstants.radiusTight),
         child: Padding(
           padding: const EdgeInsets.all(GlassConstants.spacingTight),
-          child:
-              Icon(icon, size: GlassConstants.iconAction, color: AppTheme.getTextSecondary(context)),
+          child: Icon(icon,
+              size: GlassConstants.iconAction,
+              color: AppTheme.getTextSecondary(context)),
         ),
       ),
     );
@@ -224,10 +240,14 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       itemBuilder: (_) => widget.imagePaths.map((p) {
         final name = p.split(RegExp(r'[/\\]')).last;
         return PopupMenuItem(
-            value: p, child: Text(name, style: const TextStyle(fontSize: GlassConstants.fontBody)));
+            value: p,
+            child: Text(name,
+                style: const TextStyle(fontSize: GlassConstants.fontBody)));
       }).toList(),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingSmall, vertical: GlassConstants.spacingTiny),
+        padding: const EdgeInsets.symmetric(
+            horizontal: GlassConstants.spacingSmall,
+            vertical: GlassConstants.spacingTiny),
         decoration: BoxDecoration(
           color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
@@ -236,11 +256,13 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.add_photo_alternate,
-                size: GlassConstants.iconSmall, color: AppTheme.getPrimaryColor(context)),
+                size: GlassConstants.iconSmall,
+                color: AppTheme.getPrimaryColor(context)),
             const SizedBox(width: GlassConstants.spacingTiny),
             Text('图片',
                 style: TextStyle(
-                    fontSize: GlassConstants.fontSmall, color: AppTheme.getPrimaryColor(context))),
+                    fontSize: GlassConstants.fontSmall,
+                    color: AppTheme.getPrimaryColor(context))),
           ],
         ),
       ),
@@ -313,19 +335,19 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
               final filePath = parsedUri.toFilePath();
               final file = File(filePath);
               if (file.existsSync()) {
-                return Image.file(file, fit: BoxFit.contain,
-                    frameBuilder: appImageFrameBuilder);
+                return Image.file(file,
+                    fit: BoxFit.contain, frameBuilder: appImageFrameBuilder);
               }
               debugPrint('[MarkdownPreview] File not found: $filePath');
             } else if (uriStr.startsWith('http://') ||
                 uriStr.startsWith('https://')) {
-              return Image.network(uriStr, fit: BoxFit.contain,
-                  frameBuilder: appImageFrameBuilder);
+              return Image.network(uriStr,
+                  fit: BoxFit.contain, frameBuilder: appImageFrameBuilder);
             } else {
               final file = File(uriStr);
               if (file.existsSync()) {
-                return Image.file(file, fit: BoxFit.contain,
-                    frameBuilder: appImageFrameBuilder);
+                return Image.file(file,
+                    fit: BoxFit.contain, frameBuilder: appImageFrameBuilder);
               }
             }
           } catch (e) {
@@ -333,7 +355,8 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
           }
 
           return Container(
-            padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingTiny),
+            padding: const EdgeInsets.symmetric(
+                vertical: GlassConstants.spacingTiny),
             child: Text('[图片加载失败]',
                 style: TextStyle(
                     fontSize: GlassConstants.fontSmall,

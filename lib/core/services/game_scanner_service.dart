@@ -466,7 +466,8 @@ class GameScannerService {
         migrationChecked: migrationChecked,
       );
     } catch (e, stackTrace) {
-      AppLogger.instance.error('Scan', '[Scan] Error parsing $folderPath: $e', e, stackTrace);
+      AppLogger.instance
+          .error('Scan', '[Scan] Error parsing $folderPath: $e', e, stackTrace);
       return null;
     }
   }
@@ -697,7 +698,8 @@ class GameScannerService {
           }
         }
       } catch (e, stackTrace) {
-        AppLogger.instance.error('Scan', '[Scan] Error checking game folder: $e', e, stackTrace);
+        AppLogger.instance.error(
+            'Scan', '[Scan] Error checking game folder: $e', e, stackTrace);
       }
     }
   }

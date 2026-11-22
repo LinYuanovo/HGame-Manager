@@ -25,8 +25,7 @@ void main() {
     });
 
     test('moves legacy files and referenced images into HGMDatas', () async {
-      final legacyImage = File(
-          path.join(tempDir.path, 'images', '1.jpg'));
+      final legacyImage = File(path.join(tempDir.path, 'images', '1.jpg'));
       await File(path.join(tempDir.path, 'metadata.json')).writeAsString(
         jsonEncode({'intro': '[图片:${legacyImage.path}]'}),
       );
@@ -71,17 +70,14 @@ void main() {
       await File(path.join(tempDir.path, 'metadata.json')).writeAsString('{}');
       final mixedDir = await Directory(path.join(tempDir.path, 'images'))
           .create(recursive: true);
-      final scrapeImage =
-          File(path.join(mixedDir.path, 'scrape_1.jpg'));
+      final scrapeImage = File(path.join(mixedDir.path, 'scrape_1.jpg'));
       await scrapeImage.writeAsBytes([1]);
-      final manualImage =
-          File(path.join(mixedDir.path, 'manual_1.png'));
+      final manualImage = File(path.join(mixedDir.path, 'manual_1.png'));
       await manualImage.writeAsBytes([2]);
-      final guideImage =
-          File(path.join(mixedDir.path, 'guide_01.jpg'));
+      final guideImage = File(path.join(mixedDir.path, 'guide_01.jpg'));
       await guideImage.writeAsBytes([3]);
-      final uuidImage = File(path.join(mixedDir.path,
-          '3fa85f64-5717-4562-b3fc-2c963f66afa6.webp'));
+      final uuidImage = File(path.join(
+          mixedDir.path, '3fa85f64-5717-4562-b3fc-2c963f66afa6.webp'));
       await uuidImage.writeAsBytes([4]);
       final referencedNumeric = File(path.join(mixedDir.path, '2.jpg'));
       await referencedNumeric.writeAsBytes([5]);
@@ -91,7 +87,8 @@ void main() {
       await assetImage.writeAsBytes([7]);
       service = GameDataMigrationService(
         gameRepository: _FakeGameRepository(
-          game: Game(id: 1, path: tempDir.path, intro: '图: ${referencedNumeric.path}'),
+          game: Game(
+              id: 1, path: tempDir.path, intro: '图: ${referencedNumeric.path}'),
           images: [],
         ),
       );
@@ -106,8 +103,7 @@ void main() {
           path.join(targetDir, 'manual_1.png'));
       expect(result.imagePathMap[guideImage.path],
           path.join(targetDir, 'guide_01.jpg'));
-      expect(
-          result.imagePathMap[uuidImage.path], isNotNull);
+      expect(result.imagePathMap[uuidImage.path], isNotNull);
       expect(result.imagePathMap[referencedNumeric.path],
           path.join(targetDir, '2.jpg'));
       // 未被引用的纯数字图与资源图不迁移
@@ -146,15 +142,13 @@ void main() {
           .writeAsBytes([1]);
       final legacyImages = await Directory(path.join(tempDir.path, 'images'))
           .create(recursive: true);
-      final legacyImage =
-          File(path.join(legacyImages.path, 'scrape_1.jpg'));
+      final legacyImage = File(path.join(legacyImages.path, 'scrape_1.jpg'));
       await legacyImage.writeAsBytes([2]);
 
       final result = await service.migrateGameDirectory(tempDir.path);
 
       expect(
-        await File(path.join(currentImages.path, 'scrape_1 (1).jpg'))
-            .exists(),
+        await File(path.join(currentImages.path, 'scrape_1 (1).jpg')).exists(),
         isTrue,
       );
       expect(result.imagePathMap[legacyImage.path],
@@ -177,15 +171,14 @@ void main() {
       final result = await service.migrateGameDirectory(tempDir.path);
 
       expect(result.changed, isFalse);
-      expect(await File(path.join(assetSingular.path, 'bg.png')).exists(),
-          isTrue);
+      expect(
+          await File(path.join(assetSingular.path, 'bg.png')).exists(), isTrue);
       expect(
           await File(path.join(assetSingular.path, 'cg', 'scene.png')).exists(),
           isTrue);
       expect(await File(path.join(assetPlural.path, 'title.png')).exists(),
           isTrue);
-      expect(
-          await GameDataPaths.dataDir(tempDir.path).exists(), isFalse);
+      expect(await GameDataPaths.dataDir(tempDir.path).exists(), isFalse);
     });
 
     test('moves only referenced files from game image folder', () async {
@@ -231,8 +224,7 @@ void main() {
 
       expect(await service.hasLegacyGameData(tempDir.path), isFalse);
 
-      await File(path.join(tempDir.path, 'metadata.json'))
-          .writeAsString('{}');
+      await File(path.join(tempDir.path, 'metadata.json')).writeAsString('{}');
 
       expect(await service.hasLegacyGameData(tempDir.path), isTrue);
     });
@@ -321,7 +313,8 @@ class _FakeGameRepository extends GameRepository {
   Future<List<GameImage>> getGameImages(int gameId) async => images;
 
   @override
-  Future<void> setGameImages(int gameId, List<GameImage> images, {int? coverIndex}) async {
+  Future<void> setGameImages(int gameId, List<GameImage> images,
+      {int? coverIndex}) async {
     this.images = images;
   }
 

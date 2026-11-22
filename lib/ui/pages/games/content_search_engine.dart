@@ -3,10 +3,10 @@ import 'package:flutter/foundation.dart';
 /// 内容搜索匹配位置
 @immutable
 class ContentSearchMatch {
-  final String sectionKey;    // 区域键（'intro', 'guide', 'features', 'changelog'）
-  final int lineIndex;        // 行索引
-  final int charOffset;       // 行内字符偏移
-  final int matchLength;      // 匹配长度
+  final String sectionKey; // 区域键（'intro', 'guide', 'features', 'changelog'）
+  final int lineIndex; // 行索引
+  final int charOffset; // 行内字符偏移
+  final int matchLength; // 匹配长度
 
   const ContentSearchMatch({
     required this.sectionKey,
@@ -26,7 +26,8 @@ class ContentSearchMatch {
   }
 
   @override
-  int get hashCode => Object.hash(sectionKey, lineIndex, charOffset, matchLength);
+  int get hashCode =>
+      Object.hash(sectionKey, lineIndex, charOffset, matchLength);
 }
 
 /// 内容搜索引擎（纯逻辑，无UI依赖）

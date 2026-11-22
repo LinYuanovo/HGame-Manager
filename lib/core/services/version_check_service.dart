@@ -5,16 +5,54 @@ import '../utils/proxy_client.dart';
 import '../../scraper/parse_utils.dart';
 
 const List<String> kGenericGameNames = [
-  'game', 'launcher', 'start', 'launch', 'play', 'player',
-  'config', 'setup', 'install', 'update', 'updater',
-  'server', 'client', 'tool', 'tools', 'editor', 'viewer',
-  'helper', 'crashreport', 'bugreport', 'feedback',
-  'unity', 'unreal', 'godot', 'renpy', 'rpgmaker', 'rpg',
-  'wolf', 'wolfrpg', 'nw', 'cef_simple', 'renderdoc',
-  'vcredist_x64', 'vcredist_x86', 'dxwebsetup', 'oalinst',
-  'crashpad_handler', 'crash_handler', 'unitycrashhandler64',
-  'unitycrashhandler32', 'unins000', 'unins001',
-  '与工具一同启动', '启动', '游戏', '工具', '设置', '配置',
+  'game',
+  'launcher',
+  'start',
+  'launch',
+  'play',
+  'player',
+  'config',
+  'setup',
+  'install',
+  'update',
+  'updater',
+  'server',
+  'client',
+  'tool',
+  'tools',
+  'editor',
+  'viewer',
+  'helper',
+  'crashreport',
+  'bugreport',
+  'feedback',
+  'unity',
+  'unreal',
+  'godot',
+  'renpy',
+  'rpgmaker',
+  'rpg',
+  'wolf',
+  'wolfrpg',
+  'nw',
+  'cef_simple',
+  'renderdoc',
+  'vcredist_x64',
+  'vcredist_x86',
+  'dxwebsetup',
+  'oalinst',
+  'crashpad_handler',
+  'crash_handler',
+  'unitycrashhandler64',
+  'unitycrashhandler32',
+  'unins000',
+  'unins001',
+  '与工具一同启动',
+  '启动',
+  '游戏',
+  '工具',
+  '设置',
+  '配置',
 ];
 
 class VersionCheckResult {
@@ -36,7 +74,12 @@ class VersionCheckService {
     final tokens = title.split(RegExp(r'\s+'));
 
     const filterWords = [
-      '官中', '+', '存档', '汉化', 'steam', '官方',
+      '官中',
+      '+',
+      '存档',
+      '汉化',
+      'steam',
+      '官方',
     ];
 
     final filtered = tokens.where((t) {
@@ -79,7 +122,8 @@ class VersionCheckService {
     final parts1 = _parseVersionParts(v1);
     final parts2 = _parseVersionParts(v2);
 
-    final maxLen = parts1.length > parts2.length ? parts1.length : parts2.length;
+    final maxLen =
+        parts1.length > parts2.length ? parts1.length : parts2.length;
     for (var i = 0; i < maxLen; i++) {
       final p1 = i < parts1.length ? parts1[i] : 0;
       final p2 = i < parts2.length ? parts2[i] : 0;
@@ -99,19 +143,24 @@ class VersionCheckService {
     if (domain.isEmpty) return null;
 
     final url = 'https://$domain?s=$keyword';
-    if (kDebugMode) debugPrint('[VersionCheck] 嘤嘤怪搜索: keyword=$keyword, url=$url');
+    if (kDebugMode)
+      debugPrint('[VersionCheck] 嘤嘤怪搜索: keyword=$keyword, url=$url');
     final client = await createProxyClientFromPrefs(domain: domain);
     try {
       final headers = await buildScrapeHeaders(url);
-      final response = await client.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 15));
+      final response = await client
+          .get(Uri.parse(url), headers: headers)
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) {
-        if (kDebugMode) debugPrint('[VersionCheck] 嘤嘤怪 HTTP ${response.statusCode}');
+        if (kDebugMode)
+          debugPrint('[VersionCheck] 嘤嘤怪 HTTP ${response.statusCode}');
         return null;
       }
 
       final document = html_parser.parse(response.body);
-      final items = document.querySelectorAll('div.post-list-view h2.post-list-title a');
+      final items =
+          document.querySelectorAll('div.post-list-view h2.post-list-title a');
       if (kDebugMode) debugPrint('[VersionCheck] 嘤嘤怪 找到 ${items.length} 个结果');
 
       String? maxVersion;
@@ -134,7 +183,8 @@ class VersionCheckService {
       }
 
       if (maxVersion != null && bestUrl != null) {
-        if (kDebugMode) debugPrint('[VersionCheck] 嘤嘤怪 最佳: $bestTitle v$maxVersion');
+        if (kDebugMode)
+          debugPrint('[VersionCheck] 嘤嘤怪 最佳: $bestTitle v$maxVersion');
         return VersionCheckResult(
           siteName: '嘤嘤怪',
           maxVersion: maxVersion,
@@ -159,18 +209,23 @@ class VersionCheckService {
     try {
       final headers = await buildScrapeHeaders('https://$domain/');
 
-      final forumResponse = await client.get(
-        Uri.parse('https://$domain/forum-43-1.html'),
-        headers: headers,
-      ).timeout(const Duration(seconds: 15));
+      final forumResponse = await client
+          .get(
+            Uri.parse('https://$domain/forum-43-1.html'),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (forumResponse.statusCode != 200) {
-        if (kDebugMode) debugPrint('[VersionCheck] 飞雪ACG 论坛页面 HTTP ${forumResponse.statusCode}');
+        if (kDebugMode)
+          debugPrint(
+              '[VersionCheck] 飞雪ACG 论坛页面 HTTP ${forumResponse.statusCode}');
         return null;
       }
 
       String? formhash;
-      final formhashMatch = RegExp(r'formhash=([a-f0-9]+)').firstMatch(forumResponse.body);
+      final formhashMatch =
+          RegExp(r'formhash=([a-f0-9]+)').firstMatch(forumResponse.body);
       if (formhashMatch != null) {
         formhash = formhashMatch.group(1);
       }
@@ -182,11 +237,14 @@ class VersionCheckService {
       final searchHeaders = Map<String, String>.from(headers);
       searchHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
 
-      final postResponse = await client.post(
-        Uri.parse('https://$domain/search.php?searchsubmit=yes'),
-        headers: searchHeaders,
-        body: 'mod=forum&formhash=$formhash&srchtype=title&srhfid=43&srhlocality=forum%3A%3Aforumdisplay&srchtxt=${Uri.encodeComponent(keyword)}&searchsubmit=true',
-      ).timeout(const Duration(seconds: 15));
+      final postResponse = await client
+          .post(
+            Uri.parse('https://$domain/search.php?searchsubmit=yes'),
+            headers: searchHeaders,
+            body:
+                'mod=forum&formhash=$formhash&srchtype=title&srhfid=43&srhlocality=forum%3A%3Aforumdisplay&srchtxt=${Uri.encodeComponent(keyword)}&searchsubmit=true',
+          )
+          .timeout(const Duration(seconds: 15));
 
       String? redirectUrl;
       if (postResponse.statusCode == 301 || postResponse.statusCode == 302) {
@@ -203,10 +261,12 @@ class VersionCheckService {
           ? redirectUrl
           : 'https://$domain/$redirectUrl';
 
-      final resultsResponse = await client.get(
-        Uri.parse(fullRedirectUrl),
-        headers: headers,
-      ).timeout(const Duration(seconds: 15));
+      final resultsResponse = await client
+          .get(
+            Uri.parse(fullRedirectUrl),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (resultsResponse.statusCode != 200) return null;
 
@@ -235,7 +295,8 @@ class VersionCheckService {
       }
 
       if (maxVersion != null && bestUrl != null) {
-        if (kDebugMode) debugPrint('[VersionCheck] 飞雪ACG 最佳: $bestTitle v$maxVersion');
+        if (kDebugMode)
+          debugPrint('[VersionCheck] 飞雪ACG 最佳: $bestTitle v$maxVersion');
         return VersionCheckResult(
           siteName: '飞雪ACG',
           maxVersion: maxVersion,
@@ -261,22 +322,25 @@ class VersionCheckService {
       final headers = await buildScrapeHeaders('https://$domain/');
       headers['Content-Type'] = 'application/json';
 
-      final response = await client.post(
-        Uri.parse('https://$domain/api/vikacg/v1/comprehensiveSearch'),
-        headers: headers,
-        body: jsonEncode({
-          'search': keyword,
-          'order': 'related',
-          'sort': 'desc',
-          'page_count': 20,
-          'paged': 1,
-          'tags': null,
-          'rating': null,
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await client
+          .post(
+            Uri.parse('https://$domain/api/vikacg/v1/comprehensiveSearch'),
+            headers: headers,
+            body: jsonEncode({
+              'search': keyword,
+              'order': 'related',
+              'sort': 'desc',
+              'page_count': 20,
+              'paged': 1,
+              'tags': null,
+              'rating': null,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) {
-        if (kDebugMode) debugPrint('[VersionCheck] 维咔ACG HTTP ${response.statusCode}');
+        if (kDebugMode)
+          debugPrint('[VersionCheck] 维咔ACG HTTP ${response.statusCode}');
         return null;
       }
 
@@ -306,7 +370,8 @@ class VersionCheckService {
       }
 
       if (maxVersion != null && bestUrl != null) {
-        if (kDebugMode) debugPrint('[VersionCheck] 维咔ACG 最佳: $bestTitle v$maxVersion');
+        if (kDebugMode)
+          debugPrint('[VersionCheck] 维咔ACG 最佳: $bestTitle v$maxVersion');
         return VersionCheckResult(
           siteName: '维咔ACG',
           maxVersion: maxVersion,
@@ -322,13 +387,16 @@ class VersionCheckService {
     return null;
   }
 
-  Future<VersionCheckResult?> checkForUpdate(String gameTitle, String currentVersion) async {
+  Future<VersionCheckResult?> checkForUpdate(
+      String gameTitle, String currentVersion) async {
     final keywords = extractKeywords(gameTitle);
     if (keywords.isEmpty) {
       if (kDebugMode) debugPrint('[VersionCheck] 无有效关键词: $gameTitle');
       return null;
     }
-    if (kDebugMode) debugPrint('[VersionCheck] 开始检查更新: "$gameTitle" 当前版本=$currentVersion 关键词=$keywords');
+    if (kDebugMode)
+      debugPrint(
+          '[VersionCheck] 开始检查更新: "$gameTitle" 当前版本=$currentVersion 关键词=$keywords');
 
     final allResults = <VersionCheckResult>[];
 
@@ -369,19 +437,26 @@ class VersionCheckService {
 
     VersionCheckResult? best;
     for (final result in allResults) {
-      if (best == null || (result.maxVersion != null && best.maxVersion != null && compareVersions(result.maxVersion!, best.maxVersion!) > 0)) {
+      if (best == null ||
+          (result.maxVersion != null &&
+              best.maxVersion != null &&
+              compareVersions(result.maxVersion!, best.maxVersion!) > 0)) {
         best = result;
       }
     }
 
     if (best != null && currentVersion.isNotEmpty && best.maxVersion != null) {
       if (compareVersions(best.maxVersion!, currentVersion) <= 0) {
-        if (kDebugMode) debugPrint('[VersionCheck] 当前版本已是最新: $currentVersion >= ${best.maxVersion}');
+        if (kDebugMode)
+          debugPrint(
+              '[VersionCheck] 当前版本已是最新: $currentVersion >= ${best.maxVersion}');
         return null;
       }
     }
 
-    if (kDebugMode && best != null) debugPrint('[VersionCheck] 发现新版本: ${best.siteName} ${best.maxVersion} (${best.postTitle})');
+    if (kDebugMode && best != null)
+      debugPrint(
+          '[VersionCheck] 发现新版本: ${best.siteName} ${best.maxVersion} (${best.postTitle})');
     return best;
   }
 }

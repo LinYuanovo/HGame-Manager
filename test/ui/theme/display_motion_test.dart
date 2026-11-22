@@ -4,7 +4,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hgame_manager/ui/theme/app_theme.dart';
 
 void main() {
-  for (final rate in [30.0, 59.94, 60.0, 75.0, 90.0, 120.0, 144.0, 165.0, 240.0]) {
+  for (final rate in [
+    30.0,
+    59.94,
+    60.0,
+    75.0,
+    90.0,
+    120.0,
+    144.0,
+    165.0,
+    240.0
+  ]) {
     testWidgets('$rate Hz 转场时长对齐到屏幕帧周期', (tester) async {
       tester.view.display.refreshRate = rate;
       addTearDown(tester.view.display.resetRefreshRate);

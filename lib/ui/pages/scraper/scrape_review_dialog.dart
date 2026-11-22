@@ -377,8 +377,8 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
               fontSize: GlassConstants.fontBody,
             )),
         OutlinedButton(
-          style: AppButtonStyles.outline(
-              color: AppTheme.getPrimaryColor(context)),
+          style:
+              AppButtonStyles.outline(color: AppTheme.getPrimaryColor(context)),
           onPressed: _locked
               ? null
               : () => setState(() {
@@ -393,8 +393,8 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
           child: const Text('清空选择'),
         ),
         OutlinedButton(
-          style: AppButtonStyles.outline(
-              color: AppTheme.getPrimaryColor(context)),
+          style:
+              AppButtonStyles.outline(color: AppTheme.getPrimaryColor(context)),
           onPressed: _locked
               ? null
               : () => setState(() {
@@ -409,8 +409,8 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
           child: const Text('选择放弃和失败项'),
         ),
         OutlinedButton(
-          style: AppButtonStyles.outline(
-              color: AppTheme.getPrimaryColor(context)),
+          style:
+              AppButtonStyles.outline(color: AppTheme.getPrimaryColor(context)),
           onPressed: _locked ||
                   _selected.every((item) => item.applied || !item.canKeep)
               ? null
@@ -418,8 +418,8 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
           child: const Text('保留所选'),
         ),
         OutlinedButton(
-          style: AppButtonStyles.outline(
-              color: AppTheme.getPrimaryColor(context)),
+          style:
+              AppButtonStyles.outline(color: AppTheme.getPrimaryColor(context)),
           onPressed: _locked || _selected.every((item) => item.applied)
               ? null
               : () => _decide(_selected, ScrapeReviewDecision.discard),
@@ -553,7 +553,8 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
                 if (item.moveError != null) _notice('移动失败：${item.moveError}'),
                 for (final notice in item.notices) _notice(notice),
                 if (info != null) ...[
-                  _detail('简介',
+                  _detail(
+                      '简介',
                       description.isEmpty
                           ? info.isDlsiteUserOnly
                               ? '本次未取得来源完整简介。'
@@ -771,8 +772,8 @@ class _ReviewImageState extends State<_ReviewImage> {
     try {
       final response = await client
           .get(uri,
-              headers: scopeScrapeImageHeaders(widget.url,
-                  await buildScrapeImageHeaders(widget.sourceUrl)))
+              headers: scopeScrapeImageHeaders(
+                  widget.url, await buildScrapeImageHeaders(widget.sourceUrl)))
           .timeout(const Duration(seconds: 15));
       if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
         throw StateError('图片预览加载失败');

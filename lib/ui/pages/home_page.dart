@@ -31,7 +31,8 @@ class _HomePageState extends ConsumerState<HomePage> {
   void initState() {
     super.initState();
     _sidebarController = SidebarController();
-    _effectiveWindowController = widget.windowController ?? WindowController(ref.read(sharedPreferencesProvider));
+    _effectiveWindowController = widget.windowController ??
+        WindowController(ref.read(sharedPreferencesProvider));
   }
 
   @override
@@ -58,7 +59,8 @@ class _HomePageState extends ConsumerState<HomePage> {
       child: BatchImportDialog(
         onLocate: (id) {
           ref.read(libraryLocationProvider.notifier).state = id;
-          ref.read(selectedNavIndexProvider.notifier).state = NavRoute.games.navIndex;
+          ref.read(selectedNavIndexProvider.notifier).state =
+              NavRoute.games.navIndex;
         },
         onImportComplete: () {
           ref.invalidate(allGamesProvider);
@@ -114,12 +116,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                     child: Center(
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: GlassConstants.spacingPage, vertical: GlassConstants.spacingXLarge),
+                            horizontal: GlassConstants.spacingPage,
+                            vertical: GlassConstants.spacingXLarge),
                         decoration: BoxDecoration(
                           color: AppTheme.getSurfaceColor(context)
                               .withValues(alpha: 0.92),
-                          borderRadius: BorderRadius.circular(
-                              GlassConstants.radiusLarge),
+                          borderRadius:
+                              BorderRadius.circular(GlassConstants.radiusLarge),
                           border: Border.all(
                             color: AppTheme.getPrimaryColor(context),
                             width: 2,
@@ -133,7 +136,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                               size: GlassConstants.iconPlaceholder,
                               color: AppTheme.getPrimaryColor(context),
                             ),
-                            const SizedBox(height: GlassConstants.spacingCompact),
+                            const SizedBox(
+                                height: GlassConstants.spacingCompact),
                             Text(
                               '松开以添加游戏文件夹 / exe',
                               style: TextStyle(

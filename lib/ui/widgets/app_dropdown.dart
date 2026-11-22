@@ -25,7 +25,9 @@ class AppDropdown<T> extends StatelessWidget {
     this.isDense = false,
     this.width,
     this.height,
-    this.padding = const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingTiny),
+    this.padding = const EdgeInsets.symmetric(
+        horizontal: GlassConstants.spacingCompact,
+        vertical: GlassConstants.spacingTiny),
     this.hint,
     this.icon,
     this.textStyle,

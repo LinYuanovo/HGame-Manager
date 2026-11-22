@@ -109,8 +109,8 @@ void main() {
       expect(overrides.failureCount, greaterThan(0));
       expect(result.source, oldRoot.path);
       expect(
-        await File(path.join(newExeDir, 'hgame_manager_data',
-                'hgame_manager.db'))
+        await File(
+                path.join(newExeDir, 'hgame_manager_data', 'hgame_manager.db'))
             .readAsString(),
         'database',
       );
@@ -216,7 +216,8 @@ void main() {
 Future<Directory> _createOldRoot(String exeDir) async {
   final root = Directory(path.join(exeDir, 'hgame_manager_data'));
   await root.create(recursive: true);
-  await File(path.join(root.path, 'hgame_manager.db')).writeAsString('database');
+  await File(path.join(root.path, 'hgame_manager.db'))
+      .writeAsString('database');
   return root;
 }
 

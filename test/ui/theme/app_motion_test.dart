@@ -215,7 +215,11 @@ void main() {
     await tester.pump();
     expect(find.text('确认').hitTestable(), findsOneWidget);
     expect(
-      tester.widgetList<ScaleTransition>(find.byType(ScaleTransition)).last.scale.value,
+      tester
+          .widgetList<ScaleTransition>(find.byType(ScaleTransition))
+          .last
+          .scale
+          .value,
       1,
     );
     await tester.tap(find.text('确认'));
@@ -278,8 +282,7 @@ void main() {
         builder: (context) => Scaffold(
           body: buildAppTextSelectionToolbar(
             context,
-            const TextSelectionToolbarAnchors(
-                primaryAnchor: Offset(120, 120)),
+            const TextSelectionToolbarAnchors(primaryAnchor: Offset(120, 120)),
             [
               ContextMenuButtonItem(
                 type: ContextMenuButtonType.copy,

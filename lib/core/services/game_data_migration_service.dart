@@ -85,9 +85,8 @@ class GameDataMigrationService {
         gamePath,
         referenceCorpus,
         imagePathMap,
-        managedNameTest: rootMetadataExisted
-            ? GameDataPaths.isManagedImageFileName
-            : null,
+        managedNameTest:
+            rootMetadataExisted ? GameDataPaths.isManagedImageFileName : null,
       );
     }
     // 单数 image 从未由管理器使用（游戏常见资源目录名），仅迁移被引用的文件

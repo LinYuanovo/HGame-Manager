@@ -76,7 +76,8 @@ class WindowController extends ChangeNotifier with WindowListener {
         'window_y': _lastNormalPosition?.dy ?? 0,
       });
     } catch (e, stackTrace) {
-      AppLogger.instance.error('Window', 'Error saving settings: $e', e, stackTrace);
+      AppLogger.instance
+          .error('Window', 'Error saving settings: $e', e, stackTrace);
     }
   }
 
@@ -113,9 +114,9 @@ class WindowController extends ChangeNotifier with WindowListener {
     closeAllClients();
     AppLogger.instance.info('Lifecycle', '关闭主窗口，刷新日志');
     await AppLogger.instance.flush().timeout(
-      const Duration(seconds: 2),
-      onTimeout: () {},
-    );
+          const Duration(seconds: 2),
+          onTimeout: () {},
+        );
     if (Platform.isWindows) {
       windowManager.removeListener(this);
       _terminateWindowsProcess();

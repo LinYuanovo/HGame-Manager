@@ -77,7 +77,8 @@ Future<void> _loadCustomFonts(AppSettings prefs) async {
 void _setupGuideWindowErrorHandling() {
   FlutterError.onError = (details) {
     if (_isHarmlessWindowsNoise(details.exceptionAsString())) return;
-    AppLogger.instance.error('GuideWindow', details.exceptionAsString(), null, details.stack);
+    AppLogger.instance
+        .error('GuideWindow', details.exceptionAsString(), null, details.stack);
   };
   PlatformDispatcher.instance.onError = (error, stackTrace) {
     if (_isHarmlessWindowsNoise(error.toString())) return true;
@@ -132,16 +133,19 @@ class _GuideWindowAppState extends State<GuideWindowApp> {
       valueListenable: _reduceMotion,
       builder: (context, reduceMotion, _) => MaterialApp(
         title: '攻略',
-        builder: (context, child) => AppMotionVisibility(
-            reduceMotion: reduceMotion, child: child!),
+        builder: (context, child) =>
+            AppMotionVisibility(reduceMotion: reduceMotion, child: child!),
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme(fontFamily: fontFamily.isEmpty ? null : fontFamily),
-        darkTheme: AppTheme.darkTheme(fontFamily: fontFamily.isEmpty ? null : fontFamily),
+        theme: AppTheme.lightTheme(
+            fontFamily: fontFamily.isEmpty ? null : fontFamily),
+        darkTheme: AppTheme.darkTheme(
+            fontFamily: fontFamily.isEmpty ? null : fontFamily),
         themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
         home: GuideWindowPage(
           windowId: widget.windowId,
           arguments: widget.arguments,
-          fontSize: widget.prefs.getDouble('detail_font_size') ?? GlassConstants.fontControl,
+          fontSize: widget.prefs.getDouble('detail_font_size') ??
+              GlassConstants.fontControl,
           onReduceMotionChanged: (value) => _reduceMotion.value = value,
         ),
       ),
@@ -167,8 +171,7 @@ class GuideWindowPage extends StatefulWidget {
   State<GuideWindowPage> createState() => _GuideWindowPageState();
 }
 
-class _GuideWindowPageState extends State<GuideWindowPage>
-    with WindowListener {
+class _GuideWindowPageState extends State<GuideWindowPage> with WindowListener {
   final _scrollController = ScrollController();
 
   GuideWindowState _state = GuideWindowState();
@@ -272,7 +275,8 @@ class _GuideWindowPageState extends State<GuideWindowPage>
           return true;
         case 'setReduceMotion':
           final args = (call.arguments as Map?)?.cast<String, dynamic>();
-          widget.onReduceMotionChanged?.call(args?['enabled'] as bool? ?? false);
+          widget.onReduceMotionChanged
+              ?.call(args?['enabled'] as bool? ?? false);
           return true;
         case 'closeWindow':
           unawaited(Future<void>.delayed(Duration.zero, _handleClose));
@@ -384,7 +388,9 @@ class _GuideWindowPageState extends State<GuideWindowPage>
     }
     windowManager.removeListener(this);
     AppLogger.instance.info('GuideWindow', '关闭攻略浮窗');
-    await AppLogger.instance.flush().timeout(const Duration(seconds: 2), onTimeout: () {});
+    await AppLogger.instance
+        .flush()
+        .timeout(const Duration(seconds: 2), onTimeout: () {});
     // 解除拦截后重新触发关闭，由系统驱动窗口销毁（引擎随窗口安全销毁）
     await windowManager.setPreventClose(false);
     await windowManager.close();
@@ -484,7 +490,11 @@ class _GuideWindowPageState extends State<GuideWindowPage>
   Widget _buildSettingsPanel() {
     return Container(
       width: 260,
-      padding: const EdgeInsets.fromLTRB(GlassConstants.spacingMedium, GlassConstants.spacingCompact, GlassConstants.spacingMedium, GlassConstants.spacingMedium),
+      padding: const EdgeInsets.fromLTRB(
+          GlassConstants.spacingMedium,
+          GlassConstants.spacingCompact,
+          GlassConstants.spacingMedium,
+          GlassConstants.spacingMedium),
       decoration: BoxDecoration(
         color: AppTheme.getSurfaceColor(context),
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
@@ -593,7 +603,8 @@ class _GuideWindowPageState extends State<GuideWindowPage>
           children: [
             const SizedBox(width: GlassConstants.spacingCompact),
             Icon(Icons.menu_book,
-                size: GlassConstants.iconSmall, color: AppTheme.getPrimaryColor(context)),
+                size: GlassConstants.iconSmall,
+                color: AppTheme.getPrimaryColor(context)),
             const SizedBox(width: GlassConstants.spacingSmall),
             Expanded(
               child: Text(
@@ -718,7 +729,8 @@ class _GuideWindowPageState extends State<GuideWindowPage>
             errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           );
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingSmall),
+      padding:
+          const EdgeInsets.symmetric(vertical: GlassConstants.spacingSmall),
       child: Align(
         alignment: Alignment.centerLeft,
         child: ClipRRect(
@@ -731,9 +743,9 @@ class _GuideWindowPageState extends State<GuideWindowPage>
               final viewport = MediaQuery.sizeOf(context);
               final sourceBounds =
                   _pictures.visibleBounds(imagePath, preferred: tag);
-              final imageSize = _pictures.intrinsicImageSize(
-                      imagePath, preferred: tag) ??
-                  sourceBounds?.size;
+              final imageSize =
+                  _pictures.intrinsicImageSize(imagePath, preferred: tag) ??
+                      sourceBounds?.size;
               final targetBounds = imageSize == null
                   ? null
                   : pictureTargetRect(
@@ -741,30 +753,28 @@ class _GuideWindowPageState extends State<GuideWindowPage>
                       imageSize,
                       Size(560, viewport.height * 0.8),
                     );
-              final transitionDuration =
-                  sourceBounds == null || targetBounds == null
-                      ? null
-                      : AppMotion.frameAlignedDuration(
-                          context,
-                          pictureFlightDuration(
-                            sourceBounds,
-                            targetBounds,
-                            minimum: AppMotion.duration(
-                                context, AppMotion.medium),
-                          ),
-                        );
-              final reverseTransitionDuration =
-                  sourceBounds == null || targetBounds == null
-                      ? null
-                      : AppMotion.frameAlignedDuration(
-                          context,
-                          pictureFlightDuration(
-                            sourceBounds,
-                            targetBounds,
-                            minimum: AppMotion.duration(
-                                context, AppMotion.fast),
-                          ),
-                        );
+              final transitionDuration = sourceBounds == null ||
+                      targetBounds == null
+                  ? null
+                  : AppMotion.frameAlignedDuration(
+                      context,
+                      pictureFlightDuration(
+                        sourceBounds,
+                        targetBounds,
+                        minimum: AppMotion.duration(context, AppMotion.medium),
+                      ),
+                    );
+              final reverseTransitionDuration = sourceBounds == null ||
+                      targetBounds == null
+                  ? null
+                  : AppMotion.frameAlignedDuration(
+                      context,
+                      pictureFlightDuration(
+                        sourceBounds,
+                        targetBounds,
+                        minimum: AppMotion.duration(context, AppMotion.fast),
+                      ),
+                    );
               showPictureDialog<void>(
                 context,
                 (dialogContext) => Dialog(
@@ -792,5 +802,6 @@ class _GuideWindowPageState extends State<GuideWindowPage>
       ),
     );
   }
+
   final _pictures = PictureOrigins();
 }

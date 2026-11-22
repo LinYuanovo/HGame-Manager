@@ -58,7 +58,9 @@ class Fan2dDownloadResult {
 
   Fan2dDownloadResult.entry(this.entry) : saveFiles = [];
   Fan2dDownloadResult.saveFiles(this.saveFiles) : entry = null;
-  Fan2dDownloadResult.empty() : entry = null, saveFiles = [];
+  Fan2dDownloadResult.empty()
+      : entry = null,
+        saveFiles = [];
 }
 
 class _ResolveResult {
@@ -83,26 +85,35 @@ class Fan2dService {
     final prefs = await AppSettings.load();
     final client = await createProxyClientFromPrefs(domain: _defaultDomain);
     try {
-      final headers = await buildScrapeHeaders('https://$_defaultDomain/domain');
-      final response = await client.get(
-        Uri.parse('https://$_defaultDomain/domain'),
-        headers: headers,
-      ).timeout(const Duration(seconds: 15));
+      final headers =
+          await buildScrapeHeaders('https://$_defaultDomain/domain');
+      final response = await client
+          .get(
+            Uri.parse('https://$_defaultDomain/domain'),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        final pattern = RegExp(r'<li>\s*(https?://[^\s<&]+)/?\s*(?:&nbsp;)?\s*(?:<span[^>]*>)?\s*(新增|中转)', caseSensitive: false);
+        final pattern = RegExp(
+            r'<li>\s*(https?://[^\s<&]+)/?\s*(?:&nbsp;)?\s*(?:<span[^>]*>)?\s*(新增|中转)',
+            caseSensitive: false);
         final domains = <String>[];
         for (final m in pattern.allMatches(response.body)) {
           final url = m.group(1) ?? '';
-          domains.add(url.replaceFirst(RegExp(r'^https?://'), '').replaceFirst(RegExp(r'/$'), ''));
+          domains.add(url
+              .replaceFirst(RegExp(r'^https?://'), '')
+              .replaceFirst(RegExp(r'/$'), ''));
         }
 
         for (final domain in domains) {
           try {
-            final testResponse = await client.get(
-              Uri.parse('https://$domain/'),
-              headers: headers,
-            ).timeout(const Duration(seconds: 15));
+            final testResponse = await client
+                .get(
+                  Uri.parse('https://$domain/'),
+                  headers: headers,
+                )
+                .timeout(const Duration(seconds: 15));
             if (testResponse.statusCode == 200) {
               if (kDebugMode) debugPrint('[Fan2d] 可用域名: $domain');
               await prefs.setString('domain_2dfan', domain);
@@ -116,11 +127,14 @@ class Fan2dService {
 
       // 回退尝试 2dfan.com
       try {
-        final fallbackHeaders = await buildScrapeHeaders('https://$_fallbackDomain/');
-        final testResponse = await client.get(
-          Uri.parse('https://$_fallbackDomain/'),
-          headers: fallbackHeaders,
-        ).timeout(const Duration(seconds: 15));
+        final fallbackHeaders =
+            await buildScrapeHeaders('https://$_fallbackDomain/');
+        final testResponse = await client
+            .get(
+              Uri.parse('https://$_fallbackDomain/'),
+              headers: fallbackHeaders,
+            )
+            .timeout(const Duration(seconds: 15));
         if (testResponse.statusCode == 200) {
           if (kDebugMode) debugPrint('[Fan2d] 使用回退域名: $_fallbackDomain');
           await prefs.setString('domain_2dfan', _fallbackDomain);
@@ -159,7 +173,8 @@ class Fan2dService {
           : launcherName;
 
       final lowerName = nameWithoutExt.toLowerCase();
-      final isGeneric = kGenericGameNames.any((w) => lowerName == w || lowerName.contains(w));
+      final isGeneric =
+          kGenericGameNames.any((w) => lowerName == w || lowerName.contains(w));
 
       if (nameWithoutExt.isNotEmpty && !isGeneric) {
         if (kDebugMode) debugPrint('[Fan2d] 尝试启动器名搜索: $nameWithoutExt');
@@ -214,17 +229,21 @@ class Fan2dService {
     return merged.where((k) => k.isNotEmpty && k.length > 1).toList();
   }
 
-  Future<List<Fan2dSearchResult>> _doSearch(String domain, String keyword) async {
-    final url = 'https://$domain/subjects/search?keyword=${Uri.encodeComponent(keyword)}';
+  Future<List<Fan2dSearchResult>> _doSearch(
+      String domain, String keyword) async {
+    final url =
+        'https://$domain/subjects/search?keyword=${Uri.encodeComponent(keyword)}';
     if (kDebugMode) debugPrint('[Fan2d] 搜索: $url');
 
     final client = await createProxyClientFromPrefs(domain: domain);
     try {
       final headers = await buildScrapeHeaders(url);
-      final response = await client.get(
-        Uri.parse(url),
-        headers: headers,
-      ).timeout(const Duration(seconds: 15));
+      final response = await client
+          .get(
+            Uri.parse(url),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) {
         if (kDebugMode) debugPrint('[Fan2d] 搜索 HTTP ${response.statusCode}');
@@ -258,7 +277,8 @@ class Fan2dService {
           if (!downloadUrl.startsWith('http')) {
             downloadUrl = 'https://$domain$downloadUrl';
           }
-          results.add(Fan2dSearchResult(title: title, downloadUrl: downloadUrl));
+          results
+              .add(Fan2dSearchResult(title: title, downloadUrl: downloadUrl));
         }
       }
       return results;
@@ -290,7 +310,8 @@ class Fan2dService {
           : launcherName;
 
       final lowerName = nameWithoutExt.toLowerCase();
-      final isGeneric = kGenericGameNames.any((w) => lowerName == w || lowerName.contains(w));
+      final isGeneric =
+          kGenericGameNames.any((w) => lowerName == w || lowerName.contains(w));
 
       if (nameWithoutExt.isNotEmpty && !isGeneric) {
         if (kDebugMode) debugPrint('[Fan2d] 尝试启动器名搜索攻略: $nameWithoutExt');
@@ -309,17 +330,21 @@ class Fan2dService {
     return [];
   }
 
-  Future<List<Fan2dGuideResult>> _doGuideSearch(String domain, String keyword) async {
-    final url = 'https://$domain/subjects/search?keyword=${Uri.encodeComponent(keyword)}';
+  Future<List<Fan2dGuideResult>> _doGuideSearch(
+      String domain, String keyword) async {
+    final url =
+        'https://$domain/subjects/search?keyword=${Uri.encodeComponent(keyword)}';
     if (kDebugMode) debugPrint('[Fan2d] 攻略搜索: $url');
 
     final client = await createProxyClientFromPrefs(domain: domain);
     try {
       final headers = await buildScrapeHeaders(url);
-      final response = await client.get(
-        Uri.parse(url),
-        headers: headers,
-      ).timeout(const Duration(seconds: 15));
+      final response = await client
+          .get(
+            Uri.parse(url),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) {
         if (kDebugMode) debugPrint('[Fan2d] 攻略搜索 HTTP ${response.statusCode}');
@@ -372,7 +397,8 @@ class Fan2dService {
               final href = link.attributes['href'] ?? '';
               if (text.contains('攻略') || href.contains('/topics/')) {
                 guideUrl = href;
-                if (kDebugMode) debugPrint('[Fan2d] 从其他p标签找到攻略: $text -> $guideUrl');
+                if (kDebugMode)
+                  debugPrint('[Fan2d] 从其他p标签找到攻略: $text -> $guideUrl');
                 break;
               }
             }
@@ -399,10 +425,12 @@ class Fan2dService {
   /// 如果有多个walkthrough，返回列表让用户选择
   Future<Fan2dGuideScrapeResult> scrapeGuideContent(String guideUrl) async {
     if (kDebugMode) debugPrint('[Fan2d] 刮削攻略: $guideUrl');
-    final client = await createProxyClientFromPrefs(domain: Uri.parse(guideUrl).host);
+    final client =
+        await createProxyClientFromPrefs(domain: Uri.parse(guideUrl).host);
     try {
       final headers = await buildScrapeHeaders(guideUrl);
-      final response = await client.get(Uri.parse(guideUrl), headers: headers)
+      final response = await client
+          .get(Uri.parse(guideUrl), headers: headers)
           .timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) {
         if (kDebugMode) debugPrint('[Fan2d] 攻略页面 HTTP ${response.statusCode}');
@@ -413,7 +441,8 @@ class Fan2dService {
 
       // 检查是否有 walkthroughs（多个攻略子页面）
       // XPath: /html/body/div[5]/div/div[1]/div/div/div[2]/div
-      final contentDiv = document.querySelector('div.block-content') ?? document.querySelector('.topic-content');
+      final contentDiv = document.querySelector('div.block-content') ??
+          document.querySelector('.topic-content');
       final walkthroughs = <Fan2dWalkthrough>[];
 
       if (contentDiv != null) {
@@ -421,9 +450,14 @@ class Fan2dService {
         for (final link in links) {
           final href = link.attributes['href'] ?? '';
           final text = link.text.trim();
-          if (href.contains('/topics/') && !href.endsWith(guideUrl.split('/').last)) {
-            final fullUrl = href.startsWith('http') ? href : 'https://${Uri.parse(guideUrl).host}$href';
-            walkthroughs.add(Fan2dWalkthrough(title: text.isNotEmpty ? text : '攻略 ${walkthroughs.length + 1}', url: fullUrl));
+          if (href.contains('/topics/') &&
+              !href.endsWith(guideUrl.split('/').last)) {
+            final fullUrl = href.startsWith('http')
+                ? href
+                : 'https://${Uri.parse(guideUrl).host}$href';
+            walkthroughs.add(Fan2dWalkthrough(
+                title: text.isNotEmpty ? text : '攻略 ${walkthroughs.length + 1}',
+                url: fullUrl));
             if (kDebugMode) debugPrint('[Fan2d] 找到walkthrough: $text -> $href');
           }
         }
@@ -431,7 +465,8 @@ class Fan2dService {
 
       // 如果有多个walkthrough，返回列表让用户选择
       if (walkthroughs.length > 1) {
-        if (kDebugMode) debugPrint('[Fan2d] 有 ${walkthroughs.length} 个walkthrough，返回列表');
+        if (kDebugMode)
+          debugPrint('[Fan2d] 有 ${walkthroughs.length} 个walkthrough，返回列表');
         return Fan2dGuideScrapeResult(walkthroughs: walkthroughs);
       }
 
@@ -449,13 +484,16 @@ class Fan2dService {
   /// 刮削指定的walkthrough页面
   Future<String?> scrapeWalkthrough(String walkthroughUrl) async {
     if (kDebugMode) debugPrint('[Fan2d] 刮削walkthrough: $walkthroughUrl');
-    final client = await createProxyClientFromPrefs(domain: Uri.parse(walkthroughUrl).host);
+    final client = await createProxyClientFromPrefs(
+        domain: Uri.parse(walkthroughUrl).host);
     try {
       final headers = await buildScrapeHeaders(walkthroughUrl);
-      final response = await client.get(Uri.parse(walkthroughUrl), headers: headers)
+      final response = await client
+          .get(Uri.parse(walkthroughUrl), headers: headers)
           .timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) {
-        if (kDebugMode) debugPrint('[Fan2d] walkthrough页面 HTTP ${response.statusCode}');
+        if (kDebugMode)
+          debugPrint('[Fan2d] walkthrough页面 HTTP ${response.statusCode}');
         return null;
       }
 
@@ -510,7 +548,8 @@ class Fan2dService {
       debugPrint('[Fan2d] 容器HTML前2000字符:\n$html');
       debugPrint('[Fan2d] 容器子元素数量: ${contentDiv.children.length}');
       for (final child in contentDiv.children) {
-        debugPrint('[Fan2d]   子元素: <${child.localName}> class="${child.className}" text="${child.text.substring(0, child.text.length > 50 ? 50 : child.text.length)}..."');
+        debugPrint(
+            '[Fan2d]   子元素: <${child.localName}> class="${child.className}" text="${child.text.substring(0, child.text.length > 50 ? 50 : child.text.length)}..."');
       }
     }
 
@@ -528,7 +567,10 @@ class Fan2dService {
       if (tag == 'p') {
         final img = child.querySelector('img');
         if (img != null) {
-          var src = img.attributes['data-original'] ?? img.attributes['data-src'] ?? img.attributes['src'] ?? '';
+          var src = img.attributes['data-original'] ??
+              img.attributes['data-src'] ??
+              img.attributes['src'] ??
+              '';
           if (src.startsWith('//')) src = 'https:$src';
           if (src.isNotEmpty) buffer.write('\n![图片]($src)\n');
         } else {
@@ -537,7 +579,8 @@ class Fan2dService {
         }
       } else if (tag == 'h1' || tag == 'h2' || tag == 'h3' || tag == 'h4') {
         final level = tag.substring(1);
-        buffer.write('\n${'#' * int.parse(level)} ${_cleanText(child.text)}\n\n');
+        buffer
+            .write('\n${'#' * int.parse(level)} ${_cleanText(child.text)}\n\n');
       } else if (tag == 'ul' || tag == 'ol') {
         for (final li in child.querySelectorAll('li')) {
           buffer.write('- ${_cleanText(li.text)}\n');
@@ -545,10 +588,16 @@ class Fan2dService {
         buffer.write('\n');
       } else if (tag == 'table') {
         _extractTable(child, buffer);
-      } else if (tag == 'div' || tag == 'section' || tag == 'article' || tag == 'td') {
+      } else if (tag == 'div' ||
+          tag == 'section' ||
+          tag == 'article' ||
+          tag == 'td') {
         _extractElement(child, buffer);
       } else if (tag == 'img') {
-        var src = child.attributes['data-original'] ?? child.attributes['data-src'] ?? child.attributes['src'] ?? '';
+        var src = child.attributes['data-original'] ??
+            child.attributes['data-src'] ??
+            child.attributes['src'] ??
+            '';
         if (src.startsWith('//')) src = 'https:$src';
         if (src.isNotEmpty) buffer.write('\n![图片]($src)\n');
       } else if (tag == 'br') {
@@ -642,14 +691,16 @@ class Fan2dService {
 
     // 如果是 kind 页面，返回存档列表让用户选择
     if (resolveResult.hasSaveFiles) {
-      if (kDebugMode) debugPrint('[Fan2d] kind 页面，${resolveResult.saveFiles.length} 个存档待选');
+      if (kDebugMode)
+        debugPrint('[Fan2d] kind 页面，${resolveResult.saveFiles.length} 个存档待选');
       return Fan2dDownloadResult.saveFiles(resolveResult.saveFiles);
     }
 
     final directUrl = resolveResult.directUrl;
     if (directUrl == null) return Fan2dDownloadResult.empty();
 
-    return Fan2dDownloadResult.entry(await _doDownloadAndImport(directUrl, gamePath));
+    return Fan2dDownloadResult.entry(
+        await _doDownloadAndImport(directUrl, gamePath));
   }
 
   /// 下载指定的存档文件并导入
@@ -667,20 +718,24 @@ class Fan2dService {
     return _doDownloadAndImport(directUrl, gamePath);
   }
 
-  Future<BackupEntry?> _doDownloadAndImport(String directUrl, String gamePath) async {
+  Future<BackupEntry?> _doDownloadAndImport(
+      String directUrl, String gamePath) async {
     if (kDebugMode) debugPrint('[Fan2d] 直连: $directUrl');
 
     final tempDir = await Directory.systemTemp.createTemp('fan2d_');
     final rarPath = '${tempDir.path}${Platform.pathSeparator}download.rar';
 
     try {
-      final client = await createProxyClientFromPrefs(domain: Uri.parse(directUrl).host);
+      final client =
+          await createProxyClientFromPrefs(domain: Uri.parse(directUrl).host);
       try {
         final headers = await buildScrapeHeaders(directUrl);
-        final response = await client.get(
-          Uri.parse(directUrl),
-          headers: headers,
-        ).timeout(const Duration(minutes: 5));
+        final response = await client
+            .get(
+              Uri.parse(directUrl),
+              headers: headers,
+            )
+            .timeout(const Duration(minutes: 5));
         await File(rarPath).writeAsBytes(response.bodyBytes);
       } finally {
         client.close();
@@ -715,13 +770,16 @@ class Fan2dService {
 
   /// 解析下载页面，获取直连下载地址或 kind 页面的存档列表
   Future<_ResolveResult?> _resolveDirectDownloadUrl(String pageUrl) async {
-    final client = await createProxyClientFromPrefs(domain: Uri.parse(pageUrl).host);
+    final client =
+        await createProxyClientFromPrefs(domain: Uri.parse(pageUrl).host);
     try {
       final headers = await buildScrapeHeaders(pageUrl);
-      final response = await client.get(
-        Uri.parse(pageUrl),
-        headers: headers,
-      ).timeout(const Duration(seconds: 15));
+      final response = await client
+          .get(
+            Uri.parse(pageUrl),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) return null;
       return _parseDownloadLink(response.body, pageUrl);
@@ -753,7 +811,8 @@ class Fan2dService {
     }
 
     // 2. 检查是否为 kind 页面（含多个具体存档列表）
-    final downloadItems = document.querySelectorAll('ul.download-list li.media');
+    final downloadItems =
+        document.querySelectorAll('ul.download-list li.media');
     if (downloadItems.isNotEmpty) {
       final saveFiles = <Fan2dSaveFile>[];
       for (final item in downloadItems) {
@@ -768,7 +827,8 @@ class Fan2dService {
         }
       }
       if (saveFiles.isNotEmpty) {
-        if (kDebugMode) debugPrint('[Fan2d] kind 页面，找到 ${saveFiles.length} 个存档');
+        if (kDebugMode)
+          debugPrint('[Fan2d] kind 页面，找到 ${saveFiles.length} 个存档');
         return _ResolveResult.saveFiles(saveFiles);
       }
     }
@@ -813,7 +873,13 @@ class Fan2dService {
     }
 
     final executable = unrarPath ?? 'unrar';
-    final args = ['x', '-o+', '-y', rarPath, '$extractDir${Platform.pathSeparator}'];
+    final args = [
+      'x',
+      '-o+',
+      '-y',
+      rarPath,
+      '$extractDir${Platform.pathSeparator}'
+    ];
 
     if (kDebugMode) debugPrint('[Fan2d] 解压: $executable ${args.join(' ')}');
 

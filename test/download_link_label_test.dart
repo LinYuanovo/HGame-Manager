@@ -104,8 +104,7 @@ https://gofile.io/d/Qc4rqf
       final urls = info!.downloads.map((d) => d.url).toList();
       expect(urls.any((u) => u.contains('/external')), isFalse);
       expect(urls, contains('https://gofile.io/d/Qc4rqf'));
-      final gofile =
-          info.downloads.firstWhere((d) => d.url.contains('gofile'));
+      final gofile = info.downloads.firstWhere((d) => d.url.contains('gofile'));
       expect(gofile.label, '备用');
     });
   });

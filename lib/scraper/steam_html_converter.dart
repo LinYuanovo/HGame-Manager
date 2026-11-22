@@ -58,7 +58,9 @@ class SteamHtmlConverter {
             break;
           case 'img':
             final src = node.attributes['src'] ?? '';
-            if (src.isNotEmpty && !src.endsWith('.svg') && !src.endsWith('.ico')) {
+            if (src.isNotEmpty &&
+                !src.endsWith('.svg') &&
+                !src.endsWith('.ico')) {
               buffer.write('\n[图片:$src]\n');
             }
             break;

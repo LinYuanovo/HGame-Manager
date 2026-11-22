@@ -9,7 +9,8 @@ class ScrapeModeConfigDialog extends ConsumerStatefulWidget {
   const ScrapeModeConfigDialog({super.key});
 
   @override
-  ConsumerState<ScrapeModeConfigDialog> createState() => _ScrapeModeConfigDialogState();
+  ConsumerState<ScrapeModeConfigDialog> createState() =>
+      _ScrapeModeConfigDialogState();
 }
 
 class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
@@ -21,7 +22,8 @@ class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
   @override
   void initState() {
     super.initState();
-    _tabController = AppTabController(length: ScrapeMode.values.length, vsync: this);
+    _tabController =
+        AppTabController(length: ScrapeMode.values.length, vsync: this);
     _tabController.addListener(_onTabChanged);
   }
 
@@ -81,7 +83,9 @@ class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
       padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: Row(
         children: [
-          Icon(Icons.tune, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconMedium),
+          Icon(Icons.tune,
+              color: AppTheme.getPrimaryColor(context),
+              size: GlassConstants.iconMedium),
           const SizedBox(width: GlassConstants.spacingCompact),
           Text(
             '刮削行为配置',
@@ -103,20 +107,25 @@ class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
 
   Widget _buildTabBar() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge),
+      margin:
+          const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge),
       padding: const EdgeInsets.all(GlassConstants.spacingTiny),
       decoration: BoxDecoration(
         color: AppTheme.getBackgroundColor(context),
         borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
       ),
-      child: SelectionSurface(index: _tabController.index,
-        decoration: BoxDecoration(color: AppTheme.getPrimaryColor(context).withValues(alpha: .15), borderRadius: BorderRadius.circular(GlassConstants.radiusSmall)),
-        child: Row(
-        children: List.generate(
-          ScrapeMode.values.length,
-          (index) => Expanded(child: _buildTabItem(index, _tabLabels[index])),
-        ),
-      )),
+      child: SelectionSurface(
+          index: _tabController.index,
+          decoration: BoxDecoration(
+              color: AppTheme.getPrimaryColor(context).withValues(alpha: .15),
+              borderRadius: BorderRadius.circular(GlassConstants.radiusSmall)),
+          child: Row(
+            children: List.generate(
+              ScrapeMode.values.length,
+              (index) =>
+                  Expanded(child: _buildTabItem(index, _tabLabels[index])),
+            ),
+          )),
     );
   }
 
@@ -133,7 +142,8 @@ class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
   Widget _buildTabContent() {
     return TabBarView(
       controller: _tabController,
-      children: ScrapeMode.values.map((mode) => _ConfigTab(mode: mode)).toList(),
+      children:
+          ScrapeMode.values.map((mode) => _ConfigTab(mode: mode)).toList(),
     );
   }
 
@@ -145,7 +155,8 @@ class _ScrapeModeConfigDialogState extends ConsumerState<ScrapeModeConfigDialog>
         children: [
           TextButton(
             onPressed: _resetToDefaults,
-            child: Text('恢复默认', style: TextStyle(color: AppTheme.getTextSecondary(context))),
+            child: Text('恢复默认',
+                style: TextStyle(color: AppTheme.getTextSecondary(context))),
           ),
           const SizedBox(width: GlassConstants.spacingCompact),
           ElevatedButton(
@@ -186,19 +197,24 @@ class _TabItemWidgetState extends State<_TabItemWidget> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: AppMotion.duration(context, GlassConstants.animFast),
-          padding: const EdgeInsets.symmetric(vertical: GlassConstants.spacingInline),
+          padding: const EdgeInsets.symmetric(
+              vertical: GlassConstants.spacingInline),
           decoration: BoxDecoration(
             color: _isHovered
-                    ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.08)
-                    : Colors.transparent,
+                ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.08)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
           ),
           alignment: Alignment.center,
           child: Text(
             widget.label,
             style: TextStyle(
-              color: widget.isSelected ? AppTheme.getPrimaryColor(context) : AppTheme.getTextSecondary(context),
-              fontWeight: widget.isSelected ? AppTypography.medium : AppTypography.regular,
+              color: widget.isSelected
+                  ? AppTheme.getPrimaryColor(context)
+                  : AppTheme.getTextSecondary(context),
+              fontWeight: widget.isSelected
+                  ? AppTypography.medium
+                  : AppTypography.regular,
             ),
           ),
         ),
@@ -225,25 +241,33 @@ class _ConfigTab extends ConsumerWidget {
     final config = ref.watch(scrapeModeConfigsProvider).getConfig(mode);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingMedium),
+      padding: const EdgeInsets.symmetric(
+          horizontal: GlassConstants.spacingLarge,
+          vertical: GlassConstants.spacingMedium),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
+            padding: const EdgeInsets.symmetric(
+                horizontal: GlassConstants.spacingCompact,
+                vertical: GlassConstants.spacingSmall),
             decoration: BoxDecoration(
               color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, size: GlassConstants.iconCompact, color: AppTheme.getPrimaryColor(context)),
+                Icon(Icons.info_outline,
+                    size: GlassConstants.iconCompact,
+                    color: AppTheme.getPrimaryColor(context)),
                 const SizedBox(width: GlassConstants.spacingTight),
                 Expanded(
                   child: Text(
                     _modeHints[mode] ?? '',
-                    style: TextStyle(fontSize: GlassConstants.fontSmall, color: AppTheme.getTextSecondary(context)),
+                    style: TextStyle(
+                        fontSize: GlassConstants.fontSmall,
+                        color: AppTheme.getTextSecondary(context)),
                   ),
                 ),
               ],
@@ -254,10 +278,11 @@ class _ConfigTab extends ConsumerWidget {
             context: context,
             ref: ref,
             value: config.renameFolder,
-            onChanged: (value) => ref.read(scrapeModeConfigsProvider.notifier).updateConfig(
-              mode,
-              config.copyWith(renameFolder: value),
-            ),
+            onChanged: (value) =>
+                ref.read(scrapeModeConfigsProvider.notifier).updateConfig(
+                      mode,
+                      config.copyWith(renameFolder: value),
+                    ),
             title: '刮削后重命名游戏文件夹',
             subtitle: '根据刮削到的标题自动重命名游戏文件夹',
           ),
@@ -266,10 +291,11 @@ class _ConfigTab extends ConsumerWidget {
             context: context,
             ref: ref,
             value: config.moveToSorted,
-            onChanged: (value) => ref.read(scrapeModeConfigsProvider.notifier).updateConfig(
-              mode,
-              config.copyWith(moveToSorted: value),
-            ),
+            onChanged: (value) =>
+                ref.read(scrapeModeConfigsProvider.notifier).updateConfig(
+                      mode,
+                      config.copyWith(moveToSorted: value),
+                    ),
             title: '刮削后移动到整理目录',
             subtitle: '将游戏自动移动到对应游戏库的整理目录',
           ),
@@ -287,7 +313,9 @@ class _ConfigTab extends ConsumerWidget {
     required String subtitle,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingCompact),
+      padding: const EdgeInsets.symmetric(
+          horizontal: GlassConstants.spacingMedium,
+          vertical: GlassConstants.spacingCompact),
       decoration: BoxDecoration(
         color: AppTheme.getSurfaceColor(context),
         borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),

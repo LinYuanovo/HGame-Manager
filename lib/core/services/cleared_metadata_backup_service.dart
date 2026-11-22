@@ -29,7 +29,8 @@ class ClearedMetadataBackupService {
     return await file.exists() ? file : null;
   }
 
-  Future<File> save(Game game, {Map<String, dynamic> metadataChanges = const {}}) async {
+  Future<File> save(Game game,
+      {Map<String, dynamic> metadataChanges = const {}}) async {
     final file = await _fileFor(game);
     var metadata = await loadMetadata(game);
     if (metadataChanges.isNotEmpty) {
@@ -56,7 +57,8 @@ class ClearedMetadataBackupService {
     return file;
   }
 
-  Future<File> refresh(Game game, {Map<String, dynamic> metadataChanges = const {}}) =>
+  Future<File> refresh(Game game,
+          {Map<String, dynamic> metadataChanges = const {}}) =>
       save(game, metadataChanges: metadataChanges);
 
   Future<Map<String, dynamic>?> loadMetadata(Game game) async {

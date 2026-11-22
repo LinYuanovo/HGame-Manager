@@ -142,6 +142,7 @@ class GameMoveService {
         await metadata.rename(original.path);
         await staged.rename(metadata.path);
       }
+
       if (gameId == null) {
         await replaceMetadata();
       } else {

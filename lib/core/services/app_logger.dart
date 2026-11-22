@@ -77,8 +77,8 @@ class AppLogger {
   }
 
   Future<void> _initialize(String? directory) async {
-    final candidate =
-        directory ?? path.join(path.dirname(Platform.resolvedExecutable), 'logs');
+    final candidate = directory ??
+        path.join(path.dirname(Platform.resolvedExecutable), 'logs');
     try {
       await Directory(candidate).create(recursive: true);
       _logDir = candidate;

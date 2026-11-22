@@ -10,7 +10,8 @@ import 'concurrent_image_downloader.dart';
 import 'package:html/parser.dart' as html_parser;
 
 class DlsiteService {
-  static final _idPattern = RegExp(r'\b(RJ|RE|VJ)\d{4,}\b', caseSensitive: false);
+  static final _idPattern =
+      RegExp(r'\b(RJ|RE|VJ)\d{4,}\b', caseSensitive: false);
   static final _commonExeNames = [
     'unitycrashhandler64.exe',
     'unitycrashhandler32.exe',
@@ -69,13 +70,14 @@ class DlsiteService {
 
   String? normalizeId(String input) {
     final trimmed = input.trim();
-    
+
     // 尝试从URL中提取ID
-    final urlMatch = RegExp(r'(RJ|RE|VJ)\d{4,}', caseSensitive: false).firstMatch(trimmed);
+    final urlMatch =
+        RegExp(r'(RJ|RE|VJ)\d{4,}', caseSensitive: false).firstMatch(trimmed);
     if (urlMatch != null) {
       return urlMatch.group(0)!.toUpperCase();
     }
-    
+
     // 直接匹配ID格式
     final match = _idPattern.firstMatch(trimmed);
     if (match == null) return null;
@@ -105,7 +107,8 @@ class DlsiteService {
     // 1. 先检查文件夹名中是否包含DLsite ID
     final idFromFolder = normalizeId(folderName);
     if (idFromFolder != null) {
-      _log.info('DlsiteService', '[extractIdOrGameName] 从文件夹名提取到ID: $idFromFolder');
+      _log.info(
+          'DlsiteService', '[extractIdOrGameName] 从文件夹名提取到ID: $idFromFolder');
       return idFromFolder;
     }
 
@@ -117,7 +120,8 @@ class DlsiteService {
         .where((f) => f.path.toLowerCase().endsWith('.exe'))
         .toList();
 
-    _log.info('DlsiteService', '[extractIdOrGameName] 找到 ${exeFiles.length} 个exe文件');
+    _log.info(
+        'DlsiteService', '[extractIdOrGameName] 找到 ${exeFiles.length} 个exe文件');
 
     for (final exe in exeFiles) {
       final exeName = path.basename(exe.path).toLowerCase();
@@ -132,15 +136,16 @@ class DlsiteService {
         _log.info('DlsiteService', '[extractIdOrGameName] 跳过引擎exe: $exeName');
         continue;
       }
-      
+
       // 检查exe名是否包含ID
       final exeBaseName = path.basenameWithoutExtension(exe.path);
       final idFromExe = normalizeId(exeBaseName);
       if (idFromExe != null) {
-        _log.info('DlsiteService', '[extractIdOrGameName] 从exe名提取到ID: $idFromExe');
+        _log.info(
+            'DlsiteService', '[extractIdOrGameName] 从exe名提取到ID: $idFromExe');
         return idFromExe;
       }
-      
+
       gameName = exeBaseName;
       source = 'exe: ${path.basename(exe.path)}';
       break;
@@ -152,7 +157,8 @@ class DlsiteService {
       source = '文件夹名';
     }
 
-    _log.info('DlsiteService', '[extractIdOrGameName] 原始名称: "$gameName" (来源: $source)');
+    _log.info('DlsiteService',
+        '[extractIdOrGameName] 原始名称: "$gameName" (来源: $source)');
 
     // 4. 下划线替换为空格
     gameName = gameName.replaceAll('_', ' ');
@@ -177,7 +183,8 @@ class DlsiteService {
 
   String _cleanGameName(String name) {
     var cleaned = name.replaceAll(
-      RegExp(r'\s*(?:[Vv](?:er(?:sion)?)?|build)\s*\.?\d+(?:[\d.]*\d+)?\s*', caseSensitive: false),
+      RegExp(r'\s*(?:[Vv](?:er(?:sion)?)?|build)\s*\.?\d+(?:[\d.]*\d+)?\s*',
+          caseSensitive: false),
       ' ',
     );
     cleaned = cleaned.replaceAll(RegExp(r'[\[【\(（].*?[\]】\)）]'), '');
@@ -188,7 +195,8 @@ class DlsiteService {
   /// 使用关键词搜索，支持回退搜索
   /// 用于用户手动输入的关键词
   Future<List<DlsiteSearchResult>> searchWithKeyword(String keyword) async {
-    _log.info('DlsiteService', '[searchWithKeyword] ========== 关键词搜索 ==========');
+    _log.info(
+        'DlsiteService', '[searchWithKeyword] ========== 关键词搜索 ==========');
     _log.info('DlsiteService', '[searchWithKeyword] 输入关键词: "$keyword"');
 
     // 清理关键词
@@ -201,14 +209,16 @@ class DlsiteService {
     _log.info('DlsiteService', '[searchWithKeyword] 第1轮搜索: "$cleaned"');
     final results = await search(cleaned);
     if (results.isNotEmpty) {
-      _log.info('DlsiteService', '[searchWithKeyword] 第1轮命中 ${results.length} 个结果，搜索结束');
+      _log.info('DlsiteService',
+          '[searchWithKeyword] 第1轮命中 ${results.length} 个结果，搜索结束');
       return results;
     }
     _log.info('DlsiteService', '[searchWithKeyword] 第1轮无结果');
 
     // 第二步：按空格分词，逐步去掉后面的词
     final parts = cleaned.split(RegExp(r'\s+'));
-    _log.info('DlsiteService', '[searchWithKeyword] 分词结果: $parts (${parts.length}个词)');
+    _log.info('DlsiteService',
+        '[searchWithKeyword] 分词结果: $parts (${parts.length}个词)');
 
     if (parts.length <= 1) {
       _log.info('DlsiteService', '[searchWithKeyword] 只有一个词，无法继续缩短，搜索结束');
@@ -218,22 +228,26 @@ class DlsiteService {
     // 从少一个词开始，逐步缩短
     for (int i = parts.length - 1; i >= 1; i--) {
       final shortened = parts.sublist(0, i).join(' ');
-      _log.info('DlsiteService', '[searchWithKeyword] 第${parts.length - i + 1}轮搜索: "$shortened"');
+      _log.info('DlsiteService',
+          '[searchWithKeyword] 第${parts.length - i + 1}轮搜索: "$shortened"');
       final partialResults = await search(shortened);
       if (partialResults.isNotEmpty) {
-        _log.info('DlsiteService', '[searchWithKeyword] 命中 ${partialResults.length} 个结果，搜索结束');
+        _log.info('DlsiteService',
+            '[searchWithKeyword] 命中 ${partialResults.length} 个结果，搜索结束');
         return partialResults;
       }
       _log.info('DlsiteService', '[searchWithKeyword] 无结果');
     }
 
-    _log.info('DlsiteService', '[searchWithKeyword] ========== 所有轮次均无结果 ==========');
+    _log.info(
+        'DlsiteService', '[searchWithKeyword] ========== 所有轮次均无结果 ==========');
     return [];
   }
 
   Future<List<DlsiteSearchResult>> search(String keyword) async {
     final encodedKeyword = Uri.encodeComponent(keyword);
-    final url = 'https://www.dlsite.com/maniax/fsr/=/language/jp/keyword/$encodedKeyword/';
+    final url =
+        'https://www.dlsite.com/maniax/fsr/=/language/jp/keyword/$encodedKeyword/';
 
     _log.info('DlsiteService', '[search] 搜索关键词: "$keyword"');
     _log.info('DlsiteService', '[search] 请求URL: $url');
@@ -241,7 +255,8 @@ class DlsiteService {
     final client = await _clientFactory();
     try {
       final headers = await _buildHeaders();
-      var response = await client.get(Uri.parse(url), headers: headers)
+      var response = await client
+          .get(Uri.parse(url), headers: headers)
           .timeout(const Duration(seconds: 15));
 
       _log.info('DlsiteService', '[search] HTTP状态码: ${response.statusCode}');
@@ -249,26 +264,33 @@ class DlsiteService {
       // 403时将空格替换为+号重试
       if (response.statusCode == 403 && keyword.contains(' ')) {
         final retryKeyword = keyword.replaceAll(' ', '+');
-        final retryUrl = 'https://www.dlsite.com/maniax/fsr/=/language/jp/keyword/$retryKeyword/';
-        _log.info('DlsiteService', '[search] 403被拒绝，空格替换为+号重试: "$retryKeyword"');
+        final retryUrl =
+            'https://www.dlsite.com/maniax/fsr/=/language/jp/keyword/$retryKeyword/';
+        _log.info(
+            'DlsiteService', '[search] 403被拒绝，空格替换为+号重试: "$retryKeyword"');
         _log.info('DlsiteService', '[search] 重试URL: $retryUrl');
-        response = await client.get(Uri.parse(retryUrl), headers: headers)
+        response = await client
+            .get(Uri.parse(retryUrl), headers: headers)
             .timeout(const Duration(seconds: 15));
-        _log.info('DlsiteService', '[search] 重试HTTP状态码: ${response.statusCode}');
+        _log.info(
+            'DlsiteService', '[search] 重试HTTP状态码: ${response.statusCode}');
       }
 
       if (response.statusCode != 200) {
-        _log.warning('DlsiteService', '[search] 搜索失败: HTTP ${response.statusCode}');
+        _log.warning(
+            'DlsiteService', '[search] 搜索失败: HTTP ${response.statusCode}');
         return [];
       }
 
       final results = _parseSearchResults(response.body);
       _log.info('DlsiteService', '[search] 解析到 ${results.length} 个结果');
       for (int i = 0; i < results.length && i < 5; i++) {
-        _log.info('DlsiteService', '[search]   结果[$i]: ${results[i].id} - ${results[i].name}');
+        _log.info('DlsiteService',
+            '[search]   结果[$i]: ${results[i].id} - ${results[i].name}');
       }
       if (results.length > 5) {
-        _log.info('DlsiteService', '[search]   ... 还有 ${results.length - 5} 个结果');
+        _log.info(
+            'DlsiteService', '[search]   ... 还有 ${results.length - 5} 个结果');
       }
 
       return results;
@@ -290,7 +312,8 @@ class DlsiteService {
   /// - 搜索 "Game Name" → 无结果
   /// - 搜索 "Game" → 有结果，停止
   Future<List<DlsiteSearchResult>> searchWithFallback(String folderPath) async {
-    _log.info('DlsiteService', '[searchWithFallback] ========== 开始搜索 ==========');
+    _log.info(
+        'DlsiteService', '[searchWithFallback] ========== 开始搜索 ==========');
     _log.info('DlsiteService', '[searchWithFallback] 文件夹: $folderPath');
 
     final idOrName = await extractIdOrGameName(folderPath);
@@ -313,14 +336,16 @@ class DlsiteService {
     _log.info('DlsiteService', '[searchWithFallback] 第1轮搜索: "$gameName"');
     final results = await search(gameName);
     if (results.isNotEmpty) {
-      _log.info('DlsiteService', '[searchWithFallback] 第1轮命中 ${results.length} 个结果，搜索结束');
+      _log.info('DlsiteService',
+          '[searchWithFallback] 第1轮命中 ${results.length} 个结果，搜索结束');
       return results;
     }
     _log.info('DlsiteService', '[searchWithFallback] 第1轮无结果');
 
     // 第二步：按空格分词，逐步去掉后面的词
     final parts = gameName.split(RegExp(r'\s+'));
-    _log.info('DlsiteService', '[searchWithFallback] 分词结果: $parts (${parts.length}个词)');
+    _log.info('DlsiteService',
+        '[searchWithFallback] 分词结果: $parts (${parts.length}个词)');
 
     if (parts.length <= 1) {
       _log.info('DlsiteService', '[searchWithFallback] 只有一个词，无法继续缩短，搜索结束');
@@ -330,16 +355,19 @@ class DlsiteService {
     // 从少一个词开始，逐步缩短
     for (int i = parts.length - 1; i >= 1; i--) {
       final shortened = parts.sublist(0, i).join(' ');
-      _log.info('DlsiteService', '[searchWithFallback] 第${parts.length - i + 1}轮搜索: "$shortened"');
+      _log.info('DlsiteService',
+          '[searchWithFallback] 第${parts.length - i + 1}轮搜索: "$shortened"');
       final partialResults = await search(shortened);
       if (partialResults.isNotEmpty) {
-        _log.info('DlsiteService', '[searchWithFallback] 命中 ${partialResults.length} 个结果，搜索结束');
+        _log.info('DlsiteService',
+            '[searchWithFallback] 命中 ${partialResults.length} 个结果，搜索结束');
         return partialResults;
       }
       _log.info('DlsiteService', '[searchWithFallback] 无结果');
     }
 
-    _log.info('DlsiteService', '[searchWithFallback] ========== 所有轮次均无结果 ==========');
+    _log.info(
+        'DlsiteService', '[searchWithFallback] ========== 所有轮次均无结果 ==========');
     return [];
   }
 
@@ -389,12 +417,15 @@ class DlsiteService {
       _log.info('DlsiteService', '[fetchById] HTTP状态码: ${response.statusCode}');
 
       if (response.statusCode != 200) {
-        _log.warning('DlsiteService', '[fetchById] 获取失败: HTTP ${response.statusCode}');
+        _log.warning(
+            'DlsiteService', '[fetchById] 获取失败: HTTP ${response.statusCode}');
         return null;
       }
 
-      final gameInfo = _parser.parseGameInfo(html_parser.parse(response.body), url);
-      if (gameInfo != null && gameInfo.isDlsiteUserOnly &&
+      final gameInfo =
+          _parser.parseGameInfo(html_parser.parse(response.body), url);
+      if (gameInfo != null &&
+          gameInfo.isDlsiteUserOnly &&
           !await _completeUserOnly(gameInfo, normalizedId, client, headers)) {
         return null;
       }
@@ -404,10 +435,14 @@ class DlsiteService {
         } else {
           _log.info('DlsiteService', '[fetchById] 解析成功');
         }
-        _log.info('DlsiteService', '[fetchById]   标题长度: ${gameInfo.title?.length ?? 0}');
-        _log.info('DlsiteService', '[fetchById]   标签数: ${gameInfo.tags.length}');
-        _log.info('DlsiteService', '[fetchById]   截图数: ${gameInfo.screenshots.length}');
-        _log.info('DlsiteService', '[fetchById]   描述长度: ${gameInfo.description?.length ?? 0}');
+        _log.info('DlsiteService',
+            '[fetchById]   标题长度: ${gameInfo.title?.length ?? 0}');
+        _log.info(
+            'DlsiteService', '[fetchById]   标签数: ${gameInfo.tags.length}');
+        _log.info('DlsiteService',
+            '[fetchById]   截图数: ${gameInfo.screenshots.length}');
+        _log.info('DlsiteService',
+            '[fetchById]   描述长度: ${gameInfo.description?.length ?? 0}');
       } else {
         _log.warning('DlsiteService', '[fetchById] 解析返回null');
       }
@@ -428,10 +463,11 @@ class DlsiteService {
     final apiUrl = Uri.https('www.dlsite.com', '/$channel/api/=/product.json',
         {'workno': id, 'locale': 'zh_CN'});
     try {
-      final response = await httpGetWithRetry(apiUrl,
-          headers: headers, client: client);
+      final response =
+          await httpGetWithRetry(apiUrl, headers: headers, client: client);
       if (response.statusCode != 200) {
-        _log.warning('DlsiteService', '[fetchById] 公开信息获取失败: HTTP ${response.statusCode}');
+        _log.warning('DlsiteService',
+            '[fetchById] 公开信息获取失败: HTTP ${response.statusCode}');
         return false;
       }
       final data = jsonDecode(response.body);
@@ -439,8 +475,11 @@ class DlsiteService {
         _log.warning('DlsiteService', '[fetchById] 公开信息响应结构无效');
         return false;
       }
-      final products = data.whereType<Map<String, dynamic>>().where((product) =>
-          product['workno'] == id || product['product_id'] == id).toList();
+      final products = data
+          .whereType<Map<String, dynamic>>()
+          .where((product) =>
+              product['workno'] == id || product['product_id'] == id)
+          .toList();
       if (products.length != 1 ||
           [products.single['workno'], products.single['product_id']]
               .where((value) => value != null)
@@ -453,8 +492,11 @@ class DlsiteService {
       final samples = product['image_samples'];
       final type = product['work_type_string'];
       final genres = product['genres'];
-      if (mainImage == null || samples is! List ||
-          type is! String || type.trim().isEmpty || genres is! List) {
+      if (mainImage == null ||
+          samples is! List ||
+          type is! String ||
+          type.trim().isEmpty ||
+          genres is! List) {
         _log.warning('DlsiteService', '[fetchById] 公开信息缺少可用图片或类型');
         return false;
       }
@@ -465,7 +507,8 @@ class DlsiteService {
       };
       final genreNames = <String>{
         for (final genre in genres)
-          if (genre is Map && genre['name'] is String &&
+          if (genre is Map &&
+              genre['name'] is String &&
               (genre['name'] as String).trim().isNotEmpty)
             (genre['name'] as String).trim(),
       };
@@ -473,11 +516,13 @@ class DlsiteService {
         _log.warning('DlsiteService', '[fetchById] 公开信息缺少可用示例图或标签');
         return false;
       }
-      info.screenshots = {mainImage, ...sampleImages, ...info.screenshots}.toList();
+      info.screenshots =
+          {mainImage, ...sampleImages, ...info.screenshots}.toList();
       info.tags = {...info.tags, type.trim(), ...genreNames}.toList();
       return true;
     } catch (error) {
-      _log.warning('DlsiteService', '[fetchById] 公开信息补全失败: ${error.runtimeType}');
+      _log.warning(
+          'DlsiteService', '[fetchById] 公开信息补全失败: ${error.runtimeType}');
       return false;
     }
   }
@@ -508,8 +553,10 @@ class DlsiteService {
 
   /// 下载所有图片（封面+截图）到images文件夹
   /// 返回 URL -> 本地路径 的映射
-  Future<Map<String, String>> downloadAllImages(List<String> imageUrls, String saveDir) async {
-    final imageHeaders = await buildScrapeImageHeaders('https://www.dlsite.com/');
+  Future<Map<String, String>> downloadAllImages(
+      List<String> imageUrls, String saveDir) async {
+    final imageHeaders =
+        await buildScrapeImageHeaders('https://www.dlsite.com/');
     return await ConcurrentImageDownloader.downloadAll(
       imageUrls: imageUrls,
       saveDir: saveDir,
@@ -519,7 +566,8 @@ class DlsiteService {
   }
 
   /// 将描述中的图片URL替换为本地路径标记
-  String replaceImageUrlsInDescription(String description, Map<String, String> urlToLocal) {
+  String replaceImageUrlsInDescription(
+      String description, Map<String, String> urlToLocal) {
     var result = description;
     for (final entry in urlToLocal.entries) {
       result = result.replaceAll('[图片:${entry.key}]', '[图片:${entry.value}]');
@@ -544,7 +592,8 @@ class DlsiteService {
           .map((entry) => '${entry.key}=${entry.value}')
           .join('; '),
       'Accept-Language': 'ja,en;q=0.8',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept':
+          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     };
   }
 }

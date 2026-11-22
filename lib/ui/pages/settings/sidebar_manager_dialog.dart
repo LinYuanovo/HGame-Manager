@@ -28,7 +28,9 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
     if (raw != null && raw.isNotEmpty) {
       try {
         final List<dynamic> list = jsonDecode(raw);
-        _items = list.map((m) => _SidebarItemConfig.fromJson(m as Map<String, dynamic>)).toList();
+        _items = list
+            .map((m) => _SidebarItemConfig.fromJson(m as Map<String, dynamic>))
+            .toList();
         _loading = false;
         if (mounted) setState(() {});
         return;
@@ -96,7 +98,10 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
         child: Column(
           children: [
             _buildHeader(),
-            Expanded(child: _loading ? const AppSkeleton(label: '正在加载页面配置') : _buildList()),
+            Expanded(
+                child: _loading
+                    ? const AppSkeleton(label: '正在加载页面配置')
+                    : _buildList()),
             _buildActions(),
           ],
         ),
@@ -109,7 +114,9 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
       padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: Row(
         children: [
-          Icon(Icons.view_sidebar_outlined, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconMedium),
+          Icon(Icons.view_sidebar_outlined,
+              color: AppTheme.getPrimaryColor(context),
+              size: GlassConstants.iconMedium),
           const SizedBox(width: GlassConstants.spacingCompact),
           Text(
             '侧边栏页面管理',
@@ -131,7 +138,9 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
 
   Widget _buildList() {
     return ReorderableListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingSmall),
+      padding: const EdgeInsets.symmetric(
+          horizontal: GlassConstants.spacingLarge,
+          vertical: GlassConstants.spacingSmall),
       itemCount: _items.length,
       onReorder: (oldIndex, newIndex) {
         setState(() {
@@ -151,7 +160,8 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
               borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
+                  color:
+                      AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -195,7 +205,9 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
                   index: index,
                   child: MouseRegion(
                     cursor: SystemMouseCursors.grab,
-                    child: Icon(Icons.drag_handle, size: GlassConstants.iconControl, color: AppTheme.getTextSecondary(context)),
+                    child: Icon(Icons.drag_handle,
+                        size: GlassConstants.iconControl,
+                        color: AppTheme.getTextSecondary(context)),
                   ),
                 ),
                 const SizedBox(width: GlassConstants.spacingCompact),
@@ -204,7 +216,8 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
                   size: GlassConstants.iconControl,
                   color: item.visible
                       ? AppTheme.getPrimaryColor(context)
-                      : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
+                      : AppTheme.getTextSecondary(context)
+                          .withValues(alpha: 0.5),
                 ),
                 const SizedBox(width: GlassConstants.spacingCompact),
                 Text(
@@ -213,7 +226,8 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
                     fontSize: GlassConstants.fontBodyLarge,
                     color: item.visible
                         ? AppTheme.getTextPrimary(context)
-                        : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
+                        : AppTheme.getTextSecondary(context)
+                            .withValues(alpha: 0.5),
                   ),
                 ),
               ],
@@ -241,7 +255,8 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
         children: [
           TextButton(
             onPressed: _resetToDefaults,
-            child: Text('恢复默认', style: TextStyle(color: AppTheme.getTextSecondary(context))),
+            child: Text('恢复默认',
+                style: TextStyle(color: AppTheme.getTextSecondary(context))),
           ),
           const SizedBox(width: GlassConstants.spacingCompact),
           ElevatedButton(
@@ -249,7 +264,10 @@ class _SidebarManagerDialogState extends State<SidebarManagerDialog> {
               await _saveConfig();
               if (mounted) {
                 Navigator.pop(context, true);
-                AppTheme.showGlassToast(context, message: '侧边栏配置已保存', icon: Icons.check_circle, iconColor: AppTheme.successColor);
+                AppTheme.showGlassToast(context,
+                    message: '侧边栏配置已保存',
+                    icon: Icons.check_circle,
+                    iconColor: AppTheme.successColor);
               }
             },
             child: const Text('保存'),

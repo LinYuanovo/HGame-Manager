@@ -95,7 +95,8 @@ class AppSettings {
             _data = jsonDecode(raw) as Map<String, dynamic>;
           } catch (e) {
             // JSON 解析失败，尝试从备份恢复
-            AppLogger.instance.warning('Settings', '设置格式无效，尝试备份: ${e.runtimeType}');
+            AppLogger.instance
+                .warning('Settings', '设置格式无效，尝试备份: ${e.runtimeType}');
             final backupFile = File('$_filePath.bak');
             if (await backupFile.exists()) {
               try {
@@ -114,7 +115,8 @@ class AppSettings {
         }
       }
     } catch (e, stackTrace) {
-      AppLogger.instance.error('Settings', '[AppSettings] Load error: ${e.runtimeType}', null, stackTrace);
+      AppLogger.instance.error('Settings',
+          '[AppSettings] Load error: ${e.runtimeType}', null, stackTrace);
       _data = {};
     }
   }
@@ -170,7 +172,8 @@ class AppSettings {
       }
       _dirty = false;
     } catch (e, stackTrace) {
-      AppLogger.instance.error('Settings', '[AppSettings] Save error: ${e.runtimeType}', null, stackTrace);
+      AppLogger.instance.error('Settings',
+          '[AppSettings] Save error: ${e.runtimeType}', null, stackTrace);
     }
   }
 

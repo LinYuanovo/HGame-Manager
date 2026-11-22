@@ -60,9 +60,14 @@ void main() {
     double? previous;
     double? rate;
     try {
-      await tester.pumpWidget(MaterialApp(home: Center(child: AppMotionValue(
-        target: 1, begin: 0, duration: const Duration(milliseconds: 800),
-        curve: Curves.linear, child: const FlutterLogo(size: 64),
+      await tester.pumpWidget(MaterialApp(
+          home: Center(
+              child: AppMotionValue(
+        target: 1,
+        begin: 0,
+        duration: const Duration(milliseconds: 800),
+        curve: Curves.linear,
+        child: const FlutterLogo(size: 64),
         builder: (context, value, child) {
           rate = View.of(context).display.refreshRate;
           if (previous != value) {
@@ -70,21 +75,28 @@ void main() {
             previous = value;
           }
           if (value == 1 && !done.isCompleted) done.complete();
-          return Transform.translate(offset: Offset(value * 100, 0), child: child);
+          return Transform.translate(
+              offset: Offset(value * 100, 0), child: child);
         },
       ))));
       await done.future.timeout(const Duration(seconds: 10));
       expect(previous, 1);
       final elapsed = samples.last - samples.first;
-      if (!MediaQuery.disableAnimationsOf(tester.element(find.byType(AppMotionValue))) &&
-          !MediaQuery.accessibleNavigationOf(tester.element(find.byType(AppMotionValue)))) {
+      if (!MediaQuery.disableAnimationsOf(
+              tester.element(find.byType(AppMotionValue))) &&
+          !MediaQuery.accessibleNavigationOf(
+              tester.element(find.byType(AppMotionValue)))) {
         expect(samples.length, greaterThan(2));
         expect(elapsed.inMilliseconds, greaterThanOrEqualTo(799));
         if (rate != null && rate! > 1) {
-          expect(samples.length, lessThanOrEqualTo((elapsed.inMicroseconds * rate! / 1000000).ceil() + 2));
+          expect(
+              samples.length,
+              lessThanOrEqualTo(
+                  (elapsed.inMicroseconds * rate! / 1000000).ceil() + 2));
         }
       }
-      debugPrint('动效采样 窗口 $rate Hz，耗时 ${elapsed.inMicroseconds / 1000} ms，观察到 ${samples.length} 个不同动画值，终值 $previous');
+      debugPrint(
+          '动效采样 窗口 $rate Hz，耗时 ${elapsed.inMicroseconds / 1000} ms，观察到 ${samples.length} 个不同动画值，终值 $previous');
     } finally {
       binding.framePolicy = policy;
     }
@@ -281,12 +293,16 @@ void main() {
             ]) {
               await render(theme, route.buildPage(), scope: scope);
               await capture('${mode}_${route.name}_$phase');
-              if (phase == 'error') expect(find.widgetWithText(OutlinedButton, '重试'), findsOneWidget);
+              if (phase == 'error')
+                expect(
+                    find.widgetWithText(OutlinedButton, '重试'), findsOneWidget);
               if (route == NavRoute.categories || route == NavRoute.favorites) {
                 await tester.tap(
                     find.text(route == NavRoute.categories ? '标签' : '分类').last);
                 await capture('${mode}_${route.name}_second_$phase');
-                if (phase == 'error') expect(find.widgetWithText(OutlinedButton, '重试'), findsOneWidget);
+                if (phase == 'error')
+                  expect(find.widgetWithText(OutlinedButton, '重试'),
+                      findsOneWidget);
               }
               if (route == NavRoute.games && phase == 'loading') {
                 await settings.setString('game_list_view_mode', 'list');
@@ -540,7 +556,9 @@ class _PausedImages extends Fake implements GameRepository {
   final saved = Completer<void>();
 
   @override
-  Future<void> setGameImages(int gameId, List<GameImage> images, {int? coverIndex}) => saved.future;
+  Future<void> setGameImages(int gameId, List<GameImage> images,
+          {int? coverIndex}) =>
+      saved.future;
 
   @override
   Future<void> addGameImage(

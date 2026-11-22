@@ -117,9 +117,28 @@ class _TextNodeBuffer {
 
   /// 内容被清空后可以整体移除的容器标签（不含表格类，避免破坏表格结构）
   static const Set<String> _removableEmptyTags = {
-    'p', 'div', 'li', 'span', 'font', 'section', 'article', 'aside',
-    'blockquote', 'strong', 'em', 'b', 'i', 'u', 'small', 'label',
-    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'p',
+    'div',
+    'li',
+    'span',
+    'font',
+    'section',
+    'article',
+    'aside',
+    'blockquote',
+    'strong',
+    'em',
+    'b',
+    'i',
+    'u',
+    'small',
+    'label',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
   };
 
   void _rebuild() {

@@ -19,7 +19,10 @@ class AppLoadError extends StatelessWidget {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: GlassConstants.spacingSmall),
-            OutlinedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('重试')),
+            OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('重试')),
           ]),
         ),
       );
@@ -29,9 +32,13 @@ Widget appImageFrameBuilder(BuildContext context, Widget child, int? frame,
     bool wasSynchronouslyLoaded) {
   if (wasSynchronouslyLoaded) return child;
   if (frame != null) {
-    return AppMotionValue(begin: 0, target: 1, duration: AppMotion.fast,
-      builder: (context, value, child) => Opacity(opacity: value, child: child),
-      child: child);
+    return AppMotionValue(
+        begin: 0,
+        target: 1,
+        duration: AppMotion.fast,
+        builder: (context, value, child) =>
+            Opacity(opacity: value, child: child),
+        child: child);
   }
   return LayoutBuilder(
     builder: (context, constraints) => SizedBox(
@@ -87,7 +94,8 @@ class _AppSkeletonState extends State<AppSkeleton>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _active = state == AppLifecycleState.resumed || state == AppLifecycleState.inactive;
+    _active = state == AppLifecycleState.resumed ||
+        state == AppLifecycleState.inactive;
     _updateAnimation();
   }
 
@@ -323,16 +331,18 @@ class AppLinearProgress extends StatelessWidget {
     }
     final target = value;
     Widget indicator(double? painted) => LinearProgressIndicator(
-      value: painted,
-      semanticsValue: target == null ? null : '${(target * 100).round()}',
-      minHeight: minHeight,
-      backgroundColor: backgroundColor,
-      valueColor: valueColor,
-      borderRadius: borderRadius,
-      semanticsLabel: '正在处理',
-    );
+          value: painted,
+          semanticsValue: target == null ? null : '${(target * 100).round()}',
+          minHeight: minHeight,
+          backgroundColor: backgroundColor,
+          valueColor: valueColor,
+          borderRadius: borderRadius,
+          semanticsLabel: '正在处理',
+        );
     if (target == null) return indicator(null);
-    return AppMotionValue(target: target.clamp(0.0, 1.0), duration: AppMotion.fast,
+    return AppMotionValue(
+        target: target.clamp(0.0, 1.0),
+        duration: AppMotion.fast,
         builder: (context, painted, child) => indicator(painted));
   }
 }

@@ -237,7 +237,9 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
 
   @override
   void dispose() {
-    for (final focus in _tagFocus.values) { focus.dispose(); }
+    for (final focus in _tagFocus.values) {
+      focus.dispose();
+    }
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -358,12 +360,15 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                       });
                     },
                     child: Container(
-                      padding: const EdgeInsets.all(GlassConstants.spacingSmall),
+                      padding:
+                          const EdgeInsets.all(GlassConstants.spacingSmall),
                       decoration: BoxDecoration(
                         color: _isMultiSelectMode
-                            ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.15)
+                            ? AppTheme.getPrimaryColor(context)
+                                .withValues(alpha: 0.15)
                             : Colors.transparent,
-                        borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
+                        borderRadius:
+                            BorderRadius.circular(GlassConstants.radiusCompact),
                       ),
                       child: Icon(
                         _isMultiSelectMode ? Icons.deselect : Icons.checklist,
@@ -385,10 +390,12 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
             // 多选操作栏
             if (_isMultiSelectMode)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingSmall),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: GlassConstants.spacingMedium,
+                    vertical: GlassConstants.spacingSmall),
                 decoration: BoxDecoration(
-                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.08),
+                  color:
+                      AppTheme.getPrimaryColor(context).withValues(alpha: 0.08),
                   border: Border(
                       bottom: BorderSide(
                           color: AppTheme.getBorderColor(context)
@@ -408,7 +415,8 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                       onTap: () => _deleteSelectedTags(),
                       child: Text('删除选中',
                           style: TextStyle(
-                              fontSize: GlassConstants.fontTitle, color: AppTheme.errorColor)),
+                              fontSize: GlassConstants.fontTitle,
+                              color: AppTheme.errorColor)),
                     ),
                     const SizedBox(width: GlassConstants.spacingMedium),
                     GestureDetector(
@@ -432,7 +440,8 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                     _onGridPointerMove(type, event.position),
                 child: GridView.builder(
                   key: _gridKeys.putIfAbsent(type, () => GlobalKey()),
-                  padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: GlassConstants.spacingMedium),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 6,
                     mainAxisSpacing: 8,
@@ -481,20 +490,28 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
       },
       loading: () => const AppSkeleton(
           layout: SkeletonLayout.tags, showToolbar: true, label: '正在加载分类'),
-      error: (error, _) => AppLoadError(message: '加载失败：$error', onRetry: () => ref.invalidate(provider)),
+      error: (error, _) => AppLoadError(
+          message: '加载失败：$error', onRetry: () => ref.invalidate(provider)),
     );
   }
 
   Widget _buildTagChip(Tag tag) {
     final isSelected = _selectedTagIds.contains(tag.id);
-    final titleAnchor = tag.id == null || _isMultiSelectMode || _draggingTag != null ? null : (this, tag.id);
+    final titleAnchor =
+        tag.id == null || _isMultiSelectMode || _draggingTag != null
+            ? null
+            : (this, tag.id);
     Widget card = GestureDetector(
       onSecondaryTapUp: _isMultiSelectMode
           ? null
           : (details) => _showTagContextMenu(tag, details.globalPosition),
       child: GlassCard(
-        focusNode: tag.id != null && _draggingTag == null ? _tagFocus.putIfAbsent(tag.id!, () => FocusNode()) : null,
-        padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
+        focusNode: tag.id != null && _draggingTag == null
+            ? _tagFocus.putIfAbsent(tag.id!, () => FocusNode())
+            : null,
+        padding: const EdgeInsets.symmetric(
+            horizontal: GlassConstants.spacingCompact,
+            vertical: GlassConstants.spacingSmall),
         onTap: () {
           if (_isMultiSelectMode) {
             setState(() {
@@ -513,7 +530,10 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
                 titleAnchor: titleAnchor,
               ).then((_) {
                 if (!mounted) return;
-                setState(() { _returnedTag = tag.id; _returnSequence++; });
+                setState(() {
+                  _returnedTag = tag.id;
+                  _returnSequence++;
+                });
                 _tagFocus[tag.id]?.requestFocus();
                 ref.invalidate(allTagsProvider);
                 ref.invalidate(allSeriesProvider);
@@ -524,7 +544,9 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
         child: Container(
           decoration: isSelected
               ? BoxDecoration(
-                  border: Border.all(color: AppTheme.getPrimaryColor(context), width: GlassConstants.spacingMicro),
+                  border: Border.all(
+                      color: AppTheme.getPrimaryColor(context),
+                      width: GlassConstants.spacingMicro),
                   borderRadius:
                       BorderRadius.circular(GlassConstants.radiusMedium),
                 )
@@ -541,33 +563,44 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
               const SizedBox(width: GlassConstants.spacingSmall),
               Expanded(
                 child: TagRouteTitle(
-                  anchor: titleAnchor, name: tag.displayName ?? tag.name,
-                  style: TextStyle(fontSize: GlassConstants.fontTitle, fontWeight: AppTypography.medium),
+                  anchor: titleAnchor,
+                  name: tag.displayName ?? tag.name,
+                  style: TextStyle(
+                      fontSize: GlassConstants.fontTitle,
+                      fontWeight: AppTypography.medium),
                 ),
               ),
               if (tag.gameCount > 0)
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: GlassConstants.spacingTight, vertical: GlassConstants.spacingMicro),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: GlassConstants.spacingTight,
+                      vertical: GlassConstants.spacingMicro),
                   decoration: BoxDecoration(
-                    color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(GlassConstants.radiusControl),
+                    color: AppTheme.getPrimaryColor(context)
+                        .withValues(alpha: 0.1),
+                    borderRadius:
+                        BorderRadius.circular(GlassConstants.radiusControl),
                   ),
                   child: Text(
                     '${tag.gameCount}',
-                    style:
-                        TextStyle(fontSize: GlassConstants.fontControl, color: AppTheme.getPrimaryColor(context)),
+                    style: TextStyle(
+                        fontSize: GlassConstants.fontControl,
+                        color: AppTheme.getPrimaryColor(context)),
                   ),
                 ),
               const SizedBox(width: GlassConstants.spacingTiny),
               if (!_isMultiSelectMode)
                 IconButton(
-                  icon: AppSelectedMark(selected: tag.isFavorite, child: Icon(
-                      tag.isFavorite ? Icons.favorite : Icons.favorite_border,
-                      size: GlassConstants.iconSmall,
-                      color: tag.isFavorite
-                          ? AppTheme.getFavoriteColor(context)
-                          : null)),
+                  icon: AppSelectedMark(
+                      selected: tag.isFavorite,
+                      child: Icon(
+                          tag.isFavorite
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          size: GlassConstants.iconSmall,
+                          color: tag.isFavorite
+                              ? AppTheme.getFavoriteColor(context)
+                              : null)),
                   onPressed: () async {
                     await ref
                         .read(tagRepositoryProvider)
@@ -583,7 +616,9 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
       ),
     );
     if (tag.id != null && _draggingTag == null) {
-      if (_returnedTag == tag.id) card = ResultLocation(key: ValueKey((tag.id, _returnSequence)), child: card);
+      if (_returnedTag == tag.id)
+        card = ResultLocation(
+            key: ValueKey((tag.id, _returnSequence)), child: card);
     }
     return card;
   }
@@ -599,8 +634,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('删除选中',
-                style: AppTypography.dialogTitle(context)),
+            Text('删除选中', style: AppTypography.dialogTitle(context)),
             const SizedBox(height: GlassConstants.spacingCompact),
             Text('确定要删除选中的 ${_selectedTagIds.length} 个标签/系列吗？',
                 style: TextStyle(color: AppTheme.getTextSecondary(context))),
@@ -669,8 +703,9 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
               child: ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  leading:
-                      Icon(Icons.delete, size: GlassConstants.iconAction, color: AppTheme.errorColor),
+                  leading: Icon(Icons.delete,
+                      size: GlassConstants.iconAction,
+                      color: AppTheme.errorColor),
                   title: Text('删除',
                       style: TextStyle(color: AppTheme.errorColor)))),
         ],

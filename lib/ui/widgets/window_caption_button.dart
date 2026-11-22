@@ -28,7 +28,8 @@ class WindowCaptionButton extends StatelessWidget {
           tooltip: tooltip,
           iconSize: iconSize,
           onPressed: onPressed,
-          style: AppButtonStyles.caption(context, close: isClose, active: isActive),
+          style: AppButtonStyles.caption(context,
+              close: isClose, active: isActive),
           icon: Icon(icon),
         ),
       );

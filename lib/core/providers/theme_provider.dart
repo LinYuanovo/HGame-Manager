@@ -5,7 +5,8 @@ import '../utils/app_settings.dart';
 import 'providers.dart';
 
 /// 主题模式 Provider
-final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, AppThemeMode>((ref) {
+final themeModeProvider =
+    StateNotifierProvider<ThemeModeNotifier, AppThemeMode>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
   return ThemeModeNotifier(prefs);
 });

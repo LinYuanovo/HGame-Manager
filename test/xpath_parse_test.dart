@@ -8,8 +8,10 @@ void main() {
   output.writeln('飞雪ACG XPath 解析测试');
   output.writeln('=' * 80);
 
-  const titleXpath = '/html/body/div[8]/div[4]/div[2]/div[2]/table[1]/tbody/tr/td/h1/a[2]/span';
-  const contentXpath = '/html/body/div[8]/div[4]/div[2]/div[2]/div[1]/table/tbody/tr[1]/td/div[2]/div/div[2]/table/tbody/tr/td';
+  const titleXpath =
+      '/html/body/div[8]/div[4]/div[2]/div[2]/table[1]/tbody/tr/td/h1/a[2]/span';
+  const contentXpath =
+      '/html/body/div[8]/div[4]/div[2]/div[2]/div[1]/table/tbody/tr[1]/td/div[2]/div/div[2]/table/tbody/tr/td';
 
   final files = ['web/fx1.html', 'web/fx2.html', 'web/fx3.html'];
 
@@ -57,7 +59,9 @@ void main() {
         output.writeln('  (无 section 标记，全文作为游戏介绍兜底)');
       }
       if (filteredDesc.isNotEmpty) {
-        final preview = filteredDesc.length > 300 ? '${filteredDesc.substring(0, 300)}...' : filteredDesc;
+        final preview = filteredDesc.length > 300
+            ? '${filteredDesc.substring(0, 300)}...'
+            : filteredDesc;
         output.writeln('  游戏介绍:\n    $preview');
       } else {
         output.writeln('  游戏介绍: 无');
@@ -67,7 +71,8 @@ void main() {
           _extractSection(fullText, '更新内容');
       if (changelog != null) {
         final filtered = filterCommonNoise(changelog);
-        output.writeln('  更新日志:\n    ${filtered.substring(0, filtered.length.clamp(0, 200))}');
+        output.writeln(
+            '  更新日志:\n    ${filtered.substring(0, filtered.length.clamp(0, 200))}');
       } else {
         output.writeln('  更新日志: 无');
       }

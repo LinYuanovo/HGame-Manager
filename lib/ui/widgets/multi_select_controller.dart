@@ -15,10 +15,16 @@ class MultiSelectController<T> extends ChangeNotifier {
   void reconcile(List<T> items, Object Function(T) identity) {
     if (_selectedItems.isEmpty) return;
     final byIdentity = {for (final item in items) identity(item): item};
-    final selected = _selectedItems.map((item) => byIdentity[identity(item)]).whereType<T>().toSet();
+    final selected = _selectedItems
+        .map((item) => byIdentity[identity(item)])
+        .whereType<T>()
+        .toSet();
     if (setEquals(selected, _selectedItems)) return;
-    _selectedItems..clear()..addAll(selected);
-    if (_lastSelectedItem != null) _lastSelectedItem = byIdentity[identity(_lastSelectedItem as T)];
+    _selectedItems
+      ..clear()
+      ..addAll(selected);
+    if (_lastSelectedItem != null)
+      _lastSelectedItem = byIdentity[identity(_lastSelectedItem as T)];
     notifyListeners();
   }
 
@@ -53,9 +59,8 @@ class MultiSelectController<T> extends ChangeNotifier {
     }
     final fromIndex = allItems.indexOf(fromItem);
     final lastSelected = _lastSelectedItem;
-    final toIndex = lastSelected != null
-        ? allItems.indexOf(lastSelected)
-        : fromIndex;
+    final toIndex =
+        lastSelected != null ? allItems.indexOf(lastSelected) : fromIndex;
 
     if (fromIndex < 0 || toIndex < 0) return;
 

@@ -316,34 +316,35 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: Center(
-          child: Builder(builder: (context) => PictureOrigin(
-                origins: origins,
-                identity: 'cover',
-                borderRadius: sourceRadius,
-                onOpen: (origin) => showPictureDialog<void>(
-                  context,
-                  (dialogContext) => Dialog(
-                    backgroundColor: Colors.transparent,
-                    child: SizedBox(
-                      width: 260,
-                      height: 300,
-                      child: pictureHero(
-                        dialogContext,
-                        origin,
-                        Image.memory(imageBytes, fit: BoxFit.cover),
-                        borderRadius: detailRadius,
+          child: Builder(
+              builder: (context) => PictureOrigin(
+                    origins: origins,
+                    identity: 'cover',
+                    borderRadius: sourceRadius,
+                    onOpen: (origin) => showPictureDialog<void>(
+                      context,
+                      (dialogContext) => Dialog(
+                        backgroundColor: Colors.transparent,
+                        child: SizedBox(
+                          width: 260,
+                          height: 300,
+                          child: pictureHero(
+                            dialogContext,
+                            origin,
+                            Image.memory(imageBytes, fit: BoxFit.cover),
+                            borderRadius: detailRadius,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                child: SizedBox(
-                  width: 100,
-                  height: 140,
-                  child: Image.memory(imageBytes, fit: BoxFit.cover),
-                ),
-              )),
-          ),
+                    child: SizedBox(
+                      width: 100,
+                      height: 140,
+                      child: Image.memory(imageBytes, fit: BoxFit.cover),
+                    ),
+                  )),
         ),
+      ),
     ));
     await tester.pumpAndSettle();
     expect(

@@ -92,8 +92,7 @@ class _TagInputDialogState extends State<TagInputDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.title,
-                style: AppTypography.dialogTitle(context)),
+            Text(widget.title, style: AppTypography.dialogTitle(context)),
             const SizedBox(height: GlassConstants.spacingCompact),
             Flexible(
                 child: SingleChildScrollView(
@@ -113,8 +112,8 @@ class _TagInputDialogState extends State<TagInputDialog> {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: _selected
                           .map((tag) => AppEntrance(
-                                key: ObjectKey(tag),
-                                child: InputChip(
+                              key: ObjectKey(tag),
+                              child: InputChip(
                                 label: Text(tag.displayName ?? tag.name,
                                     style: labelStyle),
                                 padding: chipPadding,

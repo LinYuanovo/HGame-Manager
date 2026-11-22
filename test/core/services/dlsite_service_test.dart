@@ -93,8 +93,8 @@ void main() {
                 cookies.add(request.headers['cookie']);
                 return _response('', status: ++requests == 1 ? 403 : 200);
               }));
-      await settings.setString('cookie_dlsite',
-          ' session=first; locale=ja_JP; adultchecked=1; ');
+      await settings.setString(
+          'cookie_dlsite', ' session=first; locale=ja_JP; adultchecked=1; ');
       await service.search('test game');
       expect(cookies, [
         'adultchecked=1; locale=ja_JP; session=first',

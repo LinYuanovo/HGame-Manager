@@ -8,10 +8,12 @@ class ContextMenuManagerDialog extends ConsumerStatefulWidget {
   const ContextMenuManagerDialog({super.key});
 
   @override
-  ConsumerState<ContextMenuManagerDialog> createState() => _ContextMenuManagerDialogState();
+  ConsumerState<ContextMenuManagerDialog> createState() =>
+      _ContextMenuManagerDialogState();
 }
 
-class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDialog>
+class _ContextMenuManagerDialogState
+    extends ConsumerState<ContextMenuManagerDialog>
     with SingleTickerProviderStateMixin {
   late AppTabController _tabController;
 
@@ -63,7 +65,9 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
       padding: const EdgeInsets.all(GlassConstants.spacingLarge),
       child: Row(
         children: [
-          Icon(Icons.menu, color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconMedium),
+          Icon(Icons.menu,
+              color: AppTheme.getPrimaryColor(context),
+              size: GlassConstants.iconMedium),
           const SizedBox(width: GlassConstants.spacingCompact),
           Text(
             '右键菜单管理',
@@ -128,7 +132,8 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
         children: [
           TextButton(
             onPressed: _resetToDefaults,
-            child: Text('恢复默认', style: TextStyle(color: AppTheme.getTextSecondary(context))),
+            child: Text('恢复默认',
+                style: TextStyle(color: AppTheme.getTextSecondary(context))),
           ),
           const SizedBox(width: GlassConstants.spacingCompact),
           ElevatedButton(
@@ -152,7 +157,10 @@ class _ContextMenuManagerDialogState extends ConsumerState<ContextMenuManagerDia
     ref.read(contextMenuGamesProvider.notifier).save();
     ref.read(contextMenuPlayedProvider.notifier).save();
     Navigator.pop(context, true);
-    AppTheme.showGlassToast(context, message: '右键菜单配置已保存', icon: Icons.check_circle, iconColor: AppTheme.successColor);
+    AppTheme.showGlassToast(context,
+        message: '右键菜单配置已保存',
+        icon: Icons.check_circle,
+        iconColor: AppTheme.successColor);
   }
 }
 
@@ -197,8 +205,12 @@ class _TabItemWidgetState extends State<_TabItemWidget> {
           child: Text(
             widget.label,
             style: TextStyle(
-              color: widget.isSelected ? AppTheme.getOnPrimaryColor(context) : AppTheme.getTextSecondary(context),
-              fontWeight: widget.isSelected ? AppTypography.medium : AppTypography.regular,
+              color: widget.isSelected
+                  ? AppTheme.getOnPrimaryColor(context)
+                  : AppTheme.getTextSecondary(context),
+              fontWeight: widget.isSelected
+                  ? AppTypography.medium
+                  : AppTypography.regular,
             ),
           ),
         ),
@@ -214,14 +226,15 @@ class _MenuItemsList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final provider = mode == 'games'
-        ? contextMenuGamesProvider
-        : contextMenuPlayedProvider;
+    final provider =
+        mode == 'games' ? contextMenuGamesProvider : contextMenuPlayedProvider;
     final config = ref.watch(provider);
     final items = config.sortedItems;
 
     return ReorderableListView.builder(
-      padding: EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingMedium),
+      padding: EdgeInsets.symmetric(
+          horizontal: GlassConstants.spacingLarge,
+          vertical: GlassConstants.spacingMedium),
       itemCount: items.length,
       onReorder: (oldIndex, newIndex) {
         ref.read(provider.notifier).reorderItem(oldIndex, newIndex);
@@ -234,7 +247,8 @@ class _MenuItemsList extends ConsumerWidget {
               borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
+                  color:
+                      AppTheme.getPrimaryColor(context).withValues(alpha: 0.15),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -278,7 +292,9 @@ class _MenuItemsList extends ConsumerWidget {
                   index: index,
                   child: MouseRegion(
                     cursor: SystemMouseCursors.grab,
-                    child: Icon(Icons.drag_handle, size: GlassConstants.iconControl, color: AppTheme.getTextSecondary(context)),
+                    child: Icon(Icons.drag_handle,
+                        size: GlassConstants.iconControl,
+                        color: AppTheme.getTextSecondary(context)),
                   ),
                 ),
                 const SizedBox(width: GlassConstants.spacingCompact),
@@ -287,7 +303,8 @@ class _MenuItemsList extends ConsumerWidget {
                   size: GlassConstants.iconControl,
                   color: item.enabled
                       ? AppTheme.getPrimaryColor(context)
-                      : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
+                      : AppTheme.getTextSecondary(context)
+                          .withValues(alpha: 0.5),
                 ),
                 const SizedBox(width: GlassConstants.spacingCompact),
                 Text(
@@ -296,7 +313,8 @@ class _MenuItemsList extends ConsumerWidget {
                     fontSize: GlassConstants.fontBodyLarge,
                     color: item.enabled
                         ? AppTheme.getTextPrimary(context)
-                        : AppTheme.getTextSecondary(context).withValues(alpha: 0.5),
+                        : AppTheme.getTextSecondary(context)
+                            .withValues(alpha: 0.5),
                   ),
                 ),
               ],
@@ -315,28 +333,41 @@ class _MenuItemsList extends ConsumerWidget {
   }
 
   ContextMenuItemDef? _getDefinition(String id) {
-    final defs = mode == 'games'
-        ? PresetMenuItems.games
-        : PresetMenuItems.played;
+    final defs =
+        mode == 'games' ? PresetMenuItems.games : PresetMenuItems.played;
     return defs.where((d) => d.id == id).firstOrNull;
   }
 
   static IconData _getIconData(String iconName) {
     switch (iconName) {
-      case 'folder_open': return Icons.folder_open;
-      case 'drive_file_move': return Icons.drive_file_move;
-      case 'folder_special': return Icons.folder_special;
-      case 'favorite': return Icons.favorite;
-      case 'add_circle_outline': return Icons.add_circle_outline;
-      case 'remove_circle_outline': return Icons.remove_circle_outline;
-      case 'playlist_add': return Icons.playlist_add;
-      case 'image': return Icons.image;
-      case 'rate_review_outlined': return Icons.rate_review_outlined;
-      case 'emoji_events': return Icons.emoji_events;
-      case 'emoji_events_outlined': return Icons.emoji_events_outlined;
-      case 'block': return Icons.block;
-      case 'folder_delete_outlined': return Icons.folder_delete_outlined;
-      default: return Icons.help_outline;
+      case 'folder_open':
+        return Icons.folder_open;
+      case 'drive_file_move':
+        return Icons.drive_file_move;
+      case 'folder_special':
+        return Icons.folder_special;
+      case 'favorite':
+        return Icons.favorite;
+      case 'add_circle_outline':
+        return Icons.add_circle_outline;
+      case 'remove_circle_outline':
+        return Icons.remove_circle_outline;
+      case 'playlist_add':
+        return Icons.playlist_add;
+      case 'image':
+        return Icons.image;
+      case 'rate_review_outlined':
+        return Icons.rate_review_outlined;
+      case 'emoji_events':
+        return Icons.emoji_events;
+      case 'emoji_events_outlined':
+        return Icons.emoji_events_outlined;
+      case 'block':
+        return Icons.block;
+      case 'folder_delete_outlined':
+        return Icons.folder_delete_outlined;
+      default:
+        return Icons.help_outline;
     }
   }
 }

@@ -104,7 +104,8 @@ void main() {
       final exe1 = createFile(dir, 'First_Game.exe');
       final exe2 = createFile(dir, 'Second_Game.exe');
 
-      final result = DropImportUtils.resolveDroppedPaths([exe1.path, exe2.path]);
+      final result =
+          DropImportUtils.resolveDroppedPaths([exe1.path, exe2.path]);
 
       final expected = DropImportUtils.normalizeDropPath(dir.path);
       expect(result.folderPaths, [expected]);

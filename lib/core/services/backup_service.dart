@@ -229,7 +229,8 @@ class BackupService {
         filePath: filePath,
       );
     } catch (e, stackTrace) {
-      AppLogger.instance.error('Backup', '[BackupService] createBackup 错误: $e', e, stackTrace);
+      AppLogger.instance.error(
+          'Backup', '[BackupService] createBackup 错误: $e', e, stackTrace);
       return null;
     }
   }
@@ -245,7 +246,8 @@ class BackupService {
     try {
       final backupFile = File(backupFilePath);
       if (!await backupFile.exists()) {
-        AppLogger.instance.info('Backup', '[BackupService] 备份文件不存在: $backupFilePath');
+        AppLogger.instance
+            .info('Backup', '[BackupService] 备份文件不存在: $backupFilePath');
         return false;
       }
 
@@ -284,7 +286,8 @@ class BackupService {
 
       return true;
     } catch (e, stackTrace) {
-      AppLogger.instance.error('Backup', '[BackupService] restoreBackup 错误: $e', e, stackTrace);
+      AppLogger.instance.error(
+          'Backup', '[BackupService] restoreBackup 错误: $e', e, stackTrace);
       return false;
     }
   }
@@ -299,7 +302,8 @@ class BackupService {
       }
       return false;
     } catch (e, stackTrace) {
-      AppLogger.instance.error('Backup', '[BackupService] deleteBackup 错误: $e', e, stackTrace);
+      AppLogger.instance.error(
+          'Backup', '[BackupService] deleteBackup 错误: $e', e, stackTrace);
       return false;
     }
   }
@@ -316,14 +320,16 @@ class BackupService {
 
       // 检查目标名称是否已存在
       if (await File(newFilePath).exists()) {
-        AppLogger.instance.info('Backup', '[BackupService] 目标名称已存在: $newFilePath');
+        AppLogger.instance
+            .info('Backup', '[BackupService] 目标名称已存在: $newFilePath');
         return false;
       }
 
       await file.rename(newFilePath);
       return true;
     } catch (e, stackTrace) {
-      AppLogger.instance.error('Backup', '[BackupService] renameBackup 错误: $e', e, stackTrace);
+      AppLogger.instance.error(
+          'Backup', '[BackupService] renameBackup 错误: $e', e, stackTrace);
       return false;
     }
   }
@@ -386,7 +392,8 @@ class BackupService {
           filePath: targetPath,
         );
       } catch (e, stackTrace) {
-        AppLogger.instance.error('Backup', '[BackupService] importBackup（文件夹）错误: $e', e, stackTrace);
+        AppLogger.instance.error(
+            'Backup', '[BackupService] importBackup（文件夹）错误: $e', e, stackTrace);
         return null;
       }
     } else if (sourceEntity == FileSystemEntityType.file) {
@@ -411,7 +418,8 @@ class BackupService {
           filePath: targetPath,
         );
       } catch (e, stackTrace) {
-        AppLogger.instance.error('Backup', '[BackupService] importBackup（zip）错误: $e', e, stackTrace);
+        AppLogger.instance.error(
+            'Backup', '[BackupService] importBackup（zip）错误: $e', e, stackTrace);
         return null;
       }
     }
@@ -519,7 +527,8 @@ class BackupService {
       await _extractArchiveToPath(archiveFiles, savePath);
       return true;
     } catch (e, stackTrace) {
-      AppLogger.instance.error('Backup', '[BackupService] restoreCustomBackup 错误: $e', e, stackTrace);
+      AppLogger.instance.error('Backup',
+          '[BackupService] restoreCustomBackup 错误: $e', e, stackTrace);
       return false;
     }
   }
@@ -534,7 +543,8 @@ class BackupService {
         }
       }
     } catch (e, stackTrace) {
-      AppLogger.instance.error('Backup', '[BackupService] 搜索文件失败: $fileName, $e', e, stackTrace);
+      AppLogger.instance.error(
+          'Backup', '[BackupService] 搜索文件失败: $fileName, $e', e, stackTrace);
     }
     return null;
   }

@@ -9,19 +9,21 @@ void main() {
       final theme = dark
           ? AppTheme.darkTheme(fontFamily: '自定义字体')
           : AppTheme.lightTheme(fontFamily: '自定义字体');
-      await tester.pumpWidget(MaterialApp(theme: theme, home: Scaffold(body: Column(children: [
-        TextButton(onPressed: () {}, child: const Text('文本按钮')),
-        OutlinedButton(onPressed: () {}, child: const Text('描边按钮')),
-        ElevatedButton(onPressed: () {}, child: const Text('提升按钮')),
-        FilledButton(onPressed: () {}, child: const Text('填充按钮')),
-      ]))));
+      await tester.pumpWidget(MaterialApp(
+          theme: theme,
+          home: Scaffold(
+              body: Column(children: [
+            TextButton(onPressed: () {}, child: const Text('文本按钮')),
+            OutlinedButton(onPressed: () {}, child: const Text('描边按钮')),
+            ElevatedButton(onPressed: () {}, child: const Text('提升按钮')),
+            FilledButton(onPressed: () {}, child: const Text('填充按钮')),
+          ]))));
       for (final label in ['文本按钮', '描边按钮', '提升按钮', '填充按钮']) {
         final text = find.text(label);
         final style = DefaultTextStyle.of(tester.element(text)).style;
         expect(style.fontFamily, '自定义字体');
         expect(style.fontSize, GlassConstants.fontControl);
-        expect(
-            find.ancestor(of: text, matching: find.byType(AppControlScale)),
+        expect(find.ancestor(of: text, matching: find.byType(AppControlScale)),
             findsOneWidget);
       }
       expect(theme.popupMenuTheme.textStyle!.fontFamily, '自定义字体');

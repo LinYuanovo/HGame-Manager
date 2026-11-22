@@ -10,7 +10,8 @@ void main() {
     late Directory temporary;
     late AppSettings settings;
     const cookie = 'session=test-session==';
-    const source = 'https://www.dlsite.com/maniax/work/=/product_id/RJ100001.html';
+    const source =
+        'https://www.dlsite.com/maniax/work/=/product_id/RJ100001.html';
 
     setUp(() async {
       temporary = await Directory.systemTemp.createTemp('hgm_dlsite_headers_');
@@ -26,7 +27,11 @@ void main() {
     });
 
     test('通用页面请求读取 DLsite Cookie，主机匹配不受路径及相似域名干扰', () async {
-      for (final url in [source, 'https://DLSITE.COM/', 'https://www.dlsite.com./']) {
+      for (final url in [
+        source,
+        'https://DLSITE.COM/',
+        'https://www.dlsite.com./'
+      ]) {
         expect((await buildScrapeHeaders(url))['Cookie'], cookie);
       }
       for (final url in [
@@ -68,7 +73,10 @@ void main() {
     });
 
     test('其他站点的图片请求头保持原行为', () {
-      final headers = {'Referer': 'https://example.test/', 'Cookie': 'sid=other'};
+      final headers = {
+        'Referer': 'https://example.test/',
+        'Cookie': 'sid=other'
+      };
       expect(scopeScrapeImageHeaders('https://cdn.example.test/a.jpg', headers),
           headers);
     });
@@ -104,8 +112,7 @@ void main() {
 
     test('分协议格式取 https 条目', () {
       expect(
-        normalizeSystemProxyServer(
-            'http=127.0.0.1:7890;https=127.0.0.1:7891'),
+        normalizeSystemProxyServer('http=127.0.0.1:7890;https=127.0.0.1:7891'),
         '127.0.0.1:7891',
       );
     });

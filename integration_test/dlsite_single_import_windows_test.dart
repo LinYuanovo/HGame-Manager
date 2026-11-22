@@ -119,8 +119,8 @@ void main() {
     imageCache.clear();
     imageCache.clearLiveImages();
     final resolved = path.normalize(path.absolute(temporary.path));
-    if (!path.isWithin(
-            path.normalize(path.absolute(Directory.systemTemp.path)), resolved) ||
+    if (!path.isWithin(path.normalize(path.absolute(Directory.systemTemp.path)),
+            resolved) ||
         !path.basename(resolved).startsWith('hgm_dlsite_single_')) {
       throw StateError('拒绝清理测试临时目录以外的路径');
     }
@@ -181,7 +181,8 @@ void main() {
     await tester.pumpAndSettle();
     final dialog = find.byType(Dialog);
     expect(dialog, findsOneWidget);
-    Finder inside(Finder target) => find.descendant(of: dialog, matching: target);
+    Finder inside(Finder target) =>
+        find.descendant(of: dialog, matching: target);
     await tester.tap(inside(find.byIcon(Icons.folder_open)));
     await tester.pumpAndSettle();
     expect(picker.calls, 1);
@@ -193,7 +194,8 @@ void main() {
     await tester.ensureVisible(result);
     await tester.tap(result);
     await tester.pump();
-    final importButton = inside(find.widgetWithText(ElevatedButton, importLabel));
+    final importButton =
+        inside(find.widgetWithText(ElevatedButton, importLabel));
     expect(importButton, findsOneWidget);
     expect(tester.widget<ElevatedButton>(importButton).onPressed, isNotNull);
     await tester.tap(importButton);
@@ -269,8 +271,10 @@ void main() {
     expect(metadata['intro_html'], previous['intro_html']);
     final translation = metadata['translation'] as Map;
     final original = translation['original'] as Map;
-    final previousOriginal = (previous['translation'] as Map)['original'] as Map;
-    expect(translation['provider'], (previous['translation'] as Map)['provider']);
+    final previousOriginal =
+        (previous['translation'] as Map)['original'] as Map;
+    expect(
+        translation['provider'], (previous['translation'] as Map)['provider']);
     expect(original['intro'], previousOriginal['intro']);
     expect(original['intro_html'], previousOriginal['intro_html']);
     expect(original['title'], 'Public title');
@@ -278,8 +282,8 @@ void main() {
     expect(metadata['image_urls'], [getImageUrl()]);
     expect(metadata[GameInfo.dlsiteRestrictionKey], 'user_only');
     expect(ScrapeApplyService.isScrapedMetadata(metadata), isTrue);
-    final oldImage = File(path.join(
-        GameDataPaths.imagesDir(folder.path).path, 'manual_1.png'));
+    final oldImage = File(
+        path.join(GameDataPaths.imagesDir(folder.path).path, 'manual_1.png'));
     expect(await oldImage.readAsBytes(), savedImageBytes);
     expect(find.textContaining(GameInfo.dlsiteUserOnlyNotice), findsOneWidget);
     expect(tester.takeException(), isNull);

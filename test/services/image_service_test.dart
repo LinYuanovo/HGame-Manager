@@ -51,8 +51,10 @@ void main() {
 
       try {
         final service = ImageService();
-        final first = await service.copyImageToGameDir(source.path, tempDir.path);
-        final second = await service.copyImageToGameDir(source.path, tempDir.path);
+        final first =
+            await service.copyImageToGameDir(source.path, tempDir.path);
+        final second =
+            await service.copyImageToGameDir(source.path, tempDir.path);
 
         expect(path.basename(first), 'manual_1.png');
         expect(path.basename(second), 'manual_2.png');

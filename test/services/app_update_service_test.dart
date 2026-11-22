@@ -155,7 +155,8 @@ void main() {
       try {
         final zipFile = File('${temp.path}\\update.zip')
           ..writeAsBytesSync(
-            _buildZip({'hgame_manager.exe': 'exe-bytes', 'data\\readme.txt': 'hi'}),
+            _buildZip(
+                {'hgame_manager.exe': 'exe-bytes', 'data\\readme.txt': 'hi'}),
           );
         final dest = Directory('${temp.path}\\out');
         await dest.create();
@@ -183,7 +184,8 @@ void main() {
         });
         // 篡改压缩数据区域的一个字节
         bytes[bytes.length ~/ 3] ^= 0xFF;
-        final zipFile = File('${temp.path}\\update.zip')..writeAsBytesSync(bytes);
+        final zipFile = File('${temp.path}\\update.zip')
+          ..writeAsBytesSync(bytes);
         final dest = Directory('${temp.path}\\out');
         await dest.create();
 

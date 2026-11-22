@@ -57,8 +57,7 @@ void main() {
 
     final saved = prefs.getString(GuideWindowService.hotkeyToggleKey);
     expect(saved, isNotNull);
-    final hotKey =
-        HotKey.fromJson(jsonDecode(saved!) as Map<String, dynamic>);
+    final hotKey = HotKey.fromJson(jsonDecode(saved!) as Map<String, dynamic>);
     expect(hotKey.physicalKey, PhysicalKeyboardKey.keyA);
     expect(hotKey.modifiers, contains(HotKeyModifier.control));
 
@@ -89,4 +88,3 @@ void main() {
     await tester.pump(const Duration(seconds: 4));
   });
 }
-

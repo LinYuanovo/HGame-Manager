@@ -80,14 +80,16 @@ Future<AppUpdatePromptAction?> showAppUpdatePrompt(
                   onPressed: () => Navigator.of(context).pop(
                     AppUpdatePromptAction.manualDownload,
                   ),
-                  icon: const Icon(Icons.open_in_new, size: GlassConstants.iconSmall),
+                  icon: const Icon(Icons.open_in_new,
+                      size: GlassConstants.iconSmall),
                   label: const Text('手动下载'),
                 ),
                 ElevatedButton.icon(
                   onPressed: () => Navigator.of(context).pop(
                     AppUpdatePromptAction.install,
                   ),
-                  icon: const Icon(Icons.download_outlined, size: GlassConstants.iconSmall),
+                  icon: const Icon(Icons.download_outlined,
+                      size: GlassConstants.iconSmall),
                   label: const Text('立即更新'),
                 ),
               ],
@@ -192,7 +194,8 @@ Future<bool?> showAppUpdateFallbackDialog({
                 const SizedBox(width: GlassConstants.spacingSmall),
                 ElevatedButton.icon(
                   onPressed: () => Navigator.of(context).pop(true),
-                  icon: const Icon(Icons.open_in_new, size: GlassConstants.iconSmall),
+                  icon: const Icon(Icons.open_in_new,
+                      size: GlassConstants.iconSmall),
                   label: const Text('打开网盘'),
                 ),
               ],
@@ -245,7 +248,8 @@ Future<void> showAppUpdateDownloadProgress(
                 AppLinearProgress(
                   value: fraction,
                   minHeight: 6,
-                  borderRadius: BorderRadius.circular(GlassConstants.radiusIndicator),
+                  borderRadius:
+                      BorderRadius.circular(GlassConstants.radiusIndicator),
                   valueColor: AlwaysStoppedAnimation(
                     AppTheme.getPrimaryColor(context),
                   ),
@@ -310,7 +314,8 @@ Future<bool?> showAppUpdateResumeDialog(
                 const SizedBox(width: GlassConstants.spacingSmall),
                 ElevatedButton.icon(
                   onPressed: () => Navigator.of(context).pop(true),
-                  icon: const Icon(Icons.system_update_alt, size: GlassConstants.iconSmall),
+                  icon: const Icon(Icons.system_update_alt,
+                      size: GlassConstants.iconSmall),
                   label: const Text('继续安装'),
                 ),
               ],

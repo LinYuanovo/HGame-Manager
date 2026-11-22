@@ -80,7 +80,9 @@ void main() {
           'choices': [
             {
               'finish_reason': 'stop',
-              'message': {'content': jsonEncode({'texts': translatedTexts})},
+              'message': {
+                'content': jsonEncode({'texts': translatedTexts})
+              },
             },
           ],
         }));
@@ -158,10 +160,12 @@ void main() {
     final otherWork = sourceUrl.replaceFirst('RJ100001', 'RJ100002');
     await source.writeAsString(otherWork);
     final metadata = GameDataPaths.metadataFile(folder);
-    await metadata.writeAsString(jsonEncode({'intro': 'Description for the other work'}));
+    await metadata
+        .writeAsString(jsonEncode({'intro': 'Description for the other work'}));
     final before = await metadata.readAsBytes();
 
-    await expectLater(apply(Game(path: folder), restricted(), ScrapeMode.singleAdd),
+    await expectLater(
+        apply(Game(path: folder), restricted(), ScrapeMode.singleAdd),
         throwsStateError);
     expect(await source.readAsString(), otherWork);
     expect(await metadata.readAsBytes(), before);
@@ -172,8 +176,12 @@ void main() {
     final game = await createGame();
     final images = GameDataPaths.imagesDir(game.path);
     final metadata = GameDataPaths.metadataFile(game.path);
-    final previous = jsonDecode(await metadata.readAsString()) as Map<String, dynamic>;
-    final oldBytes = {'features': [1, 2, 3], 'changelog': [4, 5, 6]};
+    final previous =
+        jsonDecode(await metadata.readAsString()) as Map<String, dynamic>;
+    final oldBytes = {
+      'features': [1, 2, 3],
+      'changelog': [4, 5, 6]
+    };
     for (final entry in oldBytes.entries.indexed) {
       final image = File(path.join(images.path, 'scrape_${entry.$1 + 1}.png'));
       await image.writeAsBytes(entry.$2.value);
@@ -182,7 +190,8 @@ void main() {
     await metadata.writeAsString(jsonEncode(previous));
 
     await apply(game, restricted(), ScrapeMode.rescrape);
-    final saved = jsonDecode(await metadata.readAsString()) as Map<String, dynamic>;
+    final saved =
+        jsonDecode(await metadata.readAsString()) as Map<String, dynamic>;
     for (final entry in oldBytes.entries) {
       expect(await File(saved[entry.key] as String).readAsBytes(), entry.value,
           reason: entry.key);
@@ -312,26 +321,28 @@ void main() {
     game = game.copyWith(intro: 'Translated description');
     await repository.updateGame(game);
     final metadataFile = GameDataPaths.metadataFile(game.path);
-    await metadataFile.writeAsString(jsonEncode({
-      'source_url': sourceUrl,
-      'intro': 'Translated description',
-      'intro_html': '<p>Translated description</p>',
-      'translation': {
-        'original': {
+    await metadataFile.writeAsString(
+        jsonEncode({
           'source_url': sourceUrl,
-          'intro': 'Original description',
-          'intro_html': '<p>Original description</p>'
-              '<img src="${originalImage.path.replaceAll('\\', '/')}">',
-        },
-        'provider': 'llm',
-        'target_language': 'zh-CN',
-        'translated_at': '2026-11-16T00:00:00.000',
-      },
-    }), flush: true);
+          'intro': 'Translated description',
+          'intro_html': '<p>Translated description</p>',
+          'translation': {
+            'original': {
+              'source_url': sourceUrl,
+              'intro': 'Original description',
+              'intro_html': '<p>Original description</p>'
+                  '<img src="${originalImage.path.replaceAll('\\', '/')}">',
+            },
+            'provider': 'llm',
+            'target_language': 'zh-CN',
+            'translated_at': '2026-11-16T00:00:00.000',
+          },
+        }),
+        flush: true);
 
     final result = await apply(game, restricted(), ScrapeMode.rescrape);
-    final metadata = jsonDecode(await metadataFile.readAsString())
-        as Map<String, dynamic>;
+    final metadata =
+        jsonDecode(await metadataFile.readAsString()) as Map<String, dynamic>;
     expect(metadata['intro'], 'Translated description');
     expect(metadata['intro_html'], '<p>Translated description</p>');
     expect(metadata[GameInfo.dlsiteRestrictionKey], 'user_only');
@@ -361,7 +372,8 @@ void main() {
     expect(await originalImage.exists(), isFalse);
     expect(result.intro, 'Translated description');
     expect(result.images, hasLength(1));
-    expect(await File(result.images.single.imagePath).readAsBytes(), imageBytes);
+    expect(
+        await File(result.images.single.imagePath).readAsBytes(), imageBytes);
     expect(tester.takeException(), isNull);
   });
 
@@ -382,29 +394,31 @@ void main() {
     );
     await repository.updateGame(game);
     final metadataFile = GameDataPaths.metadataFile(game.path);
-    await metadataFile.writeAsString(jsonEncode({
-      'source_url': sourceUrl,
-      'title': 'Saved translated title',
-      'tags': ['Saved translated genre'],
-      'intro': 'Translated description',
-      'intro_html': '<p>Translated description</p>',
-      'features': 'Translated features',
-      'changelog': 'Translated changelog',
-      'translation': {
-        'original': {
+    await metadataFile.writeAsString(
+        jsonEncode({
           'source_url': sourceUrl,
-          'title': 'Saved original title',
-          'tags': ['Saved original genre'],
-          'intro': 'Original description',
-          'intro_html': '<p>Original description</p>',
-          'features': 'Original features',
-          'changelog': 'Original changelog',
-        },
-        'provider': 'llm',
-        'target_language': 'zh-CN',
-        'translated_at': '2026-11-16T00:00:00.000',
-      },
-    }), flush: true);
+          'title': 'Saved translated title',
+          'tags': ['Saved translated genre'],
+          'intro': 'Translated description',
+          'intro_html': '<p>Translated description</p>',
+          'features': 'Translated features',
+          'changelog': 'Translated changelog',
+          'translation': {
+            'original': {
+              'source_url': sourceUrl,
+              'title': 'Saved original title',
+              'tags': ['Saved original genre'],
+              'intro': 'Original description',
+              'intro_html': '<p>Original description</p>',
+              'features': 'Original features',
+              'changelog': 'Original changelog',
+            },
+            'provider': 'llm',
+            'target_language': 'zh-CN',
+            'translated_at': '2026-11-16T00:00:00.000',
+          },
+        }),
+        flush: true);
     final info = restricted()..tags = ['Public genre'];
 
     final result = await apply(game, info, ScrapeMode.rescrape);
@@ -437,19 +451,22 @@ void main() {
 
   testWidgets('受限刮削拒绝更换作品并保留已有数据', (tester) async {
     final game = await createGame();
-    final tagId = await tagRepository.insertOrGetTag('Saved tag', Tag.typeCustom);
+    final tagId =
+        await tagRepository.insertOrGetTag('Saved tag', Tag.typeCustom);
     await repository.addTagToGame(game.id!, tagId);
     final images = GameDataPaths.imagesDir(game.path);
     final originalImage = File(game.images.single.imagePath);
     final originalImageBytes = await originalImage.readAsBytes();
     final metadataFile = GameDataPaths.metadataFile(game.path);
-    await metadataFile.writeAsString(jsonEncode({
-      'title': game.title,
-      'source_url': sourceUrl,
-      'intro': game.intro,
-      'intro_html': '<p>Saved description</p>'
-          '<img src="${originalImage.path.replaceAll('\\', '/')}">',
-    }), flush: true);
+    await metadataFile.writeAsString(
+        jsonEncode({
+          'title': game.title,
+          'source_url': sourceUrl,
+          'intro': game.intro,
+          'intro_html': '<p>Saved description</p>'
+              '<img src="${originalImage.path.replaceAll('\\', '/')}">',
+        }),
+        flush: true);
     final originalMetadata = await metadataFile.readAsBytes();
     final sourceFile = GameDataPaths.sourceUrlFile(game.path);
     final originalSource = await sourceFile.readAsBytes();
@@ -461,8 +478,8 @@ void main() {
       ..sourceUrl =
           'https://www.dlsite.com/maniax/work/=/product_id/RJ100002.html';
 
-    await expectLater(apply(game, info, ScrapeMode.quickScrape),
-        throwsA(isA<StateError>()));
+    await expectLater(
+        apply(game, info, ScrapeMode.quickScrape), throwsA(isA<StateError>()));
     for (final entry in originalRecords.entries) {
       expect(await database.query(entry.key), entry.value, reason: entry.key);
     }
@@ -493,8 +510,8 @@ void main() {
     }));
     final before = await metadataFile.readAsBytes();
     final info = restricted()..sourceUrl = changedSource;
-    await expectLater(apply(game, info, ScrapeMode.rescrape),
-        throwsA(isA<StateError>()));
+    await expectLater(
+        apply(game, info, ScrapeMode.rescrape), throwsA(isA<StateError>()));
     expect(await metadataFile.readAsBytes(), before);
     expect((await repository.getGameById(game.id!))!.sourceUrl, changedSource);
     expect(tester.takeException(), isNull);

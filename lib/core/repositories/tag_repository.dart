@@ -108,6 +108,7 @@ class TagRepository {
       );
       return rows.single['id'] as int;
     }
+
     if (executor != null) return insert(executor);
     final db = await _db;
     return db.transaction(insert);

@@ -43,8 +43,7 @@ class AppMotion {
 
     final frameCount =
         (effectiveDuration.inMicroseconds * refreshRate / 1e6).round();
-    return Duration(
-        microseconds: (frameCount * 1e6 / refreshRate).round());
+    return Duration(microseconds: (frameCount * 1e6 / refreshRate).round());
   }
 
   static void scrollTo(
@@ -59,7 +58,8 @@ class AppMotion {
 }
 
 class AppMotionVisibility extends StatefulWidget {
-  const AppMotionVisibility({super.key, required this.child, this.reduceMotion = false});
+  const AppMotionVisibility(
+      {super.key, required this.child, this.reduceMotion = false});
   final Widget child;
   final bool reduceMotion;
   @override

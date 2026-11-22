@@ -5,7 +5,8 @@ import '../lib/scraper/parse_utils.dart';
 
 void main() async {
   final url = 'https://feixueacg.org/thread-83410-1-1.html';
-  const cookie = 'X_CACHE_KEY=6f79c552ad8d31a3aa82d8cf65dbc65a; acFt_cookie=acFt_1; bPvg_2132_saltkey=Ahf4KI88; bPvg_2132_lastvisit=1779681602; bPvg_2132_atarget=1; bPvg_2132_auth=a85dzUrgzFuY48W00Sd%2B2cfbauK4mjFB1V2ghaai3sXX8CnPtV0RoT%2BZs0s%2Fp2OHxB55i%2BAc5CArcACMgQ5jOsndO9Q; bPvg_2132_lastcheckfeed=183720%7C1779685277; bPvg_2132_nofavfid=1; bPvg_2132_smile=1D1; bPvg_2132_visitedfid=43D64; server_name_session=f0a8796083e63e25a066bfaadd47d480; bPvg_2132_seccodecSAA9N0=23913.59e10036f2c92fc895; bPvg_2132_seccodecSAdUX0=24235.81a119aeb35f34d890; bPvg_2132_st_t=183720%7C1779795460%7C2dcd3e24bc61f389201ea63e3dcfe2f4; bPvg_2132_forum_lastvisit=D_64_1779692273D_43_1779795460; bPvg_2132_ulastactivity=1779798762%7C0; bPvg_2132_st_p=183720%7C1779798807%7Cd8e39f4136c9509f8f88b67e36d1a9a1; bPvg_2132_viewid=tid_88994; bPvg_2132_seccodecS0=35372.6d18bf92ab1d258093; bPvg_2132_lastact=1779798809%09plugin.php%09';
+  const cookie =
+      'X_CACHE_KEY=6f79c552ad8d31a3aa82d8cf65dbc65a; acFt_cookie=acFt_1; bPvg_2132_saltkey=Ahf4KI88; bPvg_2132_lastvisit=1779681602; bPvg_2132_atarget=1; bPvg_2132_auth=a85dzUrgzFuY48W00Sd%2B2cfbauK4mjFB1V2ghaai3sXX8CnPtV0RoT%2BZs0s%2Fp2OHxB55i%2BAc5CArcACMgQ5jOsndO9Q; bPvg_2132_lastcheckfeed=183720%7C1779685277; bPvg_2132_nofavfid=1; bPvg_2132_smile=1D1; bPvg_2132_visitedfid=43D64; server_name_session=f0a8796083e63e25a066bfaadd47d480; bPvg_2132_seccodecSAA9N0=23913.59e10036f2c92fc895; bPvg_2132_seccodecSAdUX0=24235.81a119aeb35f34d890; bPvg_2132_st_t=183720%7C1779795460%7C2dcd3e24bc61f389201ea63e3dcfe2f4; bPvg_2132_forum_lastvisit=D_64_1779692273D_43_1779795460; bPvg_2132_ulastactivity=1779798762%7C0; bPvg_2132_st_p=183720%7C1779798807%7Cd8e39f4136c9509f8f88b67e36d1a9a1; bPvg_2132_viewid=tid_88994; bPvg_2132_seccodecS0=35372.6d18bf92ab1d258093; bPvg_2132_lastact=1779798809%09plugin.php%09';
 
   final output = StringBuffer();
   output.writeln('URL解析完整内容输出');
@@ -17,7 +18,8 @@ void main() async {
     final response = await http.get(
       Uri.parse(url),
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Cookie': cookie,
       },
     ).timeout(const Duration(seconds: 30));
@@ -71,7 +73,8 @@ void main() async {
     final postContent = doc.querySelector('td.t_f');
     if (postContent != null) {
       // 移除提示div
-      for (final tipDiv in postContent.querySelectorAll('div.tip, div.tip_4, div.aimg_tip')) {
+      for (final tipDiv
+          in postContent.querySelectorAll('div.tip, div.tip_4, div.aimg_tip')) {
         tipDiv.remove();
       }
       for (final script in postContent.querySelectorAll('script')) {
@@ -95,7 +98,8 @@ void main() async {
         // 过滤后的内容
         var showhideText = showhideDiv.text;
         showhideText = showhideText.replaceAll('本帖隱藏的內容', '').trim();
-        final lines = showhideText.split('\n').where((l) => l.trim().isNotEmpty).toList();
+        final lines =
+            showhideText.split('\n').where((l) => l.trim().isNotEmpty).toList();
         final filteredLines = <String>[];
         final removedLines = <String>[];
         for (final line in lines) {
@@ -155,9 +159,14 @@ void main() async {
 
       // 4. 概要部分
       var fullText = postContent.text;
-      fullText = fullText.replaceAll(RegExp(r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件[^\n]*(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳'), '');
-      fullText = fullText.replaceAll(RegExp(r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件'), '');
-      final uploadMarker = RegExp(r'(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳');
+      fullText = fullText.replaceAll(
+          RegExp(
+              r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件[^\n]*(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳'),
+          '');
+      fullText = fullText.replaceAll(
+          RegExp(r'[\w.]+\.\w+\s*\([^)]*KB[^)]*\)[^\n]*下載附件'), '');
+      final uploadMarker =
+          RegExp(r'(?:\d+\s*天前|\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2})\s*上傳');
       final allMarkers = uploadMarker.allMatches(fullText).toList();
       if (allMarkers.isNotEmpty) {
         fullText = fullText.substring(allMarkers.last.end).trim();
@@ -210,7 +219,6 @@ void main() async {
     // 写入文件
     File('test/full_content_output.txt').writeAsStringSync(output.toString());
     print('✅ 内容已输出到 test/full_content_output.txt');
-
   } catch (e) {
     output.writeln('错误: $e');
     File('test/full_content_output.txt').writeAsStringSync(output.toString());

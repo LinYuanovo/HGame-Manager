@@ -59,7 +59,8 @@ enum NavRoute {
   }
 
   static List<NavRoute> get sidebarOrder {
-    final routes = NavRoute.values.where((r) => r != NavRoute.settings).toList();
+    final routes =
+        NavRoute.values.where((r) => r != NavRoute.settings).toList();
     routes.add(NavRoute.settings);
     return routes;
   }
@@ -67,12 +68,17 @@ enum NavRoute {
 
 final visibleSidebarRoutesProvider = Provider<List<NavRoute>>((ref) {
   ref.watch(sidebarRefreshProvider);
-  final raw = ref.watch(sharedPreferencesProvider).getString(AppSettings.sidebarConfigKey);
+  final raw = ref
+      .watch(sharedPreferencesProvider)
+      .getString(AppSettings.sidebarConfigKey);
   final defaults = NavRoute.values.where((route) => route != NavRoute.settings);
   if (raw == null || raw.isEmpty) return defaults.toList();
   try {
-    final entries = (jsonDecode(raw) as List).cast<Map<String, dynamic>>().toList()
-      ..sort((first, second) => ((first['order'] as int?) ?? 0).compareTo((second['order'] as int?) ?? 0));
+    final entries = (jsonDecode(raw) as List)
+        .cast<Map<String, dynamic>>()
+        .toList()
+      ..sort((first, second) => ((first['order'] as int?) ?? 0)
+          .compareTo((second['order'] as int?) ?? 0));
     final remaining = {for (final route in defaults) route.name: route};
     final routes = <NavRoute>[];
     for (final entry in entries) {
@@ -90,12 +96,16 @@ class AppRouter extends StatefulWidget {
   final int selectedIndex;
   final List<NavRoute> routeOrder;
 
-  const AppRouter({super.key, required this.selectedIndex, this.routeOrder = NavRoute.values});
+  const AppRouter(
+      {super.key,
+      required this.selectedIndex,
+      this.routeOrder = NavRoute.values});
 
   @override
   State<AppRouter> createState() => _AppRouterState();
 
-  static Widget getCurrentPage(int selectedIndex, {List<NavRoute> routeOrder = NavRoute.values}) {
+  static Widget getCurrentPage(int selectedIndex,
+      {List<NavRoute> routeOrder = NavRoute.values}) {
     return AppRouter(selectedIndex: selectedIndex, routeOrder: routeOrder);
   }
 
@@ -108,17 +118,21 @@ class _AppRouterState extends State<AppRouter> {
   @override
   void initState() {
     super.initState();
-    AppLogger.instance.info('Navigation', '打开页面: ${NavRoute.fromIndex(widget.selectedIndex).label}');
+    AppLogger.instance.info('Navigation',
+        '打开页面: ${NavRoute.fromIndex(widget.selectedIndex).label}');
   }
 
   @override
   void didUpdateWidget(covariant AppRouter oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedIndex != widget.selectedIndex) {
-      final previous = widget.routeOrder.indexOf(NavRoute.fromIndex(oldWidget.selectedIndex));
-      final next = widget.routeOrder.indexOf(NavRoute.fromIndex(widget.selectedIndex));
+      final previous = widget.routeOrder
+          .indexOf(NavRoute.fromIndex(oldWidget.selectedIndex));
+      final next =
+          widget.routeOrder.indexOf(NavRoute.fromIndex(widget.selectedIndex));
       _isForward = next >= previous;
-      AppLogger.instance.info('Navigation', '切换页面: ${NavRoute.fromIndex(widget.selectedIndex).label}');
+      AppLogger.instance.info('Navigation',
+          '切换页面: ${NavRoute.fromIndex(widget.selectedIndex).label}');
     }
   }
 

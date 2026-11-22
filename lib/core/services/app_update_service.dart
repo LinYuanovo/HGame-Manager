@@ -109,7 +109,8 @@ class AppUpdateService {
           .get(Uri.parse(appChangelogUrl))
           .timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) {
-        AppLogger.instance.warning('Update', '检查更新失败: HTTP ${response.statusCode}');
+        AppLogger.instance
+            .warning('Update', '检查更新失败: HTTP ${response.statusCode}');
         return AppUpdateCheckResult(
           status: AppUpdateStatus.unavailable,
           currentVersion: currentVersion,
@@ -435,8 +436,8 @@ class AppUpdateService {
     final uri = buildReleaseDownloadUri(version);
     final existingLength = await zipFile.exists() ? await zipFile.length() : 0;
     if (existingLength > 0) {
-      return _downloadZipSingle(client, uri, zipFile, existingLength,
-          onProgress);
+      return _downloadZipSingle(
+          client, uri, zipFile, existingLength, onProgress);
     }
 
     int? total;
@@ -445,8 +446,8 @@ class AppUpdateService {
           await _sendDownloadRequest(client, uri, rangeStart: 0, rangeEnd: 0);
       await probe.stream.drain<void>();
       if (probe.statusCode == 206) {
-        total = int.tryParse(
-            probe.headers['content-range']?.split('/').last ?? '');
+        total =
+            int.tryParse(probe.headers['content-range']?.split('/').last ?? '');
       }
     } catch (_) {
       total = null;
@@ -643,7 +644,9 @@ class AppUpdateService {
     // PowerShell 5.1 按 BOM 识别 UTF-8，必须带 BOM 写入，否则中文路径乱码
     final ps1File = File(path.join(cacheDir.path, 'update.ps1'));
     await ps1File.writeAsBytes([
-      0xEF, 0xBB, 0xBF,
+      0xEF,
+      0xBB,
+      0xBF,
       ...utf8.encode(
         _buildPowerShellScript(
           processId: pid,

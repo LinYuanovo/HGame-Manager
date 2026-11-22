@@ -87,9 +87,14 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
   }
 
   Future<void> _selectResult(dynamic result) async {
-    if (_isSearching || (_isLoadingContent && identical(result, _activeResult)) || ModalRoute.of(context)?.isCurrent == false) return;
+    if (_isSearching ||
+        (_isLoadingContent && identical(result, _activeResult)) ||
+        ModalRoute.of(context)?.isCurrent == false) return;
     final generation = ++_contentGeneration;
-    setState(() { _isLoadingContent = true; _activeResult = result; });
+    setState(() {
+      _isLoadingContent = true;
+      _activeResult = result;
+    });
     String? content;
     try {
       if (result is PilipiliSearchResult) {
@@ -101,7 +106,9 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
 
         // 如果有多个walkthrough，让用户选择
         if (scrapeResult.hasWalkthroughs) {
-          if (!mounted || generation != _contentGeneration || ModalRoute.of(context)?.isCurrent == false) return;
+          if (!mounted ||
+              generation != _contentGeneration ||
+              ModalRoute.of(context)?.isCurrent == false) return;
           final selectedWalkthrough =
               await _showWalkthroughDialog(scrapeResult.walkthroughs);
           if (selectedWalkthrough == null) {
@@ -120,13 +127,17 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
         }
       }
 
-      if (!mounted || generation != _contentGeneration || ModalRoute.of(context)?.isCurrent == false) return;
+      if (!mounted ||
+          generation != _contentGeneration ||
+          ModalRoute.of(context)?.isCurrent == false) return;
       // 下载图片并替换URL为本地路径
       if (content != null && content.isNotEmpty) {
         content = await _downloadGuideImages(content, generation);
       }
 
-      if (!mounted || generation != _contentGeneration || ModalRoute.of(context)?.isCurrent == false) return;
+      if (!mounted ||
+          generation != _contentGeneration ||
+          ModalRoute.of(context)?.isCurrent == false) return;
       if (content != null) {
         Navigator.of(context).pop(content);
       } else {
@@ -144,7 +155,8 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
             iconColor: AppTheme.errorColor);
       }
     } finally {
-      if (mounted && generation == _contentGeneration) setState(() => _isLoadingContent = false);
+      if (mounted && generation == _contentGeneration)
+        setState(() => _isLoadingContent = false);
     }
   }
 
@@ -271,16 +283,17 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
               Row(
                 children: [
                   Icon(Icons.menu_book,
-                      color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconSection),
+                      color: AppTheme.getPrimaryColor(context),
+                      size: GlassConstants.iconSection),
                   const SizedBox(width: GlassConstants.spacingInline),
-                  Text('选择攻略',
-                      style: AppTypography.dialogTitle(context)),
+                  Text('选择攻略', style: AppTypography.dialogTitle(context)),
                 ],
               ),
               const SizedBox(height: GlassConstants.spacingSmall),
               Text('找到 ${walkthroughs.length} 个攻略，请选择：',
                   style: TextStyle(
-                      color: AppTheme.getTextSecondary(context), fontSize: GlassConstants.fontBody)),
+                      color: AppTheme.getTextSecondary(context),
+                      fontSize: GlassConstants.fontBody)),
               const SizedBox(height: GlassConstants.spacingMedium),
               Expanded(
                 child: ListView.builder(
@@ -288,7 +301,8 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                   itemBuilder: (context, index) {
                     final wt = walkthroughs[index];
                     return Container(
-                      margin: const EdgeInsets.only(bottom: GlassConstants.spacingSmall),
+                      margin: const EdgeInsets.only(
+                          bottom: GlassConstants.spacingSmall),
                       child: Material(
                         color: Colors.transparent,
                         borderRadius:
@@ -299,7 +313,8 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                           onTap: () => Navigator.pop(context, wt),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingCompact),
+                                horizontal: GlassConstants.spacingMedium,
+                                vertical: GlassConstants.spacingCompact),
                             decoration: BoxDecoration(
                               color: AppTheme.getBackgroundColor(context)
                                   .withValues(alpha: 0.5),
@@ -312,12 +327,15 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                             child: Row(
                               children: [
                                 Icon(Icons.article_outlined,
-                                    size: GlassConstants.iconAction, color: AppTheme.getPrimaryColor(context)),
-                                const SizedBox(width: GlassConstants.spacingCompact),
+                                    size: GlassConstants.iconAction,
+                                    color: AppTheme.getPrimaryColor(context)),
+                                const SizedBox(
+                                    width: GlassConstants.spacingCompact),
                                 Expanded(
                                     child: Text(wt.title,
                                         style: TextStyle(
-                                            fontSize: GlassConstants.fontControl,
+                                            fontSize:
+                                                GlassConstants.fontControl,
                                             color:
                                                 AppTheme.getDetailTextPrimary(
                                                     context)),
@@ -354,7 +372,9 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingPage, vertical: GlassConstants.spacingLarge),
+      insetPadding: const EdgeInsets.symmetric(
+          horizontal: GlassConstants.spacingPage,
+          vertical: GlassConstants.spacingLarge),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 700, maxHeight: 600),
         child: Container(
@@ -395,15 +415,19 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(GlassConstants.spacingLarge, GlassConstants.spacingComfortable, GlassConstants.spacingMedium, GlassConstants.spacingCompact),
+      padding: const EdgeInsets.fromLTRB(
+          GlassConstants.spacingLarge,
+          GlassConstants.spacingComfortable,
+          GlassConstants.spacingMedium,
+          GlassConstants.spacingCompact),
       child: Row(
         children: [
           Icon(Icons.menu_book,
-              color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconMedium),
+              color: AppTheme.getPrimaryColor(context),
+              size: GlassConstants.iconMedium),
           const SizedBox(width: GlassConstants.spacingInline),
           Expanded(
-            child: Text('搜索攻略',
-                style: AppTypography.dialogTitle(context)),
+            child: Text('搜索攻略', style: AppTypography.dialogTitle(context)),
           ),
           IconButton(
               icon: const Icon(Icons.close, size: GlassConstants.iconControl),
@@ -416,7 +440,9 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingCompact),
+      padding: const EdgeInsets.symmetric(
+          horizontal: GlassConstants.spacingLarge,
+          vertical: GlassConstants.spacingCompact),
       child: Row(
         children: [
           AppDropdown<GuideSource>(
@@ -433,8 +459,10 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                 child: Text('2DFan'),
               ),
             ],
-            onChanged: _isBusy ? null : (v) =>
-                setState(() => _selectedSource = v ?? GuideSource.pilipili),
+            onChanged: _isBusy
+                ? null
+                : (v) =>
+                    setState(() => _selectedSource = v ?? GuideSource.pilipili),
           ),
           const SizedBox(width: GlassConstants.spacingCompact),
           Expanded(
@@ -451,20 +479,23 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                   hintStyle: TextStyle(
                       color: AppTheme.getTextSecondary(context)
                           .withValues(alpha: 0.5)),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: 0),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: GlassConstants.spacingCompact, vertical: 0),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
+                      borderRadius:
+                          BorderRadius.circular(GlassConstants.radiusCompact),
                       borderSide: BorderSide(
                           color: AppTheme.getBorderColor(context)
                               .withValues(alpha: 0.3))),
                   enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
+                      borderRadius:
+                          BorderRadius.circular(GlassConstants.radiusCompact),
                       borderSide: BorderSide(
                           color: AppTheme.getBorderColor(context)
                               .withValues(alpha: 0.3))),
                   focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(GlassConstants.radiusCompact),
+                      borderRadius:
+                          BorderRadius.circular(GlassConstants.radiusCompact),
                       borderSide: BorderSide(
                           color: AppTheme.getPrimaryColor(context)
                               .withValues(alpha: 0.5))),
@@ -499,7 +530,9 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
           child: Text('无搜索结果',
               style: TextStyle(color: AppTheme.getTextSecondary(context))));
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingLarge, vertical: GlassConstants.spacingSmall),
+      padding: const EdgeInsets.symmetric(
+          horizontal: GlassConstants.spacingLarge,
+          vertical: GlassConstants.spacingSmall),
       itemCount: _results.length,
       itemBuilder: (context, index) {
         final result = _results[index];
@@ -515,10 +548,14 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
             borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
             child: InkWell(
               borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-              onTap: _isSearching || (_isLoadingContent && identical(result, _activeResult)) ? null : () => _selectResult(result),
+              onTap: _isSearching ||
+                      (_isLoadingContent && identical(result, _activeResult))
+                  ? null
+                  : () => _selectResult(result),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: GlassConstants.spacingMedium, vertical: GlassConstants.spacingCompact),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: GlassConstants.spacingMedium,
+                    vertical: GlassConstants.spacingCompact),
                 decoration: BoxDecoration(
                   color: AppTheme.getBackgroundColor(context)
                       .withValues(alpha: 0.5),
@@ -531,7 +568,8 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                 child: Row(
                   children: [
                     Icon(Icons.menu_book,
-                        size: GlassConstants.iconAction, color: AppTheme.getPrimaryColor(context)),
+                        size: GlassConstants.iconAction,
+                        color: AppTheme.getPrimaryColor(context)),
                     const SizedBox(width: GlassConstants.spacingCompact),
                     Expanded(
                       child: Column(
@@ -545,7 +583,8 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                               overflow: TextOverflow.ellipsis),
                           if (subtitle.isNotEmpty)
                             Padding(
-                              padding: const EdgeInsets.only(top: GlassConstants.spacingTiny),
+                              padding: const EdgeInsets.only(
+                                  top: GlassConstants.spacingTiny),
                               child: Text(subtitle,
                                   style: TextStyle(
                                       fontSize: GlassConstants.fontSmall,
@@ -558,9 +597,13 @@ class _GuideSearchDialogState extends ConsumerState<GuideSearchDialog> {
                       ),
                     ),
                     if (_isLoadingContent && identical(result, _activeResult))
-                      const SizedBox.square(dimension: GlassConstants.iconCompact, child: AppProgressIndicator(strokeWidth: 2))
-                    else Icon(Icons.arrow_forward_ios,
-                        size: GlassConstants.iconCompact, color: AppTheme.getTextSecondary(context)),
+                      const SizedBox.square(
+                          dimension: GlassConstants.iconCompact,
+                          child: AppProgressIndicator(strokeWidth: 2))
+                    else
+                      Icon(Icons.arrow_forward_ios,
+                          size: GlassConstants.iconCompact,
+                          color: AppTheme.getTextSecondary(context)),
                   ],
                 ),
               ),

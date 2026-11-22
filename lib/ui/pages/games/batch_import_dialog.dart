@@ -291,10 +291,11 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
       }
     });
     final queue = List<_BatchGameItem>.of(failedItems);
-    await Future.wait(
-        List.generate(3, (_) => _processQueue(queue, container, () {}, () {}, () {
-          _skippedCount++;
-        })));
+    await Future.wait(List.generate(
+        3,
+        (_) => _processQueue(queue, container, () {}, () {}, () {
+              _skippedCount++;
+            })));
     if (!mounted) return;
     setState(() {
       _importing = false;
@@ -784,11 +785,14 @@ class _BatchImportDialogState extends ConsumerState<BatchImportDialog> {
               GlassConstants.fontControl)
           .clamp(1.0, double.infinity);
 
-  TextStyle get _controlTextStyle => Theme.of(context).textTheme.labelLarge!.copyWith(
-        fontSize: GlassConstants.fontControl,
-        color: AppTheme.getTextPrimary(context),
-        fontFamily: widget.userFont.isNotEmpty ? widget.userFont : Theme.of(context).textTheme.labelLarge!.fontFamily,
-      );
+  TextStyle get _controlTextStyle =>
+      Theme.of(context).textTheme.labelLarge!.copyWith(
+            fontSize: GlassConstants.fontControl,
+            color: AppTheme.getTextPrimary(context),
+            fontFamily: widget.userFont.isNotEmpty
+                ? widget.userFont
+                : Theme.of(context).textTheme.labelLarge!.fontFamily,
+          );
 
   Widget _gameName(_BatchGameItem item) => Tooltip(
         message: item.currentPath,

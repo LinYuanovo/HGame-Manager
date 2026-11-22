@@ -42,7 +42,8 @@ class SavePathService {
 
     final exeFiles = await dir
         .list()
-        .where((entity) => entity is File && entity.path.toLowerCase().endsWith('.exe'))
+        .where((entity) =>
+            entity is File && entity.path.toLowerCase().endsWith('.exe'))
         .cast<File>()
         .toList();
 
@@ -71,7 +72,8 @@ class SavePathService {
 
     final exeFiles = await dir
         .list()
-        .where((entity) => entity is File && entity.path.toLowerCase().endsWith('.exe'))
+        .where((entity) =>
+            entity is File && entity.path.toLowerCase().endsWith('.exe'))
         .cast<File>()
         .toList();
 
@@ -103,7 +105,7 @@ class SavePathService {
   Future<String?> findSavePath(String gamePath, String? gameTitle) async {
     final exeGameName = await extractGameNameFromExe(gamePath);
     final gameName = exeGameName ?? gameTitle;
-    
+
     if (gameName == null || gameName.isEmpty) {
       debugPrint('[SavePath] 游戏名为空，尝试本地存档检测');
       return _findLocalSavePath(gamePath);
@@ -120,7 +122,10 @@ class SavePathService {
     if (result != null) return result;
 
     // 3. 如果游戏名来自exe且有metadata title，用title分词回退搜索AppData
-    if (exeGameName != null && gameTitle != null && gameTitle.isNotEmpty && gameTitle != gameName) {
+    if (exeGameName != null &&
+        gameTitle != null &&
+        gameTitle.isNotEmpty &&
+        gameTitle != gameName) {
       debugPrint('[SavePath] 使用metadata title分词回退搜索: $gameTitle');
       result = await _searchWithTokenizedTitle(gameTitle);
       if (result != null) return result;
@@ -184,7 +189,8 @@ class SavePathService {
               await for (final subEntity in entity.list()) {
                 if (subEntity is! Directory) continue;
                 final subDirName = path.basename(subEntity.path).toLowerCase();
-                if (subDirName == keywordLower || subDirName.contains(keywordLower)) {
+                if (subDirName == keywordLower ||
+                    subDirName.contains(keywordLower)) {
                   debugPrint('[SavePath] 子目录匹配成功: ${subEntity.path}');
                   candidates.add(subEntity.path);
                 }
@@ -230,9 +236,21 @@ class SavePathService {
 
     try {
       final dir = Directory(savePath);
-      final children = await dir.list().map((e) => path.basename(e.path).toLowerCase()).toList();
+      final children = await dir
+          .list()
+          .map((e) => path.basename(e.path).toLowerCase())
+          .toList();
 
-      final saveIndicators = ['save', 'saves', 'savegame', 'savegames', 'userdata', 'config', 'settings', 'profiles'];
+      final saveIndicators = [
+        'save',
+        'saves',
+        'savegame',
+        'savegames',
+        'userdata',
+        'config',
+        'settings',
+        'profiles'
+      ];
       for (final child in children) {
         for (final indicator in saveIndicators) {
           if (child.contains(indicator)) {
@@ -242,7 +260,8 @@ class SavePathService {
         }
       }
 
-      if (children.any((c) => c.endsWith('.sav') || c.endsWith('.save') || c.endsWith('.dat'))) {
+      if (children.any((c) =>
+          c.endsWith('.sav') || c.endsWith('.save') || c.endsWith('.dat'))) {
         score += 15.0;
       }
 
@@ -256,34 +275,37 @@ class SavePathService {
 
   Future<String?> _findLocalSavePath(String gamePath) async {
     final saveExtensions = ['.rxdata', '.rvdata2', '.rpgsave', '.rmmzsave'];
-    
+
     // 检查游戏根目录下的 save 文件夹（大小写不敏感）
     final localSavePath = await _findFolderIgnoreCase(gamePath, 'save');
-    if (localSavePath != null && await _isValidSaveFolder(localSavePath, saveExtensions)) {
+    if (localSavePath != null &&
+        await _isValidSaveFolder(localSavePath, saveExtensions)) {
       debugPrint('[SavePath] 本地存档匹配成功: $localSavePath');
       return localSavePath;
     }
-    
+
     // 检查 www/save 文件夹（大小写不敏感）
     final wwwDir = await _findFolderIgnoreCase(gamePath, 'www');
     if (wwwDir != null) {
       final wwwSavePath = await _findFolderIgnoreCase(wwwDir, 'save');
-      if (wwwSavePath != null && await _isValidSaveFolder(wwwSavePath, saveExtensions)) {
+      if (wwwSavePath != null &&
+          await _isValidSaveFolder(wwwSavePath, saveExtensions)) {
         debugPrint('[SavePath] 本地存档匹配成功: $wwwSavePath');
         return wwwSavePath;
       }
     }
-    
+
     debugPrint('[SavePath] 本地存档检测未找到有效存档');
     return null;
   }
-  
-  Future<String?> _findFolderIgnoreCase(String parentPath, String targetName) async {
+
+  Future<String?> _findFolderIgnoreCase(
+      String parentPath, String targetName) async {
     final targetLower = targetName.toLowerCase();
     try {
       final dir = Directory(parentPath);
       if (!await dir.exists()) return null;
-      
+
       await for (final entity in dir.list()) {
         if (entity is Directory) {
           final dirName = path.basename(entity.path).toLowerCase();
@@ -297,11 +319,12 @@ class SavePathService {
     }
     return null;
   }
-  
-  Future<bool> _isValidSaveFolder(String folderPath, List<String> extensions) async {
+
+  Future<bool> _isValidSaveFolder(
+      String folderPath, List<String> extensions) async {
     final dir = Directory(folderPath);
     if (!await dir.exists()) return false;
-    
+
     try {
       await for (final entity in dir.list()) {
         if (entity is File) {
@@ -316,7 +339,7 @@ class SavePathService {
     } catch (_) {
       // 文件遍历失败时返回false
     }
-    
+
     return false;
   }
 
@@ -325,7 +348,10 @@ class SavePathService {
     final result = await findSavePath(gamePath, gameTitle);
     if (result == null) return null;
 
-    final gameName = _lastMatchedKeyword ?? await extractGameNameFromExe(gamePath) ?? gameTitle ?? '';
+    final gameName = _lastMatchedKeyword ??
+        await extractGameNameFromExe(gamePath) ??
+        gameTitle ??
+        '';
     final confidence = await _calculateConfidence(result, gameName);
 
     if (confidence < 30.0) return null;

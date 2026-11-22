@@ -179,12 +179,16 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWithValue(_MemorySettings())],
-      child: MaterialApp(theme: AppTheme.darkTheme(fontFamily: 'MapleMonoNL-NF-CN'),
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.25)),
-          child: child!),
-        home: const Scaffold(body: SettingsDialogContent())),
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(_MemorySettings())
+      ],
+      child: MaterialApp(
+          theme: AppTheme.darkTheme(fontFamily: 'MapleMonoNL-NF-CN'),
+          builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: const TextScaler.linear(1.25)),
+              child: child!),
+          home: const Scaffold(body: SettingsDialogContent())),
     ));
     await tester.pumpAndSettle();
     expect(find.text('预览 AaBbCc 中文 123'), findsNWidgets(2));

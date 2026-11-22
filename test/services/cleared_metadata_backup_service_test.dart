@@ -119,7 +119,9 @@ void main() {
 
     saved['metadata'] = {
       'intro_html': '<p>需要保留的简介布局</p>',
-      'translation': {'original': {'intro': '原文'}},
+      'translation': {
+        'original': {'intro': '原文'}
+      },
     };
     await file.writeAsString(jsonEncode(saved));
 

@@ -91,8 +91,7 @@ void main() {
           'https://www.dlsite.com/images/web/home/no_img_main.gif',
           'https://www.dlsite.com/images/web/home/no_img.gif',
         ];
-      final info = DlsiteParser().parseGameInfo(
-          html_parser.parse('''
+      final info = DlsiteParser().parseGameInfo(html_parser.parse('''
         <h1 id="work_name">测试作品</h1>
         <section class="p-restricted"><div class="error_message">访问受限</div></section>
         <meta property="og:image" content="https://www.dlsite.com/modpub/images/web/home/summary_large_image_ja_jp.png">
@@ -112,13 +111,16 @@ void main() {
           '\u30b3\u30f3\u30c6\u30f3\u30c4\u3067\u3059\u3002';
       final restricted = DlsiteParser().parseGameInfo(
           html_parser.parse('<h1 id="work_name">测试作品</h1>'
-              '<div class="error_message">$notice</div>'), _url)!;
+              '<div class="error_message">$notice</div>'),
+          _url)!;
       expect(restricted.isDlsiteUserOnly, isTrue);
 
       final normal = DlsiteParser().parseGameInfo(
-          html_parser.parse('$_currentPage<script>var user_only = true;</script>'
-              '<script>const notice = "$notice";</script>'
-              '<p>说明用户限定功能</p>'), _url)!;
+          html_parser
+              .parse('$_currentPage<script>var user_only = true;</script>'
+                  '<script>const notice = "$notice";</script>'
+                  '<p>说明用户限定功能</p>'),
+          _url)!;
       expect(normal.isDlsiteUserOnly, isFalse);
       expect(normal.description, contains('方向键移动'));
     });

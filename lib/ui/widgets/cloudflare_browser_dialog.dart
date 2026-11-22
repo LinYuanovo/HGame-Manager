@@ -49,6 +49,7 @@ Future<CloudflareBrowserResult?> resolveCloudflareBrowserPage({
     isHtmlReady: isHtmlReady,
   );
 }
+
 Future<CloudflareBrowserResult?> tryReadCloudflareBrowserPageSilently({
   BuildContext? context,
   required String url,
@@ -235,7 +236,8 @@ class _ExternalBrowserSession {
           {'userAgent': userAgent},
         );
       }
-      final cookies = _buildChromeCookies(url, _extractHeader(headers, 'cookie'));
+      final cookies =
+          _buildChromeCookies(url, _extractHeader(headers, 'cookie'));
       if (cookies.isNotEmpty) {
         await connected.sendCommand(
           'Network.setCookies',
@@ -296,9 +298,8 @@ class _ExternalBrowser {
 }
 
 _ExternalBrowser? _findExternalBrowser() {
-  final requested = Platform.environment['HGAME_EXTERNAL_BROWSER']
-      ?.trim()
-      .toLowerCase();
+  final requested =
+      Platform.environment['HGAME_EXTERNAL_BROWSER']?.trim().toLowerCase();
   final forcedName = requested == 'edge'
       ? 'Edge'
       : requested == 'chrome'
@@ -419,7 +420,8 @@ class _ExternalBrowserDialogState extends State<_ExternalBrowserDialog> {
       _log.warning('WebView', '[ExternalBrowser] read failed: $e');
       _log.info('WebView', '[ExternalBrowser] read stack: $stackTrace');
       if (mounted) {
-        setState(() => _error = '读取 ${widget.session.browserName} 页面失败，请确认浏览器仍在运行后重试');
+        setState(() =>
+            _error = '读取 ${widget.session.browserName} 页面失败，请确认浏览器仍在运行后重试');
       }
     } finally {
       if (mounted) setState(() => _reading = false);
@@ -458,7 +460,8 @@ class _ExternalBrowserDialogState extends State<_ExternalBrowserDialog> {
               const SizedBox(height: GlassConstants.spacingCompact),
               Text(_error!,
                   style: const TextStyle(
-                      color: AppTheme.errorColor, fontSize: GlassConstants.fontSmall)),
+                      color: AppTheme.errorColor,
+                      fontSize: GlassConstants.fontSmall)),
             ],
             const SizedBox(height: GlassConstants.spacingComfortable),
             Row(
@@ -477,7 +480,8 @@ class _ExternalBrowserDialogState extends State<_ExternalBrowserDialog> {
                           height: 14,
                           child: AppProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.check_circle_outline, size: GlassConstants.iconSmall),
+                      : const Icon(Icons.check_circle_outline,
+                          size: GlassConstants.iconSmall),
                   label: Text(_reading ? '读取中' : '使用当前页面'),
                 ),
               ],
@@ -529,7 +533,8 @@ class _SilentCloudflareWebViewState extends State<_SilentCloudflareWebView> {
     _currentUrl = widget.url;
     _log.info('WebView', '[Silent] init url=${widget.url}');
     _timeoutTimer = Timer(widget.timeout, _handleTimeout);
-    _log.info('WebView', '[Silent] timeout scheduled ${widget.timeout.inMilliseconds}ms');
+    _log.info('WebView',
+        '[Silent] timeout scheduled ${widget.timeout.inMilliseconds}ms');
     _prepareWebViewRequest(widget.url, widget.headers).whenComplete(() {
       if (!mounted || _completed || _disposed) return;
       setState(() => _ready = true);
@@ -539,7 +544,8 @@ class _SilentCloudflareWebViewState extends State<_SilentCloudflareWebView> {
 
   @override
   void dispose() {
-    _log.info('WebView', '[Silent] dispose mounted=${mounted} controller=${_controller != null}');
+    _log.info('WebView',
+        '[Silent] dispose mounted=${mounted} controller=${_controller != null}');
     _disposed = true;
     _timeoutTimer?.cancel();
     _settleTimer?.cancel();
@@ -550,7 +556,8 @@ class _SilentCloudflareWebViewState extends State<_SilentCloudflareWebView> {
   }
 
   void _handleTimeout() {
-    _log.warning('WebView', '[Silent] timeout readInProgress=${_readInProgress}');
+    _log.warning(
+        'WebView', '[Silent] timeout readInProgress=${_readInProgress}');
     _timedOut = true;
     if (!_readInProgress) _complete(null);
   }
@@ -649,12 +656,14 @@ class _SilentCloudflareWebViewState extends State<_SilentCloudflareWebView> {
         registerWebViewController(controller);
       },
       onLoadStart: (_, loadedUrl) {
-        _log.info('WebView', '[Silent] loadStart url=${loadedUrl} disposed=${_disposed}');
+        _log.info('WebView',
+            '[Silent] loadStart url=${loadedUrl} disposed=${_disposed}');
         if (_disposed) return;
         _currentUrl = loadedUrl?.toString() ?? _currentUrl;
       },
       onLoadStop: (_, loadedUrl) {
-        _log.info('WebView', '[Silent] loadStop url=${loadedUrl} disposed=${_disposed}');
+        _log.info('WebView',
+            '[Silent] loadStop url=${loadedUrl} disposed=${_disposed}');
         if (_disposed) return;
         _currentUrl = loadedUrl?.toString() ?? _currentUrl;
         _scheduleRead();
@@ -664,7 +673,8 @@ class _SilentCloudflareWebViewState extends State<_SilentCloudflareWebView> {
         if (progress >= 100) _scheduleRead();
       },
       onReceivedError: (_, request, error) {
-        _log.warning('WebView', '[Silent] loadError url=${request.url} error=${error.description}');
+        _log.warning('WebView',
+            '[Silent] loadError url=${request.url} error=${error.description}');
       },
     );
   }
@@ -704,7 +714,8 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
   @override
   void dispose() {
     _disposed = true;
-    _log.info('WebView', '[Interactive] dispose controller=${_controller != null}');
+    _log.info(
+        'WebView', '[Interactive] dispose controller=${_controller != null}');
     final controller = _controller;
     if (controller != null) unregisterWebViewController(controller);
     _controller = null;
@@ -777,7 +788,8 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
             Row(
               children: [
                 Icon(Icons.security_outlined,
-                    color: AppTheme.getPrimaryColor(context), size: GlassConstants.iconSection),
+                    color: AppTheme.getPrimaryColor(context),
+                    size: GlassConstants.iconSection),
                 const SizedBox(width: GlassConstants.spacingCompact),
                 Expanded(
                   child: Text(
@@ -816,53 +828,61 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
             const SizedBox(height: GlassConstants.spacingCompact),
             Expanded(
               child: Container(
-                  decoration: BoxDecoration(
-                    color: AppTheme.getSurfaceColor(context)
-                        .withValues(alpha: 0.32),
-                    border: Border.all(
-                      color: AppTheme.getBorderColor(context)
-                          .withValues(alpha: 0.45),
-                    ),
+                decoration: BoxDecoration(
+                  color:
+                      AppTheme.getSurfaceColor(context).withValues(alpha: 0.32),
+                  border: Border.all(
+                    color: AppTheme.getBorderColor(context)
+                        .withValues(alpha: 0.45),
                   ),
-                  child: Stack(
-                    children: [
-                      InAppWebView(
-                        initialUrlRequest: URLRequest(
-                          url: WebUri(widget.initialUrl),
-                          headers: _buildWebViewHeaders(widget.headers),
-                        ),
-                        initialSettings: InAppWebViewSettings(
-                          javaScriptEnabled: true,
-                          supportZoom: true,
-                          userAgent: _extractUserAgent(widget.headers),
-                        ),
-                        onWebViewCreated: (controller) {
-                          if (_disposed) return;
-                          _log.info('WebView', '[Interactive] onWebViewCreated');
-                          _controller = controller;
-                          registerWebViewController(controller);
-                        },
-                        onLoadStart: (controller, url) {
-                          if (_disposed) return;
-                          _currentUrl = url?.toString() ?? _currentUrl;
-                          _log.info('WebView', '[Interactive] loadStart url=' + _currentUrl);
-                        },
-                        onReceivedError: (controller, request, error) {
-                          _log.warning('WebView', '[Interactive] loadError url=' + request.url.toString() + ' error=' + error.description);
-                          if (_disposed) return;
-                          if (request.isForMainFrame ?? false) _error = error.description;
-                        },
+                ),
+                child: Stack(
+                  children: [
+                    InAppWebView(
+                      initialUrlRequest: URLRequest(
+                        url: WebUri(widget.initialUrl),
+                        headers: _buildWebViewHeaders(widget.headers),
                       ),
-                    ],
-                  ),
+                      initialSettings: InAppWebViewSettings(
+                        javaScriptEnabled: true,
+                        supportZoom: true,
+                        userAgent: _extractUserAgent(widget.headers),
+                      ),
+                      onWebViewCreated: (controller) {
+                        if (_disposed) return;
+                        _log.info('WebView', '[Interactive] onWebViewCreated');
+                        _controller = controller;
+                        registerWebViewController(controller);
+                      },
+                      onLoadStart: (controller, url) {
+                        if (_disposed) return;
+                        _currentUrl = url?.toString() ?? _currentUrl;
+                        _log.info('WebView',
+                            '[Interactive] loadStart url=' + _currentUrl);
+                      },
+                      onReceivedError: (controller, request, error) {
+                        _log.warning(
+                            'WebView',
+                            '[Interactive] loadError url=' +
+                                request.url.toString() +
+                                ' error=' +
+                                error.description);
+                        if (_disposed) return;
+                        if (request.isForMainFrame ?? false)
+                          _error = error.description;
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
             if (_error != null) ...[
               const SizedBox(height: GlassConstants.spacingInline),
               Text(
                 _error!,
-                style:
-                    const TextStyle(color: AppTheme.errorColor, fontSize: GlassConstants.fontSmall),
+                style: const TextStyle(
+                    color: AppTheme.errorColor,
+                    fontSize: GlassConstants.fontSmall),
               ),
             ],
             const SizedBox(height: GlassConstants.spacingControl),
@@ -885,7 +905,8 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
                             color: AppTheme.getPrimaryColor(context),
                           ),
                         )
-                      : const Icon(Icons.check_circle_outline, size: GlassConstants.iconSmall),
+                      : const Icon(Icons.check_circle_outline,
+                          size: GlassConstants.iconSmall),
                   label: Text(_isReadingHtml ? '读取中' : '使用当前页面'),
                   style: AppButtonStyles.tinted(context),
                 ),
@@ -900,7 +921,9 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
   Widget _buildAddressBar() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact, vertical: GlassConstants.spacingSmall),
+      padding: const EdgeInsets.symmetric(
+          horizontal: GlassConstants.spacingCompact,
+          vertical: GlassConstants.spacingSmall),
       decoration: BoxDecoration(
         color: AppTheme.getInputFillColor(context),
         borderRadius: BorderRadius.circular(GlassConstants.radiusSmall),
@@ -918,8 +941,6 @@ class _CloudflareBrowserDialogState extends State<CloudflareBrowserDialog> {
       ),
     );
   }
-
-
 }
 
 Map<String, String>? _buildWebViewHeaders(Map<String, String>? headers) {
@@ -973,7 +994,8 @@ String? _extractHeader(Map<String, String>? headers, String name) {
   return null;
 }
 
-List<Map<String, dynamic>> _buildChromeCookies(String url, String? cookieHeader) {
+List<Map<String, dynamic>> _buildChromeCookies(
+    String url, String? cookieHeader) {
   if (cookieHeader == null || cookieHeader.trim().isEmpty) return [];
   final uri = Uri.tryParse(url);
   if (uri == null || uri.host.isEmpty) return [];
