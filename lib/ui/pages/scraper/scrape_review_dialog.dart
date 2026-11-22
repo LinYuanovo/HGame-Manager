@@ -770,7 +770,9 @@ class _ReviewImageState extends State<_ReviewImage> {
     final client = await createProxyClientFromPrefs(domain: uri.host);
     try {
       final response = await client
-          .get(uri, headers: await buildScrapeImageHeaders(widget.sourceUrl))
+          .get(uri,
+              headers: scopeScrapeImageHeaders(widget.url,
+                  await buildScrapeImageHeaders(widget.sourceUrl)))
           .timeout(const Duration(seconds: 15));
       if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
         throw StateError('图片预览加载失败');

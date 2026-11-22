@@ -87,7 +87,7 @@ class _ImageManagerDialogState extends ConsumerState<ImageManagerDialog> {
     try {
       final sourceUrl = widget.game.sourceUrl ?? '';
       final headers = sourceUrl.isNotEmpty
-          ? await buildScrapeImageHeaders(sourceUrl)
+          ? scopeScrapeImageHeaders(url, await buildScrapeImageHeaders(sourceUrl))
           : <String, String>{};
       final imagePath = await _imageService.downloadImageFromUrlToGameDir(
         url,

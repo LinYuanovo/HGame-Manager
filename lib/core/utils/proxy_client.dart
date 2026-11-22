@@ -273,6 +273,12 @@ Future<String> getCookieForSite(String url) async {
   if (uri == null) return '';
   final host = uri.host.toLowerCase();
 
+  if (_matchesCredentialHost(
+      host.replaceFirst(RegExp(r'\.$'), ''), 'dlsite.com')) {
+    final cookie = prefs.getString('cookie_dlsite')?.trim() ?? '';
+    if (cookie.isNotEmpty) return cookie;
+  }
+
   final customConfig = await getCustomXpathParserConfigForSite(url);
   final customCookie = customConfig?['cookie'] ?? '';
   if (customCookie.isNotEmpty) {
@@ -499,6 +505,25 @@ Future<Map<String, String>> buildScrapeImageHeaders(String sourceUrl) async {
     if (cookie.isNotEmpty) 'Cookie': cookie,
   };
   return headers;
+}
+
+/// DLsite 登录态随官方图片请求发送，按实际图片地址限定凭据范围。
+Map<String, String> scopeScrapeImageHeaders(
+    String imageUrl, Map<String, String> headers) {
+  final result = Map<String, String>.from(headers);
+  final sourceHost = Uri.tryParse(headers['Referer'] ?? '')?.host ?? '';
+  if (_matchesCredentialHost(sourceHost.replaceFirst(RegExp(r'\.$'), ''),
+      'dlsite.com')) {
+    final target = Uri.tryParse(imageUrl);
+    final host = target?.host.replaceFirst(RegExp(r'\.$'), '') ?? '';
+    if (target?.scheme != 'https' ||
+        !['dlsite.com', 'dlsite.jp']
+            .any((domain) => _matchesCredentialHost(host, domain))) {
+      result.removeWhere((key, _) =>
+          key.toLowerCase() == 'cookie' || key.toLowerCase() == 'authorization');
+    }
+  }
+  return result;
 }
 
 Future<bool> testProxyConnection(String testUrl) async {

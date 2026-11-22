@@ -509,10 +509,7 @@ class DlsiteService {
   /// 下载所有图片（封面+截图）到images文件夹
   /// 返回 URL -> 本地路径 的映射
   Future<Map<String, String>> downloadAllImages(List<String> imageUrls, String saveDir) async {
-    final imageHeaders = {
-      'User-Agent': 'HGame-Manager/1.0',
-      'Referer': 'https://www.dlsite.com/',
-    };
+    final imageHeaders = await buildScrapeImageHeaders('https://www.dlsite.com/');
     return await ConcurrentImageDownloader.downloadAll(
       imageUrls: imageUrls,
       saveDir: saveDir,
@@ -531,9 +528,21 @@ class DlsiteService {
   }
 
   Future<Map<String, String>> _buildHeaders() async {
+    final cookie = await getCookieForSite('https://www.dlsite.com/');
+    final cookies = <String, String>{'adultchecked': '1', 'locale': 'zh_CN'};
+    for (final part in cookie.split(';')) {
+      final separator = part.indexOf('=');
+      if (separator <= 0) continue;
+      final name = part.substring(0, separator).trim();
+      if (name.isNotEmpty) {
+        cookies[name] = part.substring(separator + 1).trim();
+      }
+    }
     return {
       'User-Agent': 'HGame-Manager/1.0',
-      'Cookie': 'adultchecked=1; locale=zh_CN',
+      'Cookie': cookies.entries
+          .map((entry) => '${entry.key}=${entry.value}')
+          .join('; '),
       'Accept-Language': 'ja,en;q=0.8',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     };
