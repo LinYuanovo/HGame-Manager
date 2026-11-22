@@ -723,14 +723,64 @@ class _GuideWindowPageState extends State<GuideWindowPage>
         alignment: Alignment.centerLeft,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(GlassConstants.radiusMedium),
-          child: PictureOrigin(origins: _pictures, identity: imagePath, child: image,
-              onOpen: (tag) => showPictureDialog<void>(context, (dialogContext) => Dialog(
-                child: Stack(children: [
-                  Center(child: InteractiveViewer(child: pictureHero(dialogContext, tag, image))),
-                  Positioned(top: GlassConstants.spacingSmall, right: GlassConstants.spacingSmall,
-                      child: IconButton(tooltip: '关闭图片', onPressed: () => Navigator.pop(dialogContext), icon: const Icon(Icons.close))),
-                ]),
-              ))),
+          child: PictureOrigin(
+            origins: _pictures,
+            identity: imagePath,
+            child: image,
+            onOpen: (tag) {
+              final viewport = MediaQuery.sizeOf(context);
+              final sourceBounds =
+                  _pictures.visibleBounds(imagePath, preferred: tag);
+              final imageSize = _pictures.intrinsicImageSize(
+                      imagePath, preferred: tag) ??
+                  sourceBounds?.size;
+              final targetBounds = imageSize == null
+                  ? null
+                  : pictureTargetRect(
+                      viewport,
+                      imageSize,
+                      Size(560, viewport.height * 0.8),
+                    );
+              final transitionDuration =
+                  sourceBounds == null || targetBounds == null
+                      ? null
+                      : pictureFlightDuration(
+                          sourceBounds,
+                          targetBounds,
+                          minimum:
+                              AppMotion.duration(context, AppMotion.medium),
+                        );
+              final reverseTransitionDuration =
+                  sourceBounds == null || targetBounds == null
+                      ? null
+                      : pictureFlightDuration(
+                          sourceBounds,
+                          targetBounds,
+                          minimum: AppMotion.duration(context, AppMotion.fast),
+                        );
+              showPictureDialog<void>(
+                context,
+                (dialogContext) => Dialog(
+                  child: Stack(children: [
+                    Center(
+                        child: InteractiveViewer(
+                            child: pictureHero(dialogContext, tag, image))),
+                    Positioned(
+                      top: GlassConstants.spacingSmall,
+                      right: GlassConstants.spacingSmall,
+                      child: IconButton(
+                        tooltip: '关闭图片',
+                        onPressed: () => Navigator.pop(dialogContext),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ),
+                  ]),
+                ),
+                transitionDuration: transitionDuration,
+                reverseTransitionDuration: reverseTransitionDuration,
+              );
+            },
+          ),
         ),
       ),
     );

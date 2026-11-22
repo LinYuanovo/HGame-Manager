@@ -2168,7 +2168,37 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     }
     _detailOpen = true;
     final coverPath = game.images.isEmpty ? null : game.images[game.coverIndex.clamp(0, game.images.length - 1)].imagePath;
-    showPictureDialog<Tag>(context, (dialogContext) => GameDetailDialog(
+    final coverIdentity = (game.id ?? game.path, coverPath);
+    final sourceBounds =
+        coverPath == null ? null : _coverOrigins.visibleBounds(coverIdentity);
+    final screenSize = MediaQuery.sizeOf(context);
+    final targetBounds = Rect.fromLTWH(
+      screenSize.width * 0.05 + GlassConstants.spacingComfortable,
+      screenSize.height * 0.05 +
+          GlassConstants.spacingMedium * 2 +
+          GlassConstants.iconSection +
+          1 +
+          GlassConstants.spacingComfortable,
+      320 - GlassConstants.spacingComfortable * 2,
+      200,
+    );
+    final transitionDuration = sourceBounds == null
+        ? null
+        : pictureFlightDuration(
+            sourceBounds,
+            targetBounds,
+            minimum: AppMotion.duration(context, AppMotion.medium),
+          );
+    final reverseTransitionDuration = sourceBounds == null
+        ? null
+        : pictureFlightDuration(
+            sourceBounds,
+            targetBounds,
+            minimum: AppMotion.duration(context, AppMotion.fast),
+          );
+    showPictureDialog<Tag>(
+      context,
+      (dialogContext) => GameDetailDialog(
         game: game,
         onContextMenu: (menuContext, position, onEdit) => _showContextMenu(
           menuContext,
@@ -2176,10 +2206,12 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
           game,
           onEdit: onEdit,
         ),
-        coverOrigin: () => _coverOrigins.visible((game.id ?? game.path, coverPath)),
+        coverOrigin: () => _coverOrigins.visible(coverIdentity),
         openingCover: coverPath,
         onTagTap: (tag) => Navigator.of(dialogContext).pop(tag),
       ),
+      transitionDuration: transitionDuration,
+      reverseTransitionDuration: reverseTransitionDuration,
     ).then((tag) async {
       _detailOpen = false;
       await Future.wait(game.images.expand((image) {

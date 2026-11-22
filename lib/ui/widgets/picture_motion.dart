@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui' as ui;
+import 'dart:math' as math;
 
 import '../theme/app_theme.dart';
 
@@ -21,6 +22,14 @@ class PictureOrigins {
     }
     return fallback;
   }
+
+  Rect? visibleBounds(Object identity, {Object? preferred}) =>
+      (visible(identity, preferred: preferred) as _PictureOriginState?)
+          ?.visibleRect;
+
+  Size? intrinsicImageSize(Object identity, {Object? preferred}) =>
+      (visible(identity, preferred: preferred) as _PictureOriginState?)
+          ?.intrinsicImageSize;
 
   void cancelFlight({bool restore = true}) {
     _generation++;
@@ -46,6 +55,11 @@ class PictureOrigins {
       final target = visible(identity) as _PictureOriginState?;
       final last = target?.visibleRect;
       if (target == null || last == null || last == first) return;
+      final duration = pictureFlightDuration(
+        first,
+        last,
+        minimum: AppMotion.duration(context, AppMotion.medium),
+      );
       final origin = (overlay.context.findRenderObject()! as RenderBox)
           .localToGlobal(Offset.zero);
       final tween =
@@ -64,7 +78,7 @@ class PictureOrigins {
                 child: ExcludeSemantics(
           child: TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: 1),
-            duration: AppMotion.duration(context, AppMotion.medium),
+            duration: duration,
             curve: AppMotion.curve,
             child: image,
             builder: (context, value, child) => Stack(children: [
@@ -79,6 +93,48 @@ class PictureOrigins {
       overlay.insert(_flight!);
     });
   }
+}
+
+Duration pictureFlightDuration(
+  Rect begin,
+  Rect end, {
+  required Duration minimum,
+}) {
+  if (minimum == Duration.zero) return Duration.zero;
+  final distances = [
+    (begin.topLeft - end.topLeft).distance,
+    (begin.topRight - end.topRight).distance,
+    (begin.bottomLeft - end.bottomLeft).distance,
+    (begin.bottomRight - end.bottomRight).distance,
+  ];
+  final distance = distances.reduce(
+    (first, second) => first > second ? first : second,
+  );
+  final milliseconds =
+      (distance / 2.5).round().clamp(minimum.inMilliseconds, 900).toInt();
+  return Duration(milliseconds: milliseconds);
+}
+
+Rect pictureViewerTargetRect(Size viewport, Size imageSize) {
+  return pictureTargetRect(
+    viewport,
+    imageSize,
+    Size(viewport.width * 0.8 - 120, viewport.height * 0.8 - 80),
+  );
+}
+
+Rect pictureTargetRect(Size viewport, Size imageSize, Size availableSize) {
+  final available = Size(
+    math.max(1.0, availableSize.width).toDouble(),
+    math.max(1.0, availableSize.height).toDouble(),
+  );
+  final fittedSize =
+      applyBoxFit(BoxFit.contain, imageSize, available).destination;
+  return Rect.fromCenter(
+    center: Offset(viewport.width / 2, viewport.height / 2),
+    width: fittedSize.width,
+    height: fittedSize.height,
+  );
 }
 
 class PictureOrigin extends StatefulWidget {
@@ -101,6 +157,14 @@ class PictureOrigin extends StatefulWidget {
 
 class _PictureOriginState extends State<PictureOrigin> {
   bool _hidden = false;
+
+  Size? get intrinsicImageSize {
+    final image = _findPictureImage(context)?.image;
+    return image == null
+        ? null
+        : Size(image.width.toDouble(), image.height.toDouble());
+  }
+
   void hide(bool hidden) {
     if (mounted && hidden != _hidden) setState(() => _hidden = hidden);
   }
@@ -170,22 +234,8 @@ Widget pictureHero(BuildContext context, Object? tag, Widget child,
 
 Widget _pictureFlight(BuildContext context, Animation<double> animation,
     HeroFlightDirection direction, BuildContext from, BuildContext to) {
-  RenderImage? findImage(BuildContext context) {
-    RenderImage? result;
-    void visit(RenderObject object) {
-      if (object is RenderImage && object.image != null) {
-        result ??= object;
-      }
-      if (result == null) object.visitChildren(visit);
-    }
-
-    final render = context.findRenderObject();
-    if (render != null) visit(render);
-    return result;
-  }
-
-  final source = findImage(from);
-  final target = findImage(to);
+  final source = _findPictureImage(from);
+  final target = _findPictureImage(to);
   final image = target?.image ?? source?.image;
   if (source == null || target == null || image == null)
     return (to.widget as Hero).child;
@@ -217,6 +267,20 @@ Widget _pictureFlight(BuildContext context, Animation<double> animation,
       end: end,
       startRadius: _pictureHeroRadius(from),
       endRadius: _pictureHeroRadius(to));
+}
+
+RenderImage? _findPictureImage(BuildContext context) {
+  RenderImage? result;
+  void visit(RenderObject object) {
+    if (object is RenderImage && object.image != null) {
+      result ??= object;
+    }
+    if (result == null) object.visitChildren(visit);
+  }
+
+  final render = context.findRenderObject();
+  if (render != null) visit(render);
+  return result;
 }
 
 BorderRadius _pictureHeroRadius(BuildContext context) {
@@ -347,14 +411,20 @@ class _PictureRoute<T> extends PageRouteBuilder<T> {
 }
 
 Future<T?> showPictureDialog<T>(
-    BuildContext context, WidgetBuilder builder) async {
+  BuildContext context,
+  WidgetBuilder builder, {
+  Duration? transitionDuration,
+  Duration? reverseTransitionDuration,
+}) async {
   final navigator = Navigator.of(context, rootNavigator: true);
   final themes = InheritedTheme.capture(from: context, to: navigator.context);
   final route = _PictureRoute<T>(
     barrierColor: AppTheme.getOverlayColor(context),
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    transitionDuration: AppMotion.duration(context, AppMotion.medium),
-    reverseTransitionDuration: AppMotion.duration(context, AppMotion.fast),
+    transitionDuration:
+        transitionDuration ?? AppMotion.duration(context, AppMotion.medium),
+    reverseTransitionDuration: reverseTransitionDuration ??
+        AppMotion.duration(context, AppMotion.fast),
     pageBuilder: (context, _, __) => themes.wrap(SafeArea(
         child: Focus(
             onKeyEvent: (node, event) {

@@ -12,6 +12,32 @@ import 'package:hgame_manager/ui/theme/app_theme.dart';
 import 'package:hgame_manager/ui/pages/games/detail_search_bar.dart';
 
 void main() {
+  test('图片飞行时长随矩形位移增长', () {
+    const minimum = Duration(milliseconds: 310);
+    final near = pictureFlightDuration(
+      const Rect.fromLTWH(0, 0, 100, 100),
+      const Rect.fromLTWH(20, 20, 100, 100),
+      minimum: minimum,
+    );
+    final far = pictureFlightDuration(
+      const Rect.fromLTWH(0, 0, 100, 100),
+      const Rect.fromLTWH(800, 600, 700, 700),
+      minimum: minimum,
+    );
+
+    expect(near, minimum);
+    expect(far, greaterThan(minimum));
+    expect(far, lessThanOrEqualTo(const Duration(milliseconds: 900)));
+    expect(
+      pictureFlightDuration(
+        const Rect.fromLTWH(0, 0, 100, 100),
+        const Rect.fromLTWH(800, 600, 700, 700),
+        minimum: Duration.zero,
+      ),
+      Duration.zero,
+    );
+  });
+
   testWidgets('中文组合提交即使文字不变也触发正文搜索', (tester) async {
     final controller = TextEditingController();
     addTearDown(controller.dispose);

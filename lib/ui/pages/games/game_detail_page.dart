@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/painting.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,6 +58,15 @@ import 'guide_search_dialog.dart';
 import 'detail_scroll_buttons.dart';
 import 'detail_search_bar.dart';
 import 'content_search_engine.dart';
+
+RenderParagraph? _findRenderParagraph(RenderObject? renderObject) {
+  if (renderObject is RenderParagraph) return renderObject;
+  RenderParagraph? paragraph;
+  renderObject?.visitChildren((child) {
+    paragraph ??= _findRenderParagraph(child);
+  });
+  return paragraph;
+}
 
 class GameDetailDialog extends ConsumerStatefulWidget {
   final Game game;
@@ -176,6 +186,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   List<ContentSearchMatch> _searchMatches = [];
   int _currentMatchIndex = -1;
   final Map<String, GlobalKey> _contentBlockKeys = {};
+  final Map<String, int> _contentBlockOffsets = {};
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
 
@@ -2082,8 +2093,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Future<void> _scrollToMatch(ContentSearchMatch match) async {
-    final exactKey =
-        _contentBlockKeys['${match.sectionKey}_${match.lineIndex}'];
+    final exactName = '${match.sectionKey}_${match.lineIndex}';
+    final exactKey = _contentBlockKeys[exactName];
+    int? targetOffset = _contentBlockOffsets[exactName];
     debugPrint(
         '[Search] _scrollToMatch: sectionKey=${match.sectionKey}, lineIndex=${match.lineIndex}, exactKey found=${exactKey != null}, context=${exactKey?.currentContext != null}');
     debugPrint(
@@ -2095,12 +2107,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           '[HTMLSearch] Exact key not found or has null context, searching for nearest key...');
       for (var offset = 1; offset < 50; offset++) {
         for (final dir in [-1, 1]) {
-          final candidateKey = _contentBlockKeys[
-              '${match.sectionKey}_${match.lineIndex + offset * dir}'];
+          final name = '${match.sectionKey}_${match.lineIndex + offset * dir}';
+          final candidateKey = _contentBlockKeys[name];
           if (candidateKey != null && candidateKey.currentContext != null) {
             targetKey = candidateKey;
+            targetOffset = _contentBlockOffsets[name];
             debugPrint(
-                '[HTMLSearch] Found nearest key at offset=${offset * dir}: ${match.sectionKey}_${match.lineIndex + offset * dir}');
+                '[HTMLSearch] Found nearest key at offset=${offset * dir}: $name');
             break;
           }
         }
@@ -2109,10 +2122,15 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       if (targetKey == null || targetKey.currentContext == null) {
         debugPrint(
             '[HTMLSearch] No valid key found for sectionKey=${match.sectionKey}, falling back to any key in this section');
-        final fallbackKey = _contentBlockKeys.keys
-            .where((k) => k.startsWith('${match.sectionKey}_'))
-            .map((k) => _contentBlockKeys[k])
-            .firstWhere((k) => k?.currentContext != null, orElse: () => null);
+        GlobalKey? fallbackKey;
+        for (final entry in _contentBlockKeys.entries) {
+          if (entry.key.startsWith('${match.sectionKey}_') &&
+              entry.value.currentContext != null) {
+            fallbackKey = entry.value;
+            targetOffset = _contentBlockOffsets[entry.key];
+            break;
+          }
+        }
         if (fallbackKey == null || fallbackKey.currentContext == null) return;
         targetKey = fallbackKey;
       }
@@ -2120,14 +2138,46 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
     try {
       await Scrollable.ensureVisible(
-        targetKey!.currentContext!,
+        targetKey.currentContext!,
         alignment: 0.1,
         duration: AppMotion.duration(context, AppMotion.slow),
         curve: AppMotion.curve,
       );
+      if (targetOffset != null) {
+        await _scrollTextOffsetIntoView(targetKey, targetOffset);
+      }
     } catch (e) {
       debugPrint('[Search] ensureVisible error: $e');
     }
+  }
+
+  Future<void> _scrollTextOffsetIntoView(GlobalKey key, int offset) async {
+    if (!_contentScrollController.hasClients) return;
+    final paragraph =
+        _findRenderParagraph(key.currentContext?.findRenderObject());
+    if (paragraph == null) return;
+    final viewport = RenderAbstractViewport.maybeOf(paragraph);
+    if (viewport == null || viewport is! RenderBox) return;
+    final viewportBox = viewport as RenderBox;
+
+    final lineOffset = paragraph.getOffsetForCaret(
+      TextPosition(offset: offset),
+      Rect.zero,
+    );
+    final lineTop = paragraph.localToGlobal(lineOffset).dy;
+    final viewportTop = viewportBox.localToGlobal(Offset.zero).dy;
+    final position = _contentScrollController.position;
+    final target = (position.pixels +
+            lineTop -
+            (viewportTop + viewportBox.size.height * 0.1))
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    if ((target - position.pixels).abs() < 1) return;
+    await _contentScrollController.animateTo(
+      target,
+      duration: AppMotion.duration(context, AppMotion.fast),
+      curve: AppMotion.curve,
+    );
   }
 
   void _nextMatch() {
@@ -2157,6 +2207,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   Widget _buildContentPanel() {
     _contentBlockKeys.clear();
+    _contentBlockOffsets.clear();
     final images = _currentGame.images;
     return Stack(
       children: [
@@ -3076,6 +3127,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           String text, TextStyle baseStyle, TextStyle? headingStyle) {
         final lines = text.split('\n');
         final spans = <InlineSpan>[];
+        final selectableKey = sectionKey == null ? null : GlobalKey();
+        var textOffset = 0;
         for (var j = 0; j < lines.length; j++) {
           final lineIdx = startLine + j;
           final line = lines[j];
@@ -3100,16 +3153,16 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           }
 
           if (sectionKey != null) {
-            final key = GlobalKey();
-            _contentBlockKeys['${sectionKey}_$lineIdx'] = key;
-            spans.add(WidgetSpan(
-              child: SizedBox(key: key, width: 1, height: fontSize),
-              alignment: PlaceholderAlignment.middle,
-            ));
+            final name = '${sectionKey}_$lineIdx';
+            _contentBlockKeys[name] = selectableKey!;
+            _contentBlockOffsets[name] = textOffset;
           }
+          textOffset += line.length;
+          if (j < lines.length - 1) textOffset++;
         }
         return SelectableText.rich(
           TextSpan(children: spans),
+          key: selectableKey,
           contextMenuBuilder: buildAppEditableTextContextMenu,
           style: TextStyle(fontSize: fontSize, height: AppTypography.spaciousHeight),
         );
@@ -3224,12 +3277,43 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
 
   Future<void> _presentImages(List<GameImage> images, int index, Object origin) async {
     if (_isImageViewerOpen || images.isEmpty) return;
+    final identity = images[index].imagePath;
+    final sourceBounds =
+        _pictureOrigins.visibleBounds(identity, preferred: origin);
+    final imageSize = _pictureOrigins.intrinsicImageSize(
+            identity, preferred: origin) ??
+        sourceBounds?.size;
+    final targetBounds = imageSize == null
+        ? null
+        : pictureViewerTargetRect(MediaQuery.sizeOf(context), imageSize);
+    final transitionDuration = sourceBounds == null || targetBounds == null
+        ? null
+        : pictureFlightDuration(
+            sourceBounds,
+            targetBounds,
+            minimum: AppMotion.duration(context, AppMotion.medium),
+          );
+    final reverseTransitionDuration =
+        sourceBounds == null || targetBounds == null
+            ? null
+            : pictureFlightDuration(
+                sourceBounds,
+                targetBounds,
+                minimum: AppMotion.duration(context, AppMotion.fast),
+              );
     setState(() => _isImageViewerOpen = true);
     try {
-      await showPictureDialog<void>(context, (_) => _ImageViewerDialog(
-        images: images, initialIndex: index,
-        anchorFor: (path) => _pictureOrigins.visible(path, preferred: origin),
-      ));
+      await showPictureDialog<void>(
+        context,
+        (_) => _ImageViewerDialog(
+          images: images,
+          initialIndex: index,
+          anchorFor: (path) =>
+              _pictureOrigins.visible(path, preferred: origin),
+        ),
+        transitionDuration: transitionDuration,
+        reverseTransitionDuration: reverseTransitionDuration,
+      );
     } finally {
       if (mounted) setState(() => _isImageViewerOpen = false);
     }
@@ -3292,6 +3376,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     bool Function(int lineIdx) isHeading,
   ) {
     final spans = <InlineSpan>[];
+    final selectableKey = sectionKey == null ? null : GlobalKey();
+    var textOffset = 0;
     for (var j = 0; j < lines.length; j++) {
       final lineIdx = startLineIndex + j;
       final line = lines[j];
@@ -3320,16 +3406,16 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             text: j < lines.length - 1 ? '$line\n' : line, style: baseStyle));
       }
       if (sectionKey != null) {
-        final key = GlobalKey();
-        _contentBlockKeys['${sectionKey}_$lineIdx'] = key;
-        spans.add(WidgetSpan(
-          child: SizedBox(key: key, width: 1, height: fontSize),
-          alignment: PlaceholderAlignment.middle,
-        ));
+        final name = '${sectionKey}_$lineIdx';
+        _contentBlockKeys[name] = selectableKey!;
+        _contentBlockOffsets[name] = textOffset;
       }
+      textOffset += line.length;
+      if (j < lines.length - 1) textOffset++;
     }
     return SelectableText.rich(
       TextSpan(children: spans),
+      key: selectableKey,
       contextMenuBuilder: buildAppEditableTextContextMenu,
       style: TextStyle(fontSize: fontSize, height: AppTypography.spaciousHeight),
     );
