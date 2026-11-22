@@ -506,14 +506,11 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage>
             });
           } else {
             if (tag.id != null) {
-              Navigator.push(
-                context,
-                TagGamesPage.route(
-                  context: context,
-                  tagId: tag.id!,
-                  tagName: tag.displayName ?? tag.name,
-                  titleAnchor: titleAnchor,
-                ),
+              TagGamesPage.push(
+                context: context,
+                tagId: tag.id!,
+                tagName: tag.displayName ?? tag.name,
+                titleAnchor: titleAnchor,
               ).then((_) {
                 if (!mounted) return;
                 setState(() { _returnedTag = tag.id; _returnSequence++; });

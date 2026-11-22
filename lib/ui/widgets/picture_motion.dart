@@ -366,11 +366,10 @@ Future<T?> showPictureDialog<T>(
               return KeyEventResult.ignored;
             },
             child: Builder(builder: builder)))),
-    transitionsBuilder: (context, animation, _, child) => FadeTransition(
-      opacity: AppMotion.reduced(context)
-          ? const AlwaysStoppedAnimation(1)
-          : animation.drive(CurveTween(curve: AppMotion.curve)),
-      child: child,
+    transitionsBuilder: (context, animation, _, child) => AppDialogTransition(
+      animation: animation,
+      initialScale: 0.96,
+      child: RepaintBoundary(child: child),
     ),
   );
   final result = await navigator.push(route);

@@ -79,6 +79,20 @@ class TagGamesPage extends ConsumerStatefulWidget {
     required String tagName,
     Object? titleAnchor,
   }) {
+    return _buildRoute(
+      context: context,
+      tagId: tagId,
+      tagName: tagName,
+      titleAnchor: titleAnchor,
+    );
+  }
+
+  static _TagGamesRoute _buildRoute({
+    required BuildContext context,
+    required int tagId,
+    required String tagName,
+    Object? titleAnchor,
+  }) {
     return _TagGamesRoute(
       pageBuilder: (context, _, __) => TagGamesPage(
         tagId: tagId,
@@ -88,6 +102,22 @@ class TagGamesPage extends ConsumerStatefulWidget {
       transitionDuration: AppMotion.duration(context, AppMotion.medium),
       reverseTransitionDuration: AppMotion.duration(context, AppMotion.fast),
     );
+  }
+
+  static Future<void> push({
+    required BuildContext context,
+    required int tagId,
+    required String tagName,
+    Object? titleAnchor,
+  }) async {
+    final route = _buildRoute(
+      context: context,
+      tagId: tagId,
+      tagName: tagName,
+      titleAnchor: titleAnchor,
+    );
+    await Navigator.of(context).push<void>(route);
+    await route.completed;
   }
 
   @override
@@ -119,6 +149,7 @@ class _TagGamesPageState extends ConsumerState<TagGamesPage> {
             body: Column(
               children: [
                 GlassAppBar(
+                  enableBlur: false,
                   title: Row(
                     children: [
                       IconButton(
@@ -197,38 +228,12 @@ class _TagGamesRoute extends PageRouteBuilder<void> {
     required super.pageBuilder,
     required super.transitionDuration,
     required super.reverseTransitionDuration,
-  });
-
-  Animation<double>? _animationParent;
-  CurvedAnimation? _curve;
-
-  @override
-  Widget buildTransitions(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation, Widget child) {
-    if (AppMotion.reduced(context)) return child;
-    if (!identical(animation, _animationParent)) {
-      _curve?.dispose();
-      _animationParent = animation;
-      _curve = CurvedAnimation(
-        parent: animation,
-        curve: AppMotion.curve,
-        reverseCurve: Curves.easeInCubic,
-      );
-    }
-    final opacity = animation.drive(CurveTween(curve: AppMotion.curve));
-    final position = Tween<Offset>(
-      begin: const Offset(0.025, 0),
-      end: Offset.zero,
-    ).animate(_curve!);
-    return FadeTransition(
-      opacity: opacity,
-      child: SlideTransition(position: position, child: child),
-    );
-  }
-
-  @override
-  void dispose() {
-    _curve?.dispose();
-    super.dispose();
-  }
+  }) : super(
+          transitionsBuilder: (context, animation, _, child) =>
+              AppDialogTransition(
+            animation: animation,
+            initialScale: 0.985,
+            child: RepaintBoundary(child: child),
+          ),
+        );
 }

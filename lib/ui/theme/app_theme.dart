@@ -813,20 +813,27 @@ class AppTheme {
     required List<PopupMenuEntry<T>> items,
     T? initialValue,
   }) {
+    final style = _glassMenuStyle(context);
     return showMenu<T>(
       context: context,
       popUpAnimationStyle: AppMotion.overlayStyle(context),
       position: position,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(GlassConstants.radiusLarge),
-      ),
-      color: Theme.of(context).brightness == Brightness.dark
-          ? AppTheme.darkSurfaceColor.withValues(alpha: 0.95)
-          : Colors.white.withValues(alpha: 0.95),
-      elevation: 12,
-      shadowColor: Colors.black26,
+      shape: style.shape,
+      color: style.color,
+      elevation: style.elevation,
+      surfaceTintColor: style.surfaceTintColor,
+      shadowColor: style.shadowColor,
       items: items,
       initialValue: initialValue,
+    );
+  }
+
+  static PopupMenuThemeData _glassMenuStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return PopupMenuTheme.of(context).copyWith(
+      color: isDark
+          ? darkSurfaceColor.withValues(alpha: 0.95)
+          : Colors.white.withValues(alpha: 0.95),
     );
   }
 
@@ -1640,12 +1647,14 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Widget title;
   final List<Widget>? actions;
   final Widget? leading;
+  final bool enableBlur;
 
   const GlassAppBar({
     super.key,
     required this.title,
     this.actions,
     this.leading,
+    this.enableBlur = true,
   });
 
   @override
@@ -1677,7 +1686,7 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
         ],
       ),
     );
-    if (isDark) return appBar;
+    if (isDark || !enableBlur) return appBar;
     return ClipRRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(
@@ -2170,56 +2179,61 @@ Widget buildAppTextSelectionToolbar(
   final items = buttonItems.where((item) => _textSelectionLabel(item).isNotEmpty);
   if (items.isEmpty) return const SizedBox.shrink();
 
-  return TextSelectionToolbar(
-    anchorAbove: anchors.primaryAnchor,
-    anchorBelow: anchors.secondaryAnchor ?? anchors.primaryAnchor,
-    toolbarBuilder: (context, child) => GlassContainer(
-      borderRadius: GlassConstants.radiusLarge,
-      enableBlur: false,
-      color: Theme.of(context).brightness == Brightness.dark
-          ? AppTheme.darkSurfaceColor.withValues(alpha: 0.95)
-          : Colors.white.withValues(alpha: 0.95),
-      padding: EdgeInsets.zero,
-      child: child,
-    ),
-    children: [
-      ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 112, maxWidth: 280),
-        child: IntrinsicWidth(
-          stepWidth: 56,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final item in items)
-                ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    _textSelectionIcon(item.type),
-                    size: GlassConstants.iconAction,
-                    color: item.type == ContextMenuButtonType.delete
-                        ? AppTheme.errorColor
-                        : AppTheme.getPrimaryColor(context),
+  final style = AppTheme._glassMenuStyle(context);
+  final mediaPadding = MediaQuery.paddingOf(context);
+  const screenPadding = GlassConstants.spacingSmall;
+  final insets = EdgeInsets.only(
+    left: mediaPadding.left + screenPadding,
+    top: mediaPadding.top + screenPadding,
+    right: mediaPadding.right + screenPadding,
+    bottom: mediaPadding.bottom + screenPadding,
+  );
+
+  return Padding(
+    padding: insets,
+    child: CustomSingleChildLayout(
+      delegate: DesktopTextSelectionToolbarLayoutDelegate(
+        anchor: anchors.primaryAnchor - Offset(insets.left, insets.top),
+      ),
+      child: Material(
+        color: style.color,
+        shape: style.shape,
+        elevation: style.elevation ?? 0,
+        surfaceTintColor: style.surfaceTintColor,
+        shadowColor: style.shadowColor,
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 112, maxWidth: 280),
+          child: IntrinsicWidth(
+            stepWidth: 56,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final item in items)
+                  ListTile(
+                    dense: true,
+                    enabled: item.onPressed != null,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: GlassConstants.spacingCompact,
+                    ),
+                    leading: Icon(_textSelectionIcon(item.type),
+                        size: GlassConstants.iconAction),
+                    title: Text(_textSelectionLabel(item),
+                        style: style.textStyle),
+                    onTap: item.onPressed == null
+                        ? null
+                        : () {
+                            ContextMenuController.removeAny();
+                            item.onPressed!();
+                          },
                   ),
-                  title: Text(
-                    _textSelectionLabel(item),
-                    style: item.type == ContextMenuButtonType.delete
-                        ? const TextStyle(color: AppTheme.errorColor)
-                        : null,
-                  ),
-                  onTap: item.onPressed == null
-                      ? null
-                      : () {
-                          item.onPressed!();
-                          ContextMenuController.removeAny();
-                        },
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ],
+    ),
   );
 }
 
