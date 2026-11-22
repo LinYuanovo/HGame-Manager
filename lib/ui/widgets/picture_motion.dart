@@ -353,8 +353,10 @@ Future<T?> showPictureDialog<T>(
   final route = _PictureRoute<T>(
     barrierColor: AppTheme.getOverlayColor(context),
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    transitionDuration: AppMotion.duration(context, AppMotion.medium),
-    reverseTransitionDuration: AppMotion.duration(context, AppMotion.fast),
+    transitionDuration:
+        AppMotion.frameAlignedDuration(context, AppMotion.slow),
+    reverseTransitionDuration:
+        AppMotion.frameAlignedDuration(context, AppMotion.medium),
     pageBuilder: (context, _, __) => themes.wrap(SafeArea(
         child: Focus(
             onKeyEvent: (node, event) {

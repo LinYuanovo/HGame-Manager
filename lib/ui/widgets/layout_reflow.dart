@@ -10,7 +10,7 @@ class LayoutReflow extends StatefulWidget {
 }
 
 class _LayoutReflowState extends State<LayoutReflow>
-    with SingleTickerProviderStateMixin, AppDisplayTicks {
+    with SingleTickerProviderStateMixin {
   Offset? _position;
   Offset _shift = Offset.zero;
   Offset _paintedShift = Offset.zero;

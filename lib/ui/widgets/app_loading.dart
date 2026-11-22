@@ -68,7 +68,7 @@ class AppSkeleton extends StatefulWidget {
 }
 
 class _AppSkeletonState extends State<AppSkeleton>
-    with SingleTickerProviderStateMixin, AppDisplayTicks, WidgetsBindingObserver {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _controller =
       AnimationController(vsync: this, duration: AppMotion.shimmer);
   bool _active = true;

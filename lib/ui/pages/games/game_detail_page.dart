@@ -3075,11 +3075,12 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       Widget buildRichTextWidget(
           String text, TextStyle baseStyle, TextStyle? headingStyle) {
         final lines = text.split('\n');
-        final spans = <InlineSpan>[];
+        final widgets = <Widget>[];
         for (var j = 0; j < lines.length; j++) {
           final lineIdx = startLine + j;
           final line = lines[j];
           final style = headingStyle ?? baseStyle;
+          final spans = <InlineSpan>[];
 
           if (sectionKey != null && _searchMatches.isNotEmpty) {
             final sectionMatches = _searchMatches
@@ -3099,19 +3100,22 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
             spans.add(TextSpan(text: '\n', style: style));
           }
 
-          if (sectionKey != null) {
-            final key = GlobalKey();
+          final key = sectionKey == null ? null : GlobalKey();
+          if (key != null) {
             _contentBlockKeys['${sectionKey}_$lineIdx'] = key;
-            spans.add(WidgetSpan(
-              child: SizedBox(key: key, width: 1, height: fontSize),
-              alignment: PlaceholderAlignment.middle,
-            ));
           }
+          widgets.add(SelectableText.rich(
+            TextSpan(children: spans),
+            key: key,
+            contextMenuBuilder: buildAppEditableTextContextMenu,
+            style: TextStyle(
+                fontSize: fontSize, height: AppTypography.spaciousHeight),
+          ));
         }
-        return SelectableText.rich(
-          TextSpan(children: spans),
-          contextMenuBuilder: buildAppEditableTextContextMenu,
-          style: TextStyle(fontSize: fontSize, height: AppTypography.spaciousHeight),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: widgets,
         );
       }
 
@@ -3291,7 +3295,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     double fontSize,
     bool Function(int lineIdx) isHeading,
   ) {
-    final spans = <InlineSpan>[];
+    final widgets = <Widget>[];
     for (var j = 0; j < lines.length; j++) {
       final lineIdx = startLineIndex + j;
       final line = lines[j];
@@ -3305,6 +3309,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
               fontSize: fontSize,
               height: AppTypography.spaciousHeight,
               color: AppTheme.getDetailTextPrimary(context));
+      final spans = <InlineSpan>[];
       if (sectionKey != null && _searchMatches.isNotEmpty) {
         final sectionMatches = _searchMatches
             .where((m) => m.sectionKey == sectionKey && m.lineIndex == lineIdx)
@@ -3312,26 +3317,29 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         if (sectionMatches.isNotEmpty) {
           spans.addAll(_buildHighlightedSpans(line, sectionMatches, baseStyle));
         } else {
-          spans.add(TextSpan(
-              text: j < lines.length - 1 ? '$line\n' : line, style: baseStyle));
+          spans.add(TextSpan(text: line, style: baseStyle));
         }
       } else {
-        spans.add(TextSpan(
-            text: j < lines.length - 1 ? '$line\n' : line, style: baseStyle));
+        spans.add(TextSpan(text: line, style: baseStyle));
       }
-      if (sectionKey != null) {
-        final key = GlobalKey();
+      if (j < lines.length - 1) {
+        spans.add(TextSpan(text: '\n', style: baseStyle));
+      }
+      final key = sectionKey == null ? null : GlobalKey();
+      if (key != null) {
         _contentBlockKeys['${sectionKey}_$lineIdx'] = key;
-        spans.add(WidgetSpan(
-          child: SizedBox(key: key, width: 1, height: fontSize),
-          alignment: PlaceholderAlignment.middle,
-        ));
       }
+      widgets.add(SelectableText.rich(
+        TextSpan(children: spans),
+        key: key,
+        contextMenuBuilder: buildAppEditableTextContextMenu,
+        style: TextStyle(fontSize: fontSize, height: AppTypography.spaciousHeight),
+      ));
     }
-    return SelectableText.rich(
-      TextSpan(children: spans),
-      contextMenuBuilder: buildAppEditableTextContextMenu,
-      style: TextStyle(fontSize: fontSize, height: AppTypography.spaciousHeight),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: widgets,
     );
   }
 

@@ -1229,7 +1229,7 @@ class GlassCard extends StatefulWidget {
 }
 
 class _GlassCardState extends State<GlassCard>
-    with SingleTickerProviderStateMixin, AppDisplayTicks {
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
   bool _isFocused = false;
   bool _isPressed = false;
@@ -1395,7 +1395,7 @@ class BreathingBorder extends StatefulWidget {
 }
 
 class _BreathingBorderState extends State<BreathingBorder>
-    with SingleTickerProviderStateMixin, AppDisplayTicks {
+    with SingleTickerProviderStateMixin {
   AnimationController? _controller;
   Animation<double>? _animation;
 
@@ -1913,7 +1913,7 @@ class _CopyToastContent extends StatefulWidget {
 }
 
 class _CopyToastContentState extends State<_CopyToastContent>
-    with SingleTickerProviderStateMixin, AppDisplayTicks {
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _opacityAnimation;
 
