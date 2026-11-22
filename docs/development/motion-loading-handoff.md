@@ -4,6 +4,10 @@
 
 本轮索引：[逐页动效对照与验证](motion-page-parity.md)。下方的测试数字是 11 月 10 日的历史结果，不是本轮验收。
 
+## 集成状态
+
+2026-11-22，动效实现已合入 `master` 的 1.5.8 版本（`1.5.8+39`）；`codex/motion-loading` 分支及对应工作树已删除。
+
 ## 最新逐页审阅
 
 基于本地提交 `8942e01` 完成补充审阅，修正攻略重复请求、正文等待、图片处理内容保留及关闭回调、存档失败重试、云端备份操作互斥和刮削扫描等待。266 项回归通过，Windows 原生 166 个状态通过并完成截图复核；静态分析诊断与基线一致。
@@ -51,4 +55,4 @@
 - 已删除独立工作树的 `build`、`.dart_tool`、`windows/flutter/ephemeral` 和 `.flutter-plugins-dependencies`；Profile 样本、数据库与临时 PNG 随构建目录清理。
 - 自动生成的 Windows 插件注册文件仅有换行变化，已核对内容相同后恢复。
 - Profile 程序普通关闭后仍残留，按完整 exe 路径核验后调用 Windows 进程终止接口成功结束；清理前确认本工作树无测试程序运行。
-- 分支 `codex/motion-loading` 和工作树保留。最终 `git diff --check` 通过，差异仅包含 UI 源码和上述文档。
+- 移交时分支 `codex/motion-loading` 和工作树保留；后续整合与清理见上方「集成状态」。最终 `git diff --check` 通过，差异仅包含 UI 源码和上述文档。

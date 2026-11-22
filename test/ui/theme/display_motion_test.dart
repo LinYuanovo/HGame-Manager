@@ -4,40 +4,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hgame_manager/ui/theme/app_theme.dart';
 
 void main() {
-  test('165 Hz 帧时间抖动不会误丢相邻帧，重复回调不增加采样', () {
-    final gate = AppFrameGate();
-    for (var frame = 0; frame < 165; frame++) {
-      final timestamp = Duration(microseconds:
-          (frame * 1000000 / 165).round() - (frame.isOdd ? 350 : 0));
-      expect(gate.accepts(timestamp, 165), isTrue);
-      expect(gate.accepts(timestamp, 165), isFalse);
-    }
-  });
+  for (final rate in [30.0, 59.94, 60.0, 75.0, 90.0, 120.0, 144.0, 165.0, 240.0]) {
+    testWidgets('$rate Hz 转场时长对齐到屏幕帧周期', (tester) async {
+      tester.view.display.refreshRate = rate;
+      addTearDown(tester.view.display.resetRefreshRate);
+      late Duration aligned;
+      await tester.pumpWidget(MaterialApp(
+        home: Builder(
+          builder: (context) {
+            aligned = AppMotion.frameAlignedDuration(context, AppMotion.slow);
+            return const SizedBox();
+          },
+        ),
+      ));
 
-  test('快速帧源按屏幕频率采样，换屏与新动画从当前时刻开始', () {
-    final gate = AppFrameGate();
-    for (final rate in [
-      30.0,
-      59.94,
-      60.0,
-      75.0,
-      90.0,
-      120.0,
-      144.0,
-      165.0,
-      240.0
-    ]) {
-      var samples = 0;
-      for (var tick = 0; tick < 1000; tick++) {
-        if (gate.accepts(Duration(milliseconds: tick), rate)) samples++;
-      }
-      expect(samples, closeTo(rate, 1), reason: '$rate Hz');
-    }
-    expect(gate.accepts(const Duration(milliseconds: 999), 60), isTrue);
-    expect(gate.accepts(Duration.zero, 60), isTrue);
-    expect(gate.accepts(const Duration(microseconds: 100), 60), isFalse);
-    expect(gate.accepts(const Duration(microseconds: 200), 0), isTrue);
-  });
+      final frameCount = aligned.inMicroseconds * rate / 1000000;
+      expect(frameCount, closeTo(frameCount.round(), 0.001));
+      final expectedFrameCount =
+          (AppMotion.slow.inMicroseconds * rate / 1000000).round();
+      expect(aligned.inMicroseconds,
+          closeTo((expectedFrameCount * 1000000 / rate).round(), 1));
+    });
+  }
 
   for (final rate in [30.0, 59.94, 90.0, 120.0, 144.0, 165.0, 240.0]) {
     testWidgets('$rate Hz 释放按原时长收束，无持续请求帧', (tester) async {

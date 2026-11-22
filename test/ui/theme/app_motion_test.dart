@@ -302,7 +302,10 @@ void main() {
       find.ancestor(of: find.text('复制'), matching: find.byType(ListTile)),
     );
     expect(menuTile.dense, isTrue);
-    expect(menuTile.contentPadding, EdgeInsets.zero);
+    expect(
+      menuTile.contentPadding,
+      const EdgeInsets.symmetric(horizontal: GlassConstants.spacingCompact),
+    );
     expect(menuTile.onTap, isNotNull);
     final selectAllTile = tester.widget<ListTile>(
       find.ancestor(of: find.text('全选'), matching: find.byType(ListTile)),

@@ -55,10 +55,13 @@ class PictureOrigins {
       final target = visible(identity) as _PictureOriginState?;
       final last = target?.visibleRect;
       if (target == null || last == null || last == first) return;
-      final duration = pictureFlightDuration(
-        first,
-        last,
-        minimum: AppMotion.duration(context, AppMotion.medium),
+      final duration = AppMotion.frameAlignedDuration(
+        context,
+        pictureFlightDuration(
+          first,
+          last,
+          minimum: AppMotion.duration(context, AppMotion.medium),
+        ),
       );
       final origin = (overlay.context.findRenderObject()! as RenderBox)
           .localToGlobal(Offset.zero);
@@ -421,10 +424,10 @@ Future<T?> showPictureDialog<T>(
   final route = _PictureRoute<T>(
     barrierColor: AppTheme.getOverlayColor(context),
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    transitionDuration:
-        transitionDuration ?? AppMotion.duration(context, AppMotion.medium),
+    transitionDuration: transitionDuration ??
+        AppMotion.frameAlignedDuration(context, AppMotion.slow),
     reverseTransitionDuration: reverseTransitionDuration ??
-        AppMotion.duration(context, AppMotion.fast),
+        AppMotion.frameAlignedDuration(context, AppMotion.medium),
     pageBuilder: (context, _, __) => themes.wrap(SafeArea(
         child: Focus(
             onKeyEvent: (node, event) {
@@ -436,11 +439,10 @@ Future<T?> showPictureDialog<T>(
               return KeyEventResult.ignored;
             },
             child: Builder(builder: builder)))),
-    transitionsBuilder: (context, animation, _, child) => FadeTransition(
-      opacity: AppMotion.reduced(context)
-          ? const AlwaysStoppedAnimation(1)
-          : animation.drive(CurveTween(curve: AppMotion.curve)),
-      child: child,
+    transitionsBuilder: (context, animation, _, child) => AppDialogTransition(
+      animation: animation,
+      initialScale: 0.96,
+      child: RepaintBoundary(child: child),
     ),
   );
   final result = await navigator.push(route);

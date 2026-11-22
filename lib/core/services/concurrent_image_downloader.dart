@@ -98,7 +98,7 @@ class ConcurrentImageDownloader {
               'Accept':
                   'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
             }
-          : Map<String, String>.from(headers);
+          : scopeScrapeImageHeaders(url, headers);
       final client = await createProxyClientFromPrefs(domain: domain);
       try {
         final response = await client

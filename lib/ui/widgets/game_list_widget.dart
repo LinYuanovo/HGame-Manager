@@ -91,7 +91,7 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
   final TextEditingController _pageJumpController = TextEditingController();
   int _listItemsPerPage = 5; // 列表视图每页显示数量
   Timer? _searchDebounce;
-  int _coverRevision = 0;
+  final Map<Object, int> _coverRevisions = {};
   final Set<String> _enteredGames = {};
   Game? _lastOpenedGame;
   final _coverOrigins = PictureOrigins();
@@ -1999,7 +1999,8 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       identity: (game.id ?? game.path, coverPath),
       borderRadius: borderRadius,
       child: Image(
-      key: ValueKey((coverPath, game.images[coverIndex].id, _coverRevision, cacheWidth)),
+      key: ValueKey((coverPath, game.images[coverIndex].id,
+          _coverRevisions[game.id ?? game.path] ?? 0, cacheWidth)),
       image: ResizeImage.resizeIfNeeded(cacheWidth, null, source),
       width: width,
       height: height,
@@ -2184,18 +2185,31 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
     );
     final transitionDuration = sourceBounds == null
         ? null
-        : pictureFlightDuration(
-            sourceBounds,
-            targetBounds,
-            minimum: AppMotion.duration(context, AppMotion.medium),
+        : AppMotion.frameAlignedDuration(
+            context,
+            pictureFlightDuration(
+              sourceBounds,
+              targetBounds,
+              minimum: AppMotion.duration(context, AppMotion.medium),
+            ),
           );
     final reverseTransitionDuration = sourceBounds == null
         ? null
-        : pictureFlightDuration(
-            sourceBounds,
-            targetBounds,
-            minimum: AppMotion.duration(context, AppMotion.fast),
+        : AppMotion.frameAlignedDuration(
+            context,
+            pictureFlightDuration(
+              sourceBounds,
+              targetBounds,
+              minimum: AppMotion.duration(context, AppMotion.fast),
+            ),
           );
+    final coverFile = coverPath == null ||
+            coverPath.startsWith('http://') ||
+            coverPath.startsWith('https://')
+        ? null
+        : File(coverPath);
+    final coverRevision = game.id ?? game.path;
+    final originalCoverStamp = _coverFileStamp(coverFile);
     showPictureDialog<Tag>(
       context,
       (dialogContext) => GameDetailDialog(
@@ -2213,23 +2227,41 @@ class _GameListWidgetState extends ConsumerState<GameListWidget> {
       transitionDuration: transitionDuration,
       reverseTransitionDuration: reverseTransitionDuration,
     ).then((tag) async {
+      final before = await originalCoverStamp;
+      final after = await _coverFileStamp(coverFile);
+      final coverChanged = before != null && after != null && before != after;
+      if (coverChanged && coverFile != null) {
+        final image = FileImage(coverFile);
+        await Future.wait([
+          image.evict(),
+          ResizeImage(image, width: 768).evict(),
+        ]);
+      }
       _detailOpen = false;
-      await Future.wait(game.images.expand((image) {
-        final original = FileImage(File(image.imagePath));
-        return [original.evict(), ResizeImage(original, width: 768).evict()];
-      }));
       if (!mounted) return;
       _gameFocus[game.id ?? game.path]?.requestFocus();
-      setState(() { _locatedId = game.id; _locationSequence++; });
-      setState(() => _coverRevision++);
-      // 关闭详情页后刷新列表
-      _refreshGames();
-      _refreshPlayed();
-      _refreshFavorites();
+      setState(() {
+        _locatedId = game.id;
+        _locationSequence++;
+        if (coverChanged) {
+          _coverRevisions[coverRevision] =
+              (_coverRevisions[coverRevision] ?? 0) + 1;
+        }
+      });
       if (tag != null && widget.onTagTap != null) {
         widget.onTagTap!(tag);
       }
     });
+  }
+
+  Future<(int, int)?> _coverFileStamp(File? file) async {
+    if (file == null) return null;
+    try {
+      final stat = await file.stat();
+      return (stat.modified.microsecondsSinceEpoch, stat.size);
+    } on FileSystemException {
+      return null;
+    }
   }
 
   /// 获取菜单配置

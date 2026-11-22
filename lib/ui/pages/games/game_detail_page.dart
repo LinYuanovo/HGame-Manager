@@ -136,6 +136,24 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     });
   }
 
+  void _updateDetailSelection(SelectedContent? content) {
+    _selectedDetailText = content?.plainText.replaceAll('\uFFFC', '');
+  }
+
+  void _copyDetailSelection() {
+    final text = _selectedDetailText;
+    if (text == null) return;
+    unawaited(Clipboard.setData(ClipboardData(text: text)));
+  }
+
+  Widget _buildDetailSelectableTextContextMenu(
+          BuildContext context, EditableTextState state) =>
+      buildAppEditableTextContextMenu(
+        context,
+        state,
+        onCopy: _copyDetailSelection,
+      );
+
   String? _introHtml;
   bool _isDlsiteUserOnly = false;
   Map<String, dynamic>? _translationOriginal;
@@ -185,6 +203,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   bool _isSearchOpen = false;
   List<ContentSearchMatch> _searchMatches = [];
   int _currentMatchIndex = -1;
+  String? _selectedDetailText;
   final Map<String, GlobalKey> _contentBlockKeys = {};
   final Map<String, int> _contentBlockOffsets = {};
   final TextEditingController _searchController = TextEditingController();
@@ -370,7 +389,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     _guideWindowService.setCurrentDetailGameId(_currentGame.id);
     Future.microtask(_migrateCurrentGameData);
     _checkIsLocal();
-    _forceReloadImages();
     Future.microtask(() async {
       await _loadMetadataHtml();
       await _preloadMediaFiles();
@@ -381,11 +399,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
       _restoreScrollPositions();
     });
     ServicesBinding.instance.keyboard.addHandler(_handleKeyDown);
-  }
-
-  void _forceReloadImages() {
-    imageCache.clear();
-    if (mounted) setState(() => _imageVersion++);
   }
 
   Future<void> _checkIsLocal() async {
@@ -1256,9 +1269,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Widget _buildInfoCard() {
-    final controlHeight = LayoutConstants.controlHeight +
-        MediaQuery.textScalerOf(context).scale(GlassConstants.fontControl) -
-        GlassConstants.fontControl;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(GlassConstants.spacingMedium),
@@ -1749,9 +1759,6 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   }
 
   Widget _buildEditableTags() {
-    final controlHeight = LayoutConstants.controlHeight +
-        MediaQuery.textScalerOf(context).scale(GlassConstants.fontControl) -
-        GlassConstants.fontControl;
     return Wrap(
       spacing: GlassConstants.spacingTight,
       runSpacing: GlassConstants.spacingTight,
@@ -1851,6 +1858,15 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
   bool _handleKeyDown(KeyEvent event) {
     if (!mounted || ModalRoute.of(context)?.isCurrent != true) return false;
     if (event is KeyDownEvent) {
+      if (!_isEditing &&
+          !_isSearchOpen &&
+          event.logicalKey == LogicalKeyboardKey.keyC &&
+          (HardwareKeyboard.instance.isControlPressed ||
+              HardwareKeyboard.instance.isMetaPressed) &&
+          _selectedDetailText != null) {
+        _copyDetailSelection();
+        return true;
+      }
       if (event.logicalKey == LogicalKeyboardKey.keyF &&
           (HardwareKeyboard.instance.isControlPressed ||
               HardwareKeyboard.instance.isMetaPressed)) {
@@ -2212,7 +2228,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     return Stack(
       children: [
         SelectionArea(
-          contextMenuBuilder: buildAppSelectableTextContextMenu,
+          onSelectionChanged: _updateDetailSelection,
+          contextMenuBuilder: (context, state) =>
+              buildAppSelectableTextContextMenu(
+            context,
+            state,
+            onCopy: _copyDetailSelection,
+          ),
           child: SingleChildScrollView(
             key: _contentPanelKey,
             controller: _contentScrollController,
@@ -2246,7 +2268,8 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
                 else
                   SelectableText(
                     _displayGame.title ?? '未命名游戏',
-                    contextMenuBuilder: buildAppEditableTextContextMenu,
+                    contextMenuBuilder:
+                        _buildDetailSelectableTextContextMenu,
                     style: TextStyle(
                         fontSize: GlassConstants.fontDetailTitle,
                         fontWeight: AppTypography.bold,
@@ -3109,7 +3132,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     }
     if (blocks.isEmpty) {
       return SelectableText('暂无信息',
-          contextMenuBuilder: buildAppEditableTextContextMenu,
+          contextMenuBuilder: _buildDetailSelectableTextContextMenu,
           style: TextStyle(
               fontSize: fontSize,
               color: AppTheme.getDetailTextPrimary(context)));
@@ -3163,8 +3186,9 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         return SelectableText.rich(
           TextSpan(children: spans),
           key: selectableKey,
-          contextMenuBuilder: buildAppEditableTextContextMenu,
-          style: TextStyle(fontSize: fontSize, height: AppTypography.spaciousHeight),
+          contextMenuBuilder: _buildDetailSelectableTextContextMenu,
+          style: TextStyle(
+              fontSize: fontSize, height: AppTypography.spaciousHeight),
         );
       }
 
@@ -3288,18 +3312,24 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         : pictureViewerTargetRect(MediaQuery.sizeOf(context), imageSize);
     final transitionDuration = sourceBounds == null || targetBounds == null
         ? null
-        : pictureFlightDuration(
-            sourceBounds,
-            targetBounds,
-            minimum: AppMotion.duration(context, AppMotion.medium),
+        : AppMotion.frameAlignedDuration(
+            context,
+            pictureFlightDuration(
+              sourceBounds,
+              targetBounds,
+              minimum: AppMotion.duration(context, AppMotion.medium),
+            ),
           );
     final reverseTransitionDuration =
         sourceBounds == null || targetBounds == null
             ? null
-            : pictureFlightDuration(
-                sourceBounds,
-                targetBounds,
-                minimum: AppMotion.duration(context, AppMotion.fast),
+            : AppMotion.frameAlignedDuration(
+                context,
+                pictureFlightDuration(
+                  sourceBounds,
+                  targetBounds,
+                  minimum: AppMotion.duration(context, AppMotion.fast),
+                ),
               );
     setState(() => _isImageViewerOpen = true);
     try {
@@ -3398,12 +3428,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         if (sectionMatches.isNotEmpty) {
           spans.addAll(_buildHighlightedSpans(line, sectionMatches, baseStyle));
         } else {
-          spans.add(TextSpan(
-              text: j < lines.length - 1 ? '$line\n' : line, style: baseStyle));
+          spans.add(TextSpan(text: line, style: baseStyle));
         }
       } else {
-        spans.add(TextSpan(
-            text: j < lines.length - 1 ? '$line\n' : line, style: baseStyle));
+        spans.add(TextSpan(text: line, style: baseStyle));
+      }
+      if (j < lines.length - 1) {
+        spans.add(TextSpan(text: '\n', style: baseStyle));
       }
       if (sectionKey != null) {
         final name = '${sectionKey}_$lineIdx';
@@ -3416,7 +3447,7 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
     return SelectableText.rich(
       TextSpan(children: spans),
       key: selectableKey,
-      contextMenuBuilder: buildAppEditableTextContextMenu,
+      contextMenuBuilder: _buildDetailSelectableTextContextMenu,
       style: TextStyle(fontSize: fontSize, height: AppTypography.spaciousHeight),
     );
   }

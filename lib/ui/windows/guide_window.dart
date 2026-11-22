@@ -744,19 +744,26 @@ class _GuideWindowPageState extends State<GuideWindowPage>
               final transitionDuration =
                   sourceBounds == null || targetBounds == null
                       ? null
-                      : pictureFlightDuration(
-                          sourceBounds,
-                          targetBounds,
-                          minimum:
-                              AppMotion.duration(context, AppMotion.medium),
+                      : AppMotion.frameAlignedDuration(
+                          context,
+                          pictureFlightDuration(
+                            sourceBounds,
+                            targetBounds,
+                            minimum: AppMotion.duration(
+                                context, AppMotion.medium),
+                          ),
                         );
               final reverseTransitionDuration =
                   sourceBounds == null || targetBounds == null
                       ? null
-                      : pictureFlightDuration(
-                          sourceBounds,
-                          targetBounds,
-                          minimum: AppMotion.duration(context, AppMotion.fast),
+                      : AppMotion.frameAlignedDuration(
+                          context,
+                          pictureFlightDuration(
+                            sourceBounds,
+                            targetBounds,
+                            minimum: AppMotion.duration(
+                                context, AppMotion.fast),
+                          ),
                         );
               showPictureDialog<void>(
                 context,

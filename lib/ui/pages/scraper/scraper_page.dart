@@ -77,11 +77,6 @@ class _ScraperPageState extends ConsumerState<ScraperPage> {
   bool _includeScraped = false;
   int _skippedScraped = 0;
 
-  double get _controlHeight => LayoutConstants.controlHeight +
-      (MediaQuery.textScalerOf(context).scale(GlassConstants.fontControl) -
-              GlassConstants.fontControl)
-          .clamp(0, double.infinity);
-
   @override
   void dispose() {
     _cancelRequested = true;

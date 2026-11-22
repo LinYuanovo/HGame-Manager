@@ -1,8 +1,5 @@
 import 'dart:async';
-import 'dart:ui' show FlutterView;
-
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 
 class AppMotion {
   static const fast = Duration(milliseconds: 200);
@@ -36,6 +33,20 @@ class AppMotion {
   static Duration duration(BuildContext context, Duration duration) =>
       reduced(context) ? Duration.zero : duration;
 
+  static Duration frameAlignedDuration(
+      BuildContext context, Duration duration) {
+    final effectiveDuration = AppMotion.duration(context, duration);
+    if (effectiveDuration == Duration.zero) return effectiveDuration;
+
+    final refreshRate = View.of(context).display.refreshRate;
+    if (!refreshRate.isFinite || refreshRate <= 1) return effectiveDuration;
+
+    final frameCount =
+        (effectiveDuration.inMicroseconds * refreshRate / 1e6).round();
+    return Duration(
+        microseconds: (frameCount * 1e6 / refreshRate).round());
+  }
+
   static void scrollTo(
       BuildContext context, ScrollController controller, double offset) {
     if (!controller.hasClients) return;
@@ -44,28 +55,6 @@ class AppMotion {
     } else {
       controller.animateTo(offset, duration: slow, curve: curve);
     }
-  }
-}
-
-class AppFrameGate {
-  double _next = 0;
-  double? _rate;
-  int _last = -1;
-
-  bool accepts(Duration elapsed, double rate) {
-    if (!rate.isFinite || rate <= 1) {
-      _rate = null;
-      return true;
-    }
-    final now = elapsed.inMicroseconds;
-    if (rate != _rate || now < _last) _next = now.toDouble();
-    _rate = rate;
-    _last = now;
-    final interval = Duration.microsecondsPerSecond / rate;
-    final sampleTime = now + (interval * .12).clamp(1.0, 1000.0);
-    if (sampleTime < _next) return false;
-    _next += (((sampleTime - _next) / interval).floor() + 1) * interval;
-    return true;
   }
 }
 
@@ -182,26 +171,6 @@ class AppSelectedMark extends StatelessWidget {
       child: child);
 }
 
-mixin AppDisplayTicks<T extends StatefulWidget> on State<T>, TickerProvider {
-  FlutterView? _view;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _view = View.of(context);
-  }
-
-  @override
-  Ticker createTicker(TickerCallback onTick) {
-    final gate = AppFrameGate();
-    return super.createTicker((elapsed) {
-      if (gate.accepts(elapsed, _view?.display.refreshRate ?? 0)) {
-        onTick(elapsed);
-      }
-    });
-  }
-}
-
 class AppMotionValue extends StatefulWidget {
   const AppMotionValue(
       {super.key,
@@ -223,7 +192,7 @@ class AppMotionValue extends StatefulWidget {
 }
 
 class _AppMotionValueState extends State<AppMotionValue>
-    with SingleTickerProviderStateMixin, AppDisplayTicks {
+    with SingleTickerProviderStateMixin {
   late final _value = AnimationController.unbounded(
       vsync: this, value: widget.begin ?? widget.target);
   bool _instant = true;
@@ -460,7 +429,7 @@ class AppEntrance extends StatefulWidget {
 }
 
 class _AppEntranceState extends State<AppEntrance>
-    with SingleTickerProviderStateMixin, AppDisplayTicks {
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller =
       AnimationController(vsync: this, duration: AppMotion.medium);
   Timer? _delay;

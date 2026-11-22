@@ -78,6 +78,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
   late TextEditingController _cookieVikacgController;
   late TextEditingController _cookiePilipiliController;
   late TextEditingController _cookie2dfanController;
+  late TextEditingController _cookieDlsiteController;
   late TextEditingController _domainAcgyingController;
   late TextEditingController _domainFeixueController;
   late TextEditingController _domainVikacgController;
@@ -216,6 +217,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     final cookieVikacg = prefs.getString('cookie_vikacg') ?? '';
     final cookiePilipili = prefs.getString('cookie_pilipili') ?? '';
     final cookie2dfan = prefs.getString('cookie_2dfan') ?? '';
+    final cookieDlsite = prefs.getString('cookie_dlsite') ?? '';
 
     // Library path migration
     final rawLib = prefs.getString('library_path') ?? '';
@@ -267,6 +269,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _cookieVikacgController = TextEditingController(text: cookieVikacg);
     _cookiePilipiliController = TextEditingController(text: cookiePilipili);
     _cookie2dfanController = TextEditingController(text: cookie2dfan);
+    _cookieDlsiteController = TextEditingController(text: cookieDlsite);
     _domainAcgyingController =
         TextEditingController(text: prefs.getString('domain_acgying') ?? '');
     _domainFeixueController =
@@ -342,6 +345,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     _cookieVikacgController.dispose();
     _cookiePilipiliController.dispose();
     _cookie2dfanController.dispose();
+    _cookieDlsiteController.dispose();
     _domainAcgyingController.dispose();
     _domainFeixueController.dispose();
     _domainVikacgController.dispose();
@@ -1733,6 +1737,19 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
           label: '2DFan (fan2d.top / 2dfan.com)',
           controller: _cookie2dfanController,
           hint: '登录 2DFan 后复制 Cookie',
+        ),
+        const SizedBox(height: GlassConstants.spacingCompact),
+        _buildCookieInput(
+          label: 'DLsite',
+          controller: _cookieDlsiteController,
+          hint: '登录 www.dlsite.com 后复制作品页请求的 Cookie',
+        ),
+        const SizedBox(height: GlassConstants.spacingTight),
+        Text(
+          '保存后，DLsite 搜索、刮削和图片下载会携带登录态，用于获取用户限定作品的完整内容。Cookie 过期后请重新复制。',
+          style: TextStyle(
+              color: AppTheme.getTextSecondary(context),
+              fontSize: GlassConstants.fontCaption),
         ),
         const SizedBox(height: GlassConstants.spacingSmall),
         Text(
@@ -3443,6 +3460,7 @@ class _SettingsDialogContentState extends ConsumerState<SettingsDialogContent> {
     await prefs.setString(
         'cookie_pilipili', _cookiePilipiliController.text.trim());
     await prefs.setString('cookie_2dfan', _cookie2dfanController.text.trim());
+    await prefs.setString('cookie_dlsite', _cookieDlsiteController.text.trim());
     await prefs.setString(
         'domain_acgying', _domainAcgyingController.text.trim());
     await prefs.setString('domain_feixue', _domainFeixueController.text.trim());

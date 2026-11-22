@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hgame_manager/core/services/dlsite_service.dart';
+import 'package:hgame_manager/core/utils/app_settings.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -45,6 +47,89 @@ Map<String, dynamic> _product({String id = _id}) => {
     };
 
 void main() {
+  late Directory temporary;
+  late AppSettings settings;
+
+  setUp(() async {
+    temporary = await Directory.systemTemp.createTemp('hgm_dlsite_service_');
+    settings = await AppSettings.loadFromFileForTest(
+        '${temporary.path}/settings.json');
+  });
+
+  tearDown(() async {
+    await settings.flush();
+    AppSettings.invalidateCache();
+    await temporary.delete(recursive: true);
+  });
+
+  group('DLsite 登录态', () {
+    test('保存的 Cookie 用于作品页，登录后读取完整正文', () async {
+      await settings.setString('cookie_dlsite', 'session=login-token==');
+      await settings.flush();
+      settings = await AppSettings.loadFromFileForTest(
+          '${temporary.path}/settings.json');
+      final service = DlsiteService(
+          clientFactory: () async => MockClient((request) async {
+                expect(request.headers['cookie'],
+                    'adultchecked=1; locale=zh_CN; session=login-token==');
+                return _response('''
+          <h1 id="work_name">测试作品</h1>
+          <div class="c-productContent">登录后可见的完整作品正文</div>
+          <div class="work_slider"><img src="//img.dlsite.jp/cover.jpg"></div>
+        ''');
+              }));
+
+      final info = (await service.fetchById(_id))!;
+      expect(info.isDlsiteUserOnly, isFalse);
+      expect(info.description, contains('登录后可见的完整作品正文'));
+      expect(info.descriptionHtml, contains('登录后可见的完整作品正文'));
+    });
+
+    test('搜索及重试使用最新 Cookie，清空后恢复默认值', () async {
+      final cookies = <String?>[];
+      var requests = 0;
+      final service = DlsiteService(
+          clientFactory: () async => MockClient((request) async {
+                cookies.add(request.headers['cookie']);
+                return _response('', status: ++requests == 1 ? 403 : 200);
+              }));
+      await settings.setString('cookie_dlsite',
+          ' session=first; locale=ja_JP; adultchecked=1; ');
+      await service.search('test game');
+      expect(cookies, [
+        'adultchecked=1; locale=ja_JP; session=first',
+        'adultchecked=1; locale=ja_JP; session=first',
+      ]);
+
+      await settings.setString('cookie_dlsite', 'session=updated');
+      await service.search('test');
+      expect(cookies.last, 'adultchecked=1; locale=zh_CN; session=updated');
+      await settings.setString('cookie_dlsite', '');
+      await service.search('test');
+      expect(cookies.last, 'adultchecked=1; locale=zh_CN');
+    });
+
+    test('Cookie 失效仍按受限页处理，补全 API 也携带凭据', () async {
+      await settings.setString('cookie_dlsite', 'session=expired');
+      final requests = <http.Request>[];
+      final service = DlsiteService(
+          clientFactory: () async => MockClient((request) async {
+                requests.add(request);
+                return request.url.path.endsWith('product.json')
+                    ? _response(jsonEncode([_product()]))
+                    : _response(_restrictedPage);
+              }));
+      final info = (await service.fetchById(_id))!;
+      expect(requests, hasLength(2));
+      for (final request in requests) {
+        expect(request.headers['cookie'], contains('session=expired'));
+      }
+      expect(info.isDlsiteUserOnly, isTrue);
+      expect(info.description, isNull);
+      expect(info.screenshots, isNotEmpty);
+    });
+  });
+
   test('DLsite 尾点域名仍使用专用刮削管线', () {
     expect(
         DlsiteService.isDlsiteUrl(
