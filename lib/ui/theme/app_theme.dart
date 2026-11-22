@@ -2174,10 +2174,12 @@ Future<T?> showGlassDialog<T>({
 Widget buildAppTextSelectionToolbar(
   BuildContext context,
   TextSelectionToolbarAnchors anchors,
-  List<ContextMenuButtonItem> buttonItems,
-) {
-  final items = buttonItems.where((item) => _textSelectionLabel(item).isNotEmpty);
-  if (items.isEmpty) return const SizedBox.shrink();
+  List<ContextMenuButtonItem> buttonItems, {
+  VoidCallback? onCopy,
+}) {
+  final availableItems =
+      buttonItems.where((item) => _textSelectionLabel(item).isNotEmpty);
+  if (availableItems.isEmpty) return const SizedBox.shrink();
 
   final style = AppTheme._glassMenuStyle(context);
   final mediaPadding = MediaQuery.paddingOf(context);
@@ -2188,6 +2190,10 @@ Widget buildAppTextSelectionToolbar(
     right: mediaPadding.right + screenPadding,
     bottom: mediaPadding.bottom + screenPadding,
   );
+  final items = availableItems
+      .map((item) => item.type == ContextMenuButtonType.copy && onCopy != null
+          ? item.copyWith(onPressed: onCopy)
+          : item);
 
   return Padding(
     padding: insets,
@@ -2243,9 +2249,11 @@ Widget buildAppEditableTextContextMenu(
         context, state.contextMenuAnchors, state.contextMenuButtonItems);
 
 Widget buildAppSelectableTextContextMenu(
-        BuildContext context, SelectableRegionState state) =>
+        BuildContext context, SelectableRegionState state,
+        {VoidCallback? onCopy}) =>
     buildAppTextSelectionToolbar(
-        context, state.contextMenuAnchors, state.contextMenuButtonItems);
+        context, state.contextMenuAnchors, state.contextMenuButtonItems,
+        onCopy: onCopy);
 
 String _textSelectionLabel(ContextMenuButtonItem item) => switch (item.type) {
       ContextMenuButtonType.cut => '剪切',
