@@ -1,0 +1,22 @@
+name: Dart Format
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
+
+      - name: Check Dart formatting
+        run: dart format --output=none --set-exit-if-changed lib test integration_test

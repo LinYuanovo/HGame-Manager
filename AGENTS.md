@@ -89,6 +89,13 @@ AppTheme.warningOrange  // 橙色
 - 多组测试需要按顺序逐条执行；上一条命令结束后再执行下一条。
 - 所有 `flutter` / `dart` 命令必须在沙箱外（提权）运行：Flutter 工具启动时需读写 `C:\flutter\bin\cache\lockfile`，沙箱内无写权限，`flutter.bat` 会静默无限重试导致命令永久挂起且无任何输出。若命令超过 1 分钟无输出，不要等待，直接提权重跑。
 
+## Dart 格式化规则
+
+- 格式化基线固定为 Flutter 3.41.9（Dart 3.11.5）。新增或修改 Dart 文件时，只对本次涉及的文件运行 `dart format <文件...>`，不要全仓库格式化。
+- Dart 文件统一使用 LF 行尾，由 `.gitattributes` 声明；不要手动转换源码行尾。
+- 全量格式检查由 CI 执行：`dart format --output=none --set-exit-if-changed lib test integration_test`。
+- 纯格式化改动提交前运行 `git diff -w` 检查；格式器跨行重排时，确认变更仅为空白与换行。
+
 ### 长任务输出与超时
 
 - 禁止把长命令的输出接到 `Select-Object -Last N`、`Sort-Object` 等会聚合流的管道：它们会缓冲全部输出直到进程退出，看起来像卡死。要么直接输出到日志文件（`*> file.log`），要么用 `Tee-Object` 后自行截取文件末尾。
