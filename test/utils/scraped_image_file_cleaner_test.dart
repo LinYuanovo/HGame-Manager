@@ -76,17 +76,21 @@ void main() {
       expect(await File(manual).exists(), isTrue);
     });
 
-    test('keeps old images when no latest image is retained', () async {
+    test('没有保留配图时清理未引用的编号图，保留正文引用和手动图', () async {
       final oldImage = await writeImage('1.jpg');
+      final referenced = await writeImage('scrape_2.jpg');
+      final manual = await writeImage('manual_1.jpg');
 
       final deleted = await ScrapedImageFileCleaner.cleanUnusedNumberedImages(
         gamePath: tempDir.path,
         retainedImagePaths: const [],
-        referenceTexts: const [],
+        referenceTexts: ['正文引用: $referenced'],
       );
 
-      expect(deleted, 0);
-      expect(await File(oldImage).exists(), isTrue);
+      expect(deleted, 1);
+      expect(await File(oldImage).exists(), isFalse);
+      expect(await File(referenced).exists(), isTrue);
+      expect(await File(manual).exists(), isTrue);
     });
 
     test('deletes unreferenced scrape-prefixed images', () async {

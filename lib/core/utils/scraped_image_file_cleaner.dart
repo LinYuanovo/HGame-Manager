@@ -22,8 +22,6 @@ class ScrapedImageFileCleaner {
         .where((value) => value.isNotEmpty)
         .map(_normalizePath)
         .toSet();
-    if (retained.isEmpty) return 0;
-
     final imagesDir = GameDataPaths.imagesDir(gamePath);
     if (!await imagesDir.exists()) return 0;
 

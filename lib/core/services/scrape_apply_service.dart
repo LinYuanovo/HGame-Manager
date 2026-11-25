@@ -332,19 +332,23 @@ class ScrapeApplyService {
       }
     }
 
-    final deletedCount =
-        await ScrapedImageFileCleaner.cleanUnusedNumberedImages(
-      gamePath: game.path,
-      retainedImagePaths: finalImages.map((image) => image.imagePath),
-      referenceTexts: [
-        game.intro,
-        game.features,
-        game.changelog,
-        game.guide,
-      ],
-    );
-    if (deletedCount > 0) {
-      onLog?.call('清理旧配图: $deletedCount 张');
+    // 全部确认为源站缺图时也要清理旧编号图，避免扫描重新收录；
+    // 下载失败且没有可用图片时保留旧文件，供后续重试恢复。
+    if (finalImages.isNotEmpty || missingUrls.length == imageUrls.length) {
+      final deletedCount =
+          await ScrapedImageFileCleaner.cleanUnusedNumberedImages(
+        gamePath: game.path,
+        retainedImagePaths: finalImages.map((image) => image.imagePath),
+        referenceTexts: [
+          game.intro,
+          game.features,
+          game.changelog,
+          game.guide,
+        ],
+      );
+      if (deletedCount > 0) {
+        onLog?.call('清理旧配图: $deletedCount 张');
+      }
     }
 
     await repo.setGameImages(game.id!, finalImages);
