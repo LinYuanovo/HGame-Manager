@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hgame_manager/core/database/database_helper.dart';
 import 'package:hgame_manager/core/models/models.dart';
@@ -24,6 +25,7 @@ void main() {
   late AppSettings settings;
   const configs = ScrapeModeConfigs(configs: {});
 
+  WidgetsFlutterBinding.ensureInitialized();
   setUpAll(sqfliteFfiInit);
   setUp(() async {
     temporary = await Directory.systemTemp.createTemp('hgm_merge_regression_');
@@ -98,7 +100,46 @@ void main() {
         '原资料');
   });
 
-  test('图片下载失败恢复旧资料、标签和文件，保留同期游玩时长', () async {
+  test('审核保存跳过 404 和 410，缺图后的配图与正文仍然对应', () async {
+    final game = await createGame(stored: false);
+    final item = candidate(game);
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    server.listen((request) async {
+      switch (request.uri.path) {
+        case '/missing.jpg':
+          request.response.statusCode = 404;
+        case '/gone.jpg':
+          request.response.statusCode = 410;
+        default:
+          request.response.add([request.uri.path == '/first.jpg' ? 1 : 4]);
+      }
+      await request.response.close();
+    });
+    final urls = ['first', 'missing', 'gone', 'last']
+        .map((name) => 'http://127.0.0.1:${server.port}/$name.jpg')
+        .toList();
+    item.candidate!
+      ..screenshots = urls
+      ..description = '[图片:${urls.last}]';
+    await service.apply(item, configs);
+
+    expect(item.applied, isTrue);
+    final saved = (await repository.getGameByPath(game.path))!;
+    final files = saved.images.map((image) => File(image.imagePath)).toList();
+    expect(files.map((file) => path.basename(file.path)),
+        ['scrape_1.jpg', 'scrape_4.jpg']);
+    expect(await files.first.readAsBytes(), [1]);
+    expect(await files.last.readAsBytes(), [4]);
+    final metadata =
+        jsonDecode(await GameDataPaths.metadataFile(game.path).readAsString());
+    expect(metadata['scraped_at'], isNotEmpty);
+    expect(metadata['intro'], '[图片:${files.last.path}]');
+    expect(saved.intro, metadata['intro']);
+    expect(item.notices.any((notice) => notice.contains('跳过')), isTrue);
+  });
+
+  test('图片返回 503 时恢复旧资料、标签和文件，保留同期游玩时长', () async {
     final game = await createGame();
     final item = candidate(game);
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -106,11 +147,13 @@ void main() {
     server.listen((request) async {
       await database.update('games', {'play_duration': 120},
           where: 'id = ?', whereArgs: [game.id]);
-      request.response.statusCode = 404;
+      request.response.statusCode =
+          request.uri.path == '/missing.png' ? 404 : 503;
       await request.response.close();
     });
     item.candidate!.screenshots = [
-      'http://127.0.0.1:${server.port}/missing.png'
+      'http://127.0.0.1:${server.port}/missing.png',
+      'http://127.0.0.1:${server.port}/unavailable.png',
     ];
     final original = await GameDataPaths.metadataFile(game.path).readAsString();
     await expectLater(service.apply(item, configs), throwsA(isA<StateError>()));

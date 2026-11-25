@@ -186,6 +186,10 @@ class ScrapeApplyService {
           if (remoteUrl.startsWith('http:')) {
             urlToLocal[remoteUrl.replaceFirst('http:', '')] = localPath;
           }
+          if (remoteUrl.startsWith('//')) {
+            urlToLocal['https:$remoteUrl'] = localPath;
+            urlToLocal['http:$remoteUrl'] = localPath;
+          }
           break;
         }
       }
@@ -269,6 +273,7 @@ class ScrapeApplyService {
     }
 
     final headers = await buildScrapeImageHeaders(sourceUrl);
+    final missingUrls = <String>{};
     final urlToTmp = await ConcurrentImageDownloader.downloadAll(
       imageUrls: imageUrls,
       saveDir: game.path,
@@ -276,18 +281,22 @@ class ScrapeApplyService {
       maxConcurrency: maxConcurrency,
       useTempFiles: true,
       onProgress: onProgress,
+      onMissing: missingUrls.add,
     );
 
-    if (requireAllImages &&
-        imageUrls.any((url) => !urlToTmp.containsKey(url))) {
-      throw StateError(
-          '图片下载不完整（${urlToTmp.length}/${imageUrls.toSet().length}），已取消保存，请重试');
+    final expectedCount = imageUrls.length - missingUrls.length;
+    if (requireAllImages && urlToTmp.length != expectedCount) {
+      throw StateError('图片下载不完整（${urlToTmp.length}/$expectedCount），已取消保存，请重试');
+    }
+    if (missingUrls.isNotEmpty) {
+      onLog?.call('已跳过 ${missingUrls.length} 张源站不存在的配图');
     }
 
     final urlToLocal = <String, String>{};
     final finalImages = <GameImage>[];
     for (int i = 0; i < imageUrls.length; i++) {
       final url = imageUrls[i];
+      if (missingUrls.contains(url)) continue;
       final tmpPath = urlToTmp[url];
       if (tmpPath != null && await File(tmpPath).exists()) {
         final ext = path.extension(tmpPath).replaceAll('.tmp', '');
@@ -853,15 +862,7 @@ class ScrapeApplyService {
       if (!await metadataFile.exists()) return;
 
       final metaJson = jsonDecode(await metadataFile.readAsString());
-      final imageDir = await GameDataPaths.existingImagesDir(game.path);
-      if (!await imageDir.exists()) return;
-
-      final localImages = <String>[];
-      await for (final entity in imageDir.list()) {
-        if (entity is File) {
-          localImages.add(entity.path);
-        }
-      }
+      final localImages = game.images.map((image) => image.imagePath).toList();
       if (localImages.isEmpty) return;
 
       final imageUrls =

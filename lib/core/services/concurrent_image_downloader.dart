@@ -6,6 +6,8 @@ import '../utils/proxy_client.dart';
 import 'app_logger.dart';
 import 'image_service.dart';
 
+enum _DownloadStatus { saved, missing, failed }
+
 class ConcurrentImageDownloader {
   static final _log = AppLogger.instance;
 
@@ -17,6 +19,7 @@ class ConcurrentImageDownloader {
     int startIndex = 0,
     bool useTempFiles = false,
     void Function(int completed, int total)? onProgress,
+    void Function(String url)? onMissing,
   }) async {
     final urlToLocal = <String, String>{};
     if (imageUrls.isEmpty) return urlToLocal;
@@ -42,23 +45,27 @@ class ConcurrentImageDownloader {
 
       final idx = queue.removeAt(0);
       activeCount++;
-      final ext = _getExtensionFromUrl(imageUrls[idx]);
+      final url = imageUrls[idx];
+      final ext = _getExtensionFromUrl(url);
       final suffix = useTempFiles ? '.tmp' : '';
+      final savePath = path.join(imagesDir.path,
+          '${GameDataPaths.scrapeImagePrefix}${idx + 1 + startIndex}$suffix$ext');
       _downloadSingle(
-        url: imageUrls[idx],
-        savePath: path.join(imagesDir.path,
-            '${GameDataPaths.scrapeImagePrefix}${idx + 1 + startIndex}$suffix$ext'),
+        url: url,
+        savePath: savePath,
         headers: headers,
-      ).then((success) {
+      ).then((status) {
         activeCount--;
         completedCount++;
         onProgress?.call(completedCount, imageUrls.length);
-        if (success != null) {
-          urlToLocal[imageUrls[idx]] = success;
+        if (status == _DownloadStatus.saved) {
+          urlToLocal[url] = savePath;
+        } else if (status == _DownloadStatus.missing) {
+          onMissing?.call(url);
         }
         _log.info('ImageDownloader', '进度: $completedCount/${imageUrls.length}');
 
-        if (!degraded && success == null) {
+        if (!degraded && status == _DownloadStatus.failed) {
           degraded = true;
           _log.warning('ImageDownloader', '下载失败，降级为单线程模式');
         }
@@ -84,7 +91,7 @@ class ConcurrentImageDownloader {
     return urlToLocal;
   }
 
-  static Future<String?> _downloadSingle({
+  static Future<_DownloadStatus> _downloadSingle({
     required String url,
     required String savePath,
     Map<String, String>? headers,
@@ -101,7 +108,7 @@ class ConcurrentImageDownloader {
           : scopeScrapeImageHeaders(url, headers);
       final client = await createProxyClientFromPrefs(domain: domain);
       try {
-        final response = await client
+        var response = await client
             .get(
               Uri.parse(url),
               headers: requestHeaders,
@@ -111,34 +118,33 @@ class ConcurrentImageDownloader {
         if (response.statusCode == 429) {
           _log.warning('ImageDownloader', '429 限流: $url');
           await Future.delayed(const Duration(seconds: 5));
-          final retryResponse = await client
+          response = await client
               .get(
                 Uri.parse(url),
                 headers: requestHeaders,
               )
               .timeout(const Duration(seconds: 30));
-          if (retryResponse.statusCode == 200 &&
-              retryResponse.bodyBytes.isNotEmpty) {
-            await File(savePath)
-                .writeAsBytes(retryResponse.bodyBytes, flush: true);
-            await ImageService.invalidateFileCache(savePath);
-            return savePath;
-          }
-          return null;
         }
 
-        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-          await File(savePath).writeAsBytes(response.bodyBytes, flush: true);
-          await ImageService.invalidateFileCache(savePath);
-          return savePath;
+        final code = response.statusCode;
+        if (code == HttpStatus.notFound || code == HttpStatus.gone) {
+          _log.warning('ImageDownloader', '源站图片不存在，已跳过 (HTTP $code): $url');
+          return _DownloadStatus.missing;
         }
-        return null;
+        if (code != HttpStatus.ok || response.bodyBytes.isEmpty) {
+          _log.warning('ImageDownloader',
+              '图片下载失败 (HTTP $code${code == HttpStatus.ok ? '，响应为空' : ''}): $url');
+          return _DownloadStatus.failed;
+        }
+        await File(savePath).writeAsBytes(response.bodyBytes, flush: true);
+        await ImageService.invalidateFileCache(savePath);
+        return _DownloadStatus.saved;
       } finally {
         client.close();
       }
     } catch (e) {
-      _log.warning('ImageDownloader', '下载异常: $e');
-      return null;
+      _log.warning('ImageDownloader', '下载异常: $url $e');
+      return _DownloadStatus.failed;
     }
   }
 
