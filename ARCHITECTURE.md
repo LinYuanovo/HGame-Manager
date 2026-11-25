@@ -399,6 +399,7 @@ enum NavRoute {
 - Steam/DLsite 单个添加负责搜索与导入；复用 `markScraped` 标记、`ConcurrentImageDownloader` 下载、`translateGameMetadata` 翻译及 `organizeFolder` 整理
 - 纯函数：stripVersionFromTitle、resolveCategoryName、mergeGameInfo、buildMetadataJson、buildNumberedUrlMapping
 - 流程：syncTags 标签同步、downloadAndApplyImages 图片下载与引用重写、fixImageUrlsInMetadata 元数据修复、moveGameToSorted/organizeFolder 目录整理、applyScrapeResult 总编排
+- 共享图片处理通过 `confirmImageCleanup` 请求旧配图保留或删除选择；默认保留，保留时同步图库记录。五种适用入口复用旧配图确认弹窗，正文引用映射使用本次刮削的图片集合。
 - 图片默认并发 3；刮削中心抓取线程数可选 1–8；停止抓取后保留已取得的候选，确认前不写入刮削资料
 - `translateGameMetadata` 在图片本地化后、目录整理前统一翻译并持久化，URL 三入口与 Steam/DLsite 导入共用。
 - `requirePersistence` 用于批量确认：元数据或图片失败时恢复本次刮削字段、标签、图片及原文件；游玩时长等运行数据独立保留。

@@ -41,6 +41,7 @@ class ScrapeReviewService {
     ScrapeReviewItem item,
     ScrapeModeConfigs configs, {
     void Function(int current, int total)? onProgress,
+    Future<bool> Function(int imageCount)? confirmImageCleanup,
   }) async {
     if (item.applied || item.decision != ScrapeReviewDecision.keep) return;
     if (item.recoveryRequired) throw StateError('请先按提示恢复此前资料');
@@ -63,6 +64,7 @@ class ScrapeReviewService {
         sourceUrl: item.candidate!.sourceUrl,
         requirePersistence: true,
         onProgress: onProgress,
+        confirmImageCleanup: confirmImageCleanup,
         onTranslationNotice: item.notices.add,
         onLog: (message) {
           if (message.contains('失败') || message.contains('跳过')) {

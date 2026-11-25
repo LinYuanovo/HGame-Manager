@@ -124,7 +124,9 @@ void main() {
     item.candidate!
       ..screenshots = urls
       ..description = '[图片:${urls.last}]';
-    await service.apply(item, configs);
+    await service.apply(item, configs, confirmImageCleanup: (_) async {
+      fail('没有旧图时应直接保存');
+    });
 
     expect(item.applied, isTrue);
     final saved = (await repository.getGameByPath(game.path))!;
@@ -141,36 +143,106 @@ void main() {
     expect(item.notices.any((notice) => notice.contains('跳过')), isTrue);
   });
 
-  test('全部配图缺失后再次扫描不会重新收录未引用的旧编号图', () async {
-    final game = await createGame();
-    await database.update(
-        'games', {'added_time': DateTime(2000).toIso8601String()},
-        where: 'id = ?', whereArgs: [game.id]);
-    final imagesDir = await GameDataPaths.ensureImagesDir(game.path);
-    final oldImage = File(path.join(imagesDir.path, 'scrape_1.jpg'));
-    await oldImage.writeAsBytes([1]);
-    await repository.setGameImages(game.id!, [
-      GameImage(gameId: game.id!, imagePath: oldImage.path),
-    ]);
-    final item = candidate(game);
-    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-    addTearDown(() => server.close(force: true));
-    server.listen((request) async {
-      request.response.statusCode = 404;
-      await request.response.close();
-    });
-    item.candidate!.screenshots = [
-      'http://127.0.0.1:${server.port}/missing.jpg',
-    ];
+  for (final deleteOld in [null, false, true]) {
+    test(
+        '全部配图缺失时按${deleteOld == null ? '默认保留' : deleteOld ? '删除' : '保留'}选择处理旧图并同步扫描',
+        () async {
+      final game = await createGame();
+      await database.update(
+          'games', {'added_time': DateTime(2000).toIso8601String()},
+          where: 'id = ?', whereArgs: [game.id]);
+      final imagesDir = await GameDataPaths.ensureImagesDir(game.path);
+      final oldImage = File(path.join(imagesDir.path, 'scrape_1.jpg'));
+      await oldImage.writeAsBytes([1]);
+      await repository.setGameImages(game.id!, [
+        GameImage(gameId: game.id!, imagePath: oldImage.path),
+      ]);
+      final item = candidate(game);
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      server.listen((request) async {
+        request.response.statusCode = 404;
+        await request.response.close();
+      });
+      item.candidate!.screenshots = [
+        'http://127.0.0.1:${server.port}/missing.jpg',
+      ];
 
-    await service.apply(item, configs);
-    expect(item.applied, isTrue);
-    expect((await repository.getGameById(game.id!))!.images, isEmpty);
-    await GameScannerService(gameRepository: repository)
-        .scanGameLibrary(temporary.path);
-    expect((await repository.getGameById(game.id!))!.images, isEmpty);
-    expect(await oldImage.exists(), isFalse);
-  });
+      var confirmations = 0;
+      await service.apply(item, configs,
+          confirmImageCleanup: deleteOld == null
+              ? null
+              : (count) async {
+                  confirmations++;
+                  expect(count, 1);
+                  expect(await oldImage.exists(), isTrue);
+                  return deleteOld;
+                });
+      expect(item.applied, isTrue);
+      expect(confirmations, deleteOld == null ? 0 : 1);
+      final expectedPaths = deleteOld == true ? <String>[] : [oldImage.path];
+      expect(
+          (await repository.getGameById(game.id!))!
+              .images
+              .map((image) => image.imagePath),
+          expectedPaths);
+      await GameScannerService(gameRepository: repository)
+          .scanGameLibrary(temporary.path);
+      expect(
+          (await repository.getGameById(game.id!))!
+              .images
+              .map((image) => image.imagePath),
+          expectedPaths);
+      expect(await oldImage.exists(), deleteOld != true);
+    });
+  }
+
+  for (final deleteOld in [false, true]) {
+    test('部分缺图时${deleteOld ? '删除' : '保留'}旧配图，正文使用本次图片映射', () async {
+      final game = await createGame();
+      final imagesDir = await GameDataPaths.ensureImagesDir(game.path);
+      final oldImage = File(path.join(imagesDir.path, 'scrape_2.jpg'));
+      await oldImage.writeAsBytes([9]);
+      final item = candidate(game);
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      server.listen((request) async {
+        if (request.uri.path == '/missing.jpg') {
+          request.response.statusCode = 404;
+        } else {
+          request.response.add([1]);
+        }
+        await request.response.close();
+      });
+      final firstUrl = 'http://127.0.0.1:${server.port}/first.jpg';
+      final missingUrl = 'http://127.0.0.1:${server.port}/missing.jpg';
+      item.candidate!
+        ..screenshots = [firstUrl, missingUrl]
+        ..description = '[图片:$firstUrl]\n[图片:$missingUrl]'
+        ..descriptionHtml = '<img src="$missingUrl">';
+      var confirmations = 0;
+      await service.apply(item, configs, confirmImageCleanup: (count) async {
+        confirmations++;
+        expect(count, 1);
+        expect(await oldImage.exists(), isTrue);
+        return deleteOld;
+      });
+      expect(confirmations, 1);
+      final current = (await repository.getGameById(game.id!))!;
+      expect(current.images.map((image) => path.basename(image.imagePath)), [
+        'scrape_1.jpg',
+        if (!deleteOld) 'scrape_2.jpg',
+      ]);
+      final metadata = jsonDecode(
+          await GameDataPaths.metadataFile(game.path).readAsString());
+      expect(current.intro,
+          '[图片:${current.images.first.imagePath}]\n[图片:$missingUrl]');
+      expect(metadata['intro'], current.intro);
+      expect(metadata['intro_html'], '<img src="$missingUrl">');
+      expect(await oldImage.exists(), !deleteOld);
+      if (!deleteOld) expect(await oldImage.readAsBytes(), [9]);
+    });
+  }
 
   for (final failureStatus in [403, 503, 200]) {
     test(

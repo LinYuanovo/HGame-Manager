@@ -20,6 +20,7 @@ import '../../../core/services/steam_service.dart';
 import '../../../scraper/parse_utils.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/game_list_widget.dart';
+import '../../widgets/scraped_image_cleanup_dialog.dart';
 import '../categories/tag_games_page.dart';
 import 'batch_import_dialog.dart';
 
@@ -647,6 +648,11 @@ class _CloudImportDialogState extends ConsumerState<_CloudImportDialog> {
       configs: await _loadScrapeModeConfigs(),
       sourceUrl: gameInfo.sourceUrl,
       requirePersistence: true,
+      confirmImageCleanup: (count) => confirmScrapedImageCleanup(
+        context: context,
+        gameTitle: gameInfo.title ?? path.basename(_folderPath!),
+        imageCount: count,
+      ),
       onTranslationNotice: _translationNotices.add,
     );
 

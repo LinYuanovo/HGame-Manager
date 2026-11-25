@@ -142,6 +142,7 @@ void main() {
         tagRepo: tagRepository,
         configs: const ScrapeModeConfigs(configs: {}),
         sourceUrl: info.sourceUrl,
+        confirmImageCleanup: (_) async => true,
         requirePersistence: true,
       );
 

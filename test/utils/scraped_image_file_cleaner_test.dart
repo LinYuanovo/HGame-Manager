@@ -27,105 +27,105 @@ void main() {
       return file.path;
     }
 
-    test('deletes numbered images not retained by the latest scrape', () async {
+    test('收集本次配图之外的编号图供用户确认', () async {
       final first = await writeImage('1.jpg');
       final second = await writeImage('2.jpg');
       await writeImage('3.jpg');
 
-      final deleted = await ScrapedImageFileCleaner.cleanUnusedNumberedImages(
+      final unused = await ScrapedImageFileCleaner.findUnusedNumberedImages(
         gamePath: tempDir.path,
         retainedImagePaths: [first, second],
         referenceTexts: const [],
       );
 
-      expect(deleted, 1);
+      expect(unused, [path.join(imageDir.path, '3.jpg')]);
       expect(await File(first).exists(), isTrue);
       expect(await File(second).exists(), isTrue);
-      expect(await File(path.join(imageDir.path, '3.jpg')).exists(), isFalse);
+      expect(await File(path.join(imageDir.path, '3.jpg')).exists(), isTrue);
     });
 
-    test('removes old extension residue for the same image index', () async {
+    test('收集同编号的旧扩展名图片', () async {
       final retained = await writeImage('1.jpg');
       await writeImage('1.png');
 
-      final deleted = await ScrapedImageFileCleaner.cleanUnusedNumberedImages(
+      final unused = await ScrapedImageFileCleaner.findUnusedNumberedImages(
         gamePath: tempDir.path,
         retainedImagePaths: [retained],
         referenceTexts: const [],
       );
 
-      expect(deleted, 1);
+      expect(unused, [path.join(imageDir.path, '1.png')]);
       expect(await File(retained).exists(), isTrue);
-      expect(await File(path.join(imageDir.path, '1.png')).exists(), isFalse);
+      expect(await File(path.join(imageDir.path, '1.png')).exists(), isTrue);
     });
 
-    test('keeps non-numbered and referenced numbered images', () async {
+    test('正文引用和非编号图继续保留', () async {
       final retained = await writeImage('1.jpg');
       final referenced = await writeImage('2.jpg');
       final manual = await writeImage('manual-cover.jpg');
 
-      final deleted = await ScrapedImageFileCleaner.cleanUnusedNumberedImages(
+      final unused = await ScrapedImageFileCleaner.findUnusedNumberedImages(
         gamePath: tempDir.path,
         retainedImagePaths: [retained],
         referenceTexts: ['正文引用: $referenced'],
       );
 
-      expect(deleted, 0);
+      expect(unused, isEmpty);
       expect(await File(retained).exists(), isTrue);
       expect(await File(referenced).exists(), isTrue);
       expect(await File(manual).exists(), isTrue);
     });
 
-    test('没有保留配图时清理未引用的编号图，保留正文引用和手动图', () async {
+    test('本次配图为空时仍收集未引用的编号图', () async {
       final oldImage = await writeImage('1.jpg');
       final referenced = await writeImage('scrape_2.jpg');
       final manual = await writeImage('manual_1.jpg');
 
-      final deleted = await ScrapedImageFileCleaner.cleanUnusedNumberedImages(
+      final unused = await ScrapedImageFileCleaner.findUnusedNumberedImages(
         gamePath: tempDir.path,
         retainedImagePaths: const [],
         referenceTexts: ['正文引用: $referenced'],
       );
 
-      expect(deleted, 1);
-      expect(await File(oldImage).exists(), isFalse);
+      expect(unused, [oldImage]);
+      expect(await File(oldImage).exists(), isTrue);
       expect(await File(referenced).exists(), isTrue);
       expect(await File(manual).exists(), isTrue);
     });
 
-    test('deletes unreferenced scrape-prefixed images', () async {
+    test('收集未引用的 scrape 前缀编号图', () async {
       final retained = await writeImage('scrape_1.jpg');
       await writeImage('scrape_3.jpg');
 
-      final deleted = await ScrapedImageFileCleaner.cleanUnusedNumberedImages(
+      final unused = await ScrapedImageFileCleaner.findUnusedNumberedImages(
         gamePath: tempDir.path,
         retainedImagePaths: [retained],
         referenceTexts: const [],
       );
 
-      expect(deleted, 1);
+      expect(unused, [path.join(imageDir.path, 'scrape_3.jpg')]);
       expect(await File(retained).exists(), isTrue);
       expect(await File(path.join(imageDir.path, 'scrape_3.jpg')).exists(),
-          isFalse);
+          isTrue);
     });
 
-    test('keeps manual-prefixed images outside scrape cleanup', () async {
+    test('手动图和攻略图继续保留', () async {
       // manual_/guide_ 手动图不属于刮削编号图清理范围，永久保留
       final manual = await writeImage('manual_1.jpg');
       final guide = await writeImage('guide_01.jpg');
       await writeImage('scrape_2.jpg');
 
-      final deleted = await ScrapedImageFileCleaner.cleanUnusedNumberedImages(
+      final unused = await ScrapedImageFileCleaner.findUnusedNumberedImages(
         gamePath: tempDir.path,
         retainedImagePaths: [manual],
         referenceTexts: const [],
       );
 
-      expect(deleted, 1);
+      expect(unused, [path.join(imageDir.path, 'scrape_2.jpg')]);
       expect(await File(manual).exists(), isTrue);
       expect(await File(guide).exists(), isTrue);
       expect(await File(path.join(imageDir.path, 'scrape_2.jpg')).exists(),
-          isFalse);
+          isTrue);
     });
   });
 }

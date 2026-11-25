@@ -46,6 +46,7 @@ import '../../../core/utils/path_reference_rewriter.dart';
 import '../../widgets/image_manager_dialog.dart';
 import '../../widgets/picture_motion.dart';
 import '../../widgets/rating_input.dart';
+import '../../widgets/scraped_image_cleanup_dialog.dart';
 import '../../widgets/result_location.dart';
 import '../../widgets/tag_input_dialog.dart';
 import '../../widgets/cloudflare_browser_dialog.dart';
@@ -5278,6 +5279,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
           tagRepo: tagRepo,
           configs: ref.read(scrapeModeConfigsProvider),
           sourceUrl: sourceUrl,
+          confirmImageCleanup: (count) => confirmScrapedImageCleanup(
+            context: context,
+            gameTitle: gameInfo?.title ??
+                _currentGame.title ??
+                path.basename(_currentGame.path),
+            imageCount: count,
+          ),
           onTranslationNotice: translationNotices.add,
           onProgress: (current, total) {
             if (mounted) {
@@ -5482,6 +5490,13 @@ class _GameDetailDialogState extends ConsumerState<GameDetailDialog> {
         tagRepo: tagRepo,
         configs: ref.read(scrapeModeConfigsProvider),
         sourceUrl: url,
+        confirmImageCleanup: (count) => confirmScrapedImageCleanup(
+          context: context,
+          gameTitle: gameInfo?.title ??
+              _currentGame.title ??
+              path.basename(_currentGame.path),
+          imageCount: count,
+        ),
         onTranslationNotice: translationNotices.add,
         onProgress: (current, total) {
           if (mounted) {

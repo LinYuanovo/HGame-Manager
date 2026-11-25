@@ -40,6 +40,12 @@ void main() {
       final settings = await AppSettings.loadFromFileForTest(
           path.join(temporary.path, 'settings.json'));
       await settings.setString('proxy_mode', 'none');
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((request) async {
+        request.response.statusCode = 404;
+        await request.response.close();
+      });
+      late File oldImage;
       final items = <ScrapeReviewItem>[];
       final originals = <String, String>{};
       for (var index = 0; index < 2; index++) {
@@ -55,11 +61,23 @@ void main() {
             isFavorite: true,
             playDuration: 60);
         final stored = game.copyWith(id: await repository.insertGame(game));
+        if (index == 0) {
+          final images = await GameDataPaths.ensureImagesDir(folder);
+          oldImage = File(path.join(images.path, 'scrape_1.png'));
+          await oldImage.writeAsBytes(base64Decode(
+              'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+c1XcAAAAASUVORK5CYII='));
+          await repository.setGameImages(stored.id!, [
+            GameImage(gameId: stored.id!, imagePath: oldImage.path),
+          ]);
+        }
         items.add(ScrapeReviewItem(
             game: stored,
             candidate: GameInfo(
                 title: '候选游戏$index',
                 description: '候选简介',
+                screenshots: index == 0
+                    ? ['http://127.0.0.1:${server.port}/missing.png']
+                    : [],
                 sourceUrl: 'https://example.test/game$index',
                 tags: ['新增标签'])));
       }
@@ -67,7 +85,7 @@ void main() {
       const evidencePath = String.fromEnvironment('RELEASE_REVIEW_EVIDENCE');
       Future<void> capture(String state) async {
         if (evidencePath.isEmpty) return;
-        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 300));
         final boundary = captureKey.currentContext!.findRenderObject()
             as RenderRepaintBoundary;
         final image = await boundary.toImage();
@@ -134,6 +152,15 @@ void main() {
         }
         await tester.tap(find.byKey(const ValueKey('save-reviewed-results')));
         for (var attempt = 0;
+            attempt < 100 && find.text('保留旧图').evaluate().isEmpty;
+            attempt++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(find.text('保留旧图'), findsOneWidget);
+        expect(await oldImage.exists(), isTrue);
+        await capture('old-images');
+        await tester.tap(find.text(dark ? '保留旧图' : '删除旧图'));
+        for (var attempt = 0;
             attempt < 100 && !items.first.applied;
             attempt++) {
           await tester.pump(const Duration(milliseconds: 100));
@@ -146,6 +173,9 @@ void main() {
         expect(saved.isFavorite, isTrue);
         expect(saved.playDuration, 60);
         expect(saved.tags.map((tag) => tag.name), contains('新增标签'));
+        expect(await oldImage.exists(), dark);
+        expect(saved.images.map((image) => image.imagePath),
+            dark ? [oldImage.path] : <String>[]);
         expect(
             await GameDataPaths.metadataFile(items.last.game.path)
                 .readAsString(),
@@ -155,6 +185,7 @@ void main() {
       } finally {
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.binding.setSurfaceSize(null);
+        await server.close(force: true);
         await settings.flush();
         AppSettings.invalidateCache();
         await database.close();

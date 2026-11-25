@@ -13,7 +13,7 @@ class ScrapedImageFileCleaner {
     '.webp',
   };
 
-  static Future<int> cleanUnusedNumberedImages({
+  static Future<List<String>> findUnusedNumberedImages({
     required String gamePath,
     required Iterable<String> retainedImagePaths,
     required Iterable<String?> referenceTexts,
@@ -23,9 +23,9 @@ class ScrapedImageFileCleaner {
         .map(_normalizePath)
         .toSet();
     final imagesDir = GameDataPaths.imagesDir(gamePath);
-    if (!await imagesDir.exists()) return 0;
+    if (!await imagesDir.exists()) return [];
 
-    var deleted = 0;
+    final unused = <String>[];
     await for (final entity in imagesDir.list(followLinks: false)) {
       if (entity is! File) continue;
       if (entity.path.endsWith('.tmp')) continue;
@@ -33,10 +33,10 @@ class ScrapedImageFileCleaner {
       if (retained.contains(_normalizePath(entity.path))) continue;
       if (_isReferenced(entity.path, referenceTexts)) continue;
 
-      await entity.delete();
-      deleted++;
+      unused.add(entity.path);
     }
-    return deleted;
+    unused.sort();
+    return unused;
   }
 
   static bool _isNumberedImage(String filePath) {

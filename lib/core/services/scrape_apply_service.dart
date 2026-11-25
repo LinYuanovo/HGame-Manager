@@ -254,6 +254,7 @@ class ScrapeApplyService {
     int maxConcurrency = 3,
     void Function(int current, int total)? onProgress,
     void Function(String message)? onLog,
+    Future<bool> Function(int imageCount)? confirmImageCleanup,
     bool requireAllImages = false,
   }) async {
     if (imageUrls.isEmpty || game.id == null) return {};
@@ -332,13 +333,13 @@ class ScrapeApplyService {
       }
     }
 
-    // 全部确认为源站缺图时也要清理旧编号图，避免扫描重新收录；
-    // 下载失败且没有可用图片时保留旧文件，供后续重试恢复。
+    final scrapeImagePaths =
+        finalImages.map((image) => image.imagePath).toList();
     if (finalImages.isNotEmpty || missingUrls.length == imageUrls.length) {
-      final deletedCount =
-          await ScrapedImageFileCleaner.cleanUnusedNumberedImages(
+      final unusedImages =
+          await ScrapedImageFileCleaner.findUnusedNumberedImages(
         gamePath: game.path,
-        retainedImagePaths: finalImages.map((image) => image.imagePath),
+        retainedImagePaths: scrapeImagePaths,
         referenceTexts: [
           game.intro,
           game.features,
@@ -346,13 +347,28 @@ class ScrapeApplyService {
           game.guide,
         ],
       );
-      if (deletedCount > 0) {
-        onLog?.call('清理旧配图: $deletedCount 张');
+      if (unusedImages.isNotEmpty) {
+        final deleteOldImages =
+            await confirmImageCleanup?.call(unusedImages.length) ?? false;
+        if (deleteOldImages) {
+          for (final imagePath in unusedImages) {
+            await File(imagePath).delete();
+          }
+          onLog?.call('清理旧配图: ${unusedImages.length} 张');
+        } else {
+          for (final imagePath in unusedImages) {
+            finalImages.add(GameImage(
+                gameId: game.id!,
+                imagePath: imagePath,
+                sortOrder: finalImages.length));
+          }
+          onLog?.call('保留旧配图: ${unusedImages.length} 张');
+        }
       }
     }
 
     await repo.setGameImages(game.id!, finalImages);
-    onLog?.call('配图处理完成: ${finalImages.length}/${imageUrls.length}');
+    onLog?.call('配图处理完成: ${scrapeImagePaths.length}/${imageUrls.length}');
 
     if (urlToLocal.isNotEmpty) {
       var current = await repo.getGameById(game.id!);
@@ -382,7 +398,7 @@ class ScrapeApplyService {
     final reloaded = await repo.getGameById(game.id!);
     if (reloaded != null) {
       await fixImageUrlsInMetadata(reloaded, repo,
-          requirePersistence: requireAllImages);
+          localImages: scrapeImagePaths, requirePersistence: requireAllImages);
     }
     return urlToLocal;
   }
@@ -488,6 +504,7 @@ class ScrapeApplyService {
     void Function(int current, int total)? onProgress,
     void Function(String message)? onLog,
     void Function(String message)? onTranslationNotice,
+    Future<bool> Function(int imageCount)? confirmImageCleanup,
     bool requirePersistence = false,
   }) async {
     // 旧布局迁移（根目录 metadata.json/images -> HGMDatas/）必须保留：
@@ -616,6 +633,7 @@ class ScrapeApplyService {
         maxConcurrency: maxConcurrency,
         onProgress: onProgress,
         onLog: onLog,
+        confirmImageCleanup: confirmImageCleanup,
         requireAllImages: requirePersistence,
       );
 
@@ -860,13 +878,13 @@ class ScrapeApplyService {
   }
 
   static Future<void> fixImageUrlsInMetadata(Game game, GameRepository repo,
-      {bool requirePersistence = false}) async {
+      {required List<String> localImages,
+      bool requirePersistence = false}) async {
     try {
       final metadataFile = await GameDataPaths.existingMetadataFile(game.path);
       if (!await metadataFile.exists()) return;
 
       final metaJson = jsonDecode(await metadataFile.readAsString());
-      final localImages = game.images.map((image) => image.imagePath).toList();
       if (localImages.isEmpty) return;
 
       final imageUrls =

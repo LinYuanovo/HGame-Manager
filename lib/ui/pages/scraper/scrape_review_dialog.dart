@@ -12,6 +12,7 @@ import '../../../core/services/scrape_review_service.dart';
 import '../../../core/utils/proxy_client.dart';
 import '../../../scraper/parse_utils.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/scraped_image_cleanup_dialog.dart';
 
 Future<void> showScrapeReviewDialog({
   required BuildContext context,
@@ -139,11 +140,18 @@ class _ScrapeReviewDialogState extends State<ScrapeReviewDialog> {
         });
         try {
           await widget.service.apply(item, configs,
+              confirmImageCleanup: (count) => confirmScrapedImageCleanup(
+                    context: context,
+                    gameTitle: item.candidate!.title ??
+                        item.game.title ??
+                        path.basename(item.game.path),
+                    imageCount: count,
+                  ),
               onProgress: (current, total) {
-            if (!mounted) return;
-            setState(() => _progress =
-                '正在保存 ${saved + failed + 1}/${pending.length} · 图片 $current/$total');
-          });
+                if (!mounted) return;
+                setState(() => _progress =
+                    '正在保存 ${saved + failed + 1}/${pending.length} · 图片 $current/$total');
+              });
           saved++;
         } catch (_) {
           failed++;

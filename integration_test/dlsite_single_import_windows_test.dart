@@ -154,7 +154,8 @@ void main() {
     return metadata;
   }
 
-  Future<void> importThroughUi(WidgetTester tester) async {
+  Future<void> importThroughUi(WidgetTester tester,
+      {Future<void> Function()? handleImageCleanup}) async {
     await windowManager.ensureInitialized();
     await windowManager.setSize(const Size(1440, 1000));
     await tester.binding.setSurfaceSize(const Size(1440, 1000));
@@ -200,6 +201,7 @@ void main() {
     expect(tester.widget<ElevatedButton>(importButton).onPressed, isNotNull);
     await tester.tap(importButton);
     await tester.pump();
+    await handleImageCleanup?.call();
     await _waitFor(
         tester,
         () =>
@@ -314,6 +316,41 @@ void main() {
     expect(find.textContaining(GameInfo.dlsiteUserOnlyNotice), findsNothing);
     expect(tester.takeException(), isNull);
   }, skip: !Platform.isWindows);
+
+  for (final allMissing in [false, true]) {
+    for (final deleteOld in [false, true]) {
+      testWidgets(
+          '单个添加${allMissing ? '全部缺图' : '取得新图'}后确认${deleteOld ? '删除' : '保留'}旧图',
+          (tester) async {
+        final imagesDir = await GameDataPaths.ensureImagesDir(folder.path);
+        final oldImage = File(path.join(imagesDir.path, 'scrape_2.png'));
+        await oldImage.writeAsBytes(savedImageBytes);
+        if (allMissing) publicImageStatus = HttpStatus.notFound;
+
+        await importThroughUi(tester, handleImageCleanup: () async {
+          await _waitFor(tester, () => find.text('保留旧图').evaluate().isNotEmpty);
+          expect(await oldImage.readAsBytes(), savedImageBytes);
+          await tester.tap(find.text(deleteOld ? '删除旧图' : '保留旧图'));
+          await tester.pump();
+        });
+
+        expect(find.byType(Dialog), findsNothing);
+        final game = (await repository.getStoredGameByPath(folder.path))!;
+        expect(game.images.map((image) => path.basename(image.imagePath)), [
+          if (!allMissing) 'scrape_1.png',
+          if (!deleteOld) 'scrape_2.png',
+        ]);
+        expect(await oldImage.exists(), !deleteOld);
+        if (!deleteOld) {
+          expect(await oldImage.readAsBytes(), savedImageBytes);
+        }
+        final metadata = jsonDecode(
+            await GameDataPaths.metadataFile(folder.path).readAsString());
+        expect(ScrapeApplyService.isScrapedMetadata(metadata), isTrue);
+        expect(tester.takeException(), isNull);
+      }, skip: !Platform.isWindows);
+    }
+  }
 }
 
 Future<void> _waitFor(WidgetTester tester, bool Function() ready) async {
